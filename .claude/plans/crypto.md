@@ -16,10 +16,10 @@ Freechains needs three primitives:
 |---|---|---|---|---|---|---|
 | **openssl** | AES-256-CBC | X25519 + AES-256-CBC | Ed25519 (`-rawin`) | none (system) | CLI | Current choice. Requires OpenSSL 3.0+ for Ed25519/X25519. Fixed IV is a simplification — production should use random IV. |
 | **luasodium** | `crypto_secretbox` | `crypto_box_seal` | `crypto_sign` | libsodium + Lua binding | Lua | Closest to Kotlin original. NaCl API, nonce handling built in. Best choice once Lua is the main language. |
-| **age** | ✅ (passphrase mode) | ✅ (X25519) | ❌ | `age` binary | CLI | Modern, simple. No signing — would need a second tool. |
-| **minisign** | ❌ | ❌ | ✅ (Ed25519) | `minisign` binary | CLI | Signing only. Would need openssl or age for encryption. |
-| **gpg** | ✅ | ✅ | ✅ | GnuPG | CLI | Heavyweight, complex keyring management. Overkill. |
-| **libsodium CLI** | ✅ | ✅ | ✅ | libsodium | C | Would need a small C wrapper or use `sodium` CLI tools (not standard). |
+| **age** | yes (passphrase mode) | yes (X25519) | no | `age` binary | CLI | Modern, simple. No signing — would need a second tool. |
+| **minisign** | no | no | yes (Ed25519) | `minisign` binary | CLI | Signing only. Would need openssl or age for encryption. |
+| **gpg** | yes | yes | yes | GnuPG | CLI | Heavyweight, complex keyring management. Overkill. |
+| **libsodium CLI** | yes | yes | yes | libsodium | C | Would need a small C wrapper or use `sodium` CLI tools (not standard). |
 | **tweetnacl-lua** | `crypto_secretbox` | `crypto_box` | `crypto_sign` | pure Lua | Lua | Pure Lua NaCl implementation. No C deps but slower. Educational. |
 
 ---
