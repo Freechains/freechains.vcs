@@ -1,0 +1,36 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openssl lua5.4 git
+
+      - name: Verify tools
+        run: |
+          openssl version
+          lua -v
+          git --version
+
+      - name: Clean
+        working-directory: tst
+        run: make clean
+
+      - name: Run shell tests
+        working-directory: tst
+        run: make a
+
+      - name: Run Lua tests
+        working-directory: tst
+        run: make a-lua
