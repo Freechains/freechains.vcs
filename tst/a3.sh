@@ -6,9 +6,9 @@
 #   Encrypt "Alo 1234" with a public key, decrypt with private key.
 #
 # New test:
-#   - Ed25519 keypair generation via ssh-keygen
-#   - Asymmetric encryption via age (encrypt to SSH pubkey, decrypt with SSH privkey)
-#   - Ed25519 signing and verification via ssh-keygen -Y
+#   - Ed25519 keypair generation via openssl
+#   - Asymmetric encryption via X25519 key exchange + AES-256-CBC
+#   - Ed25519 signing and verification via openssl pkeyutl -rawin
 #
 
 source "$(dirname "$0")/common.sh"
@@ -17,10 +17,11 @@ DIR=/tmp/freechains/tests/a3
 rm -rf "$DIR"
 mkdir -p "$DIR"
 
-# --- Setup: generate two keypairs ---
+# --- Setup: generate two keypairs + one ephemeral for encryption ---
 
 "$FC_CRYPTO" keygen "$DIR/key0"
 "$FC_CRYPTO" keygen "$DIR/key1"
+"$FC_CRYPTO" keygen "$DIR/eph"    # ephemeral keypair for seal-encrypt
 
 PUB0=$("$FC_CRYPTO" pubkey "$DIR/key0")
 PUB1=$("$FC_CRYPTO" pubkey "$DIR/key1")
@@ -29,17 +30,17 @@ PUB1=$("$FC_CRYPTO" pubkey "$DIR/key1")
 
 assert_neq "$PUB0" "$PUB1" "two keypairs are different"
 
-# --- Test 2: asymmetric encrypt/decrypt round-trip (SealedBox equivalent) ---
+# --- Test 2: asymmetric encrypt/decrypt round-trip ---
 
 PLAIN="Alo 1234"
-ENC=$(echo -n "$PLAIN" | "$FC_CRYPTO" seal-encrypt "$DIR/key0/id_ed25519.pub")
-DEC=$(echo "$ENC" | "$FC_CRYPTO" seal-decrypt "$DIR/key0/id_ed25519")
+ENC=$(echo -n "$PLAIN" | "$FC_CRYPTO" seal-encrypt "$DIR/key0" "$DIR/eph")
+DEC=$(echo "$ENC" | "$FC_CRYPTO" seal-decrypt "$DIR/key0" "$DIR/eph")
 assert_eq "$PLAIN" "$DEC" "seal encrypt/decrypt"
 
-# --- Test 3: wrong key fails to decrypt ---
+# --- Test 3: wrong key fails to decrypt correctly ---
 
-DEC_WRONG=$(echo "$ENC" | "$FC_CRYPTO" seal-decrypt "$DIR/key1/id_ed25519" 2>/dev/null || echo "__ERROR__")
-assert_neq "$PLAIN" "$DEC_WRONG" "wrong key fails to decrypt"
+DEC_WRONG=$(echo "$ENC" | "$FC_CRYPTO" seal-decrypt "$DIR/key1" "$DIR/eph" 2>/dev/null || echo "__ERROR__")
+assert_neq "$PLAIN" "$DEC_WRONG" "wrong key produces wrong output"
 
 # --- Test 4: sign and verify ---
 
@@ -59,8 +60,8 @@ assert_fail "'$FC_CRYPTO' verify '$DIR/key0' '$DIR/msg.sig' < '$DIR/msg_bad.txt'
 # --- Test 7: encrypt longer payload ---
 
 LONG="mensagem secreta com mais texto para testar"
-ENC_LONG=$(echo -n "$LONG" | "$FC_CRYPTO" seal-encrypt "$DIR/key0/id_ed25519.pub")
-DEC_LONG=$(echo "$ENC_LONG" | "$FC_CRYPTO" seal-decrypt "$DIR/key0/id_ed25519")
+ENC_LONG=$(echo -n "$LONG" | "$FC_CRYPTO" seal-encrypt "$DIR/key0" "$DIR/eph")
+DEC_LONG=$(echo "$ENC_LONG" | "$FC_CRYPTO" seal-decrypt "$DIR/key0" "$DIR/eph")
 assert_eq "$LONG" "$DEC_LONG" "longer payload seal encrypt/decrypt"
 
 # --- Test 8: public key extraction is stable ---
