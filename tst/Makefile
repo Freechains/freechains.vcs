@@ -3,6 +3,9 @@ all: a
 a: a1 a2 a3 a4
 	@echo "--- Section A: all passed ---"
 
+a-lua: a1-lua a2-lua a3-lua a4-lua
+	@echo "--- Section A (Lua): all passed ---"
+
 a1:
 	@echo ">>> a1: data round-trip"
 	@bash a1.sh
@@ -19,7 +22,23 @@ a4:
 	@echo ">>> a4: sorted set difference"
 	@bash a4.sh
 
+a1-lua:
+	@echo ">>> a1: data round-trip (Lua)"
+	@lua a1.lua
+
+a2-lua:
+	@echo ">>> a2: symmetric encryption (Lua)"
+	@lua a2.lua
+
+a3-lua:
+	@echo ">>> a3: asymmetric encryption (Lua)"
+	@lua a3.lua
+
+a4-lua:
+	@echo ">>> a4: sorted set difference (Lua)"
+	@lua a4.lua
+
 clean:
 	rm -rf /tmp/freechains/tests/
 
-.PHONY: all a a1 a2 a3 a4 clean
+.PHONY: all a a-lua a1 a2 a3 a4 a1-lua a2-lua a3-lua a4-lua clean

@@ -18,11 +18,14 @@ Full test catalog: see `tests.md`.
 
 ### Infrastructure
 
-- `tst/common.sh` — test helper (assert_eq, assert_neq, assert_ok, assert_fail, report)
+- `tst/common.sh` — shell test helper (assert_eq, assert_neq, assert_ok, assert_fail, report)
+- `tst/common.lua` — Lua test helper (same assertions + shell(), tmpwrite(), readfile(), writefile())
 - `tst/fc-crypto.sh` — crypto wrapper (openssl only: keygen, pubkey, sign, verify, shared-key, shared-encrypt, shared-decrypt, seal-encrypt, seal-decrypt)
-- `tst/Makefile` — `make a` runs all Section A tests
+- `tst/Makefile` — `make a` runs shell tests, `make a-lua` runs Lua tests
 
-### Section A — Primitives (4 tests, 30 assertions)
+### Section A — Primitives (4 tests × 2 languages, 60 assertions total)
+
+Shell versions (30 assertions):
 
 | File | Kotlin original | What it tests |
 |---|---|---|
@@ -30,6 +33,15 @@ Full test catalog: see `tests.md`.
 | `a2.sh` | `a2_shared` | Symmetric encrypt/decrypt, deterministic key derivation, wrong-key rejection |
 | `a3.sh` | `a3_pubpvt` | Asymmetric encrypt/decrypt (X25519+AES), Ed25519 sign/verify, wrong-key/tamper rejection |
 | `a4.sh` | `a4_minus` | Sorted set difference with comm -23 (integers, hashes, identity/empty cases) |
+
+Lua versions (30 assertions):
+
+| File | What it tests |
+|---|---|
+| `a1.lua` | Same as a1.sh — git blob round-trip via Lua io/os |
+| `a2.lua` | Same as a2.sh — calls fc-crypto.sh via shell() |
+| `a3.lua` | Same as a3.sh — calls fc-crypto.sh via shell() |
+| `a4.lua` | Same as a4.sh — pure Lua sorted set difference (no comm) |
 
 ## TODO
 
