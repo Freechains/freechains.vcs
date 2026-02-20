@@ -55,7 +55,7 @@ assert_neq "$HASH" "$HASH3" "different content = different hash"
 # Equivalent to Kotlin's a1_json: create a byte array with values 0..255,
 # store it in a git blob, read it back, compare byte-for-byte.
 
-python3 -c "import sys; sys.stdout.buffer.write(bytes(range(256)))" > "$DIR/all_bytes.bin"
+for i in $(seq 0 255); do printf "\\x$(printf '%02x' "$i")"; done > "$DIR/all_bytes.bin"
 HASH4=$(GIT_DIR="$DIR/repo.git" git hash-object -w -- "$DIR/all_bytes.bin")
 GIT_DIR="$DIR/repo.git" git cat-file blob "$HASH4" > "$DIR/all_bytes_out.bin"
 assert_ok "cmp -s '$DIR/all_bytes.bin' '$DIR/all_bytes_out.bin'" "256 byte values round-trip"
@@ -68,7 +68,7 @@ assert_eq "" "$READBACK5" "empty payload round-trip"
 
 # --- Test 6: Large payload (200KB, matching Kotlin's big payload test) ---
 
-python3 -c "print('.' * 200000, end='')" > "$DIR/big.bin"
+head -c 200000 /dev/zero | tr '\0' '.' > "$DIR/big.bin"
 HASH6=$(GIT_DIR="$DIR/repo.git" git hash-object -w -- "$DIR/big.bin")
 GIT_DIR="$DIR/repo.git" git cat-file blob "$HASH6" > "$DIR/big_out.bin"
 assert_ok "cmp -s '$DIR/big.bin' '$DIR/big_out.bin'" "200KB payload round-trip"

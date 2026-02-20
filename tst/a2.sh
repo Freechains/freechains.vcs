@@ -49,7 +49,7 @@ assert_neq "$PLAIN" "$ENC" "ciphertext != plaintext"
 
 # --- Test 6: encrypt larger text ---
 
-BIG=$(python3 -c "print('x' * 10000, end='')")
+BIG=$(head -c 10000 /dev/zero | tr '\0' 'x')
 ENC_BIG=$(echo -n "$BIG" | "$FC_CRYPTO" shared-encrypt "$KEY")
 DEC_BIG=$(echo "$ENC_BIG" | "$FC_CRYPTO" shared-decrypt "$KEY")
 assert_eq "$BIG" "$DEC_BIG" "large payload encrypt/decrypt"
