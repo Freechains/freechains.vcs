@@ -2,16 +2,19 @@
 
 Source: `freechains.kt/src/test/kotlin/Test.kt` — 2552 lines, 58 tests (52 active, 6 disabled)
 
+Ported tests live in `tst/`. Shell versions use openssl + git + coreutils.
+Lua versions mirror the shell tests. See `crypto.md` for crypto tool choices.
+
 ---
 
 ## Section A — Primitives
 
-| Test | What it verifies |
-|---|---|
-| `a1_json` | All 256 byte values survive JSON serialize/deserialize round-trip |
-| `a2_shared` | Symmetric encryption/decryption (NaCl SecretBox) with passphrase-derived key |
-| `a3_pubpvt` | Asymmetric encryption/decryption (NaCl SealedBox) with Ed25519 keypair |
-| `a4_minus` | `sortedMinus` set difference on sorted sets |
+| Kotlin test | Shell | Lua | What it verifies |
+|---|---|---|---|
+| `a1_json` | `a1.sh` | `a1.lua` | Data round-trip through git blob (Lua literal, binary 0..255, empty, 200KB) |
+| `a2_shared` | `a2.sh` | `a2.lua` | Symmetric encrypt/decrypt (AES-256-CBC), key derivation, wrong-key rejection |
+| `a3_pubpvt` | `a3.sh` | `a3.lua` | Asymmetric encrypt/decrypt (X25519+AES), Ed25519 sign/verify, wrong-key/tamper |
+| `a4_minus` | `a4.sh` | `a4.lua` | Sorted set difference (comm -23 in shell, pure Lua in .lua) |
 
 ## Section B — Host & Chain Initialization
 

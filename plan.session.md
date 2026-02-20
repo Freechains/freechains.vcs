@@ -11,7 +11,7 @@ Full test catalog: see `tests.md`.
 
 - No Python, no age, no external dependencies beyond openssl + git + coreutils
 - Data described as Lua literals (when Lua is available)
-- Crypto via `openssl` (Ed25519 sign, X25519 key exchange, AES-256-CBC)
+- Crypto via `openssl` (Ed25519 sign, X25519 key exchange, AES-256-CBC) — see `crypto.md` for alternatives
 - Tests in `tst/`, one script per section, driven by `make`
 
 ## Done

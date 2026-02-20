@@ -385,3 +385,5 @@ The `.db` SQLite file sits adjacent to its bare repo — easy to identify, easy 
 | Crypto (libsodium) | [luasodium](https://github.com/luasodium/luasodium) | Key generation replacing `freechains keys` |
 | Freechains Lua client | [Freechains/lua](https://github.com/Freechains/lua) | Official Lua repo |
 | Freechains Lua wrapper | [micahkendall/freechains-lua](https://github.com/micahkendall/freechains-lua) | OOP wrapper over CLI |
+
+For a full comparison of crypto tool alternatives (openssl, luasodium, age, gpg, etc.), see `crypto.md`.
