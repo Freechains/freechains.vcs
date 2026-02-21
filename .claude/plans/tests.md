@@ -41,11 +41,18 @@ Lua versions (30 assertions):
 | `a3.lua` | Same as a3.sh — calls fc-crypto.sh via shell() |
 | `a4.lua` | Same as a4.sh — pure Lua sorted set difference (no comm) |
 
+### Section B — Host & Chain Init (1 test, 23 assertions)
+
+Shell versions:
+
+| File | Kotlin original | What it tests |
+|---|---|---|
+| `b1.sh` | `b1_host` | Host dir layout (chains/ + keys/), chain join (bare repo + symlink), naming (#topic, @pubkey, $private), duplicate join rejection, chains list, chain leave, invalid path rejection |
+
 ## TODO
 
-### Section B — Host & Chain Init
+### Section B — Host & Chain Init (remaining)
 
-- `b1.sh` — init a bare git repo as a chain, reject invalid paths
 - `b2.sh` — join a chain, reload it, create a commit (block), verify persistence
 
 ### Section C — Consensus, Ordering & Reputation

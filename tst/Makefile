@@ -1,9 +1,12 @@
 LUA ?= lua5.4
 
-all: a
+all: a b
 
 a: a1 a2 a3 a4
 	@echo "--- Section A: all passed ---"
+
+b: b1
+	@echo "--- Section B: all passed ---"
 
 a-lua: a1-lua a2-lua a3-lua a4-lua
 	@echo "--- Section A (Lua): all passed ---"
@@ -40,7 +43,11 @@ a4-lua:
 	@echo ">>> a4: sorted set difference (Lua)"
 	@$(LUA) a4.lua
 
+b1:
+	@echo ">>> b1: host init"
+	@bash b1.sh
+
 clean:
 	rm -rf /tmp/freechains/tests/
 
-.PHONY: all a a-lua a1 a2 a3 a4 a1-lua a2-lua a3-lua a4-lua clean
+.PHONY: all a b a-lua a1 a2 a3 a4 b1 a1-lua a2-lua a3-lua a4-lua clean
