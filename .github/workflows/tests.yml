@@ -15,13 +15,16 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y openssl lua5.4 git
+          sudo apt-get install -y openssl lua5.4 git \
+            libsodium-dev luarocks
+          sudo luarocks install luasodium
 
       - name: Verify tools
         run: |
           openssl version
           lua -v
           git --version
+          lua -e "print('luasodium', require('luasodium').VERSION)"
 
       - name: Clean
         working-directory: tst

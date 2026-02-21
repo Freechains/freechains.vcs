@@ -8,10 +8,6 @@
 local PASS = 0
 local FAIL = 0
 
--- Path to fc-crypto.sh (relative to the test script directory)
-local dir = arg[0]:match("^(.*/)") or "./"
-FC_CRYPTO = "bash " .. dir .. "fc-crypto.sh"
-
 function assert_eq (expected, actual, label)
     label = label or ""
     if expected == actual then

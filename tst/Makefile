@@ -1,3 +1,5 @@
+LUA ?= lua5.4
+
 all: a
 
 a: a1 a2 a3 a4
@@ -24,19 +26,19 @@ a4:
 
 a1-lua:
 	@echo ">>> a1: data round-trip (Lua)"
-	@lua a1.lua
+	@$(LUA) a1.lua
 
 a2-lua:
 	@echo ">>> a2: symmetric encryption (Lua)"
-	@lua a2.lua
+	@$(LUA) a2.lua
 
 a3-lua:
 	@echo ">>> a3: asymmetric encryption (Lua)"
-	@lua a3.lua
+	@$(LUA) a3.lua
 
 a4-lua:
 	@echo ">>> a4: sorted set difference (Lua)"
-	@lua a4.lua
+	@$(LUA) a4.lua
 
 clean:
 	rm -rf /tmp/freechains/tests/
