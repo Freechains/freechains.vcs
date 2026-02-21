@@ -5,7 +5,7 @@ all: a b
 a: a1 a2 a3 a4
 	@echo "--- Section A: all passed ---"
 
-b: b1
+b: b1 b2
 	@echo "--- Section B: all passed ---"
 
 a-lua: a1-lua a2-lua a3-lua a4-lua
@@ -47,7 +47,11 @@ b1:
 	@echo ">>> b1: host init"
 	@bash b1.sh
 
+b2:
+	@echo ">>> b2: chain persistence"
+	@bash b2.sh
+
 clean:
 	rm -rf /tmp/freechains/tests/
 
-.PHONY: all a b a-lua a1 a2 a3 a4 b1 a1-lua a2-lua a3-lua a4-lua clean
+.PHONY: all a b a-lua a1 a2 a3 a4 b1 b2 a1-lua a2-lua a3-lua a4-lua clean
