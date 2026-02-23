@@ -50,7 +50,11 @@ Companion store for computed state: consensus cache and reputation checkpoints. 
 
 ### Filesystem Layout — [layout.md](layout.md)
 
-XDG-compliant per-user layout. Bare git repos in `~/.local/share/freechains/chains/`. Symlinks for human-readable chain names (`@pubkey`, `#topic`, `$private`). SQLite `.db` files adjacent to their repos.
+Host = directory with `config/` (git repo) + `chains/` (bare git repos). Config holds keys and settings. Chains hold one bare repo per chain with symlink aliases (`@pubkey`, `#topic`, `$private`). XDG-compliant defaults.
+
+### Replication — [replication.md](replication.md)
+
+Two trust levels. Owner peers sync both `config/` and `chains/` as-is via git push/pull. Non-owner peers sync only `chains/`, filtered through freechains rules (reputation, consensus, block validation). Config is never shared with non-owners.
 
 ### Crypto — [crypto.md](crypto.md)
 
