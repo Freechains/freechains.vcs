@@ -32,6 +32,10 @@ Each section below has its own detailed plan file.
 
 Chain = Repository (not branch). Each chain is its own bare git repo. Data model: block = commit, payload = blob, fork/merge = merge commit. Consensus via `git log --date-order`. Merge after every sync (single HEAD model). Sync-only merge commits marked with `freechains-sync: true` extra header.
 
+### Chains — [chains.md](chains.md)
+
+Chain = topic in pub-sub. Identified by genesis hash (`HASH(version, type)`). Three types: public (N↔N, reputation-based), private (encrypted, shared key), personal (1→N broadcast). Peers sync by genesis hash, not name. Local index maps human-readable aliases (`#`, `$`, `@`) to hashes.
+
 ### Command Mapping — [commands.md](commands.md)
 
 Full mapping of all `freechains` CLI commands to git equivalents. Match scores from 1 (no equivalent) to 5 (perfect). Git hooks (`post-receive`, `pre-receive`, `post-merge`, `post-commit`) for the block acceptance pipeline.
