@@ -5,7 +5,7 @@ all: a b
 a: a1 a2 a3 a4
 	@echo "--- Section A: all passed ---"
 
-b: b1 b2
+b: b1 b2 b3
 	@echo "--- Section B: all passed ---"
 
 a-lua: a1-lua a2-lua a3-lua a4-lua
@@ -54,8 +54,11 @@ b2:
 x1:
 	@echo ">>> x1: genesis block"
 	@bash x1.sh
+b3:
+	@echo ">>> b3: directory replication"
+	@bash b3.sh
 
 clean:
 	rm -rf /tmp/freechains/tests/
 
-.PHONY: all a b a-lua a1 a2 a3 a4 b1 b2 x1 a1-lua a2-lua a3-lua a4-lua clean
+.PHONY: all a b a-lua a1 a2 a3 a4 b1 b2 b3 a1-lua a2-lua a3-lua a4-lua clean
