@@ -51,6 +51,12 @@ Shell versions:
 | `b2.sh` | `b2_chain` | Genesis block creation (blob→tree→commit), payload round-trip, parent links, git log ordering, reload persistence, extra headers (freechains-pubkey/sig), empty-tree commit (like/dislike), binary payload (0..255) |
 | `b3.sh` | *(new)* | Directory replication: host_init creates config/ (git repo) + chains/, config tracks files, owner-to-owner clone/pull of config, owner-to-owner clone/push of chains, non-owner gets chains only (no config), bidirectional chain sync, config history preservation |
 
+### Genesis Block (1 test, 26 assertions)
+
+| File | What it tests |
+|---|---|
+| `x1.sh` | Deterministic genesis commit: canonical Lua-style serialization of (version, type) as commit message, zeroed author/date fields, empty tree, determinism (same params → same hash), uniqueness (different params → different hash), user field exclusion, all chain types (public/private/personal), pioneer canonicalization, writeable flag, cross-peer identity matching |
+
 ## TODO
 
 ### Section C — Consensus, Ordering & Reputation

@@ -51,6 +51,9 @@ b2:
 	@echo ">>> b2: chain persistence"
 	@bash b2.sh
 
+x1:
+	@echo ">>> x1: genesis block"
+	@bash x1.sh
 b3:
 	@echo ">>> b3: directory replication"
 	@bash b3.sh

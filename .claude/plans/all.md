@@ -60,6 +60,10 @@ Host = directory with `config/` (git repo) + `chains/` (bare git repos). Config 
 
 Two trust levels. Owner peers sync both `config/` and `chains/` as-is via git push/pull. Non-owner peers sync only `chains/`, filtered through freechains rules (reputation, consensus, block validation). Config is never shared with non-owners.
 
+### Genesis Block — [genesis.md](genesis.md)
+
+Deterministic first commit per chain. Canonical Lua-style serialization of `(version, type)` as commit message, zeroed author/date fields. Commit hash = chain identifier. `user` field excluded from hash. Tested in `tst/x1.sh` (26 assertions).
+
 ### Crypto — [crypto.md](crypto.md)
 
 Current: openssl CLI (Ed25519 + X25519 + AES-256-CBC). Next: luasodium (NaCl API, matches Kotlin original). Full comparison of 7 alternatives.
