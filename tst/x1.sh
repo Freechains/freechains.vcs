@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# b3: Genesis Block — Deterministic Chain Identity
+# x1: Genesis Block — Deterministic Chain Identity
 #
 # The genesis block is the first and oldest block in a chain.
 # It is deterministic: all author/timestamp fields are zeroed, and the
@@ -20,7 +20,7 @@
 
 source "$(dirname "$0")/common.sh"
 
-DIR=/tmp/freechains/tests/b3
+DIR=/tmp/freechains/tests/x1
 rm -rf "$DIR"
 mkdir -p "$DIR"
 
