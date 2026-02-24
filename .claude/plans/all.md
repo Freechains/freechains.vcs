@@ -52,6 +52,10 @@ Companion store for computed state: consensus cache and reputation checkpoints. 
 
 XDG-compliant per-user layout. Bare git repos in `~/.local/share/freechains/chains/`. Symlinks for human-readable chain names (`@pubkey`, `#topic`, `$private`). SQLite `.db` files adjacent to their repos.
 
+### Genesis Block — [genesis.md](genesis.md)
+
+Deterministic first commit per chain. Canonical Lua-style serialization of `(version, type)` as commit message, zeroed author/date fields. Commit hash = chain identifier. `user` field excluded from hash. Tested in `tst/x1.sh` (26 assertions).
+
 ### Crypto — [crypto.md](crypto.md)
 
 Current: openssl CLI (Ed25519 + X25519 + AES-256-CBC). Next: luasodium (NaCl API, matches Kotlin original). Full comparison of 7 alternatives.

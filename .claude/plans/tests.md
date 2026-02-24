@@ -50,6 +50,12 @@ Shell versions:
 | `b1.sh` | `b1_host` | Host dir layout (chains/ + keys/), chain join (bare repo + symlink), naming (#topic, @pubkey, $private), duplicate join rejection, chains list, chain leave, invalid path rejection |
 | `b2.sh` | `b2_chain` | Genesis block creation (blob→tree→commit), payload round-trip, parent links, git log ordering, reload persistence, extra headers (freechains-pubkey/sig), empty-tree commit (like/dislike), binary payload (0..255) |
 
+### Genesis Block (1 test, 26 assertions)
+
+| File | What it tests |
+|---|---|
+| `x1.sh` | Deterministic genesis commit: canonical Lua-style serialization of (version, type) as commit message, zeroed author/date fields, empty tree, determinism (same params → same hash), uniqueness (different params → different hash), user field exclusion, all chain types (public/private/personal), pioneer canonicalization, writeable flag, cross-peer identity matching |
+
 ## TODO
 
 ### Section C — Consensus, Ordering & Reputation
