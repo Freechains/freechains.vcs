@@ -4,25 +4,17 @@ local VERSION = "v0.20"
 
 local argparse = require "argparse"
 
-function trim (s)
-    return s:match("^%s*(.-)%s*$")
-end
-
 function exec (cmd)
-    local ok, _, code = os.execute(cmd)
+    local h = io.popen(cmd .. " 2>&1")
+    local out = h:read("a"):match("^%s*(.-)%s*$")
+    local ok, _, code = h:close()
     if not ok then
         io.stderr:write (
-            "ERROR: command failed (" .. tostring(code) .. "): " .. cmd .. "\n"
+            "ERROR [" .. tostring(code) .. "]: " .. cmd .. "\n"
         )
         os.exit(1)
     end
-end
-
-function popen (cmd)
-    local h = io.popen(cmd)
-    local out = trim(h:read("a"))
-    h:close()
-    return out
+    return out, 0
 end
 
 local parser = argparse()
@@ -73,7 +65,7 @@ if args.lua then
         .. ' -c user.name="" -c user.email=""'
         .. ' commit --allow-empty-message -m ""')
 
-    local hash = popen("git -C " .. tmp .. " rev-parse HEAD")
+    local hash = exec("git -C " .. tmp .. " rev-parse HEAD")
 
     local final = chains_dir .. hash
     os.rename(tmp, final)
