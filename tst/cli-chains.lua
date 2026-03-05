@@ -55,8 +55,8 @@ do
         assert(t.app == "free form")
 
         TEST "alias -> hash"
-        local target = exec("readlink " .. REPO)
-        assert(target:match("^%x+/$"), "symlink target: " .. target)
+        local lnk = exec("readlink " .. REPO)
+        assert(lnk:match("^%x+/$"), "symlink target: " .. lnk)
 
         TEST "author/committer = dash"
         local author = exec("git -C " .. REPO .. " log --format=%an HEAD")
@@ -104,15 +104,81 @@ do
     end
 end
 
+-- LIST
+do
+    print("==> freechains chains list")
+
+    do
+        TEST "list one chain"
+        local out, code = exec(
+            EXE .. " --root " .. ROOT .. " chains list"
+        )
+        assert(code == 0, "exit code: " .. tostring(code))
+        assert(out == "mychain", "list: " .. out)
+    end
+
+    do
+        TEST "list two chains"
+        exec(
+            EXE .. " --root " .. ROOT
+            .. " chains add other lua " .. GEN
+        )
+        local out, code = exec(
+            EXE .. " --root " .. ROOT .. " chains list"
+        )
+        assert(code == 0, "exit code: " .. tostring(code))
+        assert(out == "mychain\nother", "list: " .. out)
+    end
+end
+
+-- REM
 do
     print("==> freechains chains rem")
 
     do
-        TEST "rem fails"
+        TEST "rem success"
         local _, code = exec (
             EXE .. " --root " .. ROOT .. " chains rem mychain"
         )
+        assert(code == 0, "exit code: " .. tostring(code))
+
+        TEST "dir removed"
+        local _, code = exec(
+            "test -d " .. ROOT .. "/chains/mychain"
+        )
+        assert(code ~= 0, "dir should not exist")
+
+        TEST "symlink removed"
+        local _, code = exec(
+            "test -L " .. ROOT .. "/chains/mychain"
+        )
+        assert(code ~= 0, "symlink should not exist")
+    end
+
+    do
+        TEST "rem nonexistent fails"
+        local _, code = exec (
+            EXE .. " --root " .. ROOT .. " chains rem nonexistent"
+        )
         assert(code ~= 0, "should fail")
+    end
+
+    do
+        TEST "rem other"
+        local _, code = exec(
+            EXE .. " --root " .. ROOT
+            .. " chains rem other"
+        )
+        assert(code == 0, "exit code: " .. tostring(code))
+    end
+
+    do
+        TEST "list empty after rem"
+        local out, code = exec(
+            EXE .. " --root " .. ROOT .. " chains list"
+        )
+        assert(code == 0, "exit code: " .. tostring(code))
+        assert(out == "", "list should be empty: " .. out)
     end
 end
 

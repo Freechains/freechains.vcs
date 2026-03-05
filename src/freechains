@@ -39,36 +39,79 @@ parser
     :option("--root")
     :default(os.getenv("HOME") .. "/.freechains/")
 
-local chains = parser:command("chains")
-local add = chains:command("add")
-add:argument("alias")
-local lua_cmd = add:command("lua")
-lua_cmd:argument("file")
+local cmd = {
+    chains = {
+        _ = parser:command("chains")
+    }
+}
+do  -- cmd.chains
+    cmd.chains.add = {
+        _ = cmd.chains._:command("add")
+    }
+    do  -- cmd.chains.add
+        cmd.chains.add._:argument("alias")
+        cmd.chains.add.lua = {
+            _ = cmd.chains.add._:command("lua")
+        }
+        cmd.chains.add.lua._:argument("file")
+    end
+
+    cmd.chains.rem = {
+        _ = cmd.chains._:command("rem")
+    }
+    do  -- cmd.chains.rem
+        cmd.chains.rem._:argument("alias")
+    end
+
+    cmd.chains.list = {
+        _ = cmd.chains._:command("list")
+    }
+end
 
 local args = parser:parse()
 
-if args.lua then
-    local genesis = dofile(args.file)
-    if type(genesis) ~= "table" then
-        io.stderr:write("ERROR: file must return a table\n")
-        os.exit(1)
-    end
-
+if args.chains then
     local chains = args.root .. "/chains/"
-    local tmp = chains .. "/tmp-" .. os.time() .. "/"
+    if args.add then
+        if args.lua then
+            local genesis = dofile(args.file)
+            if type(genesis) ~= "table" then
+                io.stderr:write("ERROR: file must return a table\n")
+                os.exit(1)
+            end
 
-    exec("git init " .. tmp)
-    exec("cp " .. args.file .. " " .. tmp .. "/.genesis.lua")
-    exec("git -C " .. tmp .. " add .genesis.lua")
-    exec("git -C " .. tmp
-        .. ' -c user.name="-" -c user.email="-"'
-        .. ' commit --allow-empty-message -m ""')
+            local tmp = chains .. "/tmp-" .. os.time() .. "/"
 
-    local hash = exec("git -C " .. tmp .. " rev-parse HEAD")
+            exec("git init " .. tmp)
+            exec("cp " .. args.file .. " " .. tmp .. "/.genesis.lua")
+            exec("git -C " .. tmp .. " add .genesis.lua")
+            exec("git -C " .. tmp
+                .. ' -c user.name="-" -c user.email="-"'
+                .. ' commit --allow-empty-message -m ""')
 
-    local final = chains .. "/" .. hash
-    os.rename(tmp, final)
-    exec("ln -s " .. hash .. "/ " .. chains .. "/" .. args.alias)
+            local hash = exec("git -C " .. tmp .. " rev-parse HEAD")
 
-    print(hash)
+            local final = chains .. "/" .. hash
+            os.rename(tmp, final)
+            exec("ln -s " .. hash .. "/ " .. chains .. "/" .. args.alias)
+
+            print(hash)
+        end
+    elseif args.rem then
+        local alias = chains .. "/" .. args.alias
+        local lnk = exec("readlink " .. alias)
+        exec("rm -rf " .. chains .. lnk)
+        os.remove(alias)
+    elseif args.list then
+        local h = io.popen (
+            "find " .. chains
+            .. " -maxdepth 1 -type l -printf '%f\\n'"
+            .. " 2>/dev/null | sort"
+        )
+        local out = h:read("a")
+        h:close()
+        if out ~= "" then
+            io.write(out)
+        end
+    end
 end
