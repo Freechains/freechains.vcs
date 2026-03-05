@@ -119,9 +119,8 @@ do
 
     do
         TEST "list two chains"
-        exec(
-            EXE .. " --root " .. ROOT
-            .. " chains add other lua " .. GEN
+        exec (
+            EXE .. " --root " .. ROOT .. " chains add other lua " .. GEN
         )
         local out, code = exec(
             EXE .. " --root " .. ROOT .. " chains list"
@@ -143,13 +142,13 @@ do
         assert(code == 0, "exit code: " .. tostring(code))
 
         TEST "dir removed"
-        local _, code = exec(
+        local _, code = exec (
             "test -d " .. ROOT .. "/chains/mychain"
         )
         assert(code ~= 0, "dir should not exist")
 
         TEST "symlink removed"
-        local _, code = exec(
+        local _, code = exec (
             "test -L " .. ROOT .. "/chains/mychain"
         )
         assert(code ~= 0, "symlink should not exist")
@@ -165,16 +164,15 @@ do
 
     do
         TEST "rem other"
-        local _, code = exec(
-            EXE .. " --root " .. ROOT
-            .. " chains rem other"
+        local _, code = exec (
+            EXE .. " --root " .. ROOT .. " chains rem other"
         )
         assert(code == 0, "exit code: " .. tostring(code))
     end
 
     do
         TEST "list empty after rem"
-        local out, code = exec(
+        local out, code = exec (
             EXE .. " --root " .. ROOT .. " chains list"
         )
         assert(code == 0, "exit code: " .. tostring(code))
