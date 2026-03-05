@@ -1,5 +1,3 @@
-all: src/argparse.lua
-
 tests: src/argparse.lua
 	@rm -Rf /tmp/freechains/
 	@mkdir /tmp/freechains/
