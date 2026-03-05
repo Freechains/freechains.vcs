@@ -25,7 +25,6 @@ return {
     },
     -- shared = "x25519:def...",     -- private ('$') only
     -- key    = "ed25519:abc...",    -- personal ('@'/'@!') only
-    user = nil,                 -- any value, opaque to protocol
 }
 ```
 
@@ -68,15 +67,13 @@ Only relevant for private (`'$'`) chains.
 An Ed25519 public key identifying the chain owner.
 Only relevant for personal (`'@'` / `'@!'`) chains.
 
-#### `user`
+### Free-form table
 
-An arbitrary value, opaque to the protocol.
-The application layer interprets its contents.
-It is included in the commit message and **is part of the
-chain identity hash**.
-
-The `user` field is typically used to carry application metadata
-such as topic names, namespaces, or configuration.
+The genesis table is free-form: any extra fields beyond `version`,
+`type`, and the type-specific key are accepted and become part of
+the commit message (and thus part of the chain identity hash).
+Applications may use extra fields for metadata, namespaces, or
+configuration.
 
 ### Hash
 
@@ -127,8 +124,9 @@ genesis_hash = git_commit_hash(genesis)
 
 Each genesis commit is unique because it includes real timestamps
 and the creator's public key.
-All genesis fields (version, type, pioneers/shared/key, user)
-are part of the commit message and thus part of the hash.
+All genesis fields (version, type, pioneers/shared/key, and any
+extra fields) are part of the commit message and thus part of
+the hash.
 
 ### Canonical serialization
 
@@ -145,7 +143,6 @@ Examples:
 {shared="x25519:def123",type="$",version={0,11,0}}
 {key="ed25519:mypub",type="@",version={0,11,0}}
 {key="ed25519:mypub",type="@!",version={0,11,0}}
-{type="#",user="my metadata",version={0,11,0}}
 ```
 
 ### Git mapping
@@ -181,10 +178,8 @@ To join an existing chain, use `chains add --clone`.
 | 11    | Uniqueness: same params → different hash   | 1          |
 | 12    | Different version → different message      | 1          |
 | 13    | Different type char → different message    | 1          |
-| 14    | user included in message                   | 1          |
-| 15    | user changes → different message           | 1          |
-| 16–18 | Public chain with pioneers (sorted)        | 3          |
-| 19–20 | Private chain with shared key              | 2          |
-| 21–22 | Personal '@' vs '@!' different messages    | 2          |
-| 23    | Chain ID = commit hash, valid hex          | 1          |
-| **Total** |                                        | **24**     |
+| 14–16 | Public chain with pioneers (sorted)        | 3          |
+| 17–18 | Private chain with shared key              | 2          |
+| 19–20 | Personal '@' vs '@!' different messages    | 2          |
+| 21    | Chain ID = commit hash, valid hex          | 1          |
+| **Total** |                                        | **22**     |

@@ -55,7 +55,7 @@ Shell versions:
 
 | File | What it tests |
 |---|---|
-| `x1.sh` | Deterministic genesis commit: canonical Lua-style serialization of (version, type) as commit message, zeroed author/date fields, empty tree, determinism (same params → same hash), uniqueness (different params → different hash), user field exclusion, all chain types (public/private/personal), pioneer canonicalization, writeable flag, cross-peer identity matching |
+| `x1.sh` | Non-deterministic genesis commit: canonical Lua-style serialization of genesis fields as commit message, real author/date fields (pubkey + timestamp), empty tree, uniqueness (same params → different hash), different params → different message, all chain types (public/private/personal), pioneer canonicalization, writeable flag, free-form extra fields in message |
 
 ## TODO
 

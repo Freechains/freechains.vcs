@@ -100,7 +100,6 @@ return {
     version  = {0, 11, 0},
     type     = '#',
     pioneers = {"ed25519:abc", "ed25519:xyz"},
-    user     = "my app metadata",
 }
 ```
 
