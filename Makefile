@@ -1,11 +1,9 @@
 all: src/argparse.lua
 
-LUA_PATH="src/?.lua"
-
 tests: src/argparse.lua
 	@rm -Rf /tmp/freechains/
 	@mkdir /tmp/freechains/
-	$(LUA_PATH) lua5.4 tst/cli-chains.lua
+	LUA_PATH="src/?.lua;;" lua5.4 tst/cli-chains.lua
 	@rm -Rf /tmp/freechains/
 
 src/argparse.lua:
