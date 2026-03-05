@@ -24,7 +24,9 @@ src/
   argparse.lua     vendored from luarocks/argparse (MIT)
 Makefile           curl argparse + install to /usr/local/bin/
 tst/
-  cli-chains.lua   tests for chains add/rem/list
+  common.lua       shared: EXE, TMP, GEN, ROOT, exec, TEST
+  genesis.lua      genesis file for tests
+  cli-chains.lua   tests for chains add/rem/dir
   cli-chain.lua    tests for chain post
 ```
 
@@ -242,5 +244,8 @@ Single Lua script with:
 - [x] `chains dir` implemented + tested
 - [x] `chain <alias> post file` implemented + tested
 - [x] `chain <alias> post inline` implemented + tested
+- [x] Extract `tst/common.lua`, run tests from `tst/`
+- [ ] Refactor `cmd` table structure in `src/freechains`
+- [ ] Run tests for post (not yet verified)
 - [ ] `chains add <alias> args` (deferred)
 - [ ] `chains add <alias> remote` (deferred)
