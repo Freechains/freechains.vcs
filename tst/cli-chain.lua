@@ -1,11 +1,9 @@
 #!/usr/bin/env lua5.4
 require "common"
 
--- setup: create chain
-exec(EXE .. " --root " .. ROOT
-    .. " chains add mychain lua " .. GEN)
+local REPO = ROOT .. "/chains/mychain/"
 
-local REPO = ROOT .. "/chains/mychain"
+exec(EXE .. " --root " .. ROOT .. " chains add mychain lua " .. GEN)
 
 -- POST FILE
 do
@@ -18,8 +16,7 @@ do
         f:write("hello world\n")
         f:close()
         local out, code = exec (
-            EXE .. " --root " .. ROOT
-            .. " chain mychain post file " .. tmp
+            EXE .. " --root " .. ROOT .. " chain mychain post file " .. tmp
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
