@@ -2,7 +2,7 @@
 
 local EXE = "./src/freechains"
 
-local TMP  = "/tmp/freechains"
+local TMP  = "/tmp/freechains/"
 local GEN  = TMP .. "/genesis.lua"
 local ROOT = TMP .. "/root/"
 
@@ -42,7 +42,7 @@ do
         assert(#out == 40, "hash length: " .. #out)
         assert(out:match("^%x+$"), "hash is hex")
 
-        local REPO = ROOT .. "chains/mychain"
+        local REPO = ROOT .. "/chains/mychain"
 
         TEST "genesis file"
         local gen = REPO .. "/.genesis.lua"

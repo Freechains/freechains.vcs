@@ -54,9 +54,8 @@ if args.lua then
         os.exit(1)
     end
 
-    local root = args.root
-    local chains_dir = root .. "chains/"
-    local tmp = chains_dir .. "tmp-" .. os.time()
+    local chains = args.root .. "/chains/"
+    local tmp = chains .. "/tmp-" .. os.time() .. "/"
 
     exec("git init " .. tmp)
     exec("cp " .. args.file .. " " .. tmp .. "/.genesis.lua")
@@ -67,9 +66,9 @@ if args.lua then
 
     local hash = exec("git -C " .. tmp .. " rev-parse HEAD")
 
-    local final = chains_dir .. hash
+    local final = chains .. "/" .. hash
     os.rename(tmp, final)
-    exec("ln -s " .. hash .. "/ " .. chains_dir .. args.alias)
+    exec("ln -s " .. hash .. "/ " .. chains .. "/" .. args.alias)
 
     print(hash)
 end
