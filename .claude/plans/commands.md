@@ -3,9 +3,11 @@
 | Freechains Command | Git Equivalent | Match (1–5) | Notes |
 |---|---|---|---|
 | `freechains-host start <dir>` | `git init` + `git daemon` | 3 | init is close; daemon is a separate persistent process |
-| `freechains chains join <chain>` | `git clone` | 4 | each chain is its own repo; cloning = joining |
-| `freechains chains leave <chain>` | delete local repo + `git remote remove` | 3 | git has no single command for this |
-| `freechains chains list` | `ls` of cloned repos | 3 | no native multi-repo listing in git |
+| `freechains chains add <alias> args [--flags]` | `git init --bare` + raw genesis commit | 3 | create chain from CLI flags |
+| `freechains chains add <alias> lua <file>` | `git init --bare` + raw genesis commit | 3 | create chain from Lua genesis file |
+| `freechains chains add <alias> remote <host> <hash-or-alias>` | `git clone --bare` | 4 | clone existing chain from peer |
+| `freechains chains rem <alias>` | delete local repo + symlink | 3 | git has no single command for this |
+| `freechains chains list` | `ls` of symlinks in `chains/` | 3 | no native multi-repo listing in git |
 | `freechains chain <n> genesis` | `git rev-list --max-parents=0 HEAD` | 4 | finding root commit, very close |
 | `freechains chain <n> heads` | `git rev-parse HEAD` | 4 | single HEAD model simplifies this to one command |
 | `freechains chain <n> get block <hash>` | `git cat-file -p <hash>` | 5 | direct content-addressed lookup, perfect |
