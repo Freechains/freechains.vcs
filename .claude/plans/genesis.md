@@ -1,31 +1,31 @@
 # Genesis Block
 
-## Status: Done
+## Status: In progress
 
-Implemented in `tst/x1.sh` (26 assertions).
+CLI implementation pending in `src/freechains`.
 
 ## Spec
 
 The genesis block is the first and oldest block in a chain.
-It is the same in all peers, since it is derived deterministically from
-its parameters.
-The hash of the genesis block is the **unique identifier of the chain**.
+It uses the creator's real public key and the current timestamp,
+so two calls to `chains add` with identical parameters produce
+different chain hashes.
+The commit hash of the genesis block is the
+**unique identifier of the chain**.
 
 ### Structure
 
 ```lua
-local genesis = {
-    version = {0, 11, 0},   -- protocol version
-    type = {
-        name      = "public",   -- "public" | "private" | "personal"
-        keys      = {
-            -- pioneers = {"ed25519:abc...", "ed25519:xyz..."},  -- public
-            -- personal = "ed25519:abc...",                      -- personal
-            -- shared   = "x25519:def...",                       -- private
-        },
-        writeable = true,       -- only relevant if name == "personal"
+return {
+    version = {0, 11, 0},      -- protocol version
+    type    = '#',              -- '#' | '$' | '@' | '@!'
+    pioneers = {                -- public ('#') only
+        "ed25519:abc...",
+        "ed25519:xyz...",
     },
-    user = nil,   -- any value, opaque to the protocol
+    -- shared = "x25519:def...",     -- private ('$') only
+    -- key    = "ed25519:abc...",    -- personal ('@'/'@!') only
+    user = nil,                 -- any value, opaque to protocol
 }
 ```
 
@@ -33,62 +33,87 @@ local genesis = {
 
 #### `version`
 
-Array of three integers `{major, minor, patch}` identifying the protocol
-version.
+Array of three integers `{major, minor, patch}` identifying the
+protocol version.
 Two peers must share the same major version to synchronize.
 
 #### `type`
 
-Defines the access policy of the chain. It is **immutable** — it cannot
-change without creating a new chain.
+A character string defining the access policy of the chain.
+It is **immutable** — it cannot change without creating a new
+chain.
 
-- `name`: one of `"public"`, `"private"`, or `"personal"`
-- `keys`: cryptographic keys that depend on `name` (see [Chains](chains.md))
-- `writeable`: if `false`, only the personal key holder can post
-  (only relevant when `name == "personal"`)
+| Char  | Type                    |
+|-------|-------------------------|
+| `'#'` | public                  |
+| `'$'` | private                 |
+| `'@'` | personal (read-only)    |
+| `'@!'`| personal (writeable)    |
+
+See [Chains](chains.md) for details on each type.
+
+#### `pioneers`
+
+A list of Ed25519 public keys with elevated initial reputation.
+Only relevant for public (`'#'`) chains.
+Optional — a chain with no pioneers is fully open.
+
+#### `shared`
+
+An X25519 shared key for encrypted communication.
+Only relevant for private (`'$'`) chains.
+
+#### `key`
+
+An Ed25519 public key identifying the chain owner.
+Only relevant for personal (`'@'` / `'@!'`) chains.
 
 #### `user`
 
-An arbitrary value, opaque to the protocol. The application layer interprets
-its contents. It **does not enter the genesis hash** — two peers with the
-same `(version, type)` but different `user` values share the same chain
-identity.
+An arbitrary value, opaque to the protocol.
+The application layer interprets its contents.
+It is included in the commit message and **is part of the
+chain identity hash**.
 
-The `user` field is typically used to carry application metadata such as
-topic names, namespaces, or configuration.
+The `user` field is typically used to carry application metadata
+such as topic names, namespaces, or configuration.
 
 ### Hash
 
-The genesis hash is computed over `(version, type)` only:
+The genesis hash is the **git commit hash** of the genesis
+commit:
 
 ```
-genesis_hash = HASH(version, type)
+genesis_hash = git_commit_hash(genesis)
 ```
 
 This means:
-- The chain identity is fully determined at creation time
-- Any peer using the same `version` and `type` parameters reaches the same
-  initial state
-- There are no "creators" — `join` is used instead of `create`
+- Each `chains add` call produces a unique chain identity
+- The creator's pubkey and current timestamp make the hash
+  unique
+- `create` and `clone` are distinct operations
+- To join an existing chain, use `chains add --clone`
 
 ### Git Mapping
 
-In the Git-based implementation, the genesis block corresponds to the
-**first commit** of the repository.
-The commit is made deterministic by zeroing all author/timestamp fields:
+The genesis block corresponds to the **first commit** of a bare
+git repository.
+The commit uses real values for author/committer fields:
 
-```bash
-GIT_AUTHOR_NAME="freechains" \
-GIT_AUTHOR_EMAIL="freechains" \
-GIT_AUTHOR_DATE="1970-01-01T00:00:00+0000" \
-GIT_COMMITTER_NAME="freechains" \
-GIT_COMMITTER_EMAIL="freechains" \
-GIT_COMMITTER_DATE="1970-01-01T00:00:00+0000" \
-git commit --allow-empty -m "<serialized genesis>"
-```
+| Field            | Value                                        |
+|------------------|----------------------------------------------|
+| tree             | empty tree (`git hash-object -t tree /dev/null`) |
+| parent           | none                                         |
+| author name      | `<ed25519 pubkey>`                           |
+| author email     | `freechains`                                 |
+| author date      | current timestamp                            |
+| committer name   | `<ed25519 pubkey>`                           |
+| committer email  | `freechains`                                 |
+| committer date   | current timestamp                            |
+| message          | canonical serialization of all genesis fields|
 
-Two peers running this with identical parameters produce the same commit hash,
-which becomes the chain identifier used in all peer synchronization.
+Two calls with the same parameters produce **different** commit
+hashes (different timestamps), creating distinct chains.
 
 ---
 
@@ -97,68 +122,69 @@ which becomes the chain identifier used in all peer synchronization.
 ### Hash = identity
 
 ```
-genesis_hash = HASH(version, type)
+genesis_hash = git_commit_hash(genesis)
 ```
 
-The `user` field is excluded — two peers with the same `(version, type)` but
-different `user` values share the same chain identity.
+Each genesis commit is unique because it includes real timestamps
+and the creator's public key.
+All genesis fields (version, type, pioneers/shared/key, user)
+are part of the commit message and thus part of the hash.
 
 ### Canonical serialization
 
-The commit message is a canonical Lua-style literal of `(version, type)`:
+The commit message is a canonical Lua-style literal of all
+genesis fields:
 - Keys sorted alphabetically at each level
-- Pioneer lists sorted for determinism
-- `writeable` included only for personal chains (defaults to `true`)
+- Pioneer lists sorted for consistency
+- `nil` values omitted
 
 Examples:
 ```
-{type={keys={},name="public"},version={0,11,0}}
-{type={keys={pioneers={"ed25519:abc","ed25519:xyz"}},name="public"},version={0,11,0}}
-{type={keys={shared="x25519:def123"},name="private"},version={0,11,0}}
-{type={keys={personal="ed25519:mypub"},name="personal",writeable=true},version={0,11,0}}
+{type="#",version={0,11,0}}
+{pioneers={"ed25519:abc","ed25519:xyz"},type="#",version={0,11,0}}
+{shared="x25519:def123",type="$",version={0,11,0}}
+{key="ed25519:mypub",type="@",version={0,11,0}}
+{key="ed25519:mypub",type="@!",version={0,11,0}}
+{type="#",user="my metadata",version={0,11,0}}
 ```
 
 ### Git mapping
 
-Genesis = first commit of a bare repo, made deterministic by zeroing all fields:
+Genesis = first commit of a bare repo, with real values:
 
-| Field | Value |
-|---|---|
-| tree | empty tree (`git hash-object -t tree /dev/null`) |
-| parent | none |
-| author name | `freechains` |
-| author email | `freechains` |
-| author date | `1970-01-01T00:00:00+0000` |
-| committer name | `freechains` |
-| committer email | `freechains` |
-| committer date | `1970-01-01T00:00:00+0000` |
-| message | canonical serialization of `(version, type)` |
+| Field            | Value                                        |
+|------------------|----------------------------------------------|
+| tree             | empty tree                                   |
+| parent           | none                                         |
+| author name      | `<ed25519 pubkey>`                           |
+| author email     | `freechains`                                 |
+| author date      | current timestamp                            |
+| committer name   | `<ed25519 pubkey>`                           |
+| committer email  | `freechains`                                 |
+| committer date   | current timestamp                            |
+| message          | canonical serialization of all genesis fields|
 
-Two peers running `genesis_create` with identical parameters produce the same
-commit hash. No "creators" — `join` is used instead of `create`.
+Each creation produces a unique commit hash.
+To join an existing chain, use `chains add --clone`.
 
-## Test Coverage (`tst/x1.sh`)
+## Test Coverage
 
-| # | What | Assertions |
-|---|---|---|
-| 1–2 | Basic creation (commit type, HEAD) | 2 |
-| 3 | No parent | 1 |
-| 4 | Empty tree | 1 |
-| 5–6 | Author/committer = "freechains" | 4 |
-| 7 | Dates = epoch zero | 2 |
-| 8 | Message = canonical serialization | 1 |
-| 9 | Determinism: same params → same hash | 1 |
-| 10–11 | Different version/type → different hash | 2 |
-| 12 | user excluded from hash | 1 |
-| 13–15 | Public chain with pioneers (canonical sort) | 3 |
-| 16–17 | Private chain with shared key | 2 |
-| 18–19 | Personal chain (writeable=true/false) | 2 |
-| 20 | writeable flag changes hash | 1 |
-| 21 | Personal defaults writeable=true | 1 |
-| 22–23 | Chain ID matches across peers, valid hex | 2 |
-| **Total** | | **26** |
-
-## Shell Helpers
-
-- `genesis_serialize <major> <minor> <patch> <type_name> [key=value ...]` — canonical message
-- `genesis_create <repo> <major> <minor> <patch> <type_name> [key=value ...]` — create commit, return hash
+| #     | What                                       | Assertions |
+|-------|--------------------------------------------|------------|
+| 1–2   | Basic creation (commit type, HEAD)         | 2          |
+| 3     | No parent                                  | 1          |
+| 4     | Empty tree                                 | 1          |
+| 5–6   | Author/committer name = pubkey             | 2          |
+| 7–8   | Author/committer email = "freechains"      | 2          |
+| 9     | Dates = real timestamps (non-zero)         | 1          |
+| 10    | Message = canonical serialization          | 1          |
+| 11    | Uniqueness: same params → different hash   | 1          |
+| 12    | Different version → different message      | 1          |
+| 13    | Different type char → different message    | 1          |
+| 14    | user included in message                   | 1          |
+| 15    | user changes → different message           | 1          |
+| 16–18 | Public chain with pioneers (sorted)        | 3          |
+| 19–20 | Private chain with shared key              | 2          |
+| 21–22 | Personal '@' vs '@!' different messages    | 2          |
+| 23    | Chain ID = commit hash, valid hex          | 1          |
+| **Total** |                                        | **24**     |
