@@ -3,7 +3,8 @@ all: src/argparse.lua
 tests: src/argparse.lua
 	@rm -Rf /tmp/freechains/
 	@mkdir /tmp/freechains/
-	LUA_PATH="src/?.lua;;" lua5.4 tst/cli-chains.lua
+	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 cli-chains.lua
+	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 cli-chain.lua
 	@rm -Rf /tmp/freechains/
 
 src/argparse.lua:

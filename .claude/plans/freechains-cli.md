@@ -156,7 +156,7 @@ Post inline text.
 Text always ends with `\n` (appended if missing).
 
 - `--file foo.txt` → appends to `foo.txt` (creates if new).
-  Ensures a leading `\n` if the file doesn't end with one.
+  No implicit `\n` added between appends.
 - No `--file` → auto-generates: `<timestamp>-<hash8>.txt`
   (unix timestamp + first 8 chars of content sha1).
   Always a new file.
@@ -169,7 +169,7 @@ freechains chain mychain post inline "Line 1" --file log.txt
 # creates log.txt with "Line 1\n"
 
 freechains chain mychain post inline "Line 2" --file log.txt
-# appends "\nLine 2\n" to log.txt
+# log.txt = "Line 1\nLine 2\n"
 
 freechains chain mychain post inline "Second note"
 # creates 1741192801-b4c3d2e1.txt (new auto-name)
@@ -222,8 +222,8 @@ Single Lua script with:
 1. Resolve `<alias>` → chain repo path via symlink
 2. Write content to `<repo>/<filename>`
    - file mode: `cp <path> <repo>/<basename>`
-   - inline mode (--file): append `\n`+text+`\n` to file
-     (create if new; skip leading `\n` on new file)
+   - inline mode (--file): append text+`\n` to file
+     (creates if new, appends if exists)
    - inline mode (no --file): write text+`\n` to auto-named
      file `<timestamp>-<hash8>.txt`
 3. `git -C <repo> add <filename>`
@@ -240,7 +240,7 @@ Single Lua script with:
 - [x] `chains add <alias> lua` implemented + tested
 - [x] `chains rem <alias>` implemented + tested
 - [x] `chains dir` implemented + tested
-- [ ] `chain <alias> post file` (pending)
-- [ ] `chain <alias> post inline` (pending)
+- [x] `chain <alias> post file` implemented + tested
+- [x] `chain <alias> post inline` implemented + tested
 - [ ] `chains add <alias> args` (deferred)
 - [ ] `chains add <alias> remote` (deferred)

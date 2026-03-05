@@ -1,33 +1,5 @@
 #!/usr/bin/env lua5.4
-
-local EXE = "./src/freechains"
-
-local TMP  = "/tmp/freechains/"
-local GEN  = TMP .. "/genesis.lua"
-local ROOT = TMP .. "/root/"
-
-function exec (cmd)
-    --print(cmd)
-    local h = io.popen(cmd .. " 2>&1")
-    local out = h:read("a"):match("^%s*(.-)%s*$")
-    local ok, _, code = h:close()
-    return out, (ok and 0 or code)
-end
-
-function TEST (name)
-    print("  - " .. name .. "... ")
-end
-
--- setup
-local f = io.open(GEN, "w")
-f:write [[
-    return {
-        version = {1, 2, 3},
-        type    = "#",
-        app     = "free form",
-    }
-]]
-f:close()
+require "common"
 
 -- ADD
 do
