@@ -42,8 +42,10 @@ do
         assert(#out == 40, "hash length: " .. #out)
         assert(out:match("^%x+$"), "hash is hex")
 
+        local REPO = ROOT .. "chains/mychain"
+
         TEST "genesis file"
-        local gen = ROOT .. "chains/mychain/.genesis.lua"
+        local gen = REPO .. "/.genesis.lua"
         local _, code = exec("diff -q " .. GEN .. " " .. gen)
         assert(code == 0, "exit code: " .. tostring(code))
         local t = dofile(gen)
@@ -53,12 +55,22 @@ do
         assert(t.app == "free form")
 
         TEST "alias -> hash"
-        local target = exec (
-            "readlink " .. ROOT .. "chains/mychain"
-        )
+        local target = exec("readlink " .. REPO)
         assert(target:match("^%x+/$"), "symlink target: " .. target)
 
-        -- TODO
+        TEST "author/committer = dash"
+        local author = exec("git -C " .. REPO .. " log --format=%an HEAD")
+        assert(author == "-", "author: " .. author)
+        local committer = exec("git -C " .. REPO .. " log --format=%cn HEAD")
+        assert(committer == "-", "committer: " .. committer)
+
+        TEST "empty commit message"
+        local msg = exec("git -C " .. REPO .. " log --format=%B HEAD")
+        assert(msg == "", "message: " .. msg)
+
+        TEST "no parent"
+        local parent = exec("git -C " .. REPO .. " log --format=%P HEAD")
+        assert(parent == "", "parent: " .. parent)
     end
 
     do
