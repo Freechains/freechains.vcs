@@ -1,5 +1,13 @@
 all: src/argparse.lua
 
+LUA_PATH="src/?.lua"
+
+tests: src/argparse.lua
+	@rm -Rf /tmp/freechains/
+	@mkdir /tmp/freechains/
+	$(LUA_PATH) lua5.4 tst/cli-chains.lua
+	@rm -Rf /tmp/freechains/
+
 src/argparse.lua:
 	curl -sL -o $@ \
 	  https://raw.githubusercontent.com/luarocks/argparse/0.7.1/src/argparse.lua
@@ -8,9 +16,6 @@ install: src/argparse.lua
 	install -m 755 src/freechains /usr/local/bin/freechains
 	install -m 644 src/argparse.lua \
 	  /usr/local/share/lua/5.4/
-
-test: src/argparse.lua
-	lua5.4 tst/cli-chains.lua
 
 clean:
 	rm -f src/argparse.lua
