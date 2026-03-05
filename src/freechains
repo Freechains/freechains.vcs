@@ -63,8 +63,8 @@ do  -- cmd.chains
         cmd.chains.rem._:argument("alias")
     end
 
-    cmd.chains.list = {
-        _ = cmd.chains._:command("list")
+    cmd.chains.dir = {
+        _ = cmd.chains._:command("dir")
     }
 end
 
@@ -102,7 +102,7 @@ if args.chains then
         local lnk = exec("readlink " .. alias)
         exec("rm -rf " .. chains .. lnk)
         os.remove(alias)
-    elseif args.list then
+    elseif args.dir then
         local h = io.popen (
             "find " .. chains
             .. " -maxdepth 1 -type l -printf '%f\\n'"

@@ -104,26 +104,26 @@ do
     end
 end
 
--- LIST
+-- DIR
 do
-    print("==> freechains chains list")
+    print("==> freechains chains dir")
 
     do
-        TEST "list one chain"
+        TEST "dir one chain"
         local out, code = exec(
-            EXE .. " --root " .. ROOT .. " chains list"
+            EXE .. " --root " .. ROOT .. " chains dir"
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(out == "mychain", "list: " .. out)
     end
 
     do
-        TEST "list two chains"
+        TEST "dir two chains"
         exec (
             EXE .. " --root " .. ROOT .. " chains add other lua " .. GEN
         )
         local out, code = exec(
-            EXE .. " --root " .. ROOT .. " chains list"
+            EXE .. " --root " .. ROOT .. " chains dir"
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(out == "mychain\nother", "list: " .. out)
@@ -171,9 +171,9 @@ do
     end
 
     do
-        TEST "list empty after rem"
+        TEST "dir empty after rem"
         local out, code = exec (
-            EXE .. " --root " .. ROOT .. " chains list"
+            EXE .. " --root " .. ROOT .. " chains dir"
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(out == "", "list should be empty: " .. out)

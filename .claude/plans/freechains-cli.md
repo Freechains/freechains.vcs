@@ -3,7 +3,7 @@
 ## Context
 
 Lua CLI for Freechains VCS.
-Subcommands: `chains add/rem/list`, `chain post`.
+Subcommands: `chains add/rem/dir`, `chain post`.
 
 ## Scope
 
@@ -11,7 +11,7 @@ Subcommands: `chains add/rem/list`, `chain post`.
 - `freechains chains add <alias> lua <file>`
 - `freechains chains add <alias> remote <host> <hash-or-alias>`
 - `freechains chains rem <alias>`
-- `freechains chains list`
+- `freechains chains dir`
 - `freechains chain <alias> post file <path>`
 - `freechains chain <alias> post inline <text> [--file <name>]`
 - Global option: `--root` (default `~/.freechains/`)
@@ -131,13 +131,13 @@ Delete a chain: removes both the symlink and the bare git repo.
 freechains chains rem '#sports'
 ```
 
-### `chains list`
+### `chains dir`
 
 List all chain aliases (symlinks in `<root>/chains/`).
 Output: one alias per line, sorted.
 
 ```bash
-freechains chains list
+freechains chains dir
 ```
 
 ### `chain <alias> post file <path>`
@@ -180,7 +180,7 @@ freechains chain mychain post inline "Second note"
 Single Lua script with:
 
 - argparse setup: `--root`, `chains` command with `add`,
-  `rem`, `list` subcommands
+  `rem`, `dir` subcommands
 - `chain` command with `post` subcommand
 - `add` has sub-modes: `args`, `lua`, `remote`
 - `post` has sub-modes: `file`, `inline`
@@ -212,7 +212,7 @@ Single Lua script with:
 2. `rm -rf` the bare repo
 3. Remove the symlink
 
-### `chains list`
+### `chains dir`
 
 1. Iterate symlinks in `<root>/chains/`
 2. Print each alias (one per line, sorted)
@@ -239,7 +239,7 @@ Single Lua script with:
 - [x] Download `argparse.lua`
 - [x] `chains add <alias> lua` implemented + tested
 - [x] `chains rem <alias>` implemented + tested
-- [x] `chains list` implemented + tested
+- [x] `chains dir` implemented + tested
 - [ ] `chain <alias> post file` (pending)
 - [ ] `chain <alias> post inline` (pending)
 - [ ] `chains add <alias> args` (deferred)
