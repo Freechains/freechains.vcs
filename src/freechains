@@ -1,32 +1,51 @@
 #!/usr/bin/env lua5.4
 
-local dir = debug.getinfo(1).source:match("@(.*/)")
-package.path = dir .. "?.lua;" .. package.path
+local VERSION = "v0.20"
 
 local argparse = require "argparse"
 
-local function exec (cmd)
+function trim (s)
+    return s:match("^%s*(.-)%s*$")
+end
+
+function exec (cmd)
     local ok, _, code = os.execute(cmd)
     if not ok then
-        io.stderr:write(
-            "ERROR: command failed ("
-                .. tostring(code) .. "): " .. cmd .. "\n"
+        io.stderr:write (
+            "ERROR: command failed (" .. tostring(code) .. "): " .. cmd .. "\n"
         )
         os.exit(1)
     end
 end
 
-local function popen (cmd)
+function popen (cmd)
     local h = io.popen(cmd)
-    local out = h:read("a"):match("^%s*(.-)%s*$")
+    local out = trim(h:read("a"))
     h:close()
     return out
 end
 
-local parser = argparse("freechains", "Freechains VCS")
-parser:option("--root"):default(
-    os.getenv("HOME") .. "/.freechains/"
-)
+local parser = argparse()
+
+parser
+    :name "freechains"
+    :description "Freechains: Permissionless Peer-to-peer Content Dissemination"
+    :epilog [[
+For more information, please visit our website:
+
+    https://www.freechains.org/
+]]
+
+parser
+    :flag("-v --version", "Show version.")
+    :action(function()
+        print("freechains " .. VERSION)
+        os.exit(0)
+    end)
+
+parser
+    :option("--root")
+    :default(os.getenv("HOME") .. "/.freechains/")
 
 local chains = parser:command("chains")
 local add = chains:command("add")
@@ -39,9 +58,7 @@ local args = parser:parse()
 if args.lua then
     local genesis = dofile(args.file)
     if type(genesis) ~= "table" then
-        io.stderr:write(
-            "ERROR: file must return a table\n"
-        )
+        io.stderr:write("ERROR: file must return a table\n")
         os.exit(1)
     end
 
@@ -50,21 +67,17 @@ if args.lua then
     local tmp = chains_dir .. "tmp-" .. os.time()
 
     exec("git init " .. tmp)
-    exec("cp " .. args.file .. " "
-        .. tmp .. "/.genesis.lua")
+    exec("cp " .. args.file .. " " .. tmp .. "/.genesis.lua")
     exec("git -C " .. tmp .. " add .genesis.lua")
     exec("git -C " .. tmp
         .. ' -c user.name="" -c user.email=""'
         .. ' commit --allow-empty-message -m ""')
 
-    local hash = popen(
-        "git -C " .. tmp .. " rev-parse HEAD"
-    )
+    local hash = popen("git -C " .. tmp .. " rev-parse HEAD")
 
     local final = chains_dir .. hash
     os.rename(tmp, final)
-    exec("ln -s " .. hash .. "/ "
-        .. chains_dir .. args.alias)
+    exec("ln -s " .. hash .. "/ " .. chains_dir .. args.alias)
 
     print(hash)
 end
