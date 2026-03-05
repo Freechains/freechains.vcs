@@ -41,39 +41,41 @@ parser
 
 local cmd = {
     chains = {
-        _ = parser:command("chains")
+        _ = parser:command("chains"),
+        add = {
+            lua = {},
+        },
+        rem = {},
+        dir = {},
     },
     chain = {
-        _ = parser:command("chain")
+        _ = parser:command("chain"),
+        post = {
+            file = {},
+            inline = {},
+        },
     },
 }
 
 -- cmd.chains
 do
     -- cmd.chains.add
-    cmd.chains.add = {
-        _ = cmd.chains._:command("add")
-    }
+    cmd.chains.add._ = cmd.chains._:command("add")
     do
+        -- cmd.chains.add.lua
         cmd.chains.add._:argument("alias")
-        cmd.chains.add.lua = {
-            _ = cmd.chains.add._:command("lua")
-        }
+        cmd.chains.add.lua._ = cmd.chains.add._:command("lua")
         cmd.chains.add.lua._:argument("file")
     end
 
     -- cmd.chains.rem
-    cmd.chains.rem = {
-        _ = cmd.chains._:command("rem")
-    }
+    cmd.chains.rem._ = cmd.chains._:command("rem")
     do
         cmd.chains.rem._:argument("alias")
     end
 
     -- cmd.chains.dir
-    cmd.chains.dir = {
-        _ = cmd.chains._:command("dir")
-    }
+    cmd.chains.dir._ = cmd.chains._:command("dir")
 end
 
 -- cmd.chain
@@ -81,22 +83,16 @@ do
     cmd.chain._:argument("alias")
 
     -- cmd.chain.post
-    cmd.chain.post = {
-        _ = cmd.chain._:command("post")
-    }
+    cmd.chain.post._ = cmd.chain._:command("post")
     do
-        cmd.chain.post.file = {
-            _ = cmd.chain.post._:command("file")
-        }
+        -- cmd.chain.post.file
+        cmd.chain.post.file._ = cmd.chain.post._:command("file")
         cmd.chain.post.file._:argument("path")
 
-        cmd.chain.post.inline = {
-            _ = cmd.chain.post._:command("inline")
-        }
+        -- cmd.chain.post.inline
+        cmd.chain.post.inline._ = cmd.chain.post._:command("inline")
         cmd.chain.post.inline._:argument("text")
-        cmd.chain.post.inline._
-            :option("--file")
-            :target("fname")
+        cmd.chain.post.inline._:option("--file")
     end
 end
 
@@ -160,9 +156,9 @@ elseif args.chain then
                 text = text .. "\n"
             end
 
-            if args.fname then
-                name = args.fname
-                local f = io.open(repo .. args.fname, "a")
+            if args.file then
+                name = args.file
+                local f = io.open(repo .. args.file, "a")
                 f:write(text)
                 f:close()
             else
