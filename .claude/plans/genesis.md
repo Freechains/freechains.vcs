@@ -93,21 +93,22 @@ This means:
 
 ### Git Mapping
 
-The genesis block corresponds to the **first commit** of a bare
-git repository.
-The commit uses real values for author/committer fields:
+The genesis block corresponds to the **first commit** of a git
+repository.
+Author/committer are left blank (no signing yet).
+The genesis data lives in a `.genesis.lua` blob in the tree.
 
 | Field            | Value                                        |
 |------------------|----------------------------------------------|
-| tree             | empty tree (`git hash-object -t tree /dev/null`) |
+| tree             | tree with `.genesis.lua` blob                |
 | parent           | none                                         |
-| author name      | `<ed25519 pubkey>`                           |
-| author email     | `freechains`                                 |
-| author date      | current timestamp                            |
-| committer name   | `<ed25519 pubkey>`                           |
-| committer email  | `freechains`                                 |
-| committer date   | current timestamp                            |
-| message          | canonical serialization of all genesis fields|
+| author name      | blank                                        |
+| author email     | blank                                        |
+| author date      | current timestamp (git default)              |
+| committer name   | blank                                        |
+| committer email  | blank                                        |
+| committer date   | current timestamp (git default)              |
+| message          | empty                                        |
 
 Two calls with the same parameters produce **different** commit
 hashes (different timestamps), creating distinct chains.
@@ -122,47 +123,10 @@ hashes (different timestamps), creating distinct chains.
 genesis_hash = git_commit_hash(genesis)
 ```
 
-Each genesis commit is unique because it includes real timestamps
-and the creator's public key.
-All genesis fields (version, type, pioneers/shared/key, and any
-extra fields) are part of the commit message and thus part of
-the hash.
-
-### Canonical serialization
-
-The commit message is a canonical Lua-style literal of all
-genesis fields:
-- Keys sorted alphabetically at each level
-- Pioneer lists sorted for consistency
-- `nil` values omitted
-
-Examples:
-```
-{type="#",version={0,11,0}}
-{pioneers={"ed25519:abc","ed25519:xyz"},type="#",version={0,11,0}}
-{shared="x25519:def123",type="$",version={0,11,0}}
-{key="ed25519:mypub",type="@",version={0,11,0}}
-{key="ed25519:mypub",type="@!",version={0,11,0}}
-```
-
-### Git mapping
-
-Genesis = first commit of a bare repo, with real values:
-
-| Field            | Value                                        |
-|------------------|----------------------------------------------|
-| tree             | empty tree                                   |
-| parent           | none                                         |
-| author name      | `<ed25519 pubkey>`                           |
-| author email     | `freechains`                                 |
-| author date      | current timestamp                            |
-| committer name   | `<ed25519 pubkey>`                           |
-| committer email  | `freechains`                                 |
-| committer date   | current timestamp                            |
-| message          | canonical serialization of all genesis fields|
-
-Each creation produces a unique commit hash.
-To join an existing chain, use `chains add --clone`.
+Each genesis commit is unique because it includes the current
+timestamp (via git defaults).
+All genesis fields live in the `.genesis.lua` blob inside the
+commit tree and are thus part of the hash.
 
 ## Test Coverage
 
@@ -170,16 +134,12 @@ To join an existing chain, use `chains add --clone`.
 |-------|--------------------------------------------|------------|
 | 1–2   | Basic creation (commit type, HEAD)         | 2          |
 | 3     | No parent                                  | 1          |
-| 4     | Empty tree                                 | 1          |
-| 5–6   | Author/committer name = pubkey             | 2          |
-| 7–8   | Author/committer email = "freechains"      | 2          |
-| 9     | Dates = real timestamps (non-zero)         | 1          |
-| 10    | Message = canonical serialization          | 1          |
-| 11    | Uniqueness: same params → different hash   | 1          |
-| 12    | Different version → different message      | 1          |
-| 13    | Different type char → different message    | 1          |
-| 14–16 | Public chain with pioneers (sorted)        | 3          |
-| 17–18 | Private chain with shared key              | 2          |
-| 19–20 | Personal '@' vs '@!' different messages    | 2          |
-| 21    | Chain ID = commit hash, valid hex          | 1          |
-| **Total** |                                        | **22**     |
+| 4     | Tree contains `.genesis.lua`               | 1          |
+| 5–6   | Author/committer name = blank              | 2          |
+| 7–8   | Author/committer email = blank             | 2          |
+| 9     | Message = empty                            | 1          |
+| 10    | Uniqueness: same params → different hash   | 1          |
+| 11    | `.genesis.lua` content matches input file  | 1          |
+| 12    | Chain ID = commit hash, valid hex          | 1          |
+| 13    | Symlink alias → hash directory             | 1          |
+| **Total** |                                        | **13**     |

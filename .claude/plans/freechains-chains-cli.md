@@ -144,19 +144,15 @@ Single Lua script with:
 
 ### `chains add` (args / lua)
 
-1. Parse genesis parameters (from flags or Lua file)
-2. Infer type from alias prefix if `--type` not given
-3. Build canonical Lua serialization of all genesis fields
-4. `git init --bare <root>/chains/<tmp>/`
-5. Create raw genesis commit:
-   - empty tree
-   - author/committer name = creator pubkey
-   - author/committer email = `freechains`
-   - author/committer date = current timestamp
-   - message = canonical serialization
-6. Read commit hash from HEAD
-7. Rename repo dir to `<root>/chains/<hash>/`
-8. Create symlink `<root>/chains/<alias> -> <hash>/`
+1. Read Lua file, `dofile` to validate it returns a table
+2. `mkdir <tmp> && git -C <tmp> init`
+3. `cp <file> <tmp>/.genesis.lua`
+4. `git -C <tmp> add .genesis.lua`
+5. `git -C <tmp> -c user.name="" -c user.email=""`
+   `commit --allow-empty-message -m ""`
+6. `git -C <tmp> rev-parse HEAD` → hash
+7. `mv <tmp> <root>/chains/<hash>/`
+8. `ln -s <hash>/ <root>/chains/<alias>`
 9. Print hash to stdout
 
 ### `chains add` (remote)
