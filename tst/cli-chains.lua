@@ -22,15 +22,11 @@ end
 local f = io.open(GEN, "w")
 f:write [[
     return {
-        version = {0, 11, 0},
+        version = {1, 2, 3},
         type    = "#",
+        app     = "free form",
     }
 ]]
-f:close()
-
-local bad_file = "/tmp/fc-test-bad-genesis.lua"
-f = io.open(bad_file, "w")
-f:write('return "not a table"\n')
 f:close()
 
 -- ADD
@@ -45,31 +41,36 @@ do
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
         assert(out:match("^%x+$"), "hash is hex")
-    end
 
-    do
-        TEST "genesis file exists"
-        local out = exec (
-            "cat " .. ROOT .. "chains/mychain/.genesis.lua"
-        )
-        local genesis = load(out)()
-        assert(type(genesis) == "table")
-        assert(genesis.type == "#")
-    end
+        TEST "genesis file"
+        local gen = ROOT .. "chains/mychain/.genesis.lua"
+        local _, code = exec("diff -q " .. GEN .. " " .. gen)
+        assert(code == 0, "exit code: " .. tostring(code))
+        local t = dofile(gen)
+        assert(type(t) == "table")
+        assert(t.version and t.version[1]==1 and t.version[2]==2 and t.version[3]==3)
+        assert(t.type == "#")
+        assert(t.app == "free form")
 
-    do
-        TEST "symlink points to hash dir"
+        TEST "alias -> hash"
         local target = exec (
             "readlink " .. ROOT .. "chains/mychain"
         )
-        assert(target:match("^%x+/$"),
-            "symlink target: " .. target)
+        assert(target:match("^%x+/$"), "symlink target: " .. target)
+
+        -- TODO
     end
 
     do
         TEST "bad genesis file"
+        local bad = "/tmp/fc-test-bad-genesis.lua"
+        do
+            f = io.open(bad, "w")
+            f:write('return "not a table"\n')
+            f:close()
+        end
         local _, code = exec (
-            EXE .. " --root " .. ROOT .. " chains add bad lua " .. bad_file
+            EXE .. " --root " .. ROOT .. " chains add x lua " .. bad
         )
         assert(code ~= 0, "should fail")
     end
