@@ -3,7 +3,7 @@
 ## Context
 
 Lua CLI for Freechains VCS.
-First pass: `chains add/rem/list` subcommands.
+Subcommands: `chains add/rem/list`, `chain post`.
 
 ## Scope
 
@@ -12,6 +12,8 @@ First pass: `chains add/rem/list` subcommands.
 - `freechains chains add <alias> remote <host> <hash-or-alias>`
 - `freechains chains rem <alias>`
 - `freechains chains list`
+- `freechains chain <alias> post file <path>`
+- `freechains chain <alias> post inline <text> [--file <name>]`
 - Global option: `--root` (default `~/.freechains/`)
 
 ## Files
@@ -21,6 +23,9 @@ src/
   freechains       executable Lua script (entry point + all logic)
   argparse.lua     vendored from luarocks/argparse (MIT)
 Makefile           curl argparse + install to /usr/local/bin/
+tst/
+  cli-chains.lua   tests for chains add/rem/list
+  cli-chain.lua    tests for chain post
 ```
 
 ## Makefile
@@ -129,9 +134,45 @@ freechains chains rem '#sports'
 ### `chains list`
 
 List all chain aliases (symlinks in `<root>/chains/`).
+Output: one alias per line, sorted.
 
 ```bash
 freechains chains list
+```
+
+### `chain <alias> post file <path>`
+
+Post a file.
+Uses the file's basename in the tree.
+
+```bash
+freechains chain mychain post file hello.txt
+freechains chain mychain post file photo.jpg
+```
+
+### `chain <alias> post inline <text> [--file <name>]`
+
+Post inline text.
+Text always ends with `\n` (appended if missing).
+
+- `--file foo.txt` → appends to `foo.txt` (creates if new).
+  Ensures a leading `\n` if the file doesn't end with one.
+- No `--file` → auto-generates: `<timestamp>-<hash8>.txt`
+  (unix timestamp + first 8 chars of content sha1).
+  Always a new file.
+
+```bash
+freechains chain mychain post inline "Hello"
+# creates 1741192800-a3b2c1d4.txt with "Hello\n"
+
+freechains chain mychain post inline "Line 1" --file log.txt
+# creates log.txt with "Line 1\n"
+
+freechains chain mychain post inline "Line 2" --file log.txt
+# appends "\nLine 2\n" to log.txt
+
+freechains chain mychain post inline "Second note"
+# creates 1741192801-b4c3d2e1.txt (new auto-name)
 ```
 
 ## Design: `src/freechains`
@@ -140,7 +181,9 @@ Single Lua script with:
 
 - argparse setup: `--root`, `chains` command with `add`,
   `rem`, `list` subcommands
+- `chain` command with `post` subcommand
 - `add` has sub-modes: `args`, `lua`, `remote`
+- `post` has sub-modes: `file`, `inline`
 
 ### `chains add` (args / lua)
 
@@ -148,7 +191,7 @@ Single Lua script with:
 2. `mkdir <tmp> && git -C <tmp> init`
 3. `cp <file> <tmp>/.genesis.lua`
 4. `git -C <tmp> add .genesis.lua`
-5. `git -C <tmp> -c user.name="" -c user.email=""`
+5. `git -C <tmp> -c user.name="-" -c user.email="-"`
    `commit --allow-empty-message -m ""`
 6. `git -C <tmp> rev-parse HEAD` → hash
 7. `mv <tmp> <root>/chains/<hash>/`
@@ -172,40 +215,32 @@ Single Lua script with:
 ### `chains list`
 
 1. Iterate symlinks in `<root>/chains/`
-2. Print each alias and its target hash
+2. Print each alias (one per line, sorted)
 
-## Verification
+### `chain post`
 
-```bash
-make
-sudo make install
-
-# args mode — prefix inference
-freechains chains add '#sports' args \
-    --pioneers ed25519:k1,ed25519:k2
-freechains chains add '$family' args \
-    --shared x25519:def
-freechains chains add '@me' args \
-    --key ed25519:pub
-freechains chains add '@!feedback' args \
-    --key ed25519:pub
-
-# args mode — explicit type
-freechains chains add mytopic args \
-    --type '#' --pioneers ed25519:k1
-
-# lua mode
-freechains chains add mychain lua genesis.lua
-
-# list and remove
-freechains chains list
-freechains chains rem '#sports'
-freechains chains list
-```
+1. Resolve `<alias>` → chain repo path via symlink
+2. Write content to `<repo>/<filename>`
+   - file mode: `cp <path> <repo>/<basename>`
+   - inline mode (--file): append `\n`+text+`\n` to file
+     (create if new; skip leading `\n` on new file)
+   - inline mode (no --file): write text+`\n` to auto-named
+     file `<timestamp>-<hash8>.txt`
+3. `git -C <repo> add <filename>`
+4. `git -C <repo> -c user.name="-" -c user.email="-"`
+   `commit --allow-empty-message -m ""`
+5. `git -C <repo> rev-parse HEAD` → hash
+6. Print hash to stdout
 
 ## Progress
 
-- [ ] Create `Makefile`
-- [ ] Create `src/freechains` (entry point + all logic)
-- [ ] Download `argparse.lua`
-- [ ] Test manually
+- [x] Create `Makefile`
+- [x] Create `src/freechains` (entry point + all logic)
+- [x] Download `argparse.lua`
+- [x] `chains add <alias> lua` implemented + tested
+- [x] `chains rem <alias>` implemented + tested
+- [x] `chains list` implemented + tested
+- [ ] `chain <alias> post file` (pending)
+- [ ] `chain <alias> post inline` (pending)
+- [ ] `chains add <alias> args` (deferred)
+- [ ] `chains add <alias> remote` (deferred)
