@@ -62,7 +62,7 @@ if args.lua then
     exec("cp " .. args.file .. " " .. tmp .. "/.genesis.lua")
     exec("git -C " .. tmp .. " add .genesis.lua")
     exec("git -C " .. tmp
-        .. ' -c user.name="" -c user.email=""'
+        .. ' -c user.name="-" -c user.email="-"'
         .. ' commit --allow-empty-message -m ""')
 
     local hash = exec("git -C " .. tmp .. " rev-parse HEAD")
