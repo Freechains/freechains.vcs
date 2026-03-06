@@ -70,15 +70,15 @@ The tradeoff: sync-only merge commits carry no payload. These should be marked w
 | `message` | yes | Free text string, any length | Human description — **can hold signature data** | yes (can be empty) |
 | `encoding` | yes | Charset string e.g. `UTF-8` | Character encoding of message | no |
 | `extra headers` | yes | Free text key-value lines | Custom metadata — **cleanest place for Freechains signature** | no |
-| `gpg signature` | **no** | Armored PGP/SSH blob | Authorship verification — **outside the hash** | no |
-| `mergetag` | **no** | Raw embedded tag object | Signed merge metadata — **outside the hash** | no |
+| `gpg signature` | **yes** | Armored PGP/SSH blob | Authorship verification — **inside the hash** (see signing.md) | no |
+| `mergetag` | **yes** | Raw embedded tag object | Signed merge metadata — **inside the hash** | no |
 | blob (payload) | yes (indirect) | Raw bytes, any content | Actual file/post content, reached via tree reference | via tree |
 
 ### Key observations
 
 - **Author/committer name and email are free text** — no validation; a public key can go there
-- **GPG signature is outside the hash** — this is why git signing is fragile for trustless systems
-- **Extra headers are inside the hash** — cleanest place for `freechains-pubkey` / `freechains-sig`
+- **GPG signature is inside the hash** — `gpgsig` header is part of the commit object and affects the hash (see signing.md for details)
+- **Extra headers are inside the hash** — could also hold custom metadata
 - **Blob is pure content** — no filename, no metadata
 
 ---
