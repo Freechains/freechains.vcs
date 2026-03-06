@@ -1,8 +1,11 @@
 #!/usr/bin/env lua5.4
 require "common"
 
-local GPG = TMP .. "/gnupg/"
+local GPG  = TMP .. "/gnupg/"
+local ENV  = "GNUPGHOME=" .. GPG .. " "
+local REPO = ROOT .. "/chains/signchain/"
 local KEY
+
 
 -- SETUP: generate ephemeral GPG key
 do
@@ -22,21 +25,14 @@ do
     f:close()
     exec("gpg --homedir " .. GPG .. " --batch --gen-key " .. batch, true)
 
-    KEY = exec (
-        "gpg --homedir " .. GPG
-        .. " --list-keys --with-colons"
-        .. " | grep '^fpr:' | head -1"
-        .. " | cut -d: -f10"
+    local out = exec (
+        "gpg --homedir " .. GPG .. " --list-keys --with-colons"
     )
-    assert(#KEY > 0, "keygen failed")
+    KEY = out:match("fpr:.-:.-:.-:.-:.-:.-:.-:.-:(%x+):")
+    assert(KEY and #KEY > 0, "keygen failed")
 end
 
-local ENV = "GNUPGHOME=" .. GPG .. " "
-
-local REPO = ROOT .. "/chains/signchain/"
-
--- wait to avoid genesis hash collision with other tests
-os.execute("sleep 1")
+os.execute("sleep 1")   -- prevents hash collisions
 exec(ENV .. EXE .. " chains add signchain lua " .. GEN)
 
 -- SIGNED POST
@@ -46,9 +42,7 @@ do
     do
         TEST "signed post succeeds"
         local out, code = exec (
-            ENV .. EXE
-            .. " chain signchain post file hello.txt"
-            .. " --sign " .. KEY
+            ENV .. EXE .. " chain signchain post file hello.txt --sign " .. KEY
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -58,9 +52,7 @@ do
     do
         TEST "git verify-commit passes"
         local _, code = exec (
-            ENV
-            .. "git -C " .. REPO
-            .. " verify-commit HEAD"
+            ENV .. "git -C " .. REPO .. " verify-commit HEAD"
         )
         assert(code == 0, "verify-commit failed")
     end
