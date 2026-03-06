@@ -1,45 +1,43 @@
 #!/usr/bin/env lua5.4
 require "common"
 
-local GPGHOME = TMP .. "/gnupg/"
-local KEY_ID
+local GPG = TMP .. "/gnupg/"
+local KEY
 
 -- SETUP: generate ephemeral GPG key
 do
-    exec("rm -rf " .. GPGHOME)
-    exec("mkdir -p " .. GPGHOME)
-    exec("chmod 700 " .. GPGHOME)
+    exec("rm -rf " .. GPG)
+    exec("mkdir -p " .. GPG)
+    exec("chmod 700 " .. GPG)
 
-    local batch = GPGHOME .. "/keygen.batch"
+    local batch = GPG .. "/keygen.batch"
     local f = io.open(batch, "w")
-    f:write(
-        "%no-protection\n"
-        .. "Key-Type: eddsa\n"
-        .. "Key-Curve: ed25519\n"
-        .. "Name-Real: test\n"
-        .. "Name-Email: test@freechains\n"
-    )
+    f:write [[
+        %no-protection
+        Key-Type: eddsa
+        Key-Curve: ed25519
+        Name-Real: test
+        Name-Email: test@freechains
+    ]]
     f:close()
+    exec("gpg --homedir " .. GPG .. " --batch --gen-key " .. batch, true)
 
-    exec (
-        "gpg --homedir " .. GPGHOME
-        .. " --batch --gen-key " .. batch,
-        true
-    )
-
-    KEY_ID = exec (
-        "gpg --homedir " .. GPGHOME
+    KEY = exec (
+        "gpg --homedir " .. GPG
         .. " --list-keys --with-colons"
         .. " | grep '^fpr:' | head -1"
         .. " | cut -d: -f10"
     )
-    assert(#KEY_ID > 0, "keygen failed")
+    assert(#KEY > 0, "keygen failed")
 end
 
-local GPG_ENV = "GNUPGHOME=" .. GPGHOME .. " "
+local ENV = "GNUPGHOME=" .. GPG .. " "
+
 local REPO = ROOT .. "/chains/signchain/"
 
-exec(GPG_ENV .. EXE .. " chains add signchain lua " .. GEN)
+-- wait to avoid genesis hash collision with other tests
+os.execute("sleep 1")
+exec(ENV .. EXE .. " chains add signchain lua " .. GEN)
 
 -- SIGNED POST
 do
@@ -48,9 +46,9 @@ do
     do
         TEST "signed post succeeds"
         local out, code = exec (
-            GPG_ENV .. EXE
+            ENV .. EXE
             .. " chain signchain post file hello.txt"
-            .. " --sign " .. KEY_ID
+            .. " --sign " .. KEY
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -60,7 +58,7 @@ do
     do
         TEST "git verify-commit passes"
         local _, code = exec (
-            GPG_ENV
+            ENV
             .. "git -C " .. REPO
             .. " verify-commit HEAD"
         )
@@ -91,7 +89,7 @@ do
         f:write("unsigned content\n")
         f:close()
         local out, code = exec (
-            GPG_ENV .. EXE
+            ENV .. EXE
             .. " chain signchain post file " .. tmp
         )
         assert(code == 0, "exit code: " .. tostring(code))
@@ -112,6 +110,6 @@ do
 end
 
 -- TEARDOWN
-exec("rm -rf " .. GPGHOME)
+exec("rm -rf " .. GPG)
 
 print("<== ALL PASSED")

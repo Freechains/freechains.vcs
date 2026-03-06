@@ -189,15 +189,18 @@ elseif args.chain then
         end
 
         exec("git -C " .. repo .. " add " .. name)
-        local sign = ""
+
+        local s1, s2 = "", ""
         if args.sign then
-            sign = " -c user.signingkey=" .. args.sign
-                .. " -c gpg.format=openpgp -S"
+            s1 = " -c user.signingkey=" .. args.sign .. " -c gpg.format=openpgp"
+            s2 = " -S"
         end
+
         exec("git -C " .. repo
             .. ' -c user.name="-" -c user.email="-"'
-            .. sign
-            .. ' commit --allow-empty-message -m ""')
+            .. s1 .. ' commit' .. s2
+            .. ' --allow-empty-message -m ""')
+
         local hash = exec("git -C " .. repo .. " rev-parse HEAD")
         print(hash)
     end
