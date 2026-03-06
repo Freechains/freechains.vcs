@@ -168,16 +168,13 @@ elseif args.chain then
     local name
 
     if args.post then
-        if args.file then
-            name = args.path:match("[^/]+$")
-            exec("cp " .. args.path .. " " .. repo .. "/")
-        elseif args.inline then
+        if args.inline then     -- before ambiguous args.file
             local text = args.text
             if not text:match("\n$") then
                 text = text .. "\n"
             end
 
-            if args.file then
+            if args.file then   -- ambiguous with post file
                 name = args.file
                 local f = io.open(repo .. args.file, "a")
                 f:write(text)
@@ -191,6 +188,9 @@ elseif args.chain then
                 f:write(text)
                 f:close()
             end
+        elseif args.file then   -- after args.inline
+            name = args.path:match("[^/]+$")
+            exec("cp " .. args.path .. " " .. repo .. "/")
         end
 
         exec("git -C " .. repo .. " add " .. name)
