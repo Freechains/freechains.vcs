@@ -113,8 +113,7 @@ do
         )
         assert(code == 0, "exit code: " .. tostring(code))
         local content = exec("cat " .. REPO .. "/log.txt")
-        assert(content == "Line 1\nLine 2",
-            "content: " .. content)
+        assert(content == "Line 1\nLine 2\n", "content: " .. content)
     end
 end
 

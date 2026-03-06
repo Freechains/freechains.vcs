@@ -7,7 +7,8 @@ local argparse = require "argparse"
 function exec (cmd, stderr)
     local redir = stderr and "&2" or "/dev/null"
     local h = io.popen(cmd .. " 2>" .. redir)
-    local out = h:read("a"):match("^%s*(.-)%s*$")
+    local raw = h:read("a")
+    local out = raw:match("^([^\n]*)\n$") or raw
     local ok, _, code = h:close()
     if not ok then
         io.stderr:write (
@@ -156,9 +157,7 @@ if args.chains then
         local out = exec (
             "find " .. chains .. " -maxdepth 1 -type l -printf '%f\\n' | sort"
         )
-        if out ~= "" then
-            io.write(out .. "\n")
-        end
+        io.write(out)
     end
 elseif args.chain then
     local repo = args.root .. "/chains/" .. args.alias .. "/"

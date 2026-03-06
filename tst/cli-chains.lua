@@ -99,7 +99,7 @@ do
             EXE .. " chains dir"
         )
         assert(code == 0, "exit code: " .. tostring(code))
-        assert(out == "mychain\nother", "list: " .. out)
+        assert(out == "mychain\nother\n", "list: " .. out)
     end
 end
 
