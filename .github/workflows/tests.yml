@@ -15,4 +15,5 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y lua5.4 git
+          sudo apt-get install -y lua5.4 git libgit2-dev luarocks
+          sudo luarocks --lua-version=5.4 install lua-git2
