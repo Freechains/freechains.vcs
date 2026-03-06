@@ -169,3 +169,27 @@ free text, so a signed commit proves "key X signed this" but
 not "the author field is truthful".
 For Freechains, the signing key **is** the identity — the
 author/committer name/email are irrelevant metadata.
+
+## Implementation
+
+### Done
+
+- `src/freechains`: added `--sign <KEY_ID>` option to
+  `chain <alias> post file|inline` commands
+- When `--sign` is present, the git commit call adds
+  `-c user.signingkey=<KEY_ID> -c gpg.format=openpgp -S`
+- When absent, commit stays unsigned (current behavior)
+- `tst/cli-sign.lua`: tests with ephemeral GPG Ed25519 key
+    - signed post succeeds + returns valid hash
+    - `git verify-commit` passes on signed block
+    - `gpgsig` header present in commit object
+    - unsigned post still works (regression)
+    - unsigned commit has no `gpgsig` header
+- Verification happens at merge time (pre-merge-commit hook),
+  not as a separate command
+
+### Pending
+
+- Key management (`freechains keys` command)
+- Encryption (shared/sealed for private/personal chains)
+- Pre-merge-commit hook for signature verification
