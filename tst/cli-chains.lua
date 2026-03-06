@@ -8,7 +8,7 @@ do
     do
         TEST "success"
         local out, code = exec (
-            EXE .. " --root " .. ROOT .. " chains add mychain lua " .. GEN
+            EXE .. " chains add mychain lua " .. GEN
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -54,7 +54,7 @@ do
             f:close()
         end
         local _, code = exec (
-            EXE .. " --root " .. ROOT .. " chains add x lua " .. bad
+            EXE .. " chains add x lua " .. bad
         )
         assert(code ~= 0, "should fail")
     end
@@ -62,7 +62,7 @@ do
     do
         TEST "add args fails"
         local _, code = exec (
-            EXE .. " --root " .. ROOT .. " chains add x args --type '#'"
+            EXE .. " chains add x args --type '#'"
         )
         assert(code ~= 0, "should fail")
     end
@@ -70,7 +70,7 @@ do
     do
         TEST "add remote fails"
         local _, code = exec (
-            EXE .. " --root " .. ROOT .. " chains add x remote host hash"
+            EXE .. " chains add x remote host hash"
         )
         assert(code ~= 0, "should fail")
     end
@@ -83,7 +83,7 @@ do
     do
         TEST "dir one chain"
         local out, code = exec(
-            EXE .. " --root " .. ROOT .. " chains dir"
+            EXE .. " chains dir"
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(out == "mychain", "list: " .. out)
@@ -93,10 +93,10 @@ do
         TEST "dir two chains"
         os.execute("sleep 1")
         exec (
-            EXE .. " --root " .. ROOT .. " chains add other lua " .. GEN
+            EXE .. " chains add other lua " .. GEN
         )
         local out, code = exec(
-            EXE .. " --root " .. ROOT .. " chains dir"
+            EXE .. " chains dir"
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(out == "mychain\nother", "list: " .. out)
@@ -110,7 +110,7 @@ do
     do
         TEST "rem success"
         local _, code = exec (
-            EXE .. " --root " .. ROOT .. " chains rem mychain"
+            EXE .. " chains rem mychain"
         )
         assert(code == 0, "exit code: " .. tostring(code))
 
@@ -130,7 +130,7 @@ do
     do
         TEST "rem nonexistent fails"
         local _, code = exec (
-            EXE .. " --root " .. ROOT .. " chains rem nonexistent"
+            EXE .. " chains rem nonexistent"
         )
         assert(code ~= 0, "should fail")
     end
@@ -138,7 +138,7 @@ do
     do
         TEST "rem other"
         local _, code = exec (
-            EXE .. " --root " .. ROOT .. " chains rem other"
+            EXE .. " chains rem other"
         )
         assert(code == 0, "exit code: " .. tostring(code))
     end
@@ -146,7 +146,7 @@ do
     do
         TEST "dir empty after rem"
         local out, code = exec (
-            EXE .. " --root " .. ROOT .. " chains dir"
+            EXE .. " chains dir"
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(out == "", "list should be empty: " .. out)

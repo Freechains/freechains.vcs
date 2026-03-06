@@ -1,7 +1,7 @@
-EXE  = "../src/freechains"
 TMP  = "/tmp/freechains/"
 GEN  = "genesis.lua"
 ROOT = TMP .. "/root/"
+EXE  = "../src/freechains --root " .. ROOT
 
 function exec (cmd)
     local h = io.popen(cmd .. " 2>&1")

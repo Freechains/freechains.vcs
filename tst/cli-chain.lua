@@ -3,7 +3,7 @@ require "common"
 
 local REPO = ROOT .. "/chains/mychain/"
 
-exec(EXE .. " --root " .. ROOT .. " chains add mychain lua " .. GEN)
+exec(EXE .. " chains add mychain lua " .. GEN)
 
 -- POST FILE
 do
@@ -12,7 +12,7 @@ do
     do
         TEST "post file success"
         local out, code = exec (
-            EXE .. " --root " .. ROOT .. " chain mychain post file hello.txt"
+            EXE .. " chain mychain post file hello.txt"
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -43,8 +43,7 @@ do
         f:write("hello world updated\n")
         f:close()
         local hash2, code = exec (
-            EXE .. " --root " .. ROOT
-            .. " chain mychain post file " .. tmp
+            EXE .. " chain mychain post file " .. tmp
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(hash1 ~= hash2, "hashes should differ")
@@ -57,8 +56,7 @@ do
         f:write("second file\n")
         f:close()
         exec (
-            EXE .. " --root " .. ROOT
-            .. " chain mychain post file " .. tmp
+            EXE .. " chain mychain post file " .. tmp
         )
         local _, code1 = exec (
             "test -f " .. REPO .. "/hello.txt"
@@ -78,8 +76,7 @@ do
     do
         TEST "inline auto-name"
         local out, code = exec (
-            EXE .. " --root " .. ROOT
-            .. " chain mychain post inline 'Quick note'"
+            EXE .. " chain mychain post inline 'Quick note'"
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -94,21 +91,18 @@ do
     do
         TEST "inline --file creates file"
         local _, code = exec (
-            EXE .. " --root " .. ROOT
-            .. " chain mychain post inline 'Line 1'"
+            EXE .. " chain mychain post inline 'Line 1'"
             .. " --file log.txt"
         )
         assert(code == 0, "exit code: " .. tostring(code))
         local content = exec("cat " .. REPO .. "/log.txt")
-        assert(content == "Line 1",
-            "content: " .. content)
+        assert(content == "Line 1", "content: " .. content)
     end
 
     do
         TEST "inline --file appends"
         local _, code = exec (
-            EXE .. " --root " .. ROOT
-            .. " chain mychain post inline 'Line 2'"
+            EXE .. " chain mychain post inline 'Line 2'"
             .. " --file log.txt"
         )
         assert(code == 0, "exit code: " .. tostring(code))
@@ -126,8 +120,7 @@ do
         TEST "post to nonexistent chain fails"
         local tmp = TMP .. "/hello.txt"
         local _, code = exec (
-            EXE .. " --root " .. ROOT
-            .. " chain nochain post file " .. tmp
+            EXE .. " chain nochain post file " .. tmp
         )
         assert(code ~= 0, "should fail")
     end
