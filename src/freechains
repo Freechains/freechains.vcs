@@ -176,7 +176,7 @@ elseif args.chain then
 
             if args.file then   -- ambiguous with post file
                 name = args.file
-                local f = io.open(repo .. args.file, "a")
+                local f = io.open(repo .. args.file, "a")   -- appends
                 f:write(text)
                 f:close()
             else
@@ -184,7 +184,7 @@ elseif args.chain then
                     "printf '%s' '" .. args.text .. "' | git hash-object --stdin"
                 )
                 name = os.time() .. "-" .. hash:sub(1,8) .. ".txt"
-                local f = io.open(repo .. name, "w")
+                local f = io.open(repo .. name, "w")        -- truncates
                 f:write(text)
                 f:close()
             end
