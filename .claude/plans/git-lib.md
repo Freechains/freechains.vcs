@@ -9,38 +9,72 @@ gain programmatic control over git objects.
 
 ## Library choice
 
-| Library | Stars | Last update | Lua 5.4 | Luarocks |
-|---------|-------|-------------|---------|----------|
-| libgit2/luagit2 | 171 | Oct 2024 | unclear | `lua-git2` |
-| SatyendraBanjare/luagit2 | 16 | older | 5.3 only | yes |
-| luapower/libgit2 | — | older | LuaJIT | no |
+| Library             | Stars | Last update | Lua 5.4 | Luarocks   |
+|---------------------|-------|-------------|---------|------------|
+| libgit2/luagit2     | 171   | Oct 2024    | unclear | `lua-git2` |
+| SatyendraBanjare/.. | 16    | older       | 5.3     | yes        |
+| luapower/libgit2    | —     | older       | LuaJIT  | no         |
 
 **Pick: libgit2/luagit2** — official, most maintained, on luarocks.
 
+## Spike results
+
+### Lua 5.4 compatibility: CONFIRMED
+
+- `lua-git2 0.1-1` installs and loads under Lua 5.4.
+- Requires `libgit2-dev` system package.
+- `Repository.init`, `is_bare()`, `path()` all work.
+
+### API audit: binding is minimal
+
+Introspection of the installed binding revealed limited coverage.
+
+**Available classes:**
+`ODB`, `ODBBackend`, `OdbObject`, `Repository`, `Commit`, `Tree`,
+`TreeEntry`, `Blob`, `Tag`, `Reference`, `RevWalk`, `Index`,
+`IndexEntry`, `IndexEntryUnmerged`, `Config`, `Signature`, `OID`,
+`OID_Shorten`, `StrArray`, `Object`
+
+**Repository instance methods:**
+`head`, `is_bare`, `is_empty`, `head_unborn`, `head_detached`,
+`path`, `workdir`, `set_workdir`, `index`, `odb`, `set_odb`,
+`config`, `set_config`, `set_index`
+
+**Index instance methods:**
+`add_bypath`, `add`, `remove`, `write`, `read`, `read_tree`,
+`clear`, `find`, `entrycount`, `get_bypath`, `get_byindex`,
+`reuc_get_bypath`, `reuc_get_byindex`, `reuc_entrycount`
+
+**ODB class methods:** `new`, `open`, `hash`, `hashfile`
+**ODB instance methods:** `write`, `read`, `read_header`,
+`read_prefix`, `exists`, `add_backend`, `add_alternate`, `free`
+
+**MISSING (critical for Steps 2–3):**
+- `Index:write_tree()` — cannot convert index to tree OID
+- `TreeBuilder` — cannot build tree objects programmatically
+- `Commit.create` — exists but untested (no tree to pass it)
+
+**AVAILABLE (sufficient for Step 4):**
+- `ODB.hash(data, type)` — direct replacement for
+  `git hash-object --stdin`
+
+### Options for Steps 2–3
+
+1. **Minimal migration** — only replace `hash-object` (Step 4)
+   with `ODB.hash`; keep shell for init/add/commit
+2. **Raw object approach** — build tree/commit bytes manually
+   via `odb:write` (complex, error-prone)
+3. **Different library** — find a more complete Lua-git binding
+
 ## Command mapping
 
-| Current shell command | luagit2 API |
-|-----------------------------------------|----------------------------------------------|
-| `git init <path>` | `Repository.init(path, 1)` |
-| `git -C <repo> add <file>` | `repo:index():add_bypath(f)` + `idx:write()` |
-| `git -C <repo> commit ...` | `Commit.create(oid, repo, ref, author, ...)` |
-| `git -C <repo> rev-parse HEAD` | `repo:head():target()` (returns OID) |
-| `printf ... \| git hash-object --stdin` | `ODB.hash(data, "blob")` |
-
-## Pre-requisite: spike
-
-Before full migration, confirm Lua 5.4 compatibility:
-
-1. Install: `luarocks install lua-git2`
-2. Test script:
-   ```lua
-   local git2 = require("git2")
-   local repo = git2.Repository.init("/tmp/test-luagit2", 1)
-   print(repo:is_bare())
-   print(repo:path())
-   ```
-3. If it fails to build/load under 5.4, evaluate patching or
-   pinning Lua 5.3.
+| Current shell command                   | luagit2 API                   | Status  |
+|-----------------------------------------|-------------------------------|---------|
+| `git init <path>`                       | `Repository.init(path, 0)`    | works   |
+| `git -C <repo> add <file>`             | `idx:add_bypath(f)` + write   | works   |
+| `git -C <repo> commit ...`             | blocked (no write_tree)       | blocked |
+| `git -C <repo> rev-parse HEAD`         | blocked (no write_tree)       | blocked |
+| `printf .. \| git hash-object --stdin` | `ODB.hash(data, "blob")`     | pending |
 
 ## Migration steps
 
@@ -134,17 +168,19 @@ These remain as shell or get replaced with Lua/lfs:
 
 ## Risks
 
-- **Lua 5.4 compat**: C binding may need rebuild or patches.
-- **Index:write_tree()**: not visible in docs — may need
-  alternative approach to build tree OID.
-- **Commit.create signature**: more verbose than shell; parent
-  list handling for genesis (no parents) vs posts (1 parent)
-  needs testing.
+- ~~**Lua 5.4 compat**: confirmed working.~~
+- **Index:write_tree()**: CONFIRMED MISSING — binding does not
+  expose this method.
+  Blocks commit creation via the index path.
+- **Commit.create signature**: untested — cannot reach this
+  step without a tree object.
 - **Bare vs non-bare**: chains are bare repos but `chains add`
-  currently uses non-bare init (working tree needed for
-  add/commit).
-  Migration may need to handle this differently with
-  libgit2's bare repo + manual tree/blob creation.
+  currently uses non-bare init.
+  Moot until commit creation is unblocked.
+- **Binding completeness**: lua-git2 0.1-1 wraps only a subset
+  of libgit2.
+  Full init/add/commit migration requires either raw object
+  construction or a more complete binding.
 
 ## Verification
 
@@ -153,11 +189,28 @@ cd tst && LUA_PATH="../src/?.lua;;" lua5.4 cli-chains.lua
 cd tst && LUA_PATH="../src/?.lua;;" lua5.4 cli-chain.lua
 ```
 
+## Decision: ABANDONED — keep git CLI
+
+The lua-git2 binding (0.1-1) is too incomplete for the core
+operations (init/add/commit).
+The only feasible replacement is `ODB.hash` for `hash-object`,
+which is not worth the added C dependency (`libgit2-dev`).
+
+**Rationale:**
+- `Index:write_tree()` and `TreeBuilder` are missing — blocks
+  commit creation entirely
+- Raw object construction via `odb:write` is complex and fragile
+- Git CLI already works, is fully featured, and has no extra deps
+- Subprocess overhead is negligible for this use case
+
+**Action items:**
+- [x] Revert Step 1 changes (CI + require) — pending
+
 ## Status
 
-- [ ] Spike: confirm lua-git2 works with Lua 5.4
-- [ ] Step 1: add dependency
-- [ ] Step 2: migrate `chains add`
-- [ ] Step 3: migrate `chain post`
-- [ ] Step 4: migrate `hash-object`
-- [ ] Step 5: evaluate non-git shell commands
+- [x] Spike: confirm lua-git2 works with Lua 5.4
+- [x] Step 1: add dependency (to be reverted)
+- [~] Step 2: migrate `chains add` — blocked, abandoned
+- [~] Step 3: migrate `chain post` — blocked, abandoned
+- [~] Step 4: migrate `hash-object` — feasible but not worth it
+- [~] Step 5: evaluate non-git shell commands — separate concern
