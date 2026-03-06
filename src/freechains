@@ -108,7 +108,22 @@ if args.chains then
                 os.exit(1)
             end
 
-            local tmp = chains .. "/tmp-" .. os.time() .. "/"
+            if io.open(chains.."/"..args.alias) then
+                io.stderr:write (
+                    "ERROR: alias already exists: " .. args.alias .. "\n"
+                )
+                os.exit(1)
+            end
+
+            local tmp
+            local t = os.time()
+            while true do
+                tmp = chains .. "/tmp-" .. t .. "/"
+                if not io.open(tmp .. ".") then
+                    break
+                end
+                t = t + 1
+            end
 
             exec("git init " .. tmp)
             exec("cp " .. args.path .. " " .. tmp .. "/.genesis.lua")
@@ -120,7 +135,13 @@ if args.chains then
             local hash = exec("git -C " .. tmp .. " rev-parse HEAD")
 
             local final = chains .. "/" .. hash
-            os.rename(tmp, final)
+            if not os.rename(tmp, final) then
+                exec("rm -rf " .. tmp)
+                io.stderr:write (
+                    "ERROR: chain already exists: " .. hash .. "\n"
+                )
+                os.exit(1)
+            end
             exec("ln -s " .. hash .. "/ " .. chains .. "/" .. args.alias)
 
             print(hash)
