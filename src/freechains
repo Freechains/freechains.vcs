@@ -178,7 +178,7 @@ elseif args.chain then
                 f:close()
             else
                 local hash = exec (
-                    "printf '%s' '" .. args.text
+                    "printf '%s' '" .. text
                     .. "' | git hash-object --stdin"
                 )
                 name = os.time() .. "-" .. hash:sub(1,8) .. ".txt"
