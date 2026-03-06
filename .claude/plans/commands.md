@@ -3,9 +3,9 @@
 | Freechains Command | Git Equivalent | Match (1–5) | Notes |
 |---|---|---|---|
 | `freechains-host start <dir>` | `git init` + `git daemon` | 3 | init is close; daemon is a separate persistent process |
-| `freechains chains add <alias> args [--flags]` | `git init --bare` + raw genesis commit | 3 | create chain from CLI flags |
-| `freechains chains add <alias> lua <file>` | `git init --bare` + raw genesis commit | 3 | create chain from Lua genesis file |
-| `freechains chains add <alias> remote <host> <hash-or-alias>` | `git clone --bare` | 4 | clone existing chain from peer |
+| `freechains chains add <alias> args [--flags]` | `git init` + genesis commit | 3 | create chain from CLI flags |
+| `freechains chains add <alias> lua <file>` | `git init` + genesis commit | 3 | create chain from Lua genesis file |
+| `freechains chains add <alias> remote <host> <hash-or-alias>` | `git clone` | 4 | clone existing chain from peer |
 | `freechains chains rem <alias>` | delete local repo + symlink | 3 | git has no single command for this |
 | `freechains chains list` | `ls` of symlinks in `chains/` | 3 | no native multi-repo listing in git |
 | `freechains chain <n> genesis` | `git rev-list --max-parents=0 HEAD` | 4 | finding root commit, very close |

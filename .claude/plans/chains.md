@@ -118,7 +118,7 @@ Aliases are symlinks in the `chains/` directory:
 
 ```
 <root>/chains/
-  <genesis-hash>/     bare git repo
+  <genesis-hash>/     git repo (working tree)
   #sports -> <hash>/  symlink alias
   $family -> <hash>/  symlink alias
   @me     -> <hash>/  symlink alias

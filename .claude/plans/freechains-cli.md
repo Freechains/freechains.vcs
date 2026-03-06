@@ -202,7 +202,7 @@ Single Lua script with:
 
 ### `chains add` (remote)
 
-1. `git clone --bare <host>/<hash-or-alias> <root>/chains/<tmp>/`
+1. `git clone <host>/<hash-or-alias> <root>/chains/<tmp>/`
 2. Read genesis hash from `git rev-list --max-parents=0 HEAD`
 3. Rename repo dir to `<root>/chains/<hash>/`
 4. Create symlink `<root>/chains/<alias> -> <hash>/`
@@ -211,7 +211,7 @@ Single Lua script with:
 ### `chains rem`
 
 1. Resolve symlink target
-2. `rm -rf` the bare repo
+2. `rm -rf` the chain repo
 3. Remove the symlink
 
 ### `chains dir`

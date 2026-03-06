@@ -30,7 +30,12 @@ Each section below has its own detailed plan file.
 
 ### Git as the Database — [git.md](git.md)
 
-Chain = Repository (not branch). Each chain is its own bare git repo. Data model: block = commit, payload = blob, fork/merge = merge commit. Consensus via `git log --date-order`. Merge after every sync (single HEAD model). Sync-only merge commits marked with `freechains-sync: true` extra header.
+Chain = Repository (not branch). Each chain is its own git repo
+(currently working trees, not bare). Data model: block = commit,
+payload = blob, fork/merge = merge commit. Consensus via
+`git log --date-order`. Merge after every sync (single HEAD
+model). Sync-only merge commits marked with
+`freechains-sync: true` extra header.
 
 ### Chains — [chains.md](chains.md)
 
@@ -54,7 +59,10 @@ Companion store for computed state: consensus cache and reputation checkpoints. 
 
 ### Filesystem Layout — [layout.md](layout.md)
 
-Host = directory with `config/` (git repo) + `chains/` (bare git repos). Config holds keys and settings. Chains hold one bare repo per chain with symlink aliases (`@pubkey`, `#topic`, `$private`). XDG-compliant defaults.
+Host = directory with `config/` (git repo) + `chains/` (git
+repos, currently working trees). Config holds keys and settings.
+Chains hold one repo per chain with symlink aliases (`@pubkey`,
+`#topic`, `$private`). XDG-compliant defaults.
 
 ### Replication — [replication.md](replication.md)
 

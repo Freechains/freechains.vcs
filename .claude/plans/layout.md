@@ -12,8 +12,8 @@ A Freechains host is a directory with two top-level subdirectories, each backed 
       <pubkey>.key                  <- encrypted private key
     config.toml                     <- host port, default peers, key to use
     peers.toml                      <- known peers registry
-  chains/                           <- contains bare git repos (one per chain)
-    <chain-hash>/                   <- bare git repo (DAG + blocks)
+  chains/                           <- one git repo per chain
+    <chain-hash>/                   <- git working tree (DAG + blocks)
     <chain-hash>.db                 <- SQLite cache (consensus + rep checkpoint)
     @francisco -> <chain-hash>/     <- symlink alias (human-readable name)
     #sports    -> <chain-hash>/     <- symlink alias
@@ -26,7 +26,9 @@ A standard git working tree containing configuration and key material. Not a fre
 
 ### chains/
 
-Contains one bare git repo per chain. Each chain is an independent repository. Symlinks provide human-readable aliases.
+Contains one git repo per chain (currently working trees, not
+bare repos). Each chain is an independent repository. Symlinks
+provide human-readable aliases.
 
 ## Replication Model
 
@@ -68,12 +70,16 @@ Symlinks give human-readable names while actual storage is content-addressed, mi
 | `#<topic>` | Public topic chain |
 | `$<name>` | Private shared chain |
 
-The `.db` SQLite file sits adjacent to its bare repo — easy to identify, easy to delete and rebuild for a specific chain without touching others. If the `.db` is deleted, it can be fully reconstructed by replaying the git history in the adjacent repo.
+The `.db` SQLite file sits adjacent to its chain repo — easy to
+identify, easy to delete and rebuild for a specific chain
+without touching others. If the `.db` is deleted, it can be
+fully reconstructed by replaying the git history in the adjacent
+repo.
 
 ## XDG Mapping (per-user default)
 
 ```
 ~/.local/share/freechains/        <- XDG_DATA_HOME
   config/                          <- git repo
-  chains/                          <- bare git repos
+  chains/                          <- git repos (one per chain)
 ```
