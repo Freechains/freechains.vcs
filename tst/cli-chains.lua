@@ -24,7 +24,7 @@ do
         assert(type(t) == "table")
         assert(t.version and t.version[1]==1 and t.version[2]==2 and t.version[3]==3)
         assert(t.type == "#")
-        assert(t.app == "free form")
+        assert(t.name == "A forum")
 
         TEST "alias -> hash"
         local lnk = exec("readlink " .. REPO)
@@ -91,6 +91,7 @@ do
 
     do
         TEST "dir two chains"
+        os.execute("sleep 1")
         exec (
             EXE .. " --root " .. ROOT .. " chains add other lua " .. GEN
         )

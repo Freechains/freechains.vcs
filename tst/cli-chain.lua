@@ -21,9 +21,8 @@ do
 
     do
         TEST "posted file in tree"
-        local content = exec("cat " .. REPO .. "/hello.txt")
-        assert(content == "hello world",
-            "content: " .. content)
+        local v = io.open(REPO .. "/hello.txt"):read'*a'
+        assert(v=="Hello World!\n", "content: " .. v)
     end
 
     do
