@@ -91,7 +91,7 @@ do
 
     do
         TEST "dir two chains"
-        os.execute("sleep 1")
+        os.execute("sleep 1")   -- prevents hash collisions
         exec (
             EXE .. " chains add other lua " .. GEN
         )
