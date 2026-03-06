@@ -11,12 +11,8 @@ do
 
     do
         TEST "post file success"
-        local tmp = TMP .. "/hello.txt"
-        local f = io.open(tmp, "w")
-        f:write("hello world\n")
-        f:close()
         local out, code = exec (
-            EXE .. " --root " .. ROOT .. " chain mychain post file " .. tmp
+            EXE .. " --root " .. ROOT .. " chain mychain post file hello.txt"
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
