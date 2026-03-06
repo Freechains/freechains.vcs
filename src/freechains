@@ -72,9 +72,7 @@ do
 
     -- cmd.chains.rem
     cmd.chains.rem._ = cmd.chains._:command("rem")
-    do
-        cmd.chains.rem._:argument("alias")
-    end
+    cmd.chains.rem._:argument("alias")
 
     -- cmd.chains.dir
     cmd.chains.dir._ = cmd.chains._:command("dir")
@@ -86,6 +84,7 @@ do
 
     -- cmd.chain.post
     cmd.chain.post._ = cmd.chain._:command("post")
+    cmd.chain.post._:option("--sign")
     do
         -- cmd.chain.post.file
         cmd.chain.post.file._ = cmd.chain.post._:command("file")
@@ -190,8 +189,14 @@ elseif args.chain then
         end
 
         exec("git -C " .. repo .. " add " .. name)
+        local sign = ""
+        if args.sign then
+            sign = " -c user.signingkey=" .. args.sign
+                .. " -c gpg.format=openpgp -S"
+        end
         exec("git -C " .. repo
             .. ' -c user.name="-" -c user.email="-"'
+            .. sign
             .. ' commit --allow-empty-message -m ""')
         local hash = exec("git -C " .. repo .. " rev-parse HEAD")
         print(hash)
