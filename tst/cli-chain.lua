@@ -87,11 +87,10 @@ do
             TEST "inline auto-name - filename matches blob"
             local f1 = files:match("[^/]+$")
             local f2 = f1:match("%-(%x+)%.txt$")
-            local blob_hash = exec (
-                "git -C " .. REPO .. " hash-object " .. f1
-            )
-            assert(f2 == blob_hash:sub(1, 8),
-                "hash mismatch: " .. f2 .. " ~= " .. blob_hash:sub(1, 8))
+            local h1 = exec("git -C " .. REPO .. " hash-object " .. f1)
+            local h2 = exec("git -C " .. REPO .. " rev-parse HEAD:" .. f1)
+            assert(f2 == h1:sub(1, 8), "file mismatch")
+            assert(f2 == h2:sub(1, 8), "tree mismatch")
         end
     end
 

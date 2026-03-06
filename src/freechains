@@ -178,8 +178,7 @@ elseif args.chain then
                 f:close()
             else
                 local hash = exec (
-                    "printf '%s' '" .. text
-                    .. "' | git hash-object --stdin"
+                    "printf '%s' '" .. text .. "' | git hash-object --stdin"
                 )
                 name = os.time() .. "-" .. hash:sub(1,8) .. ".txt"
                 local f = io.open(repo .. name, "w")        -- truncates
