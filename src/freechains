@@ -3,7 +3,6 @@
 local VERSION = "v0.20"
 
 local argparse = require "argparse"
-local git2 = require "git2"
 
 function exec (cmd)
     local h = io.popen(cmd .. " 2>&1")
