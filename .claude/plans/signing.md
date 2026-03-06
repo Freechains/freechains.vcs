@@ -64,18 +64,18 @@ Source: [frank.sauerburger.io](https://frank.sauerburger.io/2018/11/07/security-
 
 ## Comparison table (corrected)
 
-|                          | Git                     | Freechains          |
-|--------------------------|-------------------------|---------------------|
-| Signing                  | Optional (GPG/SSH)      | Structural          |
-| Key management           | External (`gpg`)        | Built-in or GPG     |
-| Identity                 | Email + key, loose      | Public key = ID     |
-| Unsigned content         | Fully valid             | Valid on `#` chains |
-| Signature affects hash   | **yes** (via `gpgsig`)  | yes                 |
-| Impersonation difficulty | Trivial (free text)     | Impossible          |
+|                          | Git                    | Freechains          |
+|--------------------------|------------------------|---------------------|
+| Signing                  | Optional (GPG/SSH)     | Structural          |
+| Key management           | External (`gpg`)       | Built-in or GPG     |
+| Identity                 | Email + key, loose     | Public key = ID     |
+| Unsigned content         | Fully valid            | Valid on `#` chains |
+| Signature affects hash   | **yes** (via `gpgsig`) | yes                 |
+| Impersonation difficulty | Trivial (free text)    | Impossible          |
 
 ## Options for Freechains
 
-### Option A: Standard GPG signing (recommended)
+### Option A: Standard GPG signing (chosen)
 
 Use `git commit -S` with GPG keys.
 
@@ -95,21 +95,7 @@ Use `git commit -S` with GPG keys.
 - Author/committer fields are still free text (but the sig
   binds them to a key)
 
-**Flow:**
-```
-git commit -S -c user.signingkey=<KEY_ID> ...
-```
-
-**Verification:**
-```
-git verify-commit <hash>
-```
-
-**Key storage:**
-Keys live in `<host>/config/keys/` as GPG exports, imported
-into the local keyring on use.
-
-### Option B: Extra headers (original plan, abandoned)
+### Option B: Extra headers (abandoned)
 
 Embed `freechains-pubkey` and `freechains-sig` as custom
 headers in the commit object.
@@ -127,7 +113,7 @@ headers in the commit object.
 - Fragile, complex, non-standard
 - Breaks `git log`, `git verify-commit`, and other tooling
 
-### Option C: Commit message (fallback)
+### Option C: Commit message (abandoned)
 
 Embed pubkey and signature in the commit message body.
 
@@ -169,3 +155,95 @@ free text, so a signed commit proves "key X signed this" but
 not "the author field is truthful".
 For Freechains, the signing key **is** the identity — the
 author/committer name/email are irrelevant metadata.
+
+## Implementation plan: `chain post --sign`
+
+### Scope
+
+- Only `chain <n> post file/inline` — not `chains add`
+  (genesis)
+- No chain-type enforcement yet (signing optional for all
+  types; type-based requirements come later)
+- Assumes keys already in user's GPG keyring
+
+### 1. Argparse: add `--sign` to `post`
+
+```lua
+cmd.chain.post._:option("--sign")
+```
+
+### 2. Extract name/email from GPG key UID
+
+When `args.sign` is provided, query GPG for the key's UID:
+
+```lua
+local uid = exec(
+    "gpg --list-keys --with-colons " .. args.sign
+    .. " | grep uid | head -1 | cut -d: -f10"
+)
+local name = uid:match("^(.-)%s*<") or uid
+local email = uid:match("<(.-)>") or "-"
+```
+
+### 3. Modify `git commit` call
+
+```lua
+local sign = args.sign and (" -S" .. args.sign) or ""
+local author = args.sign
+    and (' -c user.name="' .. name
+         .. '" -c user.email="' .. email .. '"')
+    or  ' -c user.name="-" -c user.email="-"'
+
+exec("git -C " .. repo
+    .. author .. sign
+    .. ' commit --allow-empty-message -m ""')
+```
+
+- `-S<key>` triggers GPG signing
+- `user.name` / `user.email` from GPG UID
+- Without `--sign`: keeps current `"-"` / `"-"`
+
+### 4. Tests
+
+**Setup:** generate a throwaway GPG Ed25519 key:
+
+```lua
+exec("gpg --batch --gen-key <<EOF\n"
+    .. "Key-Type: eddsa\n"
+    .. "Key-Curve: ed25519\n"
+    .. "Key-Usage: sign\n"
+    .. "Name-Real: Test User\n"
+    .. "Name-Email: test@freechains.org\n"
+    .. "%no-protection\n"
+    .. "EOF")
+```
+
+**Test cases:**
+- `post file --sign <key>` succeeds
+- Commit has `gpgsig` header (`git cat-file -p HEAD`)
+- Author name = "Test User"
+- Author email = "test@freechains.org"
+- `git verify-commit HEAD` succeeds
+- `post file` without `--sign` still works (no signature)
+
+**Cleanup:** remove test key after tests.
+
+### Files
+
+- `src/freechains` — argparse + commit logic
+- `tst/cli-chain.lua` — signing tests
+
+### Future
+
+- Chain-type enforcement: `@`/`@!` require `--sign`,
+  `#` optional, `$` TBD
+- `chains add --sign` for signed genesis
+- Verification on replication (`git verify-commit` on
+  incoming blocks)
+
+### Status
+
+- [ ] Add `--sign` option to argparse
+- [ ] Extract GPG UID (name/email)
+- [ ] Modify `git commit` call
+- [ ] Tests
