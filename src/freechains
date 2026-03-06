@@ -65,7 +65,7 @@ do
         -- cmd.chains.add.lua
         cmd.chains.add._:argument("alias")
         cmd.chains.add.lua._ = cmd.chains.add._:command("lua")
-        cmd.chains.add.lua._:argument("file")
+        cmd.chains.add.lua._:argument("path")
     end
 
     -- cmd.chains.rem
@@ -102,7 +102,7 @@ if args.chains then
     local chains = args.root .. "/chains/"
     if args.add then
         if args.lua then
-            local genesis = dofile(args.file)
+            local genesis = dofile(args.path)
             if type(genesis) ~= "table" then
                 io.stderr:write("ERROR: file must return a table\n")
                 os.exit(1)
@@ -111,7 +111,7 @@ if args.chains then
             local tmp = chains .. "/tmp-" .. os.time() .. "/"
 
             exec("git init " .. tmp)
-            exec("cp " .. args.file .. " " .. tmp .. "/.genesis.lua")
+            exec("cp " .. args.path .. " " .. tmp .. "/.genesis.lua")
             exec("git -C " .. tmp .. " add .genesis.lua")
             exec("git -C " .. tmp
                 .. ' -c user.name="-" -c user.email="-"'
@@ -149,7 +149,7 @@ elseif args.chain then
     if args.post then
         if args.file then
             name = args.path:match("[^/]+$")
-            exec("cp " .. args.file .. " " .. repo .. "/")
+            exec("cp " .. args.path .. " " .. repo .. "/")
         elseif args.inline then
             local text = args.text
             if not text:match("\n$") then
