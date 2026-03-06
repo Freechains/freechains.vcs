@@ -5,7 +5,7 @@ local VERSION = "v0.20"
 local argparse = require "argparse"
 
 function exec (cmd, stderr)
-    local redir = stderr and "&2" or "/dev/null"
+    local redir = stderr and "&1" or "/dev/null"
     local h = io.popen(cmd .. " 2>" .. redir)
     local raw = h:read("a")
     local out = raw:match("^([^\n]*)\n$") or raw

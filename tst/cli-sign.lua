@@ -1,12 +1,8 @@
 #!/usr/bin/env lua5.4
 require "common"
 
-local GPG     = TMP .. "/gnupg/"
-local ENV     = "GNUPGHOME=" .. GPG
-local ENV_EXE = ENV .. " " .. EXE
-local REPO    = ROOT .. "/chains/signchain/"
+local REPO = ROOT .. "/chains/cli-sign/"
 local KEY
-
 
 -- SETUP: generate ephemeral GPG key
 do
@@ -34,7 +30,7 @@ do
 end
 
 os.execute("sleep 1")   -- prevents hash collisions
-exec(ENV_EXE .. " chains add signchain lua " .. GEN)
+exec(ENV_EXE .. " chains add cli-sign lua " .. GEN)
 
 -- SIGNED POST
 do
@@ -43,7 +39,7 @@ do
     do
         TEST "signed post succeeds"
         local out, code = exec (
-            ENV_EXE .. " chain signchain post file hello.txt --sign " .. KEY
+            ENV_EXE .. " chain cli-sign post file hello.txt --sign " .. KEY
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -52,22 +48,20 @@ do
 
     do
         TEST "git verify-commit passes"
-        local _, code = exec (
-            ENV .. " git -C " .. REPO .. " verify-commit HEAD"
+        local out, code = exec (
+            ENV .. " git -C " .. REPO .. " verify-commit HEAD",
+            true
         )
         assert(code == 0, "verify-commit failed")
+        assert(out:match('Good signature from "test <test@freechains>"'))
     end
 
     do
         TEST "gpgsig header present"
-        local raw = exec (
-            "git -C " .. REPO
-            .. " cat-file commit HEAD"
+        local out = exec (
+            "git -C " .. REPO .. " cat-file commit HEAD"
         )
-        assert(
-            raw:match("gpgsig"),
-            "gpgsig header missing"
-        )
+        assert(out:match("gpgsig"), "gpgsig header missing")
     end
 end
 
@@ -82,7 +76,7 @@ do
         f:write("unsigned content\n")
         f:close()
         local out, code = exec (
-            ENV_EXE .. " chain signchain post file " .. tmp
+            ENV_EXE .. " chain cli-sign post file " .. tmp
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -91,13 +85,9 @@ do
     do
         TEST "unsigned commit has no gpgsig"
         local raw = exec (
-            "git -C " .. REPO
-            .. " cat-file commit HEAD"
+            "git -C " .. REPO .. " cat-file commit HEAD"
         )
-        assert(
-            not raw:match("gpgsig"),
-            "gpgsig should be absent"
-        )
+        assert(not raw:match("gpgsig"), "gpgsig should be absent")
     end
 end
 
