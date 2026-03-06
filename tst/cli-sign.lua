@@ -1,9 +1,10 @@
 #!/usr/bin/env lua5.4
 require "common"
 
-local GPG  = TMP .. "/gnupg/"
-local ENV  = "GNUPGHOME=" .. GPG .. " "
-local REPO = ROOT .. "/chains/signchain/"
+local GPG     = TMP .. "/gnupg/"
+local ENV     = "GNUPGHOME=" .. GPG
+local ENV_EXE = ENV .. " " .. EXE
+local REPO    = ROOT .. "/chains/signchain/"
 local KEY
 
 
@@ -33,7 +34,7 @@ do
 end
 
 os.execute("sleep 1")   -- prevents hash collisions
-exec(ENV .. EXE .. " chains add signchain lua " .. GEN)
+exec(ENV_EXE .. " chains add signchain lua " .. GEN)
 
 -- SIGNED POST
 do
@@ -42,7 +43,7 @@ do
     do
         TEST "signed post succeeds"
         local out, code = exec (
-            ENV .. EXE .. " chain signchain post file hello.txt --sign " .. KEY
+            ENV_EXE .. " chain signchain post file hello.txt --sign " .. KEY
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -52,7 +53,7 @@ do
     do
         TEST "git verify-commit passes"
         local _, code = exec (
-            ENV .. "git -C " .. REPO .. " verify-commit HEAD"
+            ENV .. " git -C " .. REPO .. " verify-commit HEAD"
         )
         assert(code == 0, "verify-commit failed")
     end
@@ -81,8 +82,7 @@ do
         f:write("unsigned content\n")
         f:close()
         local out, code = exec (
-            ENV .. EXE
-            .. " chain signchain post file " .. tmp
+            ENV_EXE .. " chain signchain post file " .. tmp
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
