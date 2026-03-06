@@ -80,11 +80,7 @@ do
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
-        local h = io.popen (
-            "ls " .. REPO .. "/*-*.txt 2>/dev/null"
-        )
-        local files = h:read("a")
-        h:close()
+        local files = exec("ls " .. REPO .. "/*-*.txt")
         assert(files ~= "", "auto-named file missing")
 
         do
