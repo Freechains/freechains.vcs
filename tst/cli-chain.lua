@@ -80,12 +80,24 @@ do
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
-        local h = io.popen(
+        local h = io.popen (
             "ls " .. REPO .. "/*-*.txt 2>/dev/null"
         )
         local files = h:read("a")
         h:close()
         assert(files ~= "", "auto-named file missing")
+
+        do
+            TEST "inline auto-name - filename matches blob"
+            local fname = files:match("([^/]+)\n?$")
+print('.'..files..'.', '.'..fname..'.')
+            local prefix = fname:match("%-(%x+)%.txt$")
+            local blob_hash = exec (
+                "git -C " .. REPO .. " hash-object " .. fname
+            )
+            assert(prefix == blob_hash:sub(1, 8),
+                "hash mismatch: " .. prefix .. " ~= " .. blob_hash:sub(1, 8))
+        end
     end
 
     do
