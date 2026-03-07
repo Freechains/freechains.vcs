@@ -1,15 +1,17 @@
 #!/usr/bin/env lua5.4
 require "common"
 
-local ROOT_A = ROOT
-local ROOT_B = TMP .. "/root-B/"
-local EXE_A  = ENV_EXE
+local ROOT_A = ROOT .. "/repl-local/A/"
+local ROOT_B = ROOT .. "/repl-local/B/"
+
+local EXE_A  = ENV .. " ../src/freechains --root " .. ROOT_A
 local EXE_B  = ENV .. " ../src/freechains --root " .. ROOT_B
 
-local REPO_A = ROOT_A .. "/chains/repl-local/"
+local REPO_A = ROOT_A .. "/chains/test/"
+local REPO_B = ROOT_B .. "/chains/test/"
 
--- SETUP: host B root
-exec("mkdir -p " .. ROOT_B .. "/chains")
+exec("mkdir -p " .. ROOT_A)
+exec("mkdir -p " .. ROOT_B)
 
 -- HOST A: create chain + post
 local CHAIN_HASH
@@ -21,7 +23,7 @@ do
     do
         TEST "chain created"
         CHAIN_HASH = exec (
-            EXE_A .. " chains add repl-local lua " .. GEN
+            EXE_A .. " chains add test lua " .. GEN
         )
         assert(#CHAIN_HASH == 40, "hash: " .. CHAIN_HASH)
         assert(CHAIN_HASH:match("^%x+$"), "not hex")
@@ -31,15 +33,12 @@ do
         TEST "post on A"
         local out = exec (
             EXE_A
-            .. " chain repl-local post inline 'post from A'"
+            .. " chain test post inline 'post from A'"
         )
         assert(#out == 40, "hash: " .. out)
         assert(out:match("^%x+$"), "not hex")
     end
 end
-
--- HOST B: clone chain from A + post
-local REPO_B = ROOT_B .. "/chains/" .. CHAIN_HASH .. "/"
 
 do
     print("==> Host B: clone chain + post")
@@ -49,8 +48,10 @@ do
         exec (
             "git clone " .. REPO_A .. " " .. REPO_B
         )
+        print("ln -s " .. CHAIN_HASH .. "/ " .. ROOT_B .. "/chains/test")
+error'ok'
         exec (
-            "ln -s " .. CHAIN_HASH .. "/ " .. ROOT_B .. "/chains/repl-local"
+            "ln -s " .. CHAIN_HASH .. "/ " .. ROOT_B .. "/chains/test"
         )
     end
 
@@ -77,7 +78,7 @@ do
         TEST "post on B"
         local out = exec (
             EXE_B
-            .. " chain repl-local post inline 'post from B'"
+            .. " chain test post inline 'post from B'"
         )
         assert(#out == 40, "hash: " .. out)
         assert(out:match("^%x+$"), "not hex")
@@ -118,14 +119,13 @@ do
 
     do
         TEST "both post files present in A"
-        local found_a, found_b = false, false
-        local h = io.popen("cat " .. REPO_A .. "/*.txt")
-        local all = h:read("a")
+        local a, b = false, false
+        local h = io.open(REPO_A .. "/*.txt"):read'*a'
         h:close()
-        found_a = all:match("post from A") ~= nil
-        found_b = all:match("post from B") ~= nil
-        assert(found_a, "A's post content missing")
-        assert(found_b, "B's post content missing")
+        a = all:match("post from A") ~= nil
+        b = all:match("post from B") ~= nil
+        assert(a, "A's post content missing")
+        assert(b, "B's post content missing")
     end
 end
 
@@ -139,7 +139,7 @@ do
 
     os.execute("sleep 1")
     local hash_c = exec(
-        EXE_C .. " chains add repl-local lua " .. GEN
+        EXE_C .. " chains add test lua " .. GEN
     )
     assert(hash_c ~= CHAIN_HASH, "should differ")
 
