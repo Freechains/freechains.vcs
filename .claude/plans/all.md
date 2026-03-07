@@ -34,8 +34,8 @@ Chain = Repository (not branch). Each chain is its own git repo
 (currently working trees, not bare). Data model: block = commit,
 payload = blob, fork/merge = merge commit. Consensus via
 `git log --date-order`. Merge after every sync (single HEAD
-model). Sync-only merge commits marked with
-`freechains-sync: true` extra header.
+model). Sync marker strategy for sync-only merge commits is
+deferred.
 
 ### Chains — [chains.md](chains.md)
 
@@ -47,7 +47,8 @@ Full mapping of all `freechains` CLI commands to git equivalents. Match scores f
 
 ### Signing — [signing.md](signing.md)
 
-Git signing is outside the hash (fragile for trustless systems). Freechains embeds signature inside the hash via extra headers (`freechains-pubkey`, `freechains-sig`). Public key **is** the identity.
+Standard GPG signing via `git commit -S`. The `gpgsig` header
+is inside the commit hash. Public key **is** the identity.
 
 ### Network — [network.md](network.md)
 
@@ -66,7 +67,7 @@ Chains hold one repo per chain with symlink aliases (`@pubkey`,
 
 ### Replication — [replication.md](replication.md)
 
-Two trust levels. Owner peers sync both `config/` and `chains/` as-is via git push/pull. Non-owner peers sync only `chains/`, filtered through freechains rules (reputation, consensus, block validation). Config is never shared with non-owners.
+Two trust levels. Owner peers sync both `config/` and `chains/` as-is via git push/fetch+merge. Non-owner peers sync only `chains/`, filtered through freechains rules (reputation, consensus, block validation). Config is never shared with non-owners.
 
 ### Genesis Block — [genesis.md](genesis.md)
 

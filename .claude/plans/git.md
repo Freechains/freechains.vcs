@@ -51,7 +51,9 @@ This is a behavioral difference from original Freechains, but actually a **simpl
 - The DAG structure is preserved — the merge commit has multiple parents just like a Freechains block
 - Consensus traversal starts from a single, unambiguous HEAD rather than finding and reconciling multiple heads
 
-The tradeoff: sync-only merge commits carry no payload. These should be marked with a `freechains-sync: true` extra header so the consensus algorithm can skip them when computing the content list.
+The tradeoff: sync-only merge commits carry no payload.
+The strategy for marking sync-only commits (so the consensus
+algorithm can skip them) is deferred.
 
 ---
 

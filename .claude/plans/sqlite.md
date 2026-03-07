@@ -30,7 +30,7 @@ CREATE TABLE rep_checkpoint (
 ```
 git fetch + git merge  ->  post-merge hook fires
                        ->  detect new commits (rev-list old..new)
-                       ->  skip freechains-sync commits
+                       ->  skip sync-only commits (marker strategy deferred)
                        ->  walk remaining commits in date-order
                        ->  apply reputation deltas from checkpoint
                        ->  update rep_checkpoint

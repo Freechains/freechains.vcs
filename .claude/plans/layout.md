@@ -38,8 +38,8 @@ Both `config/` and `chains/` use git for replication, but the rules differ based
 
 | Directory | Sync method | Rules |
 |---|---|---|
-| `config/` | `git push` / `git pull` | As-is. Full trust. All files replicate without filtering. |
-| `chains/` | `git push` / `git pull` (per chain repo) | As-is. Full trust. All blocks replicate without filtering. |
+| `config/` | `git push` / `git fetch+merge` | As-is. Full trust. All files replicate without filtering. |
+| `chains/` | `git push` / `git fetch+merge` (per chain repo) | As-is. Full trust. All blocks replicate without filtering. |
 
 The owner's own peers are extensions of the same node. Config and chains replicate identically — it's the same person on different machines.
 

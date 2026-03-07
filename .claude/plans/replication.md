@@ -11,7 +11,7 @@ Chains use working trees (`git init`, not bare repos).
 ```
 Host A:  create chain, post signed block
 Host B:  git clone chain from A, post signed block
-Host A:  git pull from B (gets B's block)
+Host A:  git fetch from B, validate, git merge (gets B's block)
 ```
 
 ## Git operations
@@ -30,17 +30,23 @@ The symlink gives it a human-readable alias on B.
 
 ```bash
 git -C <A>/chains/<hash>/ remote add hostB <B>/chains/<hash>/
-git -C <A>/chains/<hash>/ pull hostB main
+git -C <A>/chains/<hash>/ fetch hostB main
+# validate fetched commits (signatures, reputation, DAG rules)
+git -C <A>/chains/<hash>/ merge FETCH_HEAD
 ```
 
-`git pull` = `git fetch` + `git merge`.
+`git pull` is wrong for consensus — it merges automatically
+before any validation can occur.
+The correct flow is: fetch → validate → merge.
 Since both hosts diverged (each posted independently),
-this produces a merge commit on A.
+the merge produces a merge commit on A.
 
 ### Host B syncs from Host A
 
 ```bash
-git -C <B>/chains/<hash>/ pull origin main
+git -C <B>/chains/<hash>/ fetch origin main
+# validate fetched commits
+git -C <B>/chains/<hash>/ merge FETCH_HEAD
 ```
 
 B already has A as `origin` from the clone.
@@ -49,7 +55,7 @@ B already has A as `origin` from the clone.
 
 | Peer type | config/ | chains/               |
 |-----------|---------|-----------------------|
-| Owner     | sync    | git push/pull as-is   |
+| Owner     | sync    | git push/fetch+merge  |
 | Other     | never   | freechains rules      |
 
 Owner peers share the same key material.
@@ -63,7 +69,7 @@ checks, and size limits before accepting blocks.
     ┌──────────┐                   ┌──────────┐
     │ chains/  │── git clone ──>   │ chains/  │
     │ <hash>/  │                   │ <hash>/  │
-    │          │<── git pull ──    │          │
-    │          │── git pull ──>    │          │
+    │          │<── fetch+merge ──  │          │
+    │          │── fetch+merge ──> │          │
     └──────────┘                   └──────────┘
 ```

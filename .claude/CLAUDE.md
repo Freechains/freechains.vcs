@@ -72,16 +72,15 @@ TODO
 | Payload        | Blob in tree (file "payload")|
 | Block parents  | Commit parents               |
 | Genesis        | Root commit (zeroed fields)  |
-| Signature      | Extra commit headers         |
+| Signature      | GPG signature (`gpgsig`)     |
 
-Signatures are embedded as extra headers (`freechains-pubkey`,
-`freechains-sig`) inside the commit object (part of the hash), not
-as GPG signatures (which are outside the hash).
+Standard GPG signing via `git commit -S`.
+The `gpgsig` header is inside the commit hash.
 
 ### Replication
 
 - **Owner peers**: sync both `config/` and `chains/` via git
-  push/pull as-is
+  push/fetch+merge
 - **Non-owner peers**: sync only `chains/` with Freechains acceptance
   rules (reputation, signature validation)
 

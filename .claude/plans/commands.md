@@ -16,12 +16,12 @@
 | `freechains chain <n> like <hash>` | zero-payload commit with `freechains-like: <hash>` extra header | 1 | stored as structural commit with metadata only |
 | `freechains chain <n> dislike <hash>` | zero-payload commit with `freechains-dislike: <hash>` extra header | 1 | same pattern as like |
 | `freechains chain <n> reps <hash_or_pub>` | walk `git log`, accumulate like/dislike headers, cache in SQLite | 1 | computed state, not stored in git |
-| `freechains chain <n> consensus` | `git log --date-order` skipping sync commits | 3 | deterministic but not the same rule; skip `freechains-sync: true` commits |
+| `freechains chain <n> consensus` | `git log --date-order` skipping sync commits | 3 | deterministic but not the same rule; sync marker strategy deferred |
 | `freechains chain <n> listen` | `post-receive` git hook on server | 3 | fires server-side after every push; see hooks below |
 | `freechains peer <addr> ping` | `git ls-remote <remote>` | 2 | tests reachability but does much more |
 | `freechains peer <addr> chains` | `ls` of repos served by remote `git daemon` | 2 | no standard discovery protocol in git |
 | `freechains peer <addr> send <chain>` | `git push` | 4 | strong match, both client-server |
-| `freechains peer <addr> recv <chain>` | `git fetch` + `git merge` | 4 | fetch alone not enough — must merge to integrate; always produces a merge commit |
+| `freechains peer <addr> recv <chain>` | `git fetch` + validate + `git merge` | 4 | fetch → validate (signatures, reputation, DAG) → merge; pull bypasses validation |
 | `freechains keys shared <passphrase>` | libsodium `crypto_secretbox_keygen` via luasodium | 1 | implement in Lua |
 | `freechains keys pubpvt <passphrase>` | libsodium `crypto_sign_keypair` via luasodium | 1 | implement in Lua |
 
