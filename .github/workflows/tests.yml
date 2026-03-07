@@ -16,3 +16,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y lua5.4 git
+
+      - name: Run tests
+        run: make tests
