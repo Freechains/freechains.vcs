@@ -1,10 +1,7 @@
-TMP     = "/tmp/freechains/"
-GPG     = TMP .. "/gnupg/"
-GEN     = "genesis.lua"
-ROOT    = TMP .. "/root/"
-EXE     = "../src/freechains --root " .. ROOT
-ENV     = "GNUPGHOME=" .. GPG
-ENV_EXE = ENV .. " " .. EXE
+TMP  = "/tmp/freechains/"
+GEN  = "genesis.lua"
+ROOT = TMP .. "/root/"
+EXE  = "../src/freechains --root " .. ROOT
 
 function exec (cmd, stderr)
     local redir = stderr and "&1" or "/dev/null"
@@ -15,33 +12,11 @@ function exec (cmd, stderr)
     return out, (ok and 0 or code)
 end
 
+GPG     = exec("realpath gnupg/") .. "/"
+KEY     = "CA6391CEA51882DF980E0F0C6774E21538E4078B"
+ENV     = "GNUPGHOME=" .. GPG
+ENV_EXE = ENV .. " " .. EXE
+
 function TEST (name)
     print("  - " .. name .. "... ")
-end
-
--- SETUP: generate ephemeral GPG key
-do
-    exec("mkdir -p " .. GPG)
-    exec("chmod 700 " .. GPG)
-
-    local batch = GPG .. "/keygen.batch"
-    local f = io.open(batch, "w")
-    f:write [[
-        %no-protection
-        Key-Type: eddsa
-        Key-Curve: ed25519
-        Name-Real: test
-        Name-Email: test@freechains
-    ]]
-    f:close()
-    exec (
-        "gpg --homedir " .. GPG .. " --batch --gen-key " .. batch
-        , true
-    )
-
-    local out = exec (
-        "gpg --homedir " .. GPG .. " --list-keys --with-colons"
-    )
-    KEY = out:match("fpr:.-:.-:.-:.-:.-:.-:.-:.-:(%x+):")
-    assert(KEY and #KEY > 0, "keygen failed")
 end
