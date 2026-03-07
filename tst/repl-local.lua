@@ -127,13 +127,20 @@ do
 
     do
         TEST "both post files present in A"
-        local a, b = false, false
-        local h = io.open(REPO_A .. "/*.txt"):read'*a'
+        local h = io.popen("cat " .. REPO_A .. "*.txt")
+        local all = h:read("a")
         h:close()
-        a = all:match("post from A") ~= nil
-        b = all:match("post from B") ~= nil
-        assert(a, "A's post content missing")
-        assert(b, "B's post content missing")
+        assert(all:match("post from A"), "A's post missing")
+        assert(all:match("post from B"), "B's post missing")
+    end
+
+    do
+        TEST "A and B are equal"
+        local _,ok = exec (
+            "diff -r --exclude=.git " .. REPO_A .. " " .. REPO_B
+            , true
+        )
+        assert(ok==0, "A and B differ")
     end
 end
 
