@@ -71,12 +71,8 @@ do
 
     do
         TEST "unsigned post still works"
-        local tmp = TMP .. "/unsigned.txt"
-        local f = io.open(tmp, "w")
-        f:write("unsigned content\n")
-        f:close()
         local out, code = exec (
-            ENV_EXE .. " chain cli-sign post file " .. tmp
+            ENV_EXE .. " chain cli-sign post inline unsigned"
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -90,8 +86,5 @@ do
         assert(not raw:match("gpgsig"), "gpgsig should be absent")
     end
 end
-
--- TEARDOWN
-exec("rm -rf " .. GPG)
 
 print("<== ALL PASSED")
