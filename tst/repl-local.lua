@@ -5,38 +5,8 @@ local ROOT_A = ROOT
 local ROOT_B = TMP .. "/root-B/"
 local EXE_A  = ENV_EXE
 local EXE_B  = ENV .. " ../src/freechains --root " .. ROOT_B
-local KEY
 
 local REPO_A = ROOT_A .. "/chains/repl-local/"
-
--- SETUP: generate ephemeral GPG key
-do
-    exec("rm -rf " .. GPG)
-    exec("mkdir -p " .. GPG)
-    exec("chmod 700 " .. GPG)
-
-    local batch = GPG .. "/keygen.batch"
-    local f = io.open(batch, "w")
-    f:write [[
-        %no-protection
-        Key-Type: eddsa
-        Key-Curve: ed25519
-        Name-Real: test
-        Name-Email: test@freechains
-    ]]
-    f:close()
-    exec (
-        "gpg --homedir " .. GPG .. " --batch --gen-key " .. batch
-        , true
-    )
-
-    local out = exec(
-        "gpg --homedir " .. GPG
-        .. " --list-keys --with-colons"
-    )
-    KEY = out:match("fpr:.-:.-:.-:.-:.-:.-:.-:.-:(%x+):")
-    assert(KEY and #KEY > 0, "keygen failed")
-end
 
 -- SETUP: host B root
 exec("mkdir -p " .. ROOT_B .. "/chains")

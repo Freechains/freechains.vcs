@@ -2,35 +2,6 @@
 require "common"
 
 local DIR = ROOT .. "/chains/cli-sign/"
-local KEY
-
--- SETUP: generate ephemeral GPG key
-do
-    exec("rm -rf " .. GPG)
-    exec("mkdir -p " .. GPG)
-    exec("chmod 700 " .. GPG)
-
-    local batch = GPG .. "/keygen.batch"
-    local f = io.open(batch, "w")
-    f:write [[
-        %no-protection
-        Key-Type: eddsa
-        Key-Curve: ed25519
-        Name-Real: test
-        Name-Email: test@freechains
-    ]]
-    f:close()
-    exec (
-        "gpg --homedir " .. GPG .. " --batch --gen-key " .. batch
-        , true
-    )
-
-    local out = exec (
-        "gpg --homedir " .. GPG .. " --list-keys --with-colons"
-    )
-    KEY = out:match("fpr:.-:.-:.-:.-:.-:.-:.-:.-:(%x+):")
-    assert(KEY and #KEY > 0, "keygen failed")
-end
 
 os.execute("sleep 1")   -- prevents hash collisions
 exec(ENV_EXE .. " chains add cli-sign lua " .. GEN)
