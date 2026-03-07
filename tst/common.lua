@@ -20,7 +20,7 @@ ENV_EXE = ENV .. " " .. EXE
 function git_config (dir)
     exec("git -C " .. dir .. " config user.name  '-'")
     exec("git -C " .. dir .. " config user.email '-'")
-    exec("git -C " .. dir .. " config pull.rebase false")
+
 end
 
 function TEST (name)

@@ -104,17 +104,23 @@ do
     end
 end
 
--- HOST A: pull from B
+-- HOST A: fetch+merge from B
 do
-    print("==> Host A: pull from B")
+    print("==> Host A: fetch+merge from B")
 
     do
-        TEST "pull from B"
+        TEST "fetch from B"
         local branch = exec (
             "git -C " .. REPO_A .. " rev-parse --abbrev-ref HEAD"
         )
+        local _, code = exec (
+            "git -C " .. REPO_A .. " fetch " .. REPO_B .. " " .. branch
+        )
+        assert(code == 0, "fetch failed")
+
+        TEST "merge from B"
         exec (
-            "git -C " .. REPO_A .. " pull --no-edit " .. REPO_B .. " " .. branch
+            "git -C " .. REPO_A .. " merge --no-edit FETCH_HEAD"
         )
     end
 
@@ -156,12 +162,18 @@ do
     assert(h ~= CHAIN_HASH, "should differ")
 
     do
-        TEST "pull from unrelated chain fails"
+        TEST "fetch from unrelated chain succeeds"
         local branch = exec (
             "git -C " .. REPO_C .. " rev-parse --abbrev-ref HEAD"
         )
         local _, code = exec (
-            "git -C " .. REPO_C .. " pull --no-edit " .. REPO_A .. " " .. branch
+            "git -C " .. REPO_C .. " fetch " .. REPO_A .. " " .. branch
+        )
+        assert(code == 0, "fetch should succeed")
+
+        TEST "merge from unrelated chain fails"
+        local _, code = exec (
+            "git -C " .. REPO_C .. " merge --no-edit FETCH_HEAD"
         )
         assert(code ~= 0, "should reject unrelated histories")
     end
@@ -188,13 +200,18 @@ do
     end
 
     do
-        TEST "pull fails with merge conflict"
+        TEST "fetch succeeds"
         local branch = exec (
             "git -C " .. REPO_A .. " rev-parse --abbrev-ref HEAD"
         )
         local _, code = exec (
-            "git -C " .. REPO_A
-            .. " pull --no-edit " .. REPO_B .. " " .. branch
+            "git -C " .. REPO_A .. " fetch " .. REPO_B .. " " .. branch
+        )
+        assert(code == 0, "fetch should succeed")
+
+        TEST "merge fails with conflict"
+        local _, code = exec (
+            "git -C " .. REPO_A .. " merge --no-edit FETCH_HEAD"
         )
         assert(code ~= 0, "should fail with conflict")
     end

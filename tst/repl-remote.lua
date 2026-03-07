@@ -13,9 +13,9 @@ local REPO_A = ROOT_A .. "/chains/test/"
 local REPO_B = ROOT_B .. "/chains/test/"
 local REPO_C = ROOT_C .. "/chains/test/"
 
-exec("mkdir -p " .. ROOT_A)
-exec("mkdir -p " .. ROOT_B)
-exec("mkdir -p " .. ROOT_C)
+exec("mkdir -p " .. ROOT_A .. "/chains")
+exec("mkdir -p " .. ROOT_B .. "/chains")
+exec("mkdir -p " .. ROOT_C .. "/chains")
 
 local PORT_A = 19418
 local PORT_B = 19419
@@ -61,7 +61,6 @@ daemon_start(PORT_C, PID_C, ROOT_C .. "/chains/")
 os.execute("sleep 0.3")
 
 local _ <close> = setmetatable({}, {__close=function()
-error'ok'
     daemon_stop(PID_A)
     daemon_stop(PID_B)
     daemon_stop(PID_C)
@@ -155,18 +154,23 @@ do
     end
 end
 
--- HOST A: pull from B
+-- HOST A: fetch+merge from B
 do
-    print("==> Host A: pull from B")
+    print("==> Host A: fetch+merge from B")
 
     do
-        TEST "pull from B"
+        TEST "fetch from B"
         local branch = exec (
             "git -C " .. REPO_A .. " rev-parse --abbrev-ref HEAD"
         )
+        local _, code = exec (
+            "git -C " .. REPO_A .. " fetch " .. URL_B .. "test/ " .. branch
+        )
+        assert(code == 0, "fetch failed")
+
+        TEST "merge from B"
         exec (
-            "git -C " .. REPO_A .. " pull --no-edit "
-            .. URL_B .. "test/ " .. branch
+            "git -C " .. REPO_A .. " merge --no-edit FETCH_HEAD"
         )
     end
 
@@ -208,13 +212,18 @@ do
     assert(h ~= CHAIN_HASH, "should differ")
 
     do
-        TEST "pull from unrelated chain fails"
+        TEST "fetch from unrelated chain succeeds"
         local branch = exec (
             "git -C " .. REPO_C .. " rev-parse --abbrev-ref HEAD"
         )
         local _, code = exec (
-            "git -C " .. REPO_C .. " pull --no-edit "
-            .. URL_A .. "test/ " .. branch
+            "git -C " .. REPO_C .. " fetch " .. URL_A .. "test/ " .. branch
+        )
+        assert(code == 0, "fetch should succeed")
+
+        TEST "merge from unrelated chain fails"
+        local _, code = exec (
+            "git -C " .. REPO_C .. " merge --no-edit FETCH_HEAD"
         )
         assert(code ~= 0, "should reject unrelated histories")
     end
@@ -241,13 +250,18 @@ do
     end
 
     do
-        TEST "pull fails with merge conflict"
+        TEST "fetch succeeds"
         local branch = exec (
             "git -C " .. REPO_A .. " rev-parse --abbrev-ref HEAD"
         )
         local _, code = exec (
-            "git -C " .. REPO_A .. " pull --no-edit "
-            .. URL_B .. "test/ " .. branch
+            "git -C " .. REPO_A .. " fetch " .. URL_B .. "test/ " .. branch
+        )
+        assert(code == 0, "fetch should succeed")
+
+        TEST "merge fails with conflict"
+        local _, code = exec (
+            "git -C " .. REPO_A .. " merge --no-edit FETCH_HEAD"
         )
         assert(code ~= 0, "should fail with conflict")
     end
