@@ -3,15 +3,19 @@ require "common"
 
 local ROOT_A = ROOT .. "/repl-local/A/"
 local ROOT_B = ROOT .. "/repl-local/B/"
+local ROOT_C = ROOT .. "/repl-local/C/"
 
 local EXE_A  = ENV .. " ../src/freechains --root " .. ROOT_A
 local EXE_B  = ENV .. " ../src/freechains --root " .. ROOT_B
+local EXE_C  = ENV .. " ../src/freechains --root " .. ROOT_C
 
 local REPO_A = ROOT_A .. "/chains/test/"
 local REPO_B = ROOT_B .. "/chains/test/"
+local REPO_C = ROOT_C .. "/chains/test/"
 
 exec("mkdir -p " .. ROOT_A)
 exec("mkdir -p " .. ROOT_B)
+exec("mkdir -p " .. ROOT_C)
 
 -- HOST A: create chain + post
 local CHAIN_HASH
@@ -148,25 +152,18 @@ end
 do
     print("==> Unrelated histories rejected")
 
-    local ROOT_C = TMP .. "/root-C/"
-    local EXE_C  = ENV .. " ../src/freechains --root " .. ROOT_C
-    exec("mkdir -p " .. ROOT_C .. "/chains")
-
     os.execute("sleep 1")
-    local hash_c = exec(
+    local h = exec (
         EXE_C .. " chains add test lua " .. GEN
     )
-    assert(hash_c ~= CHAIN_HASH, "should differ")
-
-    local REPO_C = ROOT_C .. "/chains/" .. hash_c .. "/"
+    assert(h ~= CHAIN_HASH, "should differ")
 
     do
         TEST "pull from unrelated chain fails"
-        local branch = exec(
-            "git -C " .. REPO_C
-            .. " rev-parse --abbrev-ref HEAD"
+        local branch = exec (
+            "git -C " .. REPO_C .. " rev-parse --abbrev-ref HEAD"
         )
-        local _, code = exec(
+        local _, code = exec (
             "git -C " .. REPO_C
             .. " -c user.name='-' -c user.email='-'"
             .. " pull --no-rebase --no-edit "
