@@ -1,9 +1,9 @@
 #!/usr/bin/env lua5.4
 require "common"
 
-local ROOT_A = ROOT .. "/repl-local/A/"
-local ROOT_B = ROOT .. "/repl-local/B/"
-local ROOT_C = ROOT .. "/repl-local/C/"
+local ROOT_A = ROOT .. "/repl-remote/A/"
+local ROOT_B = ROOT .. "/repl-remote/B/"
+local ROOT_C = ROOT .. "/repl-remote/C/"
 
 local EXE_A  = ENV .. " ../src/freechains --root " .. ROOT_A
 local EXE_B  = ENV .. " ../src/freechains --root " .. ROOT_B
@@ -13,9 +13,56 @@ local REPO_A = ROOT_A .. "/chains/test/"
 local REPO_B = ROOT_B .. "/chains/test/"
 local REPO_C = ROOT_C .. "/chains/test/"
 
+local PORT_A = 19418
+local PORT_B = 19419
+local PORT_C = 19420
+
+local URL_A  = "git://127.0.0.1:" .. PORT_A .. "/"
+local URL_B  = "git://127.0.0.1:" .. PORT_B .. "/"
+local URL_C  = "git://127.0.0.1:" .. PORT_C .. "/"
+
+local PID_A  = ROOT_A .. "/daemon.pid"
+local PID_B  = ROOT_B .. "/daemon.pid"
+local PID_C  = ROOT_C .. "/daemon.pid"
+
+local function daemon_start (chains_dir, port, pidfile)
+    exec (
+        "git daemon"
+        .. " --listen=127.0.0.1"
+        .. " --port=" .. port
+        .. " --export-all"
+        .. " --enable=receive-pack"
+        .. " --base-path=" .. chains_dir
+        .. " --pid-file=" .. pidfile
+        .. " --reuseaddr"
+        .. " --detach"
+        .. " " .. chains_dir
+    )
+    os.execute("sleep 0.3")
+end
+
+local function daemon_stop (pidfile)
+    local f = io.open(pidfile)
+    if f then
+        local pid = f:read("a"):match("%d+")
+        f:close()
+        if pid then
+            os.execute("kill " .. pid .. " 2>/dev/null")
+        end
+    end
+end
+
+local function daemon_stop_all ()
+    daemon_stop(PID_A)
+    daemon_stop(PID_B)
+    daemon_stop(PID_C)
+end
+
 exec("mkdir -p " .. ROOT_A)
 exec("mkdir -p " .. ROOT_B)
 exec("mkdir -p " .. ROOT_C)
+
+local ok, err = pcall(function ()
 
 -- HOST A: create chain + post
 local CHAIN_HASH
@@ -41,8 +88,11 @@ do
         assert(#out == 40, "hash: " .. out)
         assert(out:match("^%x+$"), "not hex")
     end
+
+    daemon_start(ROOT_A .. "/chains/", PORT_A, PID_A)
 end
 
+-- HOST B: clone chain + post
 do
     print("==> Host B: clone chain + post")
 
@@ -53,7 +103,7 @@ do
         )
         local tmp = ROOT_B .. "/chains/_tmp"
         exec (
-            "git clone " .. REPO_A .. " " .. tmp
+            "git clone " .. URL_A .. "test/ " .. tmp
         )
         local hash = exec (
             "git -C " .. tmp .. " rev-list --max-parents=0 HEAD"
@@ -102,6 +152,8 @@ do
         )
         assert(count == "3", "count: " .. count)
     end
+
+    daemon_start(ROOT_B .. "/chains/", PORT_B, PID_B)
 end
 
 -- HOST A: pull from B
@@ -114,7 +166,8 @@ do
             "git -C " .. REPO_A .. " rev-parse --abbrev-ref HEAD"
         )
         exec (
-            "git -C " .. REPO_A .. " pull --no-edit " .. REPO_B .. " " .. branch
+            "git -C " .. REPO_A .. " pull --no-edit "
+            .. URL_B .. "test/ " .. branch
         )
     end
 
@@ -155,13 +208,16 @@ do
     )
     assert(h ~= CHAIN_HASH, "should differ")
 
+    daemon_start(ROOT_C .. "/chains/", PORT_C, PID_C)
+
     do
         TEST "pull from unrelated chain fails"
         local branch = exec (
             "git -C " .. REPO_C .. " rev-parse --abbrev-ref HEAD"
         )
         local _, code = exec (
-            "git -C " .. REPO_C .. " pull --no-edit " .. REPO_A .. " " .. branch
+            "git -C " .. REPO_C .. " pull --no-edit "
+            .. URL_A .. "test/ " .. branch
         )
         assert(code ~= 0, "should reject unrelated histories")
     end
@@ -193,8 +249,8 @@ do
             "git -C " .. REPO_A .. " rev-parse --abbrev-ref HEAD"
         )
         local _, code = exec (
-            "git -C " .. REPO_A
-            .. " pull --no-edit " .. REPO_B .. " " .. branch
+            "git -C " .. REPO_A .. " pull --no-edit "
+            .. URL_B .. "test/ " .. branch
         )
         assert(code ~= 0, "should fail with conflict")
     end
@@ -223,4 +279,12 @@ do
     end
 end
 
+end)
+
+daemon_stop_all()
+
+if not ok then
+    io.stderr:write("FAIL: " .. tostring(err) .. "\n")
+    os.exit(1)
+end
 print("<== ALL PASSED")
