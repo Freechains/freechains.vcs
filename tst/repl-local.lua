@@ -166,8 +166,7 @@ do
         local _, code = exec (
             "git -C " .. REPO_C
             .. " -c user.name='-' -c user.email='-'"
-            .. " pull --no-rebase --no-edit "
-            .. REPO_A .. " " .. branch
+            .. " pull --no-edit " .. REPO_A .. " " .. branch
         )
         assert(code ~= 0, "should reject unrelated histories")
     end
@@ -198,19 +197,10 @@ do
         local branch = exec (
             "git -C " .. REPO_A .. " rev-parse --abbrev-ref HEAD"
         )
-print(branch)
-        print (
-            "git -C " .. REPO_A
-            .. " -c user.name='-' -c user.email='-'"
-            .. " pull --no-rebase --no-edit "
-            .. REPO_B .. " " .. branch
-        )
-error'ok'
         local _, code = exec (
             "git -C " .. REPO_A
             .. " -c user.name='-' -c user.email='-'"
-            .. " pull --no-rebase --no-edit "
-            .. REPO_B .. " " .. branch
+            .. " pull --no-edit " .. REPO_B .. " " .. branch
         )
         assert(code ~= 0, "should fail with conflict")
     end
@@ -233,7 +223,7 @@ error'ok'
         local content = h:read("a")
         h:close()
         assert(
-            content == "line from A\n",
+            content == "from A\n",
             "content: " .. content
         )
     end
