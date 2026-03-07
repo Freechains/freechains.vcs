@@ -116,8 +116,7 @@ do
             "git -C " .. REPO_A .. " rev-parse --abbrev-ref HEAD"
         )
         exec (
-            "git -C " .. REPO_A
-            .. " pull --no-edit " .. REPO_B .. " " .. branch
+            "git -C " .. REPO_A .. " pull --no-edit " .. REPO_B .. " " .. branch
         )
     end
 
@@ -164,8 +163,7 @@ do
             "git -C " .. REPO_C .. " rev-parse --abbrev-ref HEAD"
         )
         local _, code = exec (
-            "git -C " .. REPO_C
-            .. " pull --no-edit " .. REPO_A .. " " .. branch
+            "git -C " .. REPO_C .. " pull --no-edit " .. REPO_A .. " " .. branch
         )
         assert(code ~= 0, "should reject unrelated histories")
     end

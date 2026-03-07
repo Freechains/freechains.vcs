@@ -136,8 +136,7 @@ if args.chains then
             git_config(tmp)
             exec("cp " .. args.path .. " " .. tmp .. "/.genesis.lua")
             exec("git -C " .. tmp .. " add .genesis.lua")
-            exec("git -C " .. tmp
-                .. ' commit --allow-empty-message -m ""')
+            exec("git -C " .. tmp .. ' commit --allow-empty-message -m ""')
 
             local hash = exec("git -C " .. tmp .. " rev-parse HEAD")
 
@@ -202,8 +201,7 @@ elseif args.chain then
             s2 = " -S"
         end
 
-        exec("git -C " .. repo
-            .. s1 .. ' commit' .. s2
+        exec("git -C " .. repo .. s1 .. ' commit' .. s2
             .. ' --allow-empty-message -m ""')
 
         local hash = exec("git -C " .. repo .. " rev-parse HEAD")
