@@ -173,4 +173,70 @@ do
     end
 end
 
+-- CONFLICT: both post to same file independently
+do
+    print("==> Conflict: both post to log.txt")
+
+    do
+        TEST "A posts to log.txt"
+        local out = exec (
+            EXE_A .. " chain test post" .. " inline 'from A' --file log.txt"
+        )
+        assert(#out == 40, "hash: " .. out)
+    end
+
+    do
+        TEST "B posts to log.txt"
+        local out = exec (
+            EXE_B .. " chain test post" .. " inline 'from B' --file log.txt"
+        )
+        assert(#out == 40, "hash: " .. out)
+    end
+
+    do
+        TEST "pull fails with merge conflict"
+        local branch = exec (
+            "git -C " .. REPO_A .. " rev-parse --abbrev-ref HEAD"
+        )
+print(branch)
+        print (
+            "git -C " .. REPO_A
+            .. " -c user.name='-' -c user.email='-'"
+            .. " pull --no-rebase --no-edit "
+            .. REPO_B .. " " .. branch
+        )
+error'ok'
+        local _, code = exec (
+            "git -C " .. REPO_A
+            .. " -c user.name='-' -c user.email='-'"
+            .. " pull --no-rebase --no-edit "
+            .. REPO_B .. " " .. branch
+        )
+        assert(code ~= 0, "should fail with conflict")
+    end
+
+    do
+        TEST "log.txt has conflict markers"
+        local h = io.open(REPO_A .. "log.txt")
+        local content = h:read("a")
+        h:close()
+        assert(
+            content:match("<<<<<<<"),
+            "no conflict markers"
+        )
+    end
+
+    do
+        TEST "abort merge restores clean state"
+        exec("git -C " .. REPO_A .. " merge --abort")
+        local h = io.open(REPO_A .. "log.txt")
+        local content = h:read("a")
+        h:close()
+        assert(
+            content == "line from A\n",
+            "content: " .. content
+        )
+    end
+end
+
 print("<== ALL PASSED")
