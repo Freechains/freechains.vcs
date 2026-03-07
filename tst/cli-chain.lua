@@ -1,9 +1,9 @@
 #!/usr/bin/env lua5.4
 require "common"
 
-local REPO = ROOT .. "/chains/mychain/"
+local DIR = ROOT .. "/chains/cli-chain/"
 
-exec(EXE .. " chains add mychain lua " .. GEN)
+exec(EXE .. " chains add cli-chain lua " .. GEN)
 
 -- POST FILE
 do
@@ -12,7 +12,7 @@ do
     do
         TEST "post file success"
         local out, code = exec (
-            EXE .. " chain mychain post file hello.txt"
+            EXE .. " chain cli-chain post file hello.txt"
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -21,14 +21,14 @@ do
 
     do
         TEST "posted file in tree"
-        local v = io.open(REPO .. "/hello.txt"):read'*a'
+        local v = io.open(DIR .. "/hello.txt"):read'*a'
         assert(v=="Hello World!\n", "content: " .. v)
     end
 
     do
         TEST "genesis still in tree"
         local _, code = exec (
-            "test -f " .. REPO .. "/.genesis.lua"
+            "test -f " .. DIR .. "/.genesis.lua"
         )
         assert(code == 0, ".genesis.lua missing")
     end
@@ -36,14 +36,14 @@ do
     do
         TEST "post same file again, different hash"
         local hash1 = exec (
-            "git -C " .. REPO .. " rev-parse HEAD"
+            "git -C " .. DIR .. " rev-parse HEAD"
         )
         local tmp = TMP .. "/hello.txt"
         local f = io.open(tmp, "w")
         f:write("hello world updated\n")
         f:close()
         local hash2, code = exec (
-            EXE .. " chain mychain post file " .. tmp
+            EXE .. " chain cli-chain post file " .. tmp
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(hash1 ~= hash2, "hashes should differ")
@@ -56,13 +56,13 @@ do
         f:write("second file\n")
         f:close()
         exec (
-            EXE .. " chain mychain post file " .. tmp
+            EXE .. " chain cli-chain post file " .. tmp
         )
         local _, code1 = exec (
-            "test -f " .. REPO .. "/hello.txt"
+            "test -f " .. DIR .. "/hello.txt"
         )
         local _, code2 = exec (
-            "test -f " .. REPO .. "/second.txt"
+            "test -f " .. DIR .. "/second.txt"
         )
         assert(code1 == 0, "hello.txt missing")
         assert(code2 == 0, "second.txt missing")
@@ -76,19 +76,19 @@ do
     do
         TEST "inline auto-name"
         local out, code = exec (
-            EXE .. " chain mychain post inline 'Quick note'"
+            EXE .. " chain cli-chain post inline 'Quick note'"
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
-        local files = exec("ls " .. REPO .. "/*-*.txt")
+        local files = exec("ls " .. DIR .. "/*-*.txt")
         assert(files ~= "", "auto-named file missing")
 
         do
             TEST "inline auto-name - filename matches blob"
             local f1 = files:match("[^/]+$")
             local f2 = f1:match("%-(%x+)%.txt$")
-            local h1 = exec("git -C " .. REPO .. " hash-object " .. f1)
-            local h2 = exec("git -C " .. REPO .. " rev-parse HEAD:" .. f1)
+            local h1 = exec("git -C " .. DIR .. " hash-object " .. f1)
+            local h2 = exec("git -C " .. DIR .. " rev-parse HEAD:" .. f1)
             assert(f2 == h1:sub(1, 8), "file mismatch")
             assert(f2 == h2:sub(1, 8), "tree mismatch")
         end
@@ -97,22 +97,22 @@ do
     do
         TEST "inline --file creates file"
         local _, code = exec (
-            EXE .. " chain mychain post inline 'Line 1'"
+            EXE .. " chain cli-chain post inline 'Line 1'"
             .. " --file log.txt"
         )
         assert(code == 0, "exit code: " .. tostring(code))
-        local content = exec("cat " .. REPO .. "/log.txt")
+        local content = exec("cat " .. DIR .. "/log.txt")
         assert(content == "Line 1", "content: " .. content)
     end
 
     do
         TEST "inline --file appends"
         local _, code = exec (
-            EXE .. " chain mychain post inline 'Line 2'"
+            EXE .. " chain cli-chain post inline 'Line 2'"
             .. " --file log.txt"
         )
         assert(code == 0, "exit code: " .. tostring(code))
-        local content = exec("cat " .. REPO .. "/log.txt")
+        local content = exec("cat " .. DIR .. "/log.txt")
         assert(content == "Line 1\nLine 2\n", "content: " .. content)
     end
 end

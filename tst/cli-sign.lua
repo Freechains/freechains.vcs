@@ -1,7 +1,7 @@
 #!/usr/bin/env lua5.4
 require "common"
 
-local REPO = ROOT .. "/chains/cli-sign/"
+local DIR = ROOT .. "/chains/cli-sign/"
 local KEY
 
 -- SETUP: generate ephemeral GPG key
@@ -20,7 +20,10 @@ do
         Name-Email: test@freechains
     ]]
     f:close()
-    exec("gpg --homedir " .. GPG .. " --batch --gen-key " .. batch, true)
+    exec (
+        "gpg --homedir " .. GPG .. " --batch --gen-key " .. batch
+        , true
+    )
 
     local out = exec (
         "gpg --homedir " .. GPG .. " --list-keys --with-colons"
@@ -49,7 +52,7 @@ do
     do
         TEST "git verify-commit passes"
         local out, code = exec (
-            ENV .. " git -C " .. REPO .. " verify-commit HEAD",
+            ENV .. " git -C " .. DIR .. " verify-commit HEAD",
             true
         )
         assert(code == 0, "verify-commit failed")
@@ -59,7 +62,7 @@ do
     do
         TEST "gpgsig header present"
         local out = exec (
-            "git -C " .. REPO .. " cat-file commit HEAD"
+            "git -C " .. DIR .. " cat-file commit HEAD"
         )
         assert(out:match("gpgsig"), "gpgsig header missing")
     end
@@ -81,7 +84,7 @@ do
     do
         TEST "unsigned commit has no gpgsig"
         local raw = exec (
-            "git -C " .. REPO .. " cat-file commit HEAD"
+            "git -C " .. DIR .. " cat-file commit HEAD"
         )
         assert(not raw:match("gpgsig"), "gpgsig should be absent")
     end

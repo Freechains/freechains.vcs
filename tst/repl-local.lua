@@ -7,6 +7,8 @@ local EXE_A  = ENV_EXE
 local EXE_B  = ENV .. " ../src/freechains --root " .. ROOT_B
 local KEY
 
+local REPO_A = ROOT_A .. "/chains/repl-local/"
+
 -- SETUP: generate ephemeral GPG key
 do
     exec("rm -rf " .. GPG)
@@ -23,9 +25,9 @@ do
         Name-Email: test@freechains
     ]]
     f:close()
-    exec(
-        "gpg --homedir " .. GPG
-        .. " --batch --gen-key " .. batch, true
+    exec (
+        "gpg --homedir " .. GPG .. " --batch --gen-key " .. batch
+        , true
     )
 
     local out = exec(
@@ -41,7 +43,6 @@ exec("mkdir -p " .. ROOT_B .. "/chains")
 
 -- HOST A: create chain + signed post
 local CHAIN_HASH
-local REPO_A
 
 do
     print("==> Host A: create chain + signed post")
@@ -49,20 +50,18 @@ do
     os.execute("sleep 1")
     do
         TEST "chain created"
-        CHAIN_HASH = exec(
-            EXE_A .. " chains add repl lua " .. GEN
+        CHAIN_HASH = exec (
+            EXE_A .. " chains add repl-local lua " .. GEN
         )
         assert(#CHAIN_HASH == 40, "hash: " .. CHAIN_HASH)
         assert(CHAIN_HASH:match("^%x+$"), "not hex")
     end
 
-    REPO_A = ROOT_A .. "/chains/" .. CHAIN_HASH .. "/"
-
     do
         TEST "signed post on A"
         local out = exec(
             EXE_A
-            .. " chain repl post inline 'post from A'"
+            .. " chain repl-local post inline 'post from A'"
             .. " --sign " .. KEY
         )
         assert(#out == 40, "hash: " .. out)
@@ -81,7 +80,7 @@ do
         exec("git clone " .. REPO_A .. " " .. REPO_B)
         exec(
             "ln -s " .. CHAIN_HASH .. "/ "
-            .. ROOT_B .. "/chains/repl"
+            .. ROOT_B .. "/chains/repl-local"
         )
     end
 
@@ -111,7 +110,7 @@ do
         TEST "signed post on B"
         local out = exec(
             EXE_B
-            .. " chain repl post inline 'post from B'"
+            .. " chain repl-local post inline 'post from B'"
             .. " --sign " .. KEY
         )
         assert(#out == 40, "hash: " .. out)

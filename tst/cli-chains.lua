@@ -1,6 +1,8 @@
 #!/usr/bin/env lua5.4
 require "common"
 
+local DIR = ROOT .. "/chains/cli-chains"
+
 -- ADD
 do
     print("==> freechains chains add lua")
@@ -8,16 +10,14 @@ do
     do
         TEST "success"
         local out, code = exec (
-            EXE .. " chains add mychain lua " .. GEN
+            EXE .. " chains add cli-chains lua " .. GEN
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
         assert(out:match("^%x+$"), "hash is hex")
 
-        local REPO = ROOT .. "/chains/mychain"
-
         TEST "genesis file"
-        local gen = REPO .. "/.genesis.lua"
+        local gen = DIR .. "/.genesis.lua"
         local _, code = exec("diff -q " .. GEN .. " " .. gen)
         assert(code == 0, "exit code: " .. tostring(code))
         local t = dofile(gen)
@@ -27,21 +27,21 @@ do
         assert(t.name == "A forum")
 
         TEST "alias -> hash"
-        local lnk = exec("readlink " .. REPO)
+        local lnk = exec("readlink " .. DIR)
         assert(lnk:match("^%x+/$"), "symlink target: " .. lnk)
 
         TEST "author/committer = dash"
-        local author = exec("git -C " .. REPO .. " log --format=%an HEAD")
+        local author = exec("git -C " .. DIR .. " log --format=%an HEAD")
         assert(author == "-", "author: " .. author)
-        local committer = exec("git -C " .. REPO .. " log --format=%cn HEAD")
+        local committer = exec("git -C " .. DIR .. " log --format=%cn HEAD")
         assert(committer == "-", "committer: " .. committer)
 
         TEST "empty commit message"
-        local msg = exec("git -C " .. REPO .. " log --format=%B HEAD")
+        local msg = exec("git -C " .. DIR .. " log --format=%B HEAD")
         assert(msg == "", "message: " .. msg)
 
         TEST "no parent"
-        local parent = exec("git -C " .. REPO .. " log --format=%P HEAD")
+        local parent = exec("git -C " .. DIR .. " log --format=%P HEAD")
         assert(parent == "", "parent: " .. parent)
     end
 
@@ -86,7 +86,7 @@ do
             EXE .. " chains dir"
         )
         assert(code == 0, "exit code: " .. tostring(code))
-        assert(out == "mychain", "list: " .. out)
+        assert(out == "cli-chains", "list: " .. out)
     end
 
     do
@@ -99,7 +99,7 @@ do
             EXE .. " chains dir"
         )
         assert(code == 0, "exit code: " .. tostring(code))
-        assert(out == "mychain\nother\n", "list: " .. out)
+        assert(out == "cli-chains\nother\n", "list: " .. out)
     end
 end
 
@@ -110,19 +110,19 @@ do
     do
         TEST "rem success"
         local _, code = exec (
-            EXE .. " chains rem mychain"
+            EXE .. " chains rem cli-chains"
         )
         assert(code == 0, "exit code: " .. tostring(code))
 
         TEST "dir removed"
         local _, code = exec (
-            "test -d " .. ROOT .. "/chains/mychain"
+            "test -d " .. ROOT .. "/chains/cli-chains"
         )
         assert(code ~= 0, "dir should not exist")
 
         TEST "symlink removed"
         local _, code = exec (
-            "test -L " .. ROOT .. "/chains/mychain"
+            "test -L " .. ROOT .. "/chains/cli-chains"
         )
         assert(code ~= 0, "symlink should not exist")
     end
