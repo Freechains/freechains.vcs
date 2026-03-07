@@ -46,12 +46,20 @@ do
     do
         TEST "clone succeeds"
         exec (
-            "git clone " .. REPO_A .. " " .. REPO_B
+            "mkdir -p " .. ROOT_B .. "/chains"
         )
-        print("ln -s " .. CHAIN_HASH .. "/ " .. ROOT_B .. "/chains/test")
-error'ok'
+        local tmp = ROOT_B .. "/chains/_tmp"
         exec (
-            "ln -s " .. CHAIN_HASH .. "/ " .. ROOT_B .. "/chains/test"
+            "git clone " .. REPO_A .. " " .. tmp
+        )
+        local hash = exec (
+            "git -C " .. tmp .. " rev-list --max-parents=0 HEAD"
+        )
+        exec (
+            "mv " .. tmp .. " " .. ROOT_B .. "/chains/" .. hash
+        )
+        exec (
+            "ln -s " .. hash .. " " .. ROOT_B .. "/chains/test"
         )
     end
 
