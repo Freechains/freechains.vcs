@@ -17,6 +17,12 @@ KEY     = "CA6391CEA51882DF980E0F0C6774E21538E4078B"
 ENV     = "GNUPGHOME=" .. GPG
 ENV_EXE = ENV .. " " .. EXE
 
+function git_config (dir)
+    exec("git -C " .. dir .. " config user.name  '-'")
+    exec("git -C " .. dir .. " config user.email '-'")
+    exec("git -C " .. dir .. " config pull.rebase false")
+end
+
 function TEST (name)
     print("  - " .. name .. "... ")
 end

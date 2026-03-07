@@ -19,6 +19,12 @@ function exec (cmd, stderr)
     return out, 0
 end
 
+local function git_config (dir)
+    exec("git -C " .. dir .. " config user.name  '-'")
+    exec("git -C " .. dir .. " config user.email '-'")
+    exec("git -C " .. dir .. " config pull.rebase false")
+end
+
 local parser = argparse()
 
 parser
@@ -127,10 +133,10 @@ if args.chains then
             end
 
             exec("git init " .. tmp)
+            git_config(tmp)
             exec("cp " .. args.path .. " " .. tmp .. "/.genesis.lua")
             exec("git -C " .. tmp .. " add .genesis.lua")
             exec("git -C " .. tmp
-                .. ' -c user.name="-" -c user.email="-"'
                 .. ' commit --allow-empty-message -m ""')
 
             local hash = exec("git -C " .. tmp .. " rev-parse HEAD")
@@ -197,7 +203,6 @@ elseif args.chain then
         end
 
         exec("git -C " .. repo
-            .. ' -c user.name="-" -c user.email="-"'
             .. s1 .. ' commit' .. s2
             .. ' --allow-empty-message -m ""')
 

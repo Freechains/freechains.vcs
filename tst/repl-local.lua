@@ -65,6 +65,7 @@ do
         exec (
             "ln -s " .. hash .. " " .. ROOT_B .. "/chains/test"
         )
+        git_config(REPO_B)
     end
 
     do
@@ -116,7 +117,6 @@ do
         )
         exec (
             "git -C " .. REPO_A
-            .. " -c user.name='-' -c user.email='-'"
             .. " pull --no-edit " .. REPO_B .. " " .. branch
         )
     end
@@ -165,7 +165,6 @@ do
         )
         local _, code = exec (
             "git -C " .. REPO_C
-            .. " -c user.name='-' -c user.email='-'"
             .. " pull --no-edit " .. REPO_A .. " " .. branch
         )
         assert(code ~= 0, "should reject unrelated histories")
@@ -199,7 +198,6 @@ do
         )
         local _, code = exec (
             "git -C " .. REPO_A
-            .. " -c user.name='-' -c user.email='-'"
             .. " pull --no-edit " .. REPO_B .. " " .. branch
         )
         assert(code ~= 0, "should fail with conflict")
