@@ -13,6 +13,10 @@ local REPO_A = ROOT_A .. "/chains/test/"
 local REPO_B = ROOT_B .. "/chains/test/"
 local REPO_C = ROOT_C .. "/chains/test/"
 
+exec("mkdir -p " .. ROOT_A)
+exec("mkdir -p " .. ROOT_B)
+exec("mkdir -p " .. ROOT_C)
+
 local PORT_A = 19418
 local PORT_B = 19419
 local PORT_C = 19420
@@ -25,24 +29,23 @@ local PID_A  = ROOT_A .. "/daemon.pid"
 local PID_B  = ROOT_B .. "/daemon.pid"
 local PID_C  = ROOT_C .. "/daemon.pid"
 
-local function daemon_start (chains_dir, port, pidfile)
+local function daemon_start (port, pid, dir)
     exec (
         "git daemon"
         .. " --listen=127.0.0.1"
         .. " --port=" .. port
         .. " --export-all"
         .. " --enable=receive-pack"
-        .. " --base-path=" .. chains_dir
-        .. " --pid-file=" .. pidfile
+        .. " --base-path=" .. dir
+        .. " --pid-file=" .. pid
         .. " --reuseaddr"
         .. " --detach"
-        .. " " .. chains_dir
+        .. " " .. dir
     )
-    os.execute("sleep 0.3")
 end
 
-local function daemon_stop (pidfile)
-    local f = io.open(pidfile)
+local function daemon_stop (pid)
+    local f = io.open(pid)
     if f then
         local pid = f:read("a"):match("%d+")
         f:close()
@@ -52,17 +55,17 @@ local function daemon_stop (pidfile)
     end
 end
 
-local function daemon_stop_all ()
+daemon_start(PORT_A, PID_A, ROOT_A .. "/chains/")
+daemon_start(PORT_B, PID_B, ROOT_B .. "/chains/")
+daemon_start(PORT_C, PID_C, ROOT_C .. "/chains/")
+os.execute("sleep 0.3")
+
+local _ <close> = setmetatable({}, {__close=function()
+error'ok'
     daemon_stop(PID_A)
     daemon_stop(PID_B)
     daemon_stop(PID_C)
-end
-
-exec("mkdir -p " .. ROOT_A)
-exec("mkdir -p " .. ROOT_B)
-exec("mkdir -p " .. ROOT_C)
-
-local ok, err = pcall(function ()
+end})
 
 -- HOST A: create chain + post
 local CHAIN_HASH
@@ -88,8 +91,6 @@ do
         assert(#out == 40, "hash: " .. out)
         assert(out:match("^%x+$"), "not hex")
     end
-
-    daemon_start(ROOT_A .. "/chains/", PORT_A, PID_A)
 end
 
 -- HOST B: clone chain + post
@@ -152,8 +153,6 @@ do
         )
         assert(count == "3", "count: " .. count)
     end
-
-    daemon_start(ROOT_B .. "/chains/", PORT_B, PID_B)
 end
 
 -- HOST A: pull from B
@@ -207,8 +206,6 @@ do
         EXE_C .. " chains add test lua " .. GEN
     )
     assert(h ~= CHAIN_HASH, "should differ")
-
-    daemon_start(ROOT_C .. "/chains/", PORT_C, PID_C)
 
     do
         TEST "pull from unrelated chain fails"
@@ -279,12 +276,4 @@ do
     end
 end
 
-end)
-
-daemon_stop_all()
-
-if not ok then
-    io.stderr:write("FAIL: " .. tostring(err) .. "\n")
-    os.exit(1)
-end
 print("<== ALL PASSED")
