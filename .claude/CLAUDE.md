@@ -12,6 +12,7 @@ Key specs in `.claude/plans/`:
 | `replication.md` | Owner vs non-owner sync rules                  |
 | `signing.md`     | GPG signing via `git commit -S`                |
 | `consensus.md`   | Fetch validation pipeline                      |
+| `reps.md`        | Reputation: likes, dislikes, pioneers, 12h rule|
 | `crypto.md`      | Crypto choices (openssl, luasodium)            |
 | `commands.md`    | Freechains CLI to Git command mapping          |
 | `tests.md`       | Test catalog (58 tests across sections A–X)    |
