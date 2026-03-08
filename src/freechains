@@ -167,114 +167,105 @@ if args.chains then
     end
 elseif args.chain then
     local repo = args.root .. "/chains/" .. args.alias .. "/"
-    local name
 
-    if args.post then
-        if args.inline then     -- before ambiguous args.file
-            local text = args.text
-            if not text:match("\n$") then
-                text = text .. "\n"
-            end
+    if args.post or args.like then
+        local kind, file
 
-            if args.file then   -- ambiguous with post file
-                name = args.file
-                local f = io.open(repo .. args.file, "a")   -- appends
-                f:write(text)
-                f:close()
-            else
-                local hash = exec ("chain post : git hash-object failed",
-                    "printf '%s' '" .. text .. "' | git hash-object --stdin"
+        if args.post then
+            kind = "post"
+            if args.inline then     -- before ambiguous args.file
+                local text = args.text
+                if not text:match("\n$") then
+                    text = text .. "\n"
+                end
+
+                if args.file then   -- ambiguous with post file
+                    file = args.file
+                    local f = io.open(repo .. args.file, "a")   -- appends
+                    f:write(text)
+                    f:close()
+                else
+                    local hash = exec ("chain post : git hash-object failed",
+                        "printf '%s' '" .. text .. "' | git hash-object --stdin"
+                    )
+                    file = "post-" .. os.time() .. "-" .. hash:sub(1,8) .. ".txt"
+                    local f = io.open(repo .. file, "w")        -- truncates
+                    f:write(text)
+                    f:close()
+                end
+            elseif args.file then   -- after args.inline
+                file = args.path:match("[^/]+$")
+                exec ("chain post : copy failed: " .. args.path,
+                    "cp " .. args.path .. " " .. repo .. "/"
                 )
-                name = "post-" .. os.time() .. "-" .. hash:sub(1,8) .. ".txt"
-                local f = io.open(repo .. name, "w")        -- truncates
-                f:write(text)
-                f:close()
             end
-        elseif args.file then   -- after args.inline
-            name = args.path:match("[^/]+$")
-            exec ("chain post : copy failed: " .. args.path,
-                "cp " .. args.path .. " " .. repo .. "/"
+        elseif args.like then
+            kind = "like"
+
+            if not args.sign then
+                ERROR("chain like : --sign is required")
+            end
+
+            if not args.number:match("^[%+%-]%d+$") then
+                ERROR("chain like : number must start with + or -")
+            end
+
+            if args.target ~= "post" and args.target ~= "author" then
+                ERROR(
+                    "chain like : target must be 'post' or 'author'"
+                )
+            end
+
+            -- validate target exists
+            if args.target == "post" then
+                local tp = exec (
+                    "git -C " .. repo .. " cat-file -t " .. args.id
+                )
+                if tp ~= "commit" then
+                    ERROR("chain like : post not found : " .. args.id)
+                end
+            end
+
+            -- write like payload
+            local num = tonumber(args.number)
+            local payload = [[
+                return {
+                    target = "]] .. args.target .. [[",
+                    id     = "]] .. args.id     .. [[",
+                    number = ]]  .. num         .. [[,
+                }
+            ]]
+            local blob = exec (
+                "chain like : git hash-object failed",
+                "printf '%s' '" .. payload
+                    .. "' | git hash-object --stdin"
             )
+            file = "like-" .. os.time() .. "-" .. blob:sub(1,8) .. ".lua"
+            local f = io.open(repo .. file, "w")
+            f:write(payload)
+            f:close()
         end
 
-        exec ("chain post : git add failed",
-            "git -C " .. repo .. " add " .. name
+        -- common tail: add, commit, rev-parse
+        exec ("chain " .. kind .. " : git add failed",
+            "git -C " .. repo .. " add " .. file
         )
 
         local s1, s2 = "", ""
         if args.sign then
-            s1 = " -c user.signingkey=" .. args.sign
-                .. " -c gpg.format=openpgp"
+            s1 = " -c user.signingkey=" .. args.sign .. " -c gpg.format=openpgp"
             s2 = " -S"
         end
 
         local msg = args.why or ""
-        exec ("chain post : git commit failed",
+        exec ("chain " .. kind .. " : git commit failed",
             "git -C " .. repo .. s1 .. " commit" .. s2
-                .. " --trailer 'freechains: post'"
-                .. " --allow-empty-message"
-                .. " -m '" .. msg .. "'"
+                .. " --trailer 'freechains: " .. kind .. "'"
+                .. " --allow-empty-message" .. " -m '" .. msg .. "'"
         )
 
-        local hash = exec ("chain post : git rev-parse failed",
-            "git -C " .. repo .. " rev-parse HEAD"
-        )
-        print(hash)
-    elseif args.like then
-        if not args.sign then
-            ERROR("chain like : --sign is required")
-        end
-
-        if not args.number:match("^[%+%-]%d+$") then
-            ERROR("chain like : number must start with + or -")
-        end
-
-        if args.target ~= "post" and args.target ~= "author" then
-            ERROR("chain like : target must be 'post' or 'author'")
-        end
-
-        -- validate target exists
-        if args.target == "post" then
-            local tp = exec (
-                "git -C " .. repo .. " cat-file -t " .. args.id
-            )
-            if tp ~= "commit" then
-                ERROR("chain like : post not found : " .. args.id)
-            end
-        end
-
-        -- write like payload
-        local num = tonumber(args.number)
-        local payload = [[
-            return {
-                target = "]] .. args.target .. [[",
-                id     = "]] .. args.id     .. [[",
-                number = ]]  .. num         .. [[,
-            }
-        ]]
-        local blob = exec ("chain like : git hash-object failed",
-            "printf '%s' '" .. payload .. "' | git hash-object --stdin"
-        )
-        name = "like-" .. os.time() .. "-" .. blob:sub(1,8) .. ".lua"
-        local f = io.open(repo .. name, "w")
-        f:write(payload)
-        f:close()
-
-        exec ("chain like : git add failed",
-            "git -C " .. repo .. " add " .. name
-        )
-
-        local s1 = " -c user.signingkey=" .. args.sign
-            .. " -c gpg.format=openpgp"
-        local msg = args.why or ""
-        exec ("chain like : git commit failed",
-            "git -C " .. repo .. s1 .. " commit -S"
-                .. " --trailer 'freechains: like'"
-                .. " --allow-empty-message"
-                .. " -m '" .. msg .. "'"
-        )
-
-        local hash = exec ("chain like : git rev-parse failed",
+        local hash = exec (
+            "chain " .. kind .. " : git rev-parse failed",
             "git -C " .. repo .. " rev-parse HEAD"
         )
         print(hash)
