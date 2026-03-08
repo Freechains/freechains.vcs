@@ -2,7 +2,7 @@ tests: src/argparse.lua
 	@rm -Rf /tmp/freechains/
 	@mkdir /tmp/freechains/
 	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 cli-chains.lua
-	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 cli-chain.lua
+	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 cli-post.lua
 	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 cli-sign.lua
 	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 repl-local.lua
 	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 repl-remote.lua
