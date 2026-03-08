@@ -117,6 +117,42 @@ do
     end
 end
 
+-- POST --why
+do
+    print("==> freechains chain post --why")
+
+    do
+        TEST "inline --why sets commit message"
+        exec (
+            EXE .. " chain cli-chain post inline 'some text'"
+            .. " --why 'reason for posting'"
+        )
+        local msg = exec("git -C " .. DIR .. " log -1 --format=%s")
+        assert(msg == "reason for posting", "commit message: " .. msg)
+    end
+
+    do
+        TEST "file --why sets commit message"
+        local tmp = TMP .. "/why-test.txt"
+        local f = io.open(tmp, "w")
+        f:write("why test content\n")
+        f:close()
+        exec (
+            EXE .. " chain cli-chain post file " .. tmp
+            .. " --why 'file reason'"
+        )
+        local msg = exec("git -C " .. DIR .. " log -1 --format=%s")
+        assert(msg == "file reason", "commit message: " .. msg)
+    end
+
+    do
+        TEST "post without --why has empty message"
+        exec(EXE .. " chain cli-chain post inline 'no reason'")
+        local msg = exec("git -C " .. DIR .. " log -1 --format=%s")
+        assert(msg == "", "commit message should be empty: " .. msg)
+    end
+end
+
 -- POST errors
 do
     print("==> freechains chain post errors")

@@ -91,6 +91,7 @@ do
     -- cmd.chain.post
     cmd.chain.post._ = cmd.chain._:command("post")
     cmd.chain.post._:option("--sign")
+    cmd.chain.post._:option("--why")
     do
         -- cmd.chain.post.file
         cmd.chain.post.file._ = cmd.chain.post._:command("file")
@@ -202,8 +203,11 @@ elseif args.chain then
             s2 = " -S"
         end
 
-        exec("git -C " .. repo .. s1 .. ' commit' .. s2
-            .. ' --allow-empty-message -m ""')
+        local msg = args.why or ""
+        exec (
+            "git -C " .. repo .. s1 .. " commit" .. s2
+            .. " --allow-empty-message -m '" .. msg .. "'"
+        )
 
         local hash = exec("git -C " .. repo .. " rev-parse HEAD")
         print(hash)
