@@ -1,4 +1,4 @@
-require "../src/common.lua"
+require "common"
 
 TMP    = "/tmp/freechains/"
 GEN    = "genesis/"

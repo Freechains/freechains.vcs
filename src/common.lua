@@ -24,11 +24,11 @@ function exec (a, b, c)
     local ok, _, code = h:close()
 
     if code == 0 then
-        return out
+        return out, code
     elseif err then
         ERROR(err)
     else
-        return false, "bug found"
+        return false, code
     end
 end
 
