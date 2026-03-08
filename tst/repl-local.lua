@@ -24,7 +24,6 @@ local CHAIN_HASH
 do
     print("==> Host A: create chain + post")
 
-    os.execute("sleep 1")
     do
         TEST "chain created"
         CHAIN_HASH = exec (
@@ -256,7 +255,7 @@ end
 do
     print("==> Unrelated histories rejected")
 
-    os.execute("sleep 1")
+    os.execute("sleep 1")   -- prevents hash collisions
     local h = exec (
         EXE_C .. " chains add test dir " .. GEN
     )

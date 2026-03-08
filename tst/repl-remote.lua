@@ -59,7 +59,7 @@ end
 daemon_start(PORT_A, PID_A, ROOT_A .. "/chains/")
 daemon_start(PORT_B, PID_B, ROOT_B .. "/chains/")
 daemon_start(PORT_C, PID_C, ROOT_C .. "/chains/")
-os.execute("sleep 0.3")
+os.execute("sleep 0.3") -- starting up daemons
 
 local _ <close> = setmetatable({}, {__close=function()
     daemon_stop(PID_A)
@@ -73,7 +73,6 @@ local CHAIN_HASH
 do
     print("==> Host A: create chain + post")
 
-    os.execute("sleep 1")
     do
         TEST "chain created"
         CHAIN_HASH = exec (
@@ -306,7 +305,6 @@ end
 do
     print("==> Unrelated histories rejected")
 
-    os.execute("sleep 1")
     local h = exec (
         EXE_C .. " chains add test dir " .. GEN
     )
