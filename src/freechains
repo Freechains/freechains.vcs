@@ -62,6 +62,7 @@ local cmd = {
             file = {},
             inline = {},
         },
+        like = {},
     },
 }
 
@@ -102,6 +103,13 @@ do
         cmd.chain.post.inline._:argument("text")
         cmd.chain.post.inline._:option("--file")
     end
+
+    -- cmd.chain.like
+    cmd.chain.like._ = cmd.chain._:command("like")
+    cmd.chain.like._:argument("number")
+    cmd.chain.like._:argument("hash")
+    cmd.chain.like._:option("--sign")
+    cmd.chain.like._:option("--why")
 end
 
 local args = parser:parse()
@@ -211,5 +219,53 @@ elseif args.chain then
 
         local hash = exec("git -C " .. repo .. " rev-parse HEAD")
         print(hash)
+    elseif args.like then
+        if not args.sign then
+            io.stderr:write("ERROR: --sign is required for like\n")
+            os.exit(1)
+        end
+
+        if not args.number:match("^[%+%-]%d+$") then
+            io.stderr:write("ERROR: number must start with + or -\n")
+            os.exit(1)
+        end
+
+        -- validate target exists
+        local h = io.popen (
+            "git -C " .. repo .. " cat-file -t " .. args.hash
+            .. " 2>/dev/null"
+        )
+        local typ = h:read("a"):match("^(%S+)")
+        h:close()
+        if typ ~= "commit" then
+            io.stderr:write("ERROR: target not found: " .. args.hash .. "\n")
+            os.exit(1)
+        end
+
+        -- self-like check (positive only)
+        if tonumber(args.number) > 0 then
+            local author = exec (
+                "git -C " .. repo .. " log -1 --format=%GK " .. args.hash
+            )
+            if author == args.sign then
+                io.stderr:write("ERROR: cannot like own post\n")
+                os.exit(1)
+            end
+        end
+
+        local tree = "4b825dc642cb6eb9a060e54bf899d69ff964f6d9"
+        local parent = exec("git -C " .. repo .. " rev-parse HEAD")
+        local msg = args.why or ""
+        local s1 = " -c user.signingkey=" .. args.sign
+            .. " -c gpg.format=openpgp"
+        local commit = exec (
+            "git -C " .. repo .. s1
+            .. " commit-tree " .. tree .. " -p " .. parent .. " -S"
+            .. " --trailer 'freechains-like: " .. args.number
+            .. " " .. args.hash .. "'"
+            .. " -m '" .. msg .. "'"
+        )
+        exec("git -C " .. repo .. " reset --hard " .. commit)
+        print(commit)
     end
 end
