@@ -28,9 +28,9 @@ do
     do
         TEST "genesis still in tree"
         local _, code = exec (
-            "test -f " .. DIR .. "/.genesis.lua"
+            "test -f " .. DIR .. "/.freechains/genesis.lua"
         )
-        assert(code == 0, ".genesis.lua missing")
+        assert(code == 0, ".freechains/genesis.lua missing")
     end
 
     do

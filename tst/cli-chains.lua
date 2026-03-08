@@ -17,7 +17,7 @@ do
         assert(out:match("^%x+$"), "hash is hex")
 
         TEST "genesis file"
-        local gen = DIR .. "/.genesis.lua"
+        local gen = DIR .. "/.freechains/genesis.lua"
         local _, code = exec("diff -q " .. GEN .. " " .. gen)
         assert(code == 0, "exit code: " .. tostring(code))
         local t = dofile(gen)
