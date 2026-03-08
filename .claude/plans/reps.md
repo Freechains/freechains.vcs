@@ -21,12 +21,15 @@ equally among its pioneers:
 | 3        | 10        |
 | N        | 30 / N    |
 
-Pioneers are listed in the genesis block (`pioneers`
-field).
+Pioneers are defined by their entries in
+`reps-authors.lua`, which is created in the genesis
+commit alongside `genesis.lua`.
+There is no separate `pioneers` field in genesis —
+the initial non-zero entries *are* the pioneers.
 Non-pioneer authors start with **0 reputation**.
 
-Chains without pioneers are fully open — no reputation
-gate at all.
+Chains without pioneers have an empty
+`reps-authors.lua` — no reputation gate at all.
 
 ### Special chain types
 
@@ -185,10 +188,9 @@ Reputation is computed by walking the DAG in
 `--date-order`:
 
 ```
-for each commit in git log --date-order:
-    if commit is genesis:
-        initialize pioneer reps (30 / N)
-    elif commit has freechains-like header:
+load reps-authors.lua from genesis commit
+for each commit after genesis in git log --date-order:
+    if commit has freechains-like header:
         apply like (with 12h maturation check)
     elif commit has freechains-dislike header:
         apply dislike (immediate)
@@ -197,6 +199,8 @@ for each commit in git log --date-order:
     (skip merge-only commits)
 ```
 
+No special genesis case — the initial state is read
+directly from `reps-authors.lua` in the first commit.
 If the Lua files are deleted, they can be fully
 reconstructed by replaying the git history.
 

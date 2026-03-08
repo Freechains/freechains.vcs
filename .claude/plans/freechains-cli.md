@@ -63,7 +63,7 @@ Default: `~/.freechains/`.
 
 | Char  | Type                    | Required flag    |
 |-------|-------------------------|------------------|
-| `'#'` | public                  | `--pioneers`     |
+| `'#'` | public                  | (none)           |
 | `'$'` | private                 | `--shared`       |
 | `'@'` | personal (read-only)    | `--key`          |
 | `'@!'`| personal (writeable)    | `--key`          |
@@ -80,8 +80,7 @@ required.
 
 ```bash
 # prefix inference
-freechains chains add '#sports' args \
-    --pioneers ed25519:k1,ed25519:k2
+freechains chains add '#sports' args
 freechains chains add '$family' args \
     --shared x25519:key
 freechains chains add '@me' args \
@@ -90,12 +89,14 @@ freechains chains add '@!feedback' args \
     --key ed25519:pubkey
 
 # explicit type
-freechains chains add mytopic args \
-    --type '#' --pioneers ed25519:k1
+freechains chains add mytopic args --type '#'
 ```
 
-At least one key-related flag is required (no bare type-only
-creation).
+For `$`/`@`/`@!` chains, a key flag is required.
+For `#` public chains, the user edits `genesis.lua` and
+`reps-authors.lua` by hand before the genesis commit.
+A future interactive builder will assist with chain
+creation.
 
 ### `chains add <alias> lua <file>`
 
@@ -106,7 +107,6 @@ The file must return a genesis table:
 return {
     version  = {0, 11, 0},
     type     = '#',
-    pioneers = {"ed25519:abc", "ed25519:xyz"},
 }
 ```
 

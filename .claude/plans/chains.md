@@ -35,17 +35,14 @@ Relies on the reputation system to prevent SPAM and abuse.
 return {
     version  = {0, 11, 0},
     type     = '#',
-    pioneers = {
-        "ed25519:abc...",
-        "ed25519:xyz...",
-    },
 }
 ```
 
-Pioneers are listed in the genesis and start with elevated
-reputation.
-A chain with no pioneers is fully open — anyone can post from
-the start.
+Pioneers are defined by their non-zero entries in
+`reps-authors.lua`, created alongside `genesis.lua` in
+the genesis commit.
+A chain with no pioneers (empty `reps-authors.lua`) is
+fully open — anyone can post from the start.
 
 ### Private Group (`'$'`)
 
@@ -140,8 +137,8 @@ notation and carry no meaning to the protocol.
 │  naming conventions, hierarchies        │
 ├─────────────────────────────────────────┤
 │  Freechains                             │
-│  validates genesis, manages pioneers,   │
-│  applies reputation and consensus       │
+│  validates genesis, applies reputation  │
+│  and consensus                          │
 ├─────────────────────────────────────────┤
 │  Git                                    │
 │  stores blocks as commits,              │

@@ -19,10 +19,6 @@ The commit hash of the genesis block is the
 return {
     version = {0, 11, 0},      -- protocol version
     type    = '#',              -- '#' | '$' | '@' | '@!'
-    pioneers = {                -- public ('#') only
-        "ed25519:abc...",
-        "ed25519:xyz...",
-    },
     -- shared = "x25519:def...",     -- private ('$') only
     -- key    = "ed25519:abc...",    -- personal ('@'/'@!') only
 }
@@ -50,12 +46,6 @@ chain.
 | `'@!'`| personal (writeable)    |
 
 See [Chains](chains.md) for details on each type.
-
-#### `pioneers`
-
-A list of Ed25519 public keys with elevated initial reputation.
-Only relevant for public (`'#'`) chains.
-Optional — a chain with no pioneers is fully open.
 
 #### `shared`
 
@@ -100,7 +90,7 @@ The genesis data lives in a `.genesis.lua` blob in the tree.
 
 | Field            | Value                                        |
 |------------------|----------------------------------------------|
-| tree             | tree with `.genesis.lua` blob                |
+| tree             | `.genesis.lua` + `.freechains/reps-authors.lua` |
 | parent           | none                                         |
 | author name      | blank                                        |
 | author email     | blank                                        |
