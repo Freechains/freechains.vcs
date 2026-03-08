@@ -76,7 +76,7 @@ do
     do
         TEST "chain created"
         CHAIN_HASH = exec (
-            EXE_A .. " chains add test lua " .. GEN
+            EXE_A .. " chains add test dir " .. GEN
         )
         assert(#CHAIN_HASH == 40, "hash: " .. CHAIN_HASH)
         assert(CHAIN_HASH:match("^%x+$"), "not hex")
@@ -309,7 +309,7 @@ do
 
     os.execute("sleep 1")
     local h = exec (
-        EXE_C .. " chains add test lua " .. GEN
+        EXE_C .. " chains add test dir " .. GEN
     )
     assert(h ~= CHAIN_HASH, "should differ")
 

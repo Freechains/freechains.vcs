@@ -3,7 +3,7 @@ require "common"
 
 local DIR = ROOT .. "/chains/cli-chain/"
 
-exec(EXE .. " chains add cli-chain lua " .. GEN)
+exec(EXE .. " chains add cli-chain dir " .. GEN)
 
 -- POST FILE
 do

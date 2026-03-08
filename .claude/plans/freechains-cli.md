@@ -8,7 +8,7 @@ Subcommands: `chains add/rem/dir`, `chain post`.
 ## Scope
 
 - `freechains chains add <alias> args [--flags]`
-- `freechains chains add <alias> lua <file>`
+- `freechains chains add <alias> dir <path>/`
 - `freechains chains add <alias> remote <host> <hash-or-alias>`
 - `freechains chains rem <alias>`
 - `freechains chains dir`
@@ -98,12 +98,16 @@ For `#` public chains, the user edits `genesis.lua` and
 A future interactive builder will assist with chain
 creation.
 
-### `chains add <alias> lua <file>`
+### `chains add <alias> dir <path>/`
 
-Create a new chain from a Lua genesis file.
-The file must return a genesis table:
+Create a new chain from a directory containing genesis
+files.
+The directory must contain `genesis.lua` (returning a
+genesis table) and optionally `reps-authors.lua`.
+All `.lua` files are copied into `.freechains/`.
 
 ```lua
+-- genesis.lua
 return {
     version  = {0, 11, 0},
     type     = '#',
@@ -111,7 +115,7 @@ return {
 ```
 
 ```bash
-freechains chains add mychain lua genesis.lua
+freechains chains add mychain dir genesis/
 ```
 
 ### `chains add <alias> remote <host> <hash-or-alias>`
@@ -184,10 +188,10 @@ Single Lua script with:
 - argparse setup: `--root`, `chains` command with `add`,
   `rem`, `dir` subcommands
 - `chain` command with `post` subcommand
-- `add` has sub-modes: `args`, `lua`, `remote`
+- `add` has sub-modes: `args`, `dir`, `remote`
 - `post` has sub-modes: `file`, `inline`
 
-### `chains add` (args / lua)
+### `chains add` (args / dir)
 
 1. Read Lua file, `dofile` to validate it returns a table
 2. `mkdir <tmp> && git -C <tmp> init`
@@ -239,7 +243,7 @@ Single Lua script with:
 - [x] Create `Makefile`
 - [x] Create `src/freechains` (entry point + all logic)
 - [x] Download `argparse.lua`
-- [x] `chains add <alias> lua` implemented + tested
+- [x] `chains add <alias> dir` implemented + tested
 - [x] `chains rem <alias>` implemented + tested
 - [x] `chains dir` implemented + tested
 - [x] `chain <alias> post file` implemented + tested

@@ -5,12 +5,12 @@ local DIR = ROOT .. "/chains/cli-chains"
 
 -- ADD
 do
-    print("==> freechains chains add lua")
+    print("==> freechains chains add dir")
 
     do
         TEST "success"
         local out, code = exec (
-            EXE .. " chains add cli-chains lua " .. GEN
+            EXE .. " chains add cli-chains dir " .. GEN
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -18,7 +18,7 @@ do
 
         TEST "genesis file"
         local gen = DIR .. "/.freechains/genesis.lua"
-        local _, code = exec("diff -q " .. GEN .. " " .. gen)
+        local _, code = exec("diff -q " .. GEN .. "genesis.lua " .. gen)
         assert(code == 0, "exit code: " .. tostring(code))
         local t = dofile(gen)
         assert(type(t) == "table")
@@ -47,14 +47,15 @@ do
 
     do
         TEST "bad genesis file"
-        local bad = "/tmp/fc-test-bad-genesis.lua"
+        local bad = "/tmp/fc-test-bad-genesis/"
+        exec("mkdir -p " .. bad)
         do
-            f = io.open(bad, "w")
+            f = io.open(bad .. "genesis.lua", "w")
             f:write('return "not a table"\n')
             f:close()
         end
         local _, code = exec (
-            EXE .. " chains add x lua " .. bad
+            EXE .. " chains add x dir " .. bad
         )
         assert(code ~= 0, "should fail")
     end
@@ -93,7 +94,7 @@ do
         TEST "dir two chains"
         os.execute("sleep 1")   -- prevents hash collisions
         exec (
-            EXE .. " chains add other lua " .. GEN
+            EXE .. " chains add other dir " .. GEN
         )
         local out, code = exec(
             EXE .. " chains dir"

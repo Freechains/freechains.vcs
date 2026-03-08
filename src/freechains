@@ -51,7 +51,7 @@ local cmd = {
     chains = {
         _ = parser:command("chains"),
         add = {
-            lua = {},
+            dir = {},
         },
         rem = {},
         dir = {},
@@ -72,8 +72,8 @@ do
     do
         -- cmd.chains.add.lua
         cmd.chains.add._:argument("alias")
-        cmd.chains.add.lua._ = cmd.chains.add._:command("lua")
-        cmd.chains.add.lua._:argument("path")
+        cmd.chains.add.dir._ = cmd.chains.add._:command("dir")
+        cmd.chains.add.dir._:argument("path")
     end
 
     -- cmd.chains.rem
@@ -108,8 +108,8 @@ local args = parser:parse()
 if args.chains then
     local chains = args.root .. "/chains/"
     if args.add then
-        if args.lua then
-            local genesis = dofile(args.path)
+        if args.dir then
+            local genesis = dofile(args.path .. "/genesis.lua")
             if type(genesis) ~= "table" then
                 io.stderr:write("ERROR: file must return a table\n")
                 os.exit(1)
@@ -135,8 +135,8 @@ if args.chains then
             exec("git init " .. tmp)
             git_config(tmp)
             exec("mkdir -p " .. tmp .. "/.freechains")
-            exec("cp " .. args.path .. " " .. tmp .. "/.freechains/genesis.lua")
-            exec("git -C " .. tmp .. " add .freechains/genesis.lua")
+            exec("cp -r " .. args.path .. "/* " .. tmp .. "/.freechains/")
+            exec("git -C " .. tmp .. " add .freechains/")
             exec("git -C " .. tmp .. ' commit --allow-empty-message -m ""')
 
             local hash = exec("git -C " .. tmp .. " rev-parse HEAD")
