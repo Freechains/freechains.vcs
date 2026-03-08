@@ -57,6 +57,16 @@ git merge --no-commit --no-ff FETCH_HEAD
 After checking: `git merge --abort` to clean up.
 Only proceed to real merge if dry-run passes.
 
+Note: `--abort` is only needed when `MERGE_HEAD` exists
+(success or conflict). Unrelated histories rejection
+leaves no merge state — no abort needed.
+
+| Dry-run result       | MERGE_HEAD | Abort needed |
+|----------------------|------------|--------------|
+| Success (code 0)     | yes        | yes          |
+| Conflict (code 1)    | yes        | yes          |
+| Unrelated (code 128) | no         | no           |
+
 ## Pipeline Summary
 
 ```
