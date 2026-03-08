@@ -1,6 +1,6 @@
 tests: src/argparse.lua
 	@rm -Rf /tmp/freechains/
-	@mkdir /tmp/freechains/
+	@mkdir -p /tmp/freechains/
 	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 cli-chains.lua
 	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 cli-post.lua
 	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 cli-sign.lua
