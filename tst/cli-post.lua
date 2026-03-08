@@ -1,5 +1,6 @@
 #!/usr/bin/env lua5.4
-require "common"
+
+require "tests"
 
 local DIR = ROOT .. "/chains/cli-chain/"
 

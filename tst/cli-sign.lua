@@ -1,5 +1,6 @@
 #!/usr/bin/env lua5.4
-require "common"
+
+require "tests"
 
 local DIR = ROOT .. "/chains/cli-sign/"
 
@@ -22,9 +23,8 @@ do
 
     do
         TEST "git verify-commit passes"
-        local out, code = exec (
-            ENV .. " git -C " .. DIR .. " verify-commit HEAD",
-            true
+        local out, code = exec (true,
+            ENV .. " git -C " .. DIR .. " verify-commit HEAD"
         )
         assert(code == 0, "verify-commit failed")
         assert(out:match('Good signature from "test <test@freechains>"'))

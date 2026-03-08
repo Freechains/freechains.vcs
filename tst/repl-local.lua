@@ -1,5 +1,6 @@
 #!/usr/bin/env lua5.4
-require "common"
+
+require "tests"
 
 local ROOT_A = ROOT .. "/repl-local/A/"
 local ROOT_B = ROOT .. "/repl-local/B/"
@@ -153,9 +154,8 @@ do
 
     do
         TEST "A and B are equal"
-        local _,ok = exec (
+        local _,ok = exec (true,
             "diff -r --exclude=.git " .. REPO_A .. " " .. REPO_B
-            , true
         )
         assert(ok==0, "A and B differ")
     end
@@ -245,9 +245,8 @@ do
 
     do
         TEST "A and B are equal after bidirectional sync"
-        local _, ok = exec (
+        local _, ok = exec (true,
             "diff -r --exclude=.git " .. REPO_A .. " " .. REPO_B
-            , true
         )
         assert(ok == 0, "A and B differ")
     end
