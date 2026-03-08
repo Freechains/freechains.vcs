@@ -87,7 +87,8 @@ do
     -- cmd.chain.like
     cmd.chain.like._ = cmd.chain._:command("like")
     cmd.chain.like._:argument("number")
-    cmd.chain.like._:argument("hash")
+    cmd.chain.like._:argument("target")
+    cmd.chain.like._:argument("id")
     cmd.chain.like._:option("--sign")
     cmd.chain.like._:option("--why")
 end
@@ -184,7 +185,7 @@ elseif args.chain then
                 local hash = exec ("chain post : git hash-object failed",
                     "printf '%s' '" .. text .. "' | git hash-object --stdin"
                 )
-                name = os.time() .. "-" .. hash:sub(1,8) .. ".txt"
+                name = "post-" .. os.time() .. "-" .. hash:sub(1,8) .. ".txt"
                 local f = io.open(repo .. name, "w")        -- truncates
                 f:write(text)
                 f:close()
@@ -210,7 +211,9 @@ elseif args.chain then
         local msg = args.why or ""
         exec ("chain post : git commit failed",
             "git -C " .. repo .. s1 .. " commit" .. s2
-                .. " --allow-empty-message -m '" .. msg .. "'"
+                .. " --trailer 'freechains: post'"
+                .. " --allow-empty-message"
+                .. " -m '" .. msg .. "'"
         )
 
         local hash = exec ("chain post : git rev-parse failed",
@@ -219,51 +222,61 @@ elseif args.chain then
         print(hash)
     elseif args.like then
         if not args.sign then
-            io.stderr:write("ERROR: --sign is required for like\n")
-            os.exit(1)
+            ERROR("chain like : --sign is required")
         end
 
         if not args.number:match("^[%+%-]%d+$") then
-            io.stderr:write("ERROR: number must start with + or -\n")
-            os.exit(1)
+            ERROR("chain like : number must start with + or -")
+        end
+
+        if args.target ~= "post" and args.target ~= "author" then
+            ERROR("chain like : target must be 'post' or 'author'")
         end
 
         -- validate target exists
-        local h = io.popen (
-            "git -C " .. repo .. " cat-file -t " .. args.hash
-            .. " 2>/dev/null"
-        )
-        local typ = h:read("a"):match("^(%S+)")
-        h:close()
-        if typ ~= "commit" then
-            io.stderr:write("ERROR: target not found: " .. args.hash .. "\n")
-            os.exit(1)
-        end
-
-        -- self-like check (positive only)
-        if tonumber(args.number) > 0 then
-            local author = exec (
-                "git -C " .. repo .. " log -1 --format=%GK " .. args.hash
+        if args.target == "post" then
+            local tp = exec (
+                "git -C " .. repo .. " cat-file -t " .. args.id
             )
-            if author == args.sign then
-                io.stderr:write("ERROR: cannot like own post\n")
-                os.exit(1)
+            if tp ~= "commit" then
+                ERROR("chain like : post not found : " .. args.id)
             end
         end
 
-        local tree = "4b825dc642cb6eb9a060e54bf899d69ff964f6d9"
-        local parent = exec("git -C " .. repo .. " rev-parse HEAD")
-        local msg = args.why or ""
+        -- write like payload
+        local num = tonumber(args.number)
+        local payload = [[
+            return {
+                target = "]] .. args.target .. [[",
+                id     = "]] .. args.id     .. [[",
+                number = ]]  .. num         .. [[,
+            }
+        ]]
+        local blob = exec ("chain like : git hash-object failed",
+            "printf '%s' '" .. payload .. "' | git hash-object --stdin"
+        )
+        name = "like-" .. os.time() .. "-" .. blob:sub(1,8) .. ".lua"
+        local f = io.open(repo .. name, "w")
+        f:write(payload)
+        f:close()
+
+        exec ("chain like : git add failed",
+            "git -C " .. repo .. " add " .. name
+        )
+
         local s1 = " -c user.signingkey=" .. args.sign
             .. " -c gpg.format=openpgp"
-        local commit = exec (
-            "git -C " .. repo .. s1
-            .. " commit-tree " .. tree .. " -p " .. parent .. " -S"
-            .. " --trailer 'freechains-like: " .. args.number
-            .. " " .. args.hash .. "'"
-            .. " -m '" .. msg .. "'"
+        local msg = args.why or ""
+        exec ("chain like : git commit failed",
+            "git -C " .. repo .. s1 .. " commit -S"
+                .. " --trailer 'freechains: like'"
+                .. " --allow-empty-message"
+                .. " -m '" .. msg .. "'"
         )
-        exec("git -C " .. repo .. " reset --hard " .. commit)
-        print(commit)
+
+        local hash = exec ("chain like : git rev-parse failed",
+            "git -C " .. repo .. " rev-parse HEAD"
+        )
+        print(hash)
     end
 end
