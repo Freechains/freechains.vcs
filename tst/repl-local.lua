@@ -118,6 +118,13 @@ do
         )
         assert(code == 0, "fetch failed")
 
+        TEST "dry-run merge ok"
+        local _, code = exec (
+            "git -C " .. REPO_A .. " merge --no-commit --no-ff FETCH_HEAD"
+        )
+        assert(code == 0, "dry-run merge failed")
+        exec("git -C " .. REPO_A .. " merge --abort")
+
         TEST "merge from B"
         exec (
             "git -C " .. REPO_A .. " merge --no-edit FETCH_HEAD"
@@ -171,11 +178,12 @@ do
         )
         assert(code == 0, "fetch should succeed")
 
-        TEST "merge from unrelated chain fails"
+        TEST "dry-run merge from unrelated chain fails"
         local _, code = exec (
-            "git -C " .. REPO_C .. " merge --no-edit FETCH_HEAD"
+            "git -C " .. REPO_C .. " merge --no-commit --no-ff FETCH_HEAD"
         )
         assert(code ~= 0, "should reject unrelated histories")
+        exec("git -C " .. REPO_C .. " merge --abort")
     end
 end
 
@@ -208,6 +216,13 @@ do
             "git -C " .. REPO_A .. " fetch " .. REPO_B .. " " .. branch
         )
         assert(code == 0, "fetch should succeed")
+
+        TEST "dry-run merge fails with conflict"
+        local _, code = exec (
+            "git -C " .. REPO_A .. " merge --no-commit --no-ff FETCH_HEAD"
+        )
+        assert(code ~= 0, "should fail with conflict")
+        exec("git -C " .. REPO_A .. " merge --abort")
 
         TEST "merge fails with conflict"
         local _, code = exec (

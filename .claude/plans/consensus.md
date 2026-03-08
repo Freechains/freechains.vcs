@@ -42,12 +42,31 @@ trust each other fully.
 
 Non-owner validation is future scope.
 
+## Dry-run Merge Check
+
+Before the real merge, a dry-run verifies mergeability:
+
+```
+git merge --no-commit --no-ff FETCH_HEAD
+```
+
+- Exit code 0 → merge would succeed (clean)
+- Exit code != 0 → merge would fail (conflict or
+  unrelated histories)
+
+After checking: `git merge --abort` to clean up.
+Only proceed to real merge if dry-run passes.
+
 ## Pipeline Summary
 
 ```
-git fetch        — git validates objects + transport
+git fetch                      — git validates objects
     |
-freechains       — validate signatures, reputation, DAG
+freechains                     — validate signatures,
+                                 reputation, DAG
     |
-git merge        — integrate + pre-merge-commit hook
+git merge --no-commit --no-ff  — dry-run merge check
+git merge --abort              — clean up dry-run
+    |
+git merge                      — real merge
 ```
