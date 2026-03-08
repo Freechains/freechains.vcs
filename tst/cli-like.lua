@@ -117,18 +117,18 @@ do
     end
 
     do
-        TEST "self-like-rejected"
+        TEST "self-like-allowed"
         local self_target = exec (
             ENV_EXE .. " chain cl post inline 'self target' --sign " .. KEY
         )
         local _, code = exec (
             ENV_EXE .. " chain cl like +1 " .. self_target .. " --sign " .. KEY
         )
-        assert(code ~= 0, "self-like should fail")
+        assert(code == 0, "self-like should succeed")
     end
 
     do
-        TEST "self-dislike-works"
+        TEST "self-dislike-allowed"
         local self_target = exec (
             ENV_EXE .. " chain cl post inline 'self dislike' --sign " .. KEY
         )
