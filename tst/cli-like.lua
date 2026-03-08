@@ -27,6 +27,7 @@ end
 do
     print("==> freechains chain like (+1)")
 
+    local LIKE
     do
         TEST "like-success"
         local out, code = exec (
@@ -35,6 +36,7 @@ do
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
         assert(out:match("^%x+$"), "hash is hex: " .. out)
+        LIKE = out
     end
 
     do
@@ -45,12 +47,12 @@ do
 
     do
         TEST "like-payload-file"
-        local files = exec("ls " .. DIR .. "/*-*.lua 2>/dev/null")
-        assert(files ~= "", "like payload file missing")
-        local path = files:match("[^\n]+")
-        local tbl = dofile(path)
+error'?'
+        local file = exec("git -C " .. DIR .. " diff-tree --no-commit-id --name-only -r " .. LIKE)
+        assert(file ~= "", "like payload file missing")
+        local content = exec("git -C " .. DIR .. " show " .. LIKE .. ":" .. file)
+        local tbl = load(content)()
         assert(tbl.target == "post", "target: " .. tostring(tbl.target))
-print(POST)
         assert(tbl.id == POST, "id: " .. tostring(tbl.id))
         assert(tbl.number == 1, "number: " .. tostring(tbl.number))
     end
@@ -58,7 +60,7 @@ print(POST)
     do
         TEST "like-is-signed"
         local _, code = exec (
-            ENV .. " git -C " .. DIR .. " verify-commit HEAD", true
+            ENV .. " git -C " .. DIR .. " verify-commit HEAD"
         )
         assert(code == 0, "verify-commit failed")
     end
@@ -81,9 +83,12 @@ do
 
     do
         TEST "dislike-success"
+        print(ENV_EXE .. " chain cli-like like -1 post " .. TARGET2 .. " --sign " .. KEY2)
+error'ok'
         local out, code = exec (
             ENV_EXE .. " chain cli-like like -1 post " .. TARGET2 .. " --sign " .. KEY2
         )
+print(out, code)
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
         assert(out:match("^%x+$"), "hash is hex: " .. out)
