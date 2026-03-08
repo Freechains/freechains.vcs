@@ -54,10 +54,10 @@ do
 
     do
         TEST "unsigned commit has no gpgsig"
-        local raw = exec (
+        local out = exec (
             "git -C " .. DIR .. " cat-file commit HEAD"
         )
-        assert(not raw:match("gpgsig"), "gpgsig should be absent")
+        assert(not out:match("gpgsig"), "gpgsig should be absent")
     end
 end
 

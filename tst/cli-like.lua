@@ -9,6 +9,7 @@ local DIR = ROOT .. "/chains/cli-like/"
 local POST
 
 do
+    print("==> freechains post")
     POST = exec (
         ENV_EXE .. " chain cli-like post inline 'target post' --sign " .. KEY
     )
@@ -17,8 +18,8 @@ do
     print("==> freechains: post trailer")
     do
         TEST "post-has-trailer"
-        local raw = exec("git -C " .. DIR .. " cat-file commit HEAD")
-        assert(raw:match("freechains: post"), "missing freechains: post trailer")
+        local out = exec("git -C " .. DIR .. " cat-file commit HEAD")
+        assert(out:match("freechains: post"), "missing freechains: post trailer")
     end
 end
 
@@ -38,8 +39,8 @@ do
 
     do
         TEST "like-has-trailer"
-        local raw = exec("git -C " .. DIR .. " cat-file commit HEAD")
-        assert(raw:match("freechains: like"), "missing freechains: like trailer")
+        local out = exec("git -C " .. DIR .. " cat-file commit HEAD")
+        assert(out:match("freechains: like"), "missing freechains: like trailer")
     end
 
     do
@@ -90,8 +91,8 @@ do
 
     do
         TEST "dislike-payload"
-        local raw = exec("git -C " .. DIR .. " cat-file commit HEAD")
-        assert(raw:match("freechains: like"), "missing freechains: like trailer")
+        local out = exec("git -C " .. DIR .. " cat-file commit HEAD")
+        assert(out:match("freechains: like"), "missing freechains: like trailer")
     end
 
     do
