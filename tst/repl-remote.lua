@@ -211,6 +211,98 @@ do
     end
 end
 
+-- BIDIRECTIONAL SYNC: both post, A merges B, B merges A
+do
+    print("==> Bidirectional sync")
+
+    do
+        TEST "A posts again"
+        local out = exec (
+            EXE_A .. " chain test post inline 'second from A'"
+        )
+        assert(#out == 40, "hash: " .. out)
+
+        TEST "B posts again"
+        local out = exec (
+            EXE_B .. " chain test post inline 'second from B'"
+        )
+        assert(#out == 40, "hash: " .. out)
+    end
+
+    do
+        TEST "A fetches from B"
+        local branch = exec (
+            "git -C " .. REPO_A .. " rev-parse --abbrev-ref HEAD"
+        )
+        local _, code = exec (
+            "git -C " .. REPO_A .. " fetch " .. URL_B .. "test/ " .. branch
+        )
+        assert(code == 0, "fetch failed")
+
+        TEST "A dry-run merge ok"
+        local _, code = exec (
+            "git -C " .. REPO_A .. " merge --no-commit --no-ff FETCH_HEAD"
+        )
+        assert(code == 0, "dry-run merge failed")
+        local _, code = exec (
+            "git -C " .. REPO_A .. " merge --abort"
+        )
+        assert(code == 0, "abort failed")
+
+        TEST "A merges B (true merge)"
+        exec (
+            "git -C " .. REPO_A .. " merge --no-edit FETCH_HEAD"
+        )
+
+        TEST "A has 6 commits"
+        local count = exec (
+            "git -C " .. REPO_A .. " rev-list --count HEAD"
+        )
+        assert(count == "6", "count: " .. count)
+    end
+
+    do
+        TEST "B fetches from A"
+        local branch = exec (
+            "git -C " .. REPO_B .. " rev-parse --abbrev-ref HEAD"
+        )
+        local _, code = exec (
+            "git -C " .. REPO_B .. " fetch " .. URL_A .. "test/ " .. branch
+        )
+        assert(code == 0, "fetch failed")
+
+        TEST "B dry-run merge ok"
+        local _, code = exec (
+            "git -C " .. REPO_B .. " merge --no-commit --no-ff FETCH_HEAD"
+        )
+        assert(code == 0, "dry-run merge failed")
+        local _, code = exec (
+            "git -C " .. REPO_B .. " merge --abort"
+        )
+        assert(code == 0, "abort failed")
+
+        TEST "B merges A (fast-forward)"
+        exec (
+            "git -C " .. REPO_B .. " merge --no-edit FETCH_HEAD"
+        )
+
+        TEST "B has 6 commits"
+        local count = exec (
+            "git -C " .. REPO_B .. " rev-list --count HEAD"
+        )
+        assert(count == "6", "count: " .. count)
+    end
+
+    do
+        TEST "A and B are equal after bidirectional sync"
+        local _, ok = exec (
+            "diff -r --exclude=.git " .. REPO_A .. " " .. REPO_B
+            , true
+        )
+        assert(ok == 0, "A and B differ")
+    end
+end
+
 -- UNRELATED HISTORIES: independent chain creation must fail sync
 do
     print("==> Unrelated histories rejected")
