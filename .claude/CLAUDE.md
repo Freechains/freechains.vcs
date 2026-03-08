@@ -1,3 +1,21 @@
+# Error Format
+
+All error messages use:
+`ERROR : <command> : <detail>`
+
+Examples:
+- `ERROR : chains add : git init failed`
+- `ERROR : chains rem : not found: x`
+- `ERROR : chain post : git commit failed`
+
+# exec Format
+
+```
+exec ("error message",
+    "command" -- on line
+)
+```
+
 # Design Documents
 
 Key specs in `.claude/plans/`:

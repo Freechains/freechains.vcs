@@ -3,27 +3,7 @@
 local VERSION = "v0.20"
 
 local argparse = require "argparse"
-
-function exec (cmd, stderr)
-    local redir = stderr and "&1" or "/dev/null"
-    local h = io.popen(cmd .. " 2>" .. redir)
-    local raw = h:read("a")
-    local out = raw:match("^([^\n]*)\n$") or raw
-    local ok, _, code = h:close()
-    if not ok then
-        io.stderr:write (
-            "ERROR [" .. tostring(code) .. "]: " .. cmd .. "\n"
-        )
-        os.exit(1)
-    end
-    return out, 0
-end
-
-local function git_config (dir)
-    exec("git -C " .. dir .. " config user.name  '-'")
-    exec("git -C " .. dir .. " config user.email '-'")
-    exec("git -C " .. dir .. " config pull.rebase false")
-end
+local common   = require "common"
 
 local parser = argparse()
 
@@ -112,15 +92,11 @@ if args.chains then
         if args.dir then
             local genesis = dofile(args.path .. "/genesis.lua")
             if type(genesis) ~= "table" then
-                io.stderr:write("ERROR: file must return a table\n")
-                os.exit(1)
+                ERROR("chains add : file must return a table")
             end
 
             if io.open(chains.."/"..args.alias) then
-                io.stderr:write (
-                    "ERROR: alias already exists: " .. args.alias .. "\n"
-                )
-                os.exit(1)
+                ERROR("chains add : alias already exists: " .. args.alias)
             end
 
             local tmp
@@ -133,34 +109,49 @@ if args.chains then
                 t = t + 1
             end
 
-            exec("git init " .. tmp)
+            exec ("chains add : git init failed",
+                "git init " .. tmp
+            )
             git_config(tmp)
-            exec("mkdir -p " .. tmp .. "/.freechains")
-            exec("cp -r " .. args.path .. "/* " .. tmp .. "/.freechains/")
-            exec("git -C " .. tmp .. " add .freechains/")
-            exec("git -C " .. tmp .. ' commit --allow-empty-message -m ""')
+            exec ("chains add : mkdir failed",
+                "mkdir -p " .. tmp .. "/.freechains"
+            )
+            exec ("chains add : copy genesis failed",
+                "cp -r " .. args.path .. "/* " .. tmp .. "/.freechains/"
+            )
+            exec ("chains add : git add failed",
+                "git -C " .. tmp .. " add .freechains/"
+            )
+            exec("chains add : git commit failed",
+                "git -C " .. tmp .. ' commit --allow-empty-message -m ""'
+            )
 
-            local hash = exec("git -C " .. tmp .. " rev-parse HEAD")
+            local hash = exec ("chains add : git rev-parse failed",
+                "git -C " .. tmp .. " rev-parse HEAD"
+            )
 
             local final = chains .. "/" .. hash
             if not os.rename(tmp, final) then
-                exec("rm -rf " .. tmp)
-                io.stderr:write (
-                    "ERROR: chain already exists: " .. hash .. "\n"
-                )
-                os.exit(1)
+                assert(exec("rm -rf " .. tmp))
+                ERROR("chains add : chain already exists: " .. hash)
             end
-            exec("ln -s " .. hash .. "/ " .. chains .. "/" .. args.alias)
+            exec ("chains add : symlink failed",
+                "ln -s " .. hash .. "/ " .. chains .. "/" .. args.alias
+            )
 
             print(hash)
         end
     elseif args.rem then
         local alias = chains .. "/" .. args.alias
-        local lnk = exec("readlink " .. alias)
-        exec("rm -rf " .. chains .. lnk)
+        local lnk = exec ("chains rem : not found: " .. args.alias,
+            "readlink " .. alias
+        )
+        exec ("chains rem : remove failed",
+            "rm -rf " .. chains .. lnk
+        )
         os.remove(alias)
     elseif args.dir then
-        local out = exec (
+        local out = exec ("chains dir : list failed",
             "find " .. chains .. " -maxdepth 1 -type l -printf '%f\\n' | sort"
         )
         io.write(out)
@@ -182,7 +173,7 @@ elseif args.chain then
                 f:write(text)
                 f:close()
             else
-                local hash = exec (
+                local hash = exec ("chain post : git hash-object failed",
                     "printf '%s' '" .. text .. "' | git hash-object --stdin"
                 )
                 name = os.time() .. "-" .. hash:sub(1,8) .. ".txt"
@@ -192,24 +183,31 @@ elseif args.chain then
             end
         elseif args.file then   -- after args.inline
             name = args.path:match("[^/]+$")
-            exec("cp " .. args.path .. " " .. repo .. "/")
+            exec ("chain post : copy failed: " .. args.path,
+                "cp " .. args.path .. " " .. repo .. "/"
+            )
         end
 
-        exec("git -C " .. repo .. " add " .. name)
+        exec ("chain post : git add failed",
+            "git -C " .. repo .. " add " .. name
+        )
 
         local s1, s2 = "", ""
         if args.sign then
-            s1 = " -c user.signingkey=" .. args.sign .. " -c gpg.format=openpgp"
+            s1 = " -c user.signingkey=" .. args.sign
+                .. " -c gpg.format=openpgp"
             s2 = " -S"
         end
 
         local msg = args.why or ""
-        exec (
+        exec ("chain post : git commit failed",
             "git -C " .. repo .. s1 .. " commit" .. s2
-            .. " --allow-empty-message -m '" .. msg .. "'"
+                .. " --allow-empty-message -m '" .. msg .. "'"
         )
 
-        local hash = exec("git -C " .. repo .. " rev-parse HEAD")
+        local hash = exec ("chain post : git rev-parse failed",
+            "git -C " .. repo .. " rev-parse HEAD"
+        )
         print(hash)
     end
 end
