@@ -23,7 +23,7 @@ do
 
     do
         TEST "git verify-commit passes"
-        local out, code = exec (true,
+        local out, code = exec ('stderr',
             ENV .. " git -C " .. DIR .. " verify-commit HEAD"
         )
         assert(code == 0, "verify-commit failed")

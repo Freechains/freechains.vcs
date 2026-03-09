@@ -4,17 +4,12 @@ function ERROR (msg)
 end
 
 function exec (a, b, c)
-    local stderr, err, cmd
-    if c then
-        stderr, err, cmd = a, b, c
-    elseif b then
-        if type(a) == "boolean" then
-            stderr, cmd = a, b
-        else
-            err, cmd = a, b
-        end
+    local stderr, cmd, err
+    if a == 'stderr' then
+        stderr = true
+        cmd, err = b, c
     else
-        cmd = a
+        cmd, err = a, b
     end
 
     local redir = stderr and "&1" or "/dev/null"
@@ -26,7 +21,7 @@ function exec (a, b, c)
     if code == 0 then
         return out, code
     elseif err then
-        ERROR(err)
+        ERROR(err==true and "bug found" or err)
     else
         return false, code
     end

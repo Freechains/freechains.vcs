@@ -11,8 +11,9 @@ Examples:
 # exec Format
 
 ```
-exec ("error message",
-    "command" -- on line
+exec ('stderr',         -- if applies (with ')
+    "command"           -- one line
+    , [error message]   -- if applies
 )
 ```
 

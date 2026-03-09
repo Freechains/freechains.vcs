@@ -127,28 +127,35 @@ if args.chains then
                 t = t + 1
             end
 
-            exec ("chains add : git init failed",
+            exec (
                 "git init " .. tmp
+                , "chains add : git init failed"
             )
             git_config(tmp)
-            exec ("chains add : mkdir failed",
+            exec (
                 "mkdir -p " .. tmp .. "/.freechains/likes"
+                , "chains add : mkdir failed"
             )
-            exec ("chains add : touch failed",
+            exec (
                 "touch " .. tmp .. "/.freechains/likes/.gitkeep"
+                , "chains add : touch failed"
             )
-            exec ("chains add : copy genesis failed",
+            exec (
                 "cp -r " .. args.path .. "/* " .. tmp .. "/.freechains/"
+                , "chains add : copy genesis failed"
             )
-            exec ("chains add : git add failed",
+            exec (
                 "git -C " .. tmp .. " add .freechains/"
+                , "chains add : git add failed"
             )
-            exec("chains add : git commit failed",
+            exec (
                 "git -C " .. tmp .. ' commit --allow-empty-message -m ""'
+                , "chains add : git commit failed"
             )
 
-            local hash = exec ("chains add : git rev-parse failed",
+            local hash = exec (
                 "git -C " .. tmp .. " rev-parse HEAD"
+                , "chains add : git rev-parse failed"
             )
 
             local final = chains .. "/" .. hash
@@ -156,24 +163,28 @@ if args.chains then
                 assert(exec("rm -rf " .. tmp))
                 ERROR("chains add : chain already exists: " .. hash)
             end
-            exec ("chains add : symlink failed",
+            exec (
                 "ln -s " .. hash .. "/ " .. chains .. "/" .. args.alias
+                , "chains add : symlink failed"
             )
 
             print(hash)
         end
     elseif args.rem then
         local alias = chains .. "/" .. args.alias
-        local lnk = exec ("chains rem : not found: " .. args.alias,
+        local lnk = exec (
             "readlink " .. alias
+            , "chains rem : not found: " .. args.alias
         )
-        exec ("chains rem : remove failed",
+        exec (
             "rm -rf " .. chains .. lnk
+            , "chains rem : remove failed"
         )
         os.remove(alias)
     elseif args.dir then
-        local out = exec ("chains dir : list failed",
+        local out = exec (
             "find " .. chains .. " -maxdepth 1 -type l -printf '%f\\n' | sort"
+            , "chains dir : list failed"
         )
         io.write(out)
     end
@@ -197,8 +208,9 @@ elseif args.chain then
                     f:write(text)
                     f:close()
                 else
-                    local hash = exec ("chain post : git hash-object failed",
+                    local hash = exec (
                         "printf '%s' '" .. text .. "' | git hash-object --stdin"
+                        , "chain post : git hash-object failed"
                     )
                     file = "post-" .. os.time() .. "-" .. hash:sub(1,8) .. ".txt"
                     local f = io.open(repo .. file, "w")        -- truncates
@@ -207,8 +219,9 @@ elseif args.chain then
                 end
             elseif args.file then   -- after args.inline
                 file = args.path:match("[^/]+$")
-                exec ("chain post : copy failed: " .. args.path,
+                exec (
                     "cp " .. args.path .. " " .. repo .. "/"
+                    , "chain post : copy failed: " .. args.path
                 )
             end
         elseif args.like or args.dislike then
@@ -251,9 +264,8 @@ elseif args.chain then
                 }
             ]]
             local blob = exec (
-                "chain like : git hash-object failed",
-                "printf '%s' '" .. payload
-                    .. "' | git hash-object --stdin"
+                "printf '%s' '" .. payload .. "' | git hash-object --stdin"
+                , "chain like : git hash-object failed"
             )
             file = ".freechains/likes/like-" .. os.time() .. "-" .. blob:sub(1,8) .. ".lua"
             local f = io.open(repo .. file, "w")
@@ -262,8 +274,9 @@ elseif args.chain then
         end
 
         -- common tail: add, commit, rev-parse
-        exec ("chain " .. kind .. " : git add failed",
+        exec (
             "git -C " .. repo .. " add " .. file
+            , "chain " .. kind .. " : git add failed"
         )
 
         local s1, s2 = "", ""
@@ -273,15 +286,14 @@ elseif args.chain then
         end
 
         local msg = args.why or ""
-        exec ("chain " .. kind .. " : git commit failed",
-            "git -C " .. repo .. s1 .. " commit" .. s2
-                .. " --trailer 'freechains: " .. kind .. "'"
-                .. " --allow-empty-message" .. " -m '" .. msg .. "'"
+        exec (
+            "git -C " .. repo .. s1 .. " commit" .. s2 .. " --trailer 'freechains: " .. kind .. "'" .. " --allow-empty-message" .. " -m '" .. msg .. "'"
+            , "chain " .. kind .. " : git commit failed"
         )
 
         local hash = exec (
-            "chain " .. kind .. " : git rev-parse failed",
             "git -C " .. repo .. " rev-parse HEAD"
+            , "chain " .. kind .. " : git rev-parse failed"
         )
         print(hash)
     end
