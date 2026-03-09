@@ -90,7 +90,7 @@ do
 
     -- cmd.chain.like
     cmd.chain.like._ = cmd.chain._:command("like")
-    cmd.chain.like._:argument("number")
+    cmd.chain.like._:argument("number"):convert(tonumber)
     cmd.chain.like._:argument("target")
     cmd.chain.like._:argument("id")
     cmd.chain.like._:option("--sign")
@@ -98,7 +98,7 @@ do
 
     -- cmd.chain.dislike
     cmd.chain.dislike._ = cmd.chain._:command("dislike")
-    cmd.chain.dislike._:argument("number")
+    cmd.chain.dislike._:argument("number"):convert(tonumber)
     cmd.chain.dislike._:argument("target")
     cmd.chain.dislike._:argument("id")
     cmd.chain.dislike._:option("--sign")
@@ -286,8 +286,8 @@ elseif args.chain then
                 ERROR("chain like : --sign is required")
             end
 
-            if not args.number:match("^%d+$") then
-                ERROR("chain like : expected number")
+            if not math.tointeger(args.number) or args.number <= 0 then
+                ERROR("chain like : expected positive integer")
             end
 
             if args.target ~= "post" and args.target ~= "author" then
@@ -307,7 +307,7 @@ elseif args.chain then
             end
 
             -- write like payload
-            local num = tonumber(args.number)
+            local num = args.number
             if args.dislike then
                 num = -num
             end
@@ -347,7 +347,7 @@ elseif args.chain then
                 local posts = dofile(REPO .. "/.freechains/reps/posts.lua")
                 files = files .. " .freechains/reps/posts.lua"
 
-                local num = tonumber(args.number) * 1000
+                local num = args.number * 1000
                 authors[args.sign] = (authors[args.sign] or 0) - num
 
                 if args.dislike then
