@@ -88,40 +88,51 @@ straightforward.
 
 ## T2. Timestamp Manipulation
 
-### T2a. Backdating Likes
+### T2a. Backdating Posts
 
 **Mechanism**: Set `GIT_COMMITTER_DATE` to 12+ hours in
-the past when creating a like commit. The like appears
-already matured to all receivers — 12h rule bypassed.
+the past when creating a post. The post arrives at peers
+appearing already matured — the 12h community reaction
+window is bypassed. Other users cannot dislike it in time
+because the window has apparently already elapsed.
 
-**Resources**: None beyond posting ability.
+**Resources**: None beyond posting ability (1 rep).
 
 **Real threat**: High — **no validation is currently
-implemented**. The planned monotonic parent rule bounds
-backdating to the gap between parent timestamp and now,
-but if the parent is old (e.g., chain was quiet for
-hours), the gap is large.
+implemented**.
 
-**Impact**: Instant reputation inflation. Enables
-reputation cycling (A likes B, B immediately spends new
-reps) that the 12h rule was designed to prevent.
+**Impact**: Bypasses the community's reaction window.
+The 12h rule exists so posts sit visible in the DAG long
+enough for the community to evaluate and potentially
+dislike them. Backdating skips this window entirely —
+the post arrives looking settled.
 
-**Mitigation status**: Planned (time.md) — monotonic
-parent rule + future tolerance. Not yet implemented.
+**Mitigation**: Monotonic parent rule
+(`commit.timestamp >= parent.timestamp`). Bounds
+backdating to the gap between the parent's timestamp
+and now. On active chains this gap is small (seconds to
+minutes). On quiet chains the gap can be hours, but the
+attacker cannot control this — they need a stale parent,
+which means waiting for the chain to go silent, which
+is visible and self-limiting.
 
-### T2b. Future-Dating Likes
+### T2b. Future-Dating Posts
 
-**Mechanism**: Set timestamp 12+ hours in the future.
-The like appears mature on arrival.
+**Mechanism**: Set a post's timestamp into the future.
+The post appears in `--date-order` traversal at a later
+position than it should, affecting consensus ordering
+and reputation flow.
 
-**Resources**: None.
+**Resources**: None beyond posting ability (1 rep).
 
-**Real threat**: Medium — bounded by the planned 1-hour
-future tolerance (< 9% of the 12h window). Once
-implemented, this attack gains at most ~1 hour.
+**Real threat**: Medium — bounded by the 1-hour future
+tolerance (`commit.timestamp <= receiver.local_time + 1h`).
+At most ~1 hour of manipulation, which is < 9% of the
+12h maturation window.
 
-**Mitigation status**: Planned — `commit.timestamp <=
-receiver.local_time + 1h`. Not yet implemented.
+**Mitigation**: Future tolerance rule rejects commits
+with timestamps more than 1 hour ahead of the receiver's
+local clock.
 
 ### T2c. Timestamp Manipulation of `--date-order`
 
@@ -318,8 +329,8 @@ is correct by design.
 | T1   | 7-day partition fork          | High     | Low        | No defense   |
 | T1a  | Boundary attack               | High     | Medium     | No defense   |
 | T1b  | Equivocation (100-post)       | High     | Low        | No defense   |
-| T2a  | Backdating likes              | High     | High       | Planned      |
-| T2b  | Future-dating likes           | Medium   | Medium     | Planned      |
+| T2a  | Backdating posts              | High     | High       | Monotonic    |
+| T2b  | Future-dating posts           | Medium   | Medium     | Tolerance    |
 | T2c  | Timestamp ordering            | Medium   | Medium     | Planned      |
 | T3a  | Sockpuppet farming            | Medium   | Medium     | Partial (tax)|
 | T3b  | Rep cycling                   | Low      | Low        | Yes (tax)    |

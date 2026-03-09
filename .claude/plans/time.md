@@ -58,9 +58,10 @@ Git imposes **no restrictions** on timestamps:
 
 This enables exploits:
 
-- **Backdating** a like to bypass the 12h maturation rule
-- **Future-dating** a like so it appears mature immediately
-  to all receivers
+- **Backdating** a post to bypass the 12h community
+  reaction window (T2a)
+- **Future-dating** a post to affect consensus ordering
+  (T2b)
 
 ## Timestamp Validation (planned)
 
@@ -97,20 +98,17 @@ bounded by the receiver's clock.
 
 ## 12-Hour Maturation Rule
 
-Reputation gained from likes does **not** materialize
-immediately.
-It only becomes visible after **12 hours** have elapsed
-since the like commit's committer timestamp.
+A post must sit in the DAG for **12 hours** before it is
+considered settled. During this window the community can
+evaluate the post and potentially dislike it.
 
 ```
-if (now - like.committer_timestamp) < 12h:
-    like has no effect yet
-else:
-    apply like effects
+if (now - post.committer_timestamp) < 12h:
+    post is not yet settled (reaction window open)
 ```
 
-This prevents rapid reputation inflation exploits
-(A likes B, B immediately spends new reps to like C, etc.).
+This gives the community a guaranteed window to react
+to new content before it becomes part of settled consensus.
 
 ## Read-Time vs Write-Time Validation
 
@@ -120,16 +118,16 @@ not just on the DAG content itself.**
 
 ### The Problem: Temporary Divergence
 
-Consider a like commit with committer timestamp `T`:
+Consider a post with committer timestamp `T`:
 
-1. **Node A** fetches at `T + 12h + 1min` — 12h window has
-   passed — the like's reputation effect is visible →
-   a post that depends on that reputation is **accepted**
-2. **Node B** fetches at `T + 12h - 1min` — 12h window has
-   NOT passed — the like has no effect yet → the same
-   post is **rejected** (author lacks reputation)
-3. **Later**, Node B retries the fetch — now `T + 12h` has
-   passed — the post is **accepted**
+1. **Node A** evaluates at `T + 12h + 1min` — 12h window
+   has passed — the post is settled, dislikes on it are
+   final
+2. **Node B** evaluates at `T + 12h - 1min` — 12h window
+   has NOT passed — the post is still in its reaction
+   window, reputation effects may differ
+3. **Later**, Node B re-evaluates — now `T + 12h` has
+   passed — both nodes agree
 4. A and B converge to the **same state**
 
 ### Analysis
@@ -139,10 +137,11 @@ divergent. Given the same DAG content, all nodes converge
 once enough wall-clock time has passed. But during the
 disagreement window:
 
-- **Confusing UX** — a fetch fails, but retrying later
-  silently succeeds with the exact same data
+- **Confusing UX** — evaluation differs depending on
+  when the node checks, retrying later gives different
+  results
 - **Cascading disagreement** — further posts building on
-  the disputed commit also diverge temporarily
+  the disputed post also diverge temporarily
 - **Retry semantics are implicit** — the protocol doesn't
   specify that nodes should retry rejected fetches, or
   how often
@@ -162,8 +161,8 @@ disagreement window:
 - The alternative (write-time-only validation) would
   allow gaming: a node could claim "I received this like
   13h ago" with no way to verify
-- Backdating attacks are bounded to ≤1h (the tolerance),
-  which is < 9% of the 12h window
+- Backdating attacks are bounded by the monotonic parent
+  rule (commit.timestamp >= parent.timestamp)
 
 ### Design Decision
 
