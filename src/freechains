@@ -339,12 +339,11 @@ elseif args.chain then
                 files = files .. " .freechains/reps/posts.lua"
 
                 local num = tonumber(args.number) * 1000
+                authors[args.sign] = (authors[args.sign] or 0) - num
+
                 if args.dislike then
                     num = -num
                 end
-
-                local liker = args.sign
-                authors[liker] = (authors[liker] or 0) - num
 
                 num = num * 0.9     -- apply tax
 

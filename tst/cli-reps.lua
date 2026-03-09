@@ -110,7 +110,7 @@ do
             ENV_EXE .. " chain cli-reps reps author " .. KEY
         )
         assert(code==0, "exit code: " .. tostring(code))
-        assert(out == "13", "reps: " .. out) -- KEY: 15 -> like -> 14 -> dislike -> 13
+        assert(out == "12", "reps: " .. out) -- KEY: 15 -> like -> 13 -> dislike -> 12
     end
 
     do
@@ -118,19 +118,21 @@ do
 
         local target = exec (
             ENV_EXE
-            .. " chain cr5 post inline 'disliked'" .. " --sign " .. KEY2
+            .. " chain cli-reps post inline 'disliked'" .. " --sign " .. KEY2
         )
         exec (
-            ENV_EXE .. " chain cr5 dislike 1 post " .. target .. " --sign " .. KEY
+            ENV_EXE .. " chain cli-reps dislike 1 post " .. target .. " --sign " .. KEY
         )
         local out, code = exec (
-            ENV_EXE .. " chain cr5 reps author " .. KEY2
+            ENV_EXE .. " chain cli-reps reps author " .. KEY2
         )
         assert(code == 0, "exit code: " .. tostring(code))
         -- KEY2: 15 - 1(post) - 1(dislike penalty) = 13
         local n = tonumber(out)
         assert(n < 14, "target should lose reps: " .. out)
     end
+
+    exec(ENV_EXE .. " chains rem cli-reps")
 end
 
 -- MULTI-PIONEER
@@ -139,16 +141,14 @@ do
 
     do
         TEST "reps-2-pioneers"
-        exec("rm -rf " .. TMP)
-        exec("mkdir -p " .. ROOT)
         exec (
-            ENV_EXE .. " chains add cr6 dir " .. GEN_2P
+            ENV_EXE .. " chains add cli-reps dir " .. GEN_2P
         )
         local out1 = exec (
-            ENV_EXE .. " chain cr6 reps author " .. KEY
+            ENV_EXE .. " chain cli-reps reps author " .. KEY
         )
         local out2 = exec (
-            ENV_EXE .. " chain cr6 reps author " .. KEY2
+            ENV_EXE .. " chain cli-reps reps author " .. KEY2
         )
         assert(out1 == "15", "KEY reps: " .. out1)
         assert(out2 == "15", "KEY2 reps: " .. out2)
