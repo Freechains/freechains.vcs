@@ -112,6 +112,64 @@ else:
 This prevents rapid reputation inflation exploits
 (A likes B, B immediately spends new reps to like C, etc.).
 
+## Read-Time vs Write-Time Validation
+
+The 12h maturation rule introduces a subtle problem:
+**validation depends on when a node receives the commit,
+not just on the DAG content itself.**
+
+### The Problem: Temporary Divergence
+
+Consider a like commit with committer timestamp `T`:
+
+1. **Node A** fetches at `T + 12h + 1min` — 12h window has
+   passed — the like's reputation effect is visible →
+   a post that depends on that reputation is **accepted**
+2. **Node B** fetches at `T + 12h - 1min` — 12h window has
+   NOT passed — the like has no effect yet → the same
+   post is **rejected** (author lacks reputation)
+3. **Later**, Node B retries the fetch — now `T + 12h` has
+   passed — the post is **accepted**
+4. A and B converge to the **same state**
+
+### Analysis
+
+The system is **eventually consistent** — not permanently
+divergent. Given the same DAG content, all nodes converge
+once enough wall-clock time has passed. But during the
+disagreement window:
+
+- **Confusing UX** — a fetch fails, but retrying later
+  silently succeeds with the exact same data
+- **Cascading disagreement** — further posts building on
+  the disputed commit also diverge temporarily
+- **Retry semantics are implicit** — the protocol doesn't
+  specify that nodes should retry rejected fetches, or
+  how often
+
+### Why This Is Acceptable
+
+- The disagreement window is bounded (at most ~12h)
+- The DAG is content-addressed — once time passes, all
+  honest nodes agree on the same state
+- The alternative (write-time-only validation) would
+  allow gaming: a node could claim "I received this like
+  13h ago" with no way to verify
+- Backdating attacks are bounded to ≤1h (the tolerance),
+  which is < 9% of the 12h window
+
+### Design Decision
+
+**Read-time validation is the correct choice** despite the
+temporary non-determinism, because:
+
+1. It cannot be forged (uses receiver's local clock)
+2. Convergence is guaranteed (same DAG → same result,
+   given enough time)
+3. The bounded disagreement window is a smaller problem
+   than the unbounded gaming that write-time-only would
+   allow
+
 ## Status
 
 - [x] Decision: committer timestamp as time basis
