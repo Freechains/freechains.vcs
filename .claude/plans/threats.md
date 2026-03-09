@@ -147,6 +147,14 @@ The monotonic rule prevents arbitrary backdating. Offline
 branches are weakened by design. The time-based rules
 add defense in depth but are not the sole protection.
 
+**Future direction**: Peers as signed witnesses. Merge
+commits carry `Freechains-Peer: <pubkey>` trailer and
+are GPG-signed. The merge timestamp reflects the peer's
+local clock — an independent attestation of when the
+branch was first seen. Peer witness timestamps could
+supplement author timestamps for the 12h/24h/7-day
+rules. See trailer.md.
+
 ### T2b. Future-Dating Posts
 
 **Mechanism**: Set a post's timestamp into the future.
