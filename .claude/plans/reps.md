@@ -119,17 +119,13 @@ This prevents reputation cycling exploits
 
 ## The 12-Hour Maturation Rule
 
+See [time.md](time.md) for full details on time source
+(committer timestamp), trust model, and validation.
+
 Reputation gained from likes does **not** materialize
 immediately.
 It only becomes visible after **12 hours** have elapsed
-since the like block's creation.
-
-```
-if (now - like.timestamp) < 12h:
-    like has no effect yet
-else:
-    apply like effects
-```
+since the like commit's committer timestamp.
 
 This prevents rapid reputation inflation exploits.
 
