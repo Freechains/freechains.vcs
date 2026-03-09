@@ -1,11 +1,11 @@
 #!/usr/bin/env lua5.4
 require "tests"
 
+exec(ENV_EXE .. " chains add cli-reps dir " .. GEN_1P)
+
 -- BASIC QUERY
 do
     print("==> Basic query")
-
-    exec(ENV_EXE .. " chains add cli-reps dir " .. GEN_1P)
 
     do
         TEST "reps-pioneer-initial"
@@ -43,112 +43,93 @@ do
     do
         TEST "reps-after-1-post"
         exec (
-            ENV_EXE .. " chain cli-reps post inline 'p1'"
-            .. " --sign " .. KEY
+            ENV_EXE .. " chain cli-reps post inline 'p1'" .. " --sign " .. KEY
         )
         local out, code = exec (
             ENV_EXE .. " chain cli-reps reps author " .. KEY
         )
         assert(code == 0, "exit code: " .. tostring(code))
-        assert(out == "29", "reps: " .. out)
+        assert(out == "29", "reps: " .. out)    -- KEY: 30 -> post -> 29
     end
 
     do
         TEST "reps-after-3-posts"
         exec (
-            ENV_EXE .. " chain cli-reps post inline 'p2'"
-            .. " --sign " .. KEY
+            ENV_EXE .. " chain cli-reps post inline 'p2'" .. " --sign " .. KEY
         )
         exec (
-            ENV_EXE .. " chain cli-reps post inline 'p3'"
-            .. " --sign " .. KEY
+            ENV_EXE .. " chain cli-reps post inline 'p3'" .. " --sign " .. KEY
         )
         local out, code = exec (
             ENV_EXE .. " chain cli-reps reps author " .. KEY
         )
-        assert(code == 0,
-            "exit code: " .. tostring(code))
-        assert(out == "27", "reps: " .. out)
+        assert(code==0, "exit code: " .. tostring(code))
+        assert(out == "27", "reps: " .. out)    -- KEY: 30 -> posts -> 27
     end
 end
+
+exec(ENV_EXE .. " chains rem cli-reps")
 
 -- AFTER LIKE/DISLIKE
 do
     print("==> After like/dislike")
 
-    exec("rm -rf " .. TMP)
-    exec("mkdir -p " .. ROOT)
-
-    exec(ENV_EXE .. " chains add cr3 dir " .. GEN_2P)
+    exec(ENV_EXE .. " chains add cli-reps dir " .. GEN_2P)
 
     do
         TEST "reps-liker-after-like"
-        local target = exec (
-            ENV_EXE .. " chain cr3 post inline 'target'"
-            .. " --sign " .. KEY2
+        local post = exec (
+            ENV_EXE .. " chain cli-reps post inline 'hello'" .. " --sign " .. KEY2
         )
         exec (
-            ENV_EXE .. " chain cr3 like 1 post " .. target
-            .. " --sign " .. KEY
+            ENV_EXE .. " chain cli-reps like 2 post " .. post .. " --sign " .. KEY
         )
+
         local out, code = exec (
-            ENV_EXE .. " chain cr3 reps author " .. KEY
+            ENV_EXE .. " chain cli-reps reps author " .. KEY
         )
-        assert(code == 0,
-            "exit code: " .. tostring(code))
-        -- KEY started at 15, like costs 1 → 14
-        assert(out == "14", "reps: " .. out)
+        assert(code==0, "exit code: " .. tostring(code))
+        assert(out == "13", "reps: " .. out)    -- KEY: 15 -> like -> 13
+
+        local out, code = exec (
+            ENV_EXE .. " chain cli-reps reps post " .. post
+        )
+        assert(code==0, "exit code: " .. tostring(code))
+        assert(out == "1", "reps: " .. out)     -- post: 0 -> like -> 1
     end
 
     do
         TEST "reps-after-dislike"
-        exec("rm -rf " .. TMP)
-        exec("mkdir -p " .. ROOT)
-        exec (
-            ENV_EXE .. " chains add cr4 dir " .. GEN_2P
-        )
-        local target = exec (
-            ENV_EXE .. " chain cr4 post inline 'bad'"
-            .. " --sign " .. KEY2
+        local post = exec (
+            ENV_EXE .. " chain cli-reps post inline 'bad'" .. " --sign " .. KEY2
         )
         exec (
-            ENV_EXE .. " chain cr4 dislike 1 post " .. target
-            .. " --sign " .. KEY
+            ENV_EXE .. " chain cli-reps dislike 1 post " .. post .. " --sign " .. KEY
         )
         local out, code = exec (
-            ENV_EXE .. " chain cr4 reps author " .. KEY
+            ENV_EXE .. " chain cli-reps reps author " .. KEY
         )
-        assert(code == 0,
-            "exit code: " .. tostring(code))
-        -- KEY started at 15, dislike costs 1 → 14
-        assert(out == "14", "reps: " .. out)
+        assert(code==0, "exit code: " .. tostring(code))
+        assert(out == "13", "reps: " .. out) -- KEY: 15 -> like -> 14 -> dislike -> 13
     end
 
     do
         TEST "reps-target-disliked"
-        exec("rm -rf " .. TMP)
-        exec("mkdir -p " .. ROOT)
-        exec (
-            ENV_EXE .. " chains add cr5 dir " .. GEN_2P
-        )
+
         local target = exec (
             ENV_EXE
-            .. " chain cr5 post inline 'disliked'"
-            .. " --sign " .. KEY2
+            .. " chain cr5 post inline 'disliked'" .. " --sign " .. KEY2
         )
         exec (
-            ENV_EXE .. " chain cr5 dislike 1 post " .. target
-            .. " --sign " .. KEY
+            ENV_EXE .. " chain cr5 dislike 1 post " .. target .. " --sign " .. KEY
         )
         local out, code = exec (
             ENV_EXE .. " chain cr5 reps author " .. KEY2
         )
-        assert(code == 0,
-            "exit code: " .. tostring(code))
+        assert(code == 0, "exit code: " .. tostring(code))
         -- KEY2: 15 - 1(post) - 1(dislike penalty) = 13
         local n = tonumber(out)
-        assert(n < 14,
-            "target should lose reps: " .. out)
+        assert(n < 14, "target should lose reps: " .. out)
     end
 end
 

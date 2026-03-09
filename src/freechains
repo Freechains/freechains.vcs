@@ -202,7 +202,13 @@ elseif args.chain then
 
     if args.reps then
         local function ext (int)
-            return (int >= 0) and (int // 1000) or -((-int) // 1000)
+            if int > 0 then
+                return math.tointeger((int + 999) // 1000)
+            elseif int < 0 then
+                return -math.tointeger((-int + 999) // 1000)
+            else
+                return 0
+            end
         end
 
         if args.target == "post" then
@@ -332,25 +338,22 @@ elseif args.chain then
                 local posts = dofile(REPO .. "/.freechains/reps/posts.lua")
                 files = files .. " .freechains/reps/posts.lua"
 
-                local num = tonumber(args.number)
-                do
-                    if args.dislike then
-                        num = -num
-                    end
-                    local sign = (num >= 0) and 1 or -1
-                    local tax = math.abs(num) * 1000 * 10 // 100
-                    num = num*1000 - sign*tax
+                local num = tonumber(args.number) * 1000
+                if args.dislike then
+                    num = -num
                 end
 
                 local liker = args.sign
-                authors[liker] = (authors[liker] or 0) - 1000
+                authors[liker] = (authors[liker] or 0) - num
+
+                num = num * 0.9     -- apply tax
 
                 if args.target == "post" then
                     local a = exec (true,
                         "git -C " .. REPO .. " log -1 --format='%GK' " .. args.id
                     )
-                    authors[a] = (authors[a] or 0) + num // 2
-                    posts[args.id] = (posts[args.id] or 0) + num // 2
+                    authors[a] = (authors[a] or 0) + num//2
+                    posts[args.id] = (posts[args.id] or 0) + num//2
                     write(posts, REPO.."/.freechains/reps/posts.lua")
                 else
                     authors[args.id] = (authors[args.id] or 0) + num
