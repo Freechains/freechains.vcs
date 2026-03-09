@@ -1,7 +1,6 @@
 #!/usr/bin/env lua5.4
 require "tests"
 
-os.execute("sleep 1")   -- prevents hash collisions
 exec(ENV_EXE .. " chains add cli-reps dir " .. GEN_1P)
 
 -- BASIC QUERY

@@ -5,7 +5,7 @@ local VERSION = "v0.20"
 local argparse = require "argparse"
 local common   = require "common"
 
-math.randomseed(os.time())
+math.randomseed()
 
 local parser = argparse()
 
