@@ -74,49 +74,83 @@ partition. The attacker just needs to deliver 100 posts to
 each peer **within one sync interval**. With enough
 reputation, they blast both peers simultaneously.
 
-## Consequences of the Attack
+### The sharper attack: exploiting the 7-day boundary
+
+The attacker doesn't need 100 posts or 200 reputation.
+They exploit the **boundary condition** of the 7-day rule
+itself.
+
+The attacker has **legitimate prefix reputation** (enough
+to win rule 2). They create **one branch** and control
+delivery timing:
+
+1. Delivers to peer A when A's local branch is at
+   **6.999 days** — below threshold, so **rule 2 applies**:
+   attacker's branch wins on prefix reputation, ordered
+   first
+2. Delivers to peer B when B's local branch is at
+   **7.001 days** — above threshold, so **rule 1 applies**:
+   B's local branch wins unconditionally
+
+Peer A and peer B now have **permanently different
+orderings** — and both applied the rules correctly. It's
+not a bug in either peer, it's a boundary condition in the
+protocol itself.
+
+This is far more dangerous than the 100-post attack:
+
+- Requires only **one branch**, not two
+- Requires minimal reputation spend (the prefix reputation
+  does the work)
+- At peer A, the attacker's branch **reorders legitimate
+  content** — real damage to consensus
+- Harder to detect — not obvious spam, just a single
+  branch arriving at slightly different times
+
+## Consequences of the Boundary Attack
 
 Assuming peers A and B communicate soon after the attack:
 
-### 1. Detection: immediate and obvious
+### 1. Detection: difficult
 
-When A and B sync, the merge fails (hard fork). They can
-see two branches with 100+ posts each from the **same
-author**, created at roughly the same time, with different
-content. This is obvious equivocation — no legitimate user
-posts 200 different messages simultaneously. The attacker
-is trivially identifiable.
+Unlike the 100-post attack (where equivocation is obvious),
+this attack uses a **single branch**. Both peers received
+the same content from the same author. The only difference
+is **when** they received it. There is no equivocation to
+detect — the attacker sent the same thing to both peers.
 
-### 2. Recovery: manual but feasible
+A and B will notice they disagree on ordering when they
+sync, but attributing this to an attack (rather than
+natural timing variance) is hard. The attacker looks like
+a normal participant whose branch happened to arrive at an
+unfortunate time.
 
-The 100-post threshold has been crossed on both sides, so
-the ordering is **frozen** by the protocol. The protocol
-itself offers no mechanism to undo a hard fork. To
-converge, A and B would need to:
+### 2. Recovery: same hard fork problem, harder to justify
 
-- Manually agree on which branch to keep
-- One side discards their local ordering and adopts the
-  other's
+The protocol has no mechanism to undo a hard fork. A and B
+must manually coordinate out-of-band. But unlike the
+100-post attack where the attacker is obviously malicious,
+here there's **ambiguity** — was it an attack or bad luck?
+This makes it harder to agree on who should yield their
+ordering.
 
-This is an out-of-band, manual coordination problem. But
-since both peers can identify the attacker and the attack,
-they know exactly which posts to distrust. The real
-difficulty is operational, not informational.
+### 3. Content damage: potentially significant
 
-### 3. Content damage: near zero
+At peer A, the attacker's branch **won on prefix
+reputation** and is ordered first. This means the
+attacker's branch **reorders A's legitimate content** —
+posts from real users may shift in consensus position.
 
-The attacker burned 200+ reputation on posts that are **all
-their own**. The legitimate users' posts (from A and B's
-communities) are the same on both sides up to the fork
-point. Since A and B were syncing often, the fork point is
-**very recent** — maybe minutes old. The only divergent
-content is the attacker's spam.
+At peer B, the local branch won, so local ordering is
+preserved.
 
-The real content from legitimate users is almost entirely in
-the common prefix. The attacker destroyed **themselves**
-(lost all reputation) and caused an operational headache
-(manual re-convergence), but the actual content loss is
-near zero.
+The damage is **asymmetric**: peer A's consensus was
+disrupted, peer B's was not. All content written by
+legitimate users in the ~7 days since divergence is
+ordered differently between the two peers. The attacker
+didn't need to create any fake content — they just
+changed the consensus ordering of everyone else's real
+content.
 
 ## References
 
