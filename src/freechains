@@ -134,6 +134,9 @@ if args.chains then
             exec ("chains add : mkdir failed",
                 "mkdir -p " .. tmp .. "/.freechains/likes"
             )
+            exec ("chains add : touch failed",
+                "touch " .. tmp .. "/.freechains/likes/.gitkeep"
+            )
             exec ("chains add : copy genesis failed",
                 "cp -r " .. args.path .. "/* " .. tmp .. "/.freechains/"
             )
