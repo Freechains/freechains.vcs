@@ -9,6 +9,12 @@ tests: src/argparse.lua
 	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 repl-remote.lua
 	@rm -Rf /tmp/freechains/
 
+test: src/argparse.lua
+	@rm -Rf /tmp/freechains/
+	@mkdir -p /tmp/freechains/
+	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 $(T).lua
+	@rm -Rf /tmp/freechains/
+
 src/argparse.lua:
 	curl -sL -o $@ \
 	  https://raw.githubusercontent.com/luarocks/argparse/0.7.1/src/argparse.lua
