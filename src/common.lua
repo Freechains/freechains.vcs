@@ -35,6 +35,19 @@ function exec (a, b, c)
     end
 end
 
+function serial (t)
+    local keys = {}
+    for k in pairs(t) do
+        keys[#keys+1] = k
+    end
+    table.sort(keys)
+    local lines = {}
+    for _, k in ipairs(keys) do
+        lines[#lines+1] = '    ["' .. k .. '"] = ' .. t[k] .. ","
+    end
+    return "return {\n" .. table.concat(lines, "\n") .. "\n}\n"
+end
+
 function git_config (dir)
     exec("git -C " .. dir .. " config user.name  '-'")
     exec("git -C " .. dir .. " config user.email '-'")

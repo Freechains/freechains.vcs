@@ -235,7 +235,7 @@ elseif args.chain then
             ERROR("chain reps : invalid target : " .. args.target)
         end
     elseif args.post or args.like or args.dislike then
-        local kind, file
+        local kind, files
 
         if args.post then
             kind = "post"
@@ -246,7 +246,7 @@ elseif args.chain then
                 end
 
                 if args.file then   -- ambiguous with post file
-                    file = args.file
+                    files = args.file
                     local f = io.open(repo .. args.file, "a")   -- appends
                     f:write(text)
                     f:close()
@@ -254,13 +254,13 @@ elseif args.chain then
                     local hash = exec (true,
                         "printf '%s' '" .. text .. "' | git hash-object --stdin"
                     )
-                    file = "post-" .. os.time() .. "-" .. hash:sub(1,8) .. ".txt"
+                    files = "post-" .. os.time() .. "-" .. hash:sub(1,8) .. ".txt"
                     local f = io.open(repo .. file, "w")        -- truncates
                     f:write(text)
                     f:close()
                 end
             elseif args.file then   -- after args.inline
-                file = args.path:match("[^/]+$")
+                files = args.path:match("[^/]+$")
                 exec (
                     "cp " .. args.path .. " " .. repo .. "/"
                     , "chain post : copy failed: " .. args.path
@@ -308,15 +308,52 @@ elseif args.chain then
             local blob = exec (true,
                 "printf '%s' '" .. payload .. "' | git hash-object --stdin"
             )
-            file = ".freechains/likes/like-" .. os.time() .. "-" .. blob:sub(1,8) .. ".lua"
-            local f = io.open(repo .. file, "w")
+            files = ".freechains/likes/like-" .. os.time() .. "-" .. blob:sub(1,8) .. ".lua"
+            local f = io.open(repo .. files, "w")
             f:write(payload)
             f:close()
         end
 
+        -- update reps on like/dislike
+        if kind == "like" then
+            local fc = repo .. ".freechains/"
+            local authors = dofile(fc .. "reps/authors.lua")
+            local posts   = dofile(fc .. "reps/posts.lua")
+            local liker = args.sign
+            local num = tonumber(args.number)
+            if args.dislike then
+                num = -num
+            end
+            local sign = (num >= 0) and 1 or -1
+            local tax = math.abs(num) * 1000 * 10 // 100
+            local delivered = num*1000 - sign*tax
+
+            authors[liker] = (authors[liker] or 0) - 1000
+
+            if args.target == "post" then
+                local a = exec (true,
+                    "git -C " .. repo .. " log -1 --format='%GK' " .. args.id
+                )
+                authors[a] = (authors[a] or 0) + delivered // 2
+                posts[args.id] = (posts[args.id] or 0) + delivered // 2
+            else
+                authors[args.id] = (authors[args.id] or 0) + delivered
+            end
+
+            local f = io.open(fc .. "reps/authors.lua", "w")
+            f:write(serial(authors))
+            f:close()
+            f = io.open(fc .. "reps/posts.lua", "w")
+            f:write(serial(posts))
+            f:close()
+        end
+
         -- common tail: add, commit, rev-parse
+        if kind == "like" then
+            files = files .. " .freechains/reps/authors.lua .freechains/reps/posts.lua"
+        end
         exec (true,
-            "git -C " .. repo .. " add " .. file
+            "git -C " .. repo .. " add " .. files
         )
 
         local s1, s2 = "", ""
