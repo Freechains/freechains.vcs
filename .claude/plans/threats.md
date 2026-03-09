@@ -108,13 +108,18 @@ dislike them. Backdating skips this window entirely —
 the post arrives looking settled.
 
 **Mitigation**: Monotonic parent rule
-(`commit.timestamp >= parent.timestamp`). Bounds
-backdating to the gap between the parent's timestamp
-and now. On active chains this gap is small (seconds to
-minutes). On quiet chains the gap can be hours, but the
-attacker cannot control this — they need a stale parent,
-which means waiting for the chain to go silent, which
-is visible and self-limiting.
+(`commit.timestamp >= parent.timestamp`) is necessary
+but insufficient. The attacker can post on a stale
+branch (parent 12+ hours old) with a valid monotonic
+timestamp and the post arrives looking already settled.
+A past tolerance rule cannot help — freechains is
+local-first, so nodes may legitimately be offline for
+days or weeks. Rejecting old timestamps would break the
+core design.
+
+**Status**: Open. The monotonic rule prevents arbitrary
+backdating (can't go before parent), but the stale
+branch variant remains exploitable.
 
 ### T2b. Future-Dating Posts
 
@@ -329,7 +334,7 @@ is correct by design.
 | T1   | 7-day partition fork          | High     | Low        | No defense   |
 | T1a  | Boundary attack               | High     | Medium     | No defense   |
 | T1b  | Equivocation (100-post)       | High     | Low        | No defense   |
-| T2a  | Backdating posts              | High     | High       | Monotonic    |
+| T2a  | Backdating posts              | High     | High       | Partial      |
 | T2b  | Future-dating posts           | Medium   | Medium     | Tolerance    |
 | T2c  | Timestamp ordering            | Medium   | Medium     | Planned      |
 | T3a  | Sockpuppet farming            | Medium   | Medium     | Partial (tax)|

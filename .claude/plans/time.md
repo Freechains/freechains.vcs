@@ -161,8 +161,11 @@ disagreement window:
 - The alternative (write-time-only validation) would
   allow gaming: a node could claim "I received this like
   13h ago" with no way to verify
-- Backdating attacks are bounded by the monotonic parent
-  rule (commit.timestamp >= parent.timestamp)
+- Backdating attacks are partially bounded by the
+  monotonic parent rule, but stale branches remain
+  exploitable (see T2a in threats.md). Past tolerance
+  cannot help — local-first design requires accepting
+  old timestamps
 
 ### Design Decision
 
