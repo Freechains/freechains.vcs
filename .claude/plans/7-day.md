@@ -269,17 +269,31 @@ advantage  = (rep_A - rep_B) * decay(divergence)
 
 - Just forked: full advantage → higher prefix rep wins
 - Over time: advantage shrinks toward zero
-- Eventually: tiebreaker decides (active branch wins)
+- Eventually: advantage → zero → tiebreaker needed
 
 No sharp boundary. The 6.999 vs 7.001 attack becomes
 meaningless — there's no moment where the rule flips.
+
+**Tiebreaker problem**: when the advantage decays to zero,
+something must break the tie. A **hash-based tiebreaker**
+(lexicographic comparison of HEAD tips) does **not work** —
+each peer has different commits on their local branch, so
+they see different HEAD hashes. The hash is local state, not
+shared data. Any tiebreaker must satisfy the same three
+criteria from "What must be true" above: differs between
+branches, same for all peers, embedded in commits. This is
+an **open problem** for the decay approach alone — without
+checkpoint commits or another shared-state mechanism, there
+is no obvious deterministic tiebreaker once reputation
+advantage reaches zero.
 
 **Open questions**:
 
 - What decay function? (linear, exponential, sigmoid?)
 - What's the half-life? (replaces the 7-day constant)
 - How does this interact with the 100-post threshold?
-- Does the tiebreaker (lexicographic hash) need revision?
+- What replaces the hash tiebreaker? (checkpoint commits
+  may be the only viable answer)
 
 ### Direction: checkpoint commits (trust ring via DAG)
 
