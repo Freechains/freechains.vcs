@@ -49,11 +49,6 @@ Fast-forward merges não criam um merge commit, então o `pre-merge-commit` **n�
 - Um merge numa chain é um **evento de consenso deliberado**, não só "atualizar o ponteiro." O merge commit *é* o registro de consenso.
 - Cria um ponto claro de antes/depois para anexar a prova de consenso.
 - Fast-forward implicaria que os commits já foram aceitos — pulando toda a etapa de validação.
-- O merge commit carrega `Freechains-Peer: <pubkey>` no
-  trailer, identificando o peer que fez o sync. Assinado
-  com GPG (`-S`), o merge se torna uma attestation:
-  "peer X viu este estado do branch no tempo T."
-  Ver trailer.md para detalhes.
 
 ### Verificando no hook
 
