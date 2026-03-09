@@ -49,8 +49,7 @@ do
         local out, code = exec (
             ENV_EXE .. " chain cli-reps reps author " .. KEY
         )
-        assert(code == 0,
-            "exit code: " .. tostring(code))
+        assert(code == 0, "exit code: " .. tostring(code))
         assert(out == "29", "reps: " .. out)
     end
 
