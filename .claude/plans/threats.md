@@ -88,38 +88,64 @@ straightforward.
 
 ## T2. Timestamp Manipulation
 
-### T2a. Backdating Posts
+### T2a. Backdating Posts on Offline Branches
 
-**Mechanism**: Set `GIT_COMMITTER_DATE` to 12+ hours in
-the past when creating a post. The post arrives at peers
-appearing already matured — the 12h community reaction
-window is bypassed. Other users cannot dislike it in time
-because the window has apparently already elapsed.
+**Mechanism**: Post on a stale branch (parent 12+ hours
+old) so the post's timestamp bypasses the 12h penalty
+window and 24h consolidation reward. The post arrives at
+peers appearing already settled — penalty expired,
+reward collected.
 
-**Resources**: None beyond posting ability (1 rep).
+Only offline branches can be exploited: the monotonic
+parent rule (`commit.timestamp >= parent.timestamp`)
+prevents arbitrary backdating, so the attacker needs a
+parent whose timestamp is already old. A past tolerance
+rule cannot help — freechains is local-first, so nodes
+may legitimately be offline for days or weeks.
 
-**Real threat**: High — **no validation is currently
-implemented**.
+**Resources**: None beyond posting ability (1 rep) and
+an offline branch.
 
-**Impact**: Bypasses the community's reaction window.
-The 12h rule exists so posts sit visible in the DAG long
-enough for the community to evaluate and potentially
-dislike them. Backdating skips this window entirely —
-the post arrives looking settled.
+**Real threat**: Medium. The attack only works on offline
+branches, which are inherently weakened by the consensus
+mechanism:
 
-**Mitigation**: Monotonic parent rule
-(`commit.timestamp >= parent.timestamp`) is necessary
-but insufficient. The attacker can post on a stale
-branch (parent 12+ hours old) with a valid monotonic
-timestamp and the post arrives looking already settled.
-A past tolerance rule cannot help — freechains is
-local-first, so nodes may legitimately be offline for
-days or weeks. Rejecting old timestamps would break the
-core design.
+1. **Consensus ordering** — branches are ordered by
+   prefix reputation (SBSeg-23, Section 2.1). An offline
+   branch with fewer reputed authors is ordered after the
+   majority branch. Posts in the secondary branch are
+   applied later and may be rejected if operations
+   conflict.
 
-**Status**: Open. The monotonic rule prevents arbitrary
-backdating (can't go before parent), but the stale
-branch variant remains exploitable.
+2. **Reactive defense** — the paper's stated defense
+   (Section 2.2): users in the majority branch can post
+   dislikes after seeing the offline branch, invalidating
+   its posts. The attacker bypasses the *timestamp-based*
+   reaction window, but the *consensus-based* defense
+   still applies.
+
+3. **Visibility** — offline branches are conspicuous.
+   A branch that was disconnected for 12+ hours is
+   already suspect. The longer the disconnection, the
+   weaker the branch's consensus weight.
+
+**Impact**: Bypasses the 12h/24h time-based rules, but
+the consensus ordering and reactive dislike mechanism
+provide a secondary defense. The attacker gains a timing
+advantage (post appears settled on arrival) but cannot
+override the majority branch's reputation.
+
+**Gap in paper**: The SBSeg-23 paper assumes honest
+timestamps and does not discuss timestamp manipulation.
+The time-based rules (12h penalty, 24h reward) are
+bypassable on offline branches, but the paper's
+consensus defense was designed for exactly this scenario
+(offline branches rejoining).
+
+**Status**: Partially mitigated by consensus ordering.
+The monotonic rule prevents arbitrary backdating. Offline
+branches are weakened by design. The time-based rules
+add defense in depth but are not the sole protection.
 
 ### T2b. Future-Dating Posts
 
@@ -334,7 +360,7 @@ is correct by design.
 | T1   | 7-day partition fork          | High     | Low        | No defense   |
 | T1a  | Boundary attack               | High     | Medium     | No defense   |
 | T1b  | Equivocation (100-post)       | High     | Low        | No defense   |
-| T2a  | Backdating posts              | High     | High       | Partial      |
+| T2a  | Backdating offline branches   | Medium   | Medium     | Consensus    |
 | T2b  | Future-dating posts           | Medium   | Medium     | Tolerance    |
 | T2c  | Timestamp ordering            | Medium   | Medium     | Planned      |
 | T3a  | Sockpuppet farming            | Medium   | Medium     | Partial (tax)|
