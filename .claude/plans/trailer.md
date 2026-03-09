@@ -42,11 +42,9 @@ Used in `src/freechains:330` for every chain commit.
 - Peers sign merge commits and identify themselves
 - Merge commits already exist at sync time (`--no-ff`
   required, see merge-hook.md)
-- Creates a record of which peer performed the sync and
-  when (merge commit timestamp = peer's local clock)
-- Enables peer reputation: peers that consistently
-  witness and relay posts build a verifiable track record
-  in the DAG
+- The git author field already records the committer, but
+  `Freechains-Peer:` records the peer's **chain-level
+  public key** — the identity that matters for reputation
 
 ```
 --trailer 'Freechains-Peer: CA6391CE...'
@@ -55,9 +53,21 @@ Used in `src/freechains:330` for every chain commit.
 - Combined with GPG signing (`git commit -S`), this
   creates a signed attestation: "peer X saw this branch
   state at time T"
-- Relevant to time-based rules (12h, 24h, 7-day) where
-  peer witness timestamps could supplement or replace
-  self-reported author timestamps (see threats.md T2a)
+
+#### Peer reputation
+
+- Each signed merge is a verifiable act of service:
+  the peer fetched, validated consensus, and committed
+- Peers that consistently relay content build a track
+  record in the DAG — countable via
+  `git log --grep='Freechains-Peer: <key>'`
+- A peer's merge count is a measure of participation
+  and reliability, independent of authoring content
+- Enables trust decisions: prefer syncing with peers
+  that have a long, visible history of honest merges
+- Unlike author reputation (which flows from likes),
+  peer reputation is earned by doing work that is
+  costly to fake — you must actually fetch and validate
 
 ## Notes
 

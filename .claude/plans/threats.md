@@ -149,11 +149,11 @@ add defense in depth but are not the sole protection.
 
 **Future direction**: Peers as signed witnesses. Merge
 commits carry `Freechains-Peer: <pubkey>` trailer and
-are GPG-signed. The merge timestamp reflects the peer's
-local clock — an independent attestation of when the
-branch was first seen. Peer witness timestamps could
-supplement author timestamps for the 12h/24h/7-day
-rules. See trailer.md.
+are GPG-signed. Peers that consistently fetch, validate,
+and merge build a verifiable track record in the DAG.
+Nodes can prefer syncing with reputable peers — peers
+with long histories of honest merges are less likely to
+relay manipulated branches. See trailer.md.
 
 ### T2b. Future-Dating Posts
 
