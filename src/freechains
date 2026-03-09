@@ -5,6 +5,8 @@ local VERSION = "v0.20"
 local argparse = require "argparse"
 local common   = require "common"
 
+math.randomseed()
+
 local parser = argparse()
 
 parser
@@ -110,16 +112,23 @@ end
 
 local args = parser:parse()
 
-local function skel (path)
+local function skel (rand, path)
     exec (true,
         "mkdir -p " .. path .. "/.freechains/likes"
     )
     exec (true,
         "mkdir -p " .. path .. "/.freechains/reps"
     )
-    local f = io.open(path .. "/.freechains/likes/.gitkeep", "w")
-    f:close()
-    for _, name in ipairs({"authors", "posts"}) do
+    do
+        local f = io.open(path .. "/.freechains/random", "w")
+        f:write(tostring(rand) .. "\n")
+        f:close()
+    end
+    do
+        local f = io.open(path .. "/.freechains/likes/.gitkeep", "w")
+        f:close()
+    end
+    for _, name in ipairs{"authors", "posts"} do
         local f = io.open(path .. "/.freechains/reps/" .. name .. ".lua", "w")
         f:write("return {}\n")
         f:close()
@@ -139,14 +148,14 @@ if args.chains then
                 ERROR("chains add : alias already exists: " .. args.alias)
             end
 
+            local rand = math.random(0, math.maxinteger)
             local tmp
-            local t = os.time()
             while true do
-                tmp = chains .. "/tmp-" .. t .. "/"
+                tmp = chains .. "/tmp-" .. rand .. "/"
                 if not io.open(tmp .. ".") then
                     break
                 end
-                t = t + 1
+                rand = math.random(0, math.maxinteger)
             end
 
             exec (
@@ -154,7 +163,7 @@ if args.chains then
                 , "chains add : git init failed"
             )
             git_config(tmp)
-            skel(tmp)
+            skel(rand, tmp)
             exec (
                 "cp -r " .. args.path .. "/* " .. tmp .. "/.freechains/"
                 , "chains add : copy genesis failed"
@@ -345,7 +354,7 @@ elseif args.chain then
                     num = -num
                 end
 
-                num = num * 0.9     -- apply tax
+                num = num * 9 // 10     -- apply tax
 
                 if args.target == "post" then
                     local a = exec (true,

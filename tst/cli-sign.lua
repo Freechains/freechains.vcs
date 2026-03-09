@@ -4,7 +4,6 @@ require "tests"
 
 local DIR = ROOT .. "/chains/cli-sign/"
 
-os.execute("sleep 1")   -- prevents hash collisions
 exec(ENV_EXE .. " chains add cli-sign dir " .. GEN)
 
 -- SIGNED POST

@@ -93,7 +93,6 @@ do
 
     do
         TEST "dir two chains"
-        os.execute("sleep 1")   -- prevents hash collisions
         exec (
             EXE .. " chains add other dir " .. GEN
         )

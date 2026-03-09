@@ -305,7 +305,6 @@ end
 do
     print("==> Unrelated histories rejected")
 
-    os.execute("sleep 1")   -- prevents hash collisions
     local h = exec (
         EXE_C .. " chains add test dir " .. GEN
     )
