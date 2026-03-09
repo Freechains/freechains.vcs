@@ -251,6 +251,103 @@ meaningless — there's no moment where the rule flips.
 - How does this interact with the 100-post threshold?
 - Does the tiebreaker (lexicographic hash) need revision?
 
+### Direction: checkpoint commits (trust ring via DAG)
+
+Instead of synchronous peer-to-peer queries, peers embed
+their branch-maturity evidence **into the DAG itself** as
+checkpoint commits.
+
+#### Mechanism
+
+When a peer's local branch crosses a maturity milestone
+(e.g., N days of activity since fork point X), it posts a
+**checkpoint commit** — a zero-payload signed commit:
+
+```
+tree 4b825dc...           (empty tree)
+parent <HEAD>
+author <pubkey> <timestamp>
+committer <pubkey> <timestamp>
+freechains-checkpoint: fork=<fork-hash> days=<N>
+
+```
+
+At merge time, the rule becomes:
+
+1. Count checkpoint commits from **distinct authors** in
+   each branch
+2. If a **quorum** of peers have posted checkpoints for
+   the same fork point with days >= threshold, **all peers
+   agree** the branch is mature → local-wins applies
+3. If you see NO checkpoints from others for your fork
+   point, you might be isolated → fall back to local-wins
+   defensively
+4. If checkpoints disagree (some say mature, some don't),
+   use the majority
+
+#### Why this kills the boundary attack
+
+The boundary attack (T1a) requires peers to independently
+cross the 7-day threshold at different moments. With
+checkpoint commits:
+
+- Peer B crosses 7 days first, posts a checkpoint commit
+- When peer A fetches, it sees B's checkpoint in the DAG
+- A adopts local-wins **before** reaching 7 days itself
+- Both peers now use the same rule → converge
+
+**Key property**: "if ANY honest peer's checkpoint says
+mature, ALL peers treat the branch as mature." The
+protection kicks in at the earliest moment any peer would
+trigger it — unanimously.
+
+The attacker can't forge checkpoints from other peers
+(they're signed). And the attacker can't suppress them
+either — git fetch transfers all objects unconditionally.
+
+#### Properties
+
+- **DAG-embedded**: no synchronous network round-trip at
+  merge time. Consensus remains derivable from the DAG
+  alone
+- **Signed**: checkpoints are authored commits, forgery
+  requires the private key
+- **Asynchronous**: peers post checkpoints independently
+  as they observe branch maturity
+- **Quorum-based**: attacker in the ring is outvoted by
+  honest majority (standard Byzantine assumption)
+
+#### Tradeoffs
+
+- **Liveness dependency**: if peers don't post checkpoints
+  (offline, lazy), the quorum may never form. Fallback:
+  after a hard timeout (e.g., 14 days with no quorum),
+  apply local-wins unconditionally
+- **Information leakage**: checkpoint commits reveal which
+  peers are active and when they observed divergence
+- **DAG bloat**: extra zero-payload commits. Mitigated by
+  posting checkpoints only near maturity thresholds, not
+  continuously
+- **Requires signing**: checkpoints must be signed to
+  prevent forgery — chains without signing can't use this
+
+#### Interaction with continuous decay
+
+The two directions are **complementary**, not competing:
+
+- **Continuous decay** eliminates the sharp boundary for
+  the reputation-based ordering rule (rule 2) — no
+  threshold to exploit
+- **Checkpoint commits** provide peer agreement on WHEN
+  to override reputation entirely (rule 1 / local-wins)
+  — the transition is unanimous
+
+Combined: reputation advantage decays continuously, AND
+when a quorum of peers confirms maturity via checkpoints,
+the transition to local-wins is unanimous. Neither
+mechanism alone solves the problem fully; together they
+cover both the gradual and the categorical cases.
+
 ## References
 
 - SBSeg-23 paper: `fsantanna-no/sbseg-23` — Section on
@@ -258,3 +355,4 @@ meaningless — there's no moment where the rule flips.
 - [consensus.md](consensus.md) — Hard fork rule and merge
   ordering
 - [reps.md](reps.md) — Reputation system and pioneer setup
+- [threats.md](threats.md) — Full threat catalog (T1–T6)

@@ -343,9 +343,11 @@ is correct by design.
    commits** (T4a) — e.g., lexicographic commit hash.
    Prevents silent honest-peer divergence.
 
-3. **Replace 7-day hard cutoff with continuous decay**
-   (T1, T1a) — eliminates boundary attacks. See
-   7-day.md for design direction.
+3. **Replace 7-day hard cutoff with continuous decay +
+   checkpoint commits** (T1, T1a) — continuous decay
+   removes the sharp boundary; checkpoint commits
+   (trust ring via DAG) ensure peers unanimously agree
+   on when local-wins applies. See 7-day.md.
 
 4. **Add size limits to non-owner fetch validation**
    (T6a) — max payload size, max commits per fetch.
