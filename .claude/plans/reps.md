@@ -34,14 +34,14 @@ equally among its pioneers:
 | N        | 30 / N          | 30000 / N |
 
 Pioneers are defined by their entries in
-`reps-authors.lua`, which is created in the genesis
+`reps/authors.lua`, which is created in the genesis
 commit alongside `genesis.lua`.
 There is no separate `pioneers` field in genesis —
 the initial non-zero entries *are* the pioneers.
 Non-pioneer authors start with **0 reputation**.
 
 Chains without pioneers have an empty
-`reps-authors.lua` — no reputation gate at all.
+`reps/authors.lua` — no reputation gate at all.
 
 ### Special chain types
 
@@ -66,17 +66,17 @@ If the author's reputation is insufficient, the post is
 accepted into the DAG but marked **BLOCKED** (invisible
 to consensus).
 
-### Like (unified command)
+### Like / Dislike (split subcommands)
 
-A like is a zero-payload commit with an extra header:
+Likes and dislikes are separate subcommands.
+The number is always a positive integer.
+Internally both produce a like commit — dislike
+negates the number.
 
 ```
-freechains-like: +N <target>
-freechains-like: -N <target>
+freechains chain <alias> like 1 post <hash> --sign <key>
+freechains chain <alias> dislike 1 post <hash> --sign <key>
 ```
-
-Where `<target>` is a post hash or an author pubkey.
-The number must have an explicit `+` or `-` sign.
 
 #### Like targeting a post
 
@@ -157,14 +157,23 @@ Reputation state lives inside each chain repo under
 <chain-repo>/
   .freechains/
     genesis.lua            -- genesis block definition
-    reps-authors.lua       -- author → internal reputation
-    reps-posts.lua         -- post → internal reputation
+    likes/                 -- like payload files (created at chain init)
+    reps/
+      authors.lua          -- author → internal reputation
+      posts.lua            -- post → internal reputation
 ```
+
+The `chains add` command calls `skel()` to create all
+directories and default files before copying genesis input.
+`reps/authors.lua` and `reps/posts.lua` default to
+`return {}`.
+Genesis input's `reps/authors.lua` overwrites the default
+(pioneers get initial reps).
 
 All three files are tracked by git (committed).
 If deleted, they can be rebuilt by replaying git history.
 
-### reps-authors.lua
+### reps/authors.lua
 
 Maps each author's public key to their internal
 reputation:
@@ -176,7 +185,7 @@ return {
 }
 ```
 
-### reps-posts.lua
+### reps/posts.lua
 
 Maps posts to their internal reputation sum:
 
@@ -198,7 +207,7 @@ Reputation is computed by walking the DAG in
 `--date-order`:
 
 ```
-load reps-authors.lua from genesis commit
+load reps/authors.lua from genesis commit
 for each commit after genesis in git log --date-order:
     if commit has freechains-like header:
         parse sign, number, target
@@ -239,7 +248,8 @@ regular posts.
 ## CLI Commands
 
 ```
-freechains chain <alias> like <+/-N> <target> --sign <key> [--why <reason>]
+freechains chain <alias> like <N> <target> <id> --sign <key> [--why <reason>]
+freechains chain <alias> dislike <N> <target> <id> --sign <key> [--why <reason>]
 freechains chain <alias> reps <pubkey-or-hash>
 ```
 
@@ -260,11 +270,14 @@ truncated toward zero).
 
 - [x] Plan: internal/external rep model (1000x)
 - [x] Plan: 10% tax on likes
-- [x] Plan: unified like command (+/- N)
+- [x] Plan: like/dislike split subcommands
 - [x] Plan: self-like allowed
 - [x] Tests: cli-like.lua (like command structure)
 - [x] Tests: reps.lua (reputation math)
-- [x] Impl: like command in src/freechains
+- [x] Impl: like/dislike commands in src/freechains
+- [x] Impl: .freechains/likes/ created at chain init
+- [x] Impl: skel() creates full .freechains/ skeleton
+- [x] Impl: reps/ nested dir (authors.lua, posts.lua)
 
 ## TODO
 

@@ -78,10 +78,10 @@ Deterministic first commit per chain. Canonical Lua-style serialization of `(ver
 Likes, dislikes, and pioneers. Post costs 1 rep. Likes
 transfer rep with 12h maturation. Dislikes are immediate.
 Pioneers are authors with non-zero entries in the initial
-`reps-authors.lua` (created at genesis), splitting 30
+`reps/authors.lua` (created at genesis), splitting 30
 reps equally. Stored as zero-payload commits with extra
 headers. Computed by DAG walk, stored in
-`.freechains/reps-authors.lua` and `reps-posts.lua`.
+`.freechains/reps/authors.lua` and `reps/posts.lua`.
 
 ### Crypto — [crypto.md](crypto.md)
 
