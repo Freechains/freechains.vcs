@@ -158,23 +158,7 @@ do
         TEST "reps-3-pioneers"
         exec("rm -rf " .. TMP)
         exec("mkdir -p " .. ROOT)
-
-        -- Create a 3-pioneer genesis directory
-        local gen3 = TMP .. "/genesis-3p/"
-        exec("mkdir -p " .. gen3)
-        exec("cp " .. GEN .. "genesis.lua " .. gen3)
-        exec("mkdir -p " .. gen3 .. "reps")
-        local f = io.open(gen3 .. "reps/authors.lua", "w")
-        f:write('return {\n')
-        f:write('    ["' .. KEY .. '"] = 10000,\n')
-        f:write('    ["' .. KEY2 .. '"] = 10000,\n')
-        f:write('    ["FAKE_KEY_FOR_TEST"] = 10000,\n')
-        f:write('}\n')
-        f:close()
-
-        exec (
-            ENV_EXE .. " chains add cr7 dir " .. gen3
-        )
+        exec(ENV_EXE .. " chains add cr7 dir " .. GEN_3P)
         local out = exec (
             ENV_EXE .. " chain cr7 reps author " .. KEY
         )
