@@ -37,6 +37,28 @@ Used in `src/freechains:330` for every chain commit.
 --trailer 'Freechains-Ref: abc123def456'
 ```
 
+### 3. Add `Freechains-Peer: <pubkey>` on merge commits
+
+- Peers sign merge commits and identify themselves
+- Merge commits already exist at sync time (`--no-ff`
+  required, see merge-hook.md)
+- Creates a record of which peer performed the sync and
+  when (merge commit timestamp = peer's local clock)
+- Enables peer reputation: peers that consistently
+  witness and relay posts build a verifiable track record
+  in the DAG
+
+```
+--trailer 'Freechains-Peer: CA6391CE...'
+```
+
+- Combined with GPG signing (`git commit -S`), this
+  creates a signed attestation: "peer X saw this branch
+  state at time T"
+- Relevant to time-based rules (12h, 24h, 7-day) where
+  peer witness timestamps could supplement or replace
+  self-reported author timestamps (see threats.md T2a)
+
 ## Notes
 
 - Finding the lua file in a commit is trivial:
@@ -52,3 +74,4 @@ Used in `src/freechains:330` for every chain commit.
 
 - [ ] Rename `freechains:` → `Freechains-Kind:`
 - [ ] Add `Freechains-Ref:` to like/dislike commits
+- [ ] Add `Freechains-Peer:` to merge commits
