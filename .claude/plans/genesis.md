@@ -90,7 +90,7 @@ The genesis data lives in a `.genesis.lua` blob in the tree.
 
 | Field            | Value                                        |
 |------------------|----------------------------------------------|
-| tree             | `.genesis.lua` + `.freechains/reps-authors.lua` |
+| tree             | `.genesis.lua` + `.freechains/reps/authors.lua` |
 | parent           | none                                         |
 | author name      | blank                                        |
 | author email     | blank                                        |

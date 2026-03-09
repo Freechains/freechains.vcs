@@ -34,14 +34,14 @@ equally among its pioneers:
 | N        | 30 / N          | 30000 / N |
 
 Pioneers are defined by their entries in
-`reps-authors.lua`, which is created in the genesis
+`reps/authors.lua`, which is created in the genesis
 commit alongside `genesis.lua`.
 There is no separate `pioneers` field in genesis —
 the initial non-zero entries *are* the pioneers.
 Non-pioneer authors start with **0 reputation**.
 
 Chains without pioneers have an empty
-`reps-authors.lua` — no reputation gate at all.
+`reps/authors.lua` — no reputation gate at all.
 
 ### Special chain types
 
@@ -158,14 +158,22 @@ Reputation state lives inside each chain repo under
   .freechains/
     genesis.lua            -- genesis block definition
     likes/                 -- like payload files (created at chain init)
-    reps-authors.lua       -- author → internal reputation
-    reps-posts.lua         -- post → internal reputation
+    reps/
+      authors.lua          -- author → internal reputation
+      posts.lua            -- post → internal reputation
 ```
+
+The `chains add` command calls `skel()` to create all
+directories and default files before copying genesis input.
+`reps/authors.lua` and `reps/posts.lua` default to
+`return {}`.
+Genesis input's `reps/authors.lua` overwrites the default
+(pioneers get initial reps).
 
 All three files are tracked by git (committed).
 If deleted, they can be rebuilt by replaying git history.
 
-### reps-authors.lua
+### reps/authors.lua
 
 Maps each author's public key to their internal
 reputation:
@@ -177,7 +185,7 @@ return {
 }
 ```
 
-### reps-posts.lua
+### reps/posts.lua
 
 Maps posts to their internal reputation sum:
 
@@ -199,7 +207,7 @@ Reputation is computed by walking the DAG in
 `--date-order`:
 
 ```
-load reps-authors.lua from genesis commit
+load reps/authors.lua from genesis commit
 for each commit after genesis in git log --date-order:
     if commit has freechains-like header:
         parse sign, number, target
@@ -268,6 +276,8 @@ truncated toward zero).
 - [x] Tests: reps.lua (reputation math)
 - [x] Impl: like/dislike commands in src/freechains
 - [x] Impl: .freechains/likes/ created at chain init
+- [x] Impl: skel() creates full .freechains/ skeleton
+- [x] Impl: reps/ nested dir (authors.lua, posts.lua)
 
 ## TODO
 
