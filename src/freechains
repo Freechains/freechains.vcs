@@ -29,6 +29,10 @@ parser
     :option("--root")
     :default(os.getenv("HOME") .. "/.freechains/")
 
+parser
+    :option("--now")
+    :convert(tonumber)
+
 local cmd = {
     chains = {
         _ = parser:command("chains"),
@@ -111,6 +115,7 @@ do
 end
 
 local args = parser:parse()
+local now  = args.now or os.time()
 
 local function skel (rand, path)
     exec (true,
@@ -171,8 +176,16 @@ if args.chains then
             exec (true,
                 "git -C " .. tmp .. " add .freechains/"
             )
+
+            local dt = args.now and
+                (
+                    "GIT_AUTHOR_DATE=" .. now .. " " ..
+                    "GIT_COMMITTER_DATE=" .. now .. " "
+                )
+                or ""
+
             exec (true,
-                "git -C " .. tmp .. ' commit --allow-empty-message -m ""'
+                dt .. "git -C " .. tmp .. ' commit --allow-empty-message -m ""'
             )
 
             local hash = exec (true,
@@ -267,7 +280,7 @@ elseif args.chain then
                     local hash = exec (true,
                         "printf '%s' '" .. text .. "' | git hash-object --stdin"
                     )
-                    files = "post-" .. os.time() .. "-" .. hash:sub(1,8) .. ".txt"
+                    files = "post-" .. now .. "-" .. hash:sub(1,8) .. ".txt"
                     local f = io.open(REPO .. files, "w")       -- truncates
                     f:write(text)
                     f:close()
@@ -321,7 +334,7 @@ elseif args.chain then
             local blob = exec (true,
                 "printf '%s' '" .. payload .. "' | git hash-object --stdin"
             )
-            files = ".freechains/likes/like-" .. os.time() .. "-" .. blob:sub(1,8) .. ".lua"
+            files = ".freechains/likes/like-" .. now .. "-" .. blob:sub(1,8) .. ".lua"
             local f = io.open(REPO .. files, "w")
             f:write(payload)
             f:close()
@@ -382,8 +395,9 @@ elseif args.chain then
         end
 
         local msg = args.why or ""
+        local dt = args.now and ("GIT_AUTHOR_DATE=" .. now .. " GIT_COMMITTER_DATE=" .. now .. " ") or ""
         exec (true,
-            "git -C " .. REPO .. s1 .. " commit" .. s2 .. " --trailer 'freechains: " .. kind .. "'" .. " --allow-empty-message" .. " -m '" .. msg .. "'"
+            dt .. "git -C " .. REPO .. s1 .. " commit" .. s2 .. " --trailer 'freechains: " .. kind .. "'" .. " --allow-empty-message" .. " -m '" .. msg .. "'"
         )
 
         local hash = exec (true,
