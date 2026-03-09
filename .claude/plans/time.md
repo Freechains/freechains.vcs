@@ -81,8 +81,14 @@ Ensures time never goes backwards within the DAG.
 commit.timestamp <= receiver.local_time + tolerance
 ```
 
-Prevents future-dating exploits. Requires a tolerance
-window (e.g., 5 minutes) to account for clock skew.
+Prevents future-dating exploits.
+
+**Default tolerance: 1 hour (3600 seconds).**
+Configurable per chain via `genesis.lua` field `tolerance`
+(in seconds). See [genesis.md](genesis.md).
+
+1 hour is negligible relative to the 12h maturation window
+(< 9%) and accommodates nodes with poor clock sync.
 
 ### 3. Both combined
 

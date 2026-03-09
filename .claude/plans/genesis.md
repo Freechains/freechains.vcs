@@ -57,11 +57,21 @@ Only relevant for private (`'$'`) chains.
 An Ed25519 public key identifying the chain owner.
 Only relevant for personal (`'@'` / `'@!'`) chains.
 
+#### `tolerance`
+
+Maximum allowed clock skew in seconds for incoming commits.
+Optional — defaults to **3600** (1 hour).
+Used during fetch validation: a commit is rejected if its
+committer timestamp exceeds the receiver's local time by
+more than this value.
+See [time.md](time.md) for full timestamp validation rules.
+
 ### Free-form table
 
 The genesis table is free-form: any extra fields beyond `version`,
-`type`, and the type-specific key are accepted and become part of
-the commit message (and thus part of the chain identity hash).
+`type`, `tolerance`, and the type-specific key are accepted and
+become part of the commit message (and thus part of the chain
+identity hash).
 Applications may use extra fields for metadata, namespaces, or
 configuration.
 
