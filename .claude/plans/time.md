@@ -149,6 +149,13 @@ disagreement window:
 
 ### Why This Is Acceptable
 
+- **Git fetch is unconditional** — `git fetch` transfers
+  all objects regardless of freechains validation. Even if
+  the freechains layer rejects a commit at validation time,
+  the git objects are already local. On the next pull/fetch,
+  they don't need to be re-transferred — the node just
+  needs to re-evaluate them once enough time has passed.
+  This guarantees convergence at the git level.
 - The disagreement window is bounded (at most ~12h)
 - The DAG is content-addressed — once time passes, all
   honest nodes agree on the same state
