@@ -44,6 +44,7 @@ local cmd = {
         },
         like = {},
         dislike = {},
+        reps = {},
     },
 }
 
@@ -100,6 +101,11 @@ do
     cmd.chain.dislike._:argument("id")
     cmd.chain.dislike._:option("--sign")
     cmd.chain.dislike._:option("--why")
+
+    -- cmd.chain.reps
+    cmd.chain.reps._ = cmd.chain._:command("reps")
+    cmd.chain.reps._:argument("target")
+    cmd.chain.reps._:argument("key"):args("?")
 end
 
 local args = parser:parse()
@@ -191,7 +197,41 @@ if args.chains then
 elseif args.chain then
     local repo = args.root .. "/chains/" .. args.alias .. "/"
 
-    if args.post or args.like or args.dislike then
+    if args.reps then
+        local fc = repo .. ".freechains/"
+
+        local function ext (int)
+            return (int >= 0) and (int // 1000) or -((-int) // 1000)
+        end
+
+        if args.target == "post" then
+            if not args.key then
+                ERROR("chain reps : post requires a hash")
+            end
+            local posts = dofile(fc .. "reps/posts.lua")
+            local v = posts[args.key] or 0
+            print(ext(v))
+        elseif args.target == "author" then
+            if not args.key then
+                ERROR("chain reps : author requires a pubkey")
+            end
+            local authors = dofile(fc .. "reps/authors.lua")
+            local v = authors[args.key] or 0
+            print(ext(v))
+        elseif args.target == "authors" then
+            local authors = dofile(fc .. "reps/authors.lua")
+            local T = {}
+            for k, v in pairs(authors) do
+                T[#T+1] = { k=k, v=v }
+            end
+            table.sort(T, function (a, b) return a.v > b.v end)
+            for _, e in ipairs(T) do
+                print(e.k .. " " .. ext(e.v))
+            end
+        else
+            ERROR("chain reps : invalid target : " .. args.target)
+        end
+    elseif args.post or args.like or args.dislike then
         local kind, file
 
         if args.post then
