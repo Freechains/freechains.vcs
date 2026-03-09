@@ -31,7 +31,7 @@ do
     do
         TEST "like-success"
         local out, code = exec (
-            ENV_EXE .. " chain cli-like like +1 post " .. POST .. " --sign " .. KEY2
+            ENV_EXE .. " chain cli-like like 1 post " .. POST .. " --sign " .. KEY2
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -47,11 +47,12 @@ do
 
     do
         TEST "like-payload-file"
-error'?'
-        local file = exec("git -C " .. DIR .. " diff-tree --no-commit-id --name-only -r " .. LIKE)
+        local file = exec (
+            "git -C " .. DIR .. " diff-tree --no-commit-id --name-only -r " .. LIKE
+        )
         assert(file ~= "", "like payload file missing")
-        local content = exec("git -C " .. DIR .. " show " .. LIKE .. ":" .. file)
-        local tbl = load(content)()
+        local out = exec("git -C " .. DIR .. " show " .. LIKE .. ":" .. file)
+        local tbl = load(out)()
         assert(tbl.target == "post", "target: " .. tostring(tbl.target))
         assert(tbl.id == POST, "id: " .. tostring(tbl.id))
         assert(tbl.number == 1, "number: " .. tostring(tbl.number))
@@ -83,12 +84,9 @@ do
 
     do
         TEST "dislike-success"
-        print(ENV_EXE .. " chain cli-like like -1 post " .. TARGET2 .. " --sign " .. KEY2)
-error'ok'
         local out, code = exec (
-            ENV_EXE .. " chain cli-like like -1 post " .. TARGET2 .. " --sign " .. KEY2
+            ENV_EXE .. " chain cli-like dislike 1 post " .. TARGET2 .. " --sign " .. KEY2
         )
-print(out, code)
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
         assert(out:match("^%x+$"), "hash is hex: " .. out)
@@ -106,7 +104,7 @@ print(out, code)
             ENV_EXE .. " chain cli-like post inline 'bad content' --sign " .. KEY
         )
         local out, code = exec (
-            ENV_EXE .. " chain cli-like like -1 post " .. TARGET3
+            ENV_EXE .. " chain cli-like dislike 1 post " .. TARGET3
             .. " --sign " .. KEY2 .. " --why 'spam content'"
         )
         assert(code == 0, "exit code: " .. tostring(code))
@@ -122,7 +120,7 @@ do
     do
         TEST "like-author-success"
         local out, code = exec (
-            ENV_EXE .. " chain cli-like like +1 author " .. KEY2 .. " --sign " .. KEY
+            ENV_EXE .. " chain cli-like like 1 author " .. KEY2 .. " --sign " .. KEY
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -137,7 +135,7 @@ do
         TEST "like-nonexistent-post"
         local fake = "0000000000000000000000000000000000000000"
         local _, code = exec (
-            ENV_EXE .. " chain cli-like like +1 post " .. fake .. " --sign " .. KEY2
+            ENV_EXE .. " chain cli-like like 1 post " .. fake .. " --sign " .. KEY2
         )
         assert(code ~= 0, "should fail")
     end
@@ -148,7 +146,7 @@ do
             ENV_EXE .. " chain cli-like post inline 'self target' --sign " .. KEY
         )
         local _, code = exec (
-            ENV_EXE .. " chain cli-like like +1 post " .. self_target .. " --sign " .. KEY
+            ENV_EXE .. " chain cli-like like 1 post " .. self_target .. " --sign " .. KEY
         )
         assert(code == 0, "self-like should succeed")
     end
@@ -159,7 +157,7 @@ do
             ENV_EXE .. " chain cli-like post inline 'self dislike' --sign " .. KEY
         )
         local _, code = exec (
-            ENV_EXE .. " chain cli-like like -1 post " .. self_target .. " --sign " .. KEY
+            ENV_EXE .. " chain cli-like dislike 1 post " .. self_target .. " --sign " .. KEY
         )
         assert(code == 0, "self-dislike should succeed")
     end
@@ -167,7 +165,7 @@ do
     do
         TEST "like-requires-sign"
         local _, code = exec (
-            ENV_EXE .. " chain cli-like like +1 post " .. POST
+            ENV_EXE .. " chain cli-like like 1 post " .. POST
         )
         assert(code ~= 0, "like without --sign should fail")
     end
@@ -175,7 +173,7 @@ do
     do
         TEST "like-bad-target-type"
         local _, code = exec (
-            ENV_EXE .. " chain cli-like like +1 foo " .. POST .. " --sign " .. KEY
+            ENV_EXE .. " chain cli-like like 1 foo " .. POST .. " --sign " .. KEY
         )
         assert(code ~= 0, "bad target type should fail")
     end

@@ -43,6 +43,7 @@ local cmd = {
             inline = {},
         },
         like = {},
+        dislike = {},
     },
 }
 
@@ -91,6 +92,14 @@ do
     cmd.chain.like._:argument("id")
     cmd.chain.like._:option("--sign")
     cmd.chain.like._:option("--why")
+
+    -- cmd.chain.dislike
+    cmd.chain.dislike._ = cmd.chain._:command("dislike")
+    cmd.chain.dislike._:argument("number")
+    cmd.chain.dislike._:argument("target")
+    cmd.chain.dislike._:argument("id")
+    cmd.chain.dislike._:option("--sign")
+    cmd.chain.dislike._:option("--why")
 end
 
 local args = parser:parse()
@@ -123,7 +132,7 @@ if args.chains then
             )
             git_config(tmp)
             exec ("chains add : mkdir failed",
-                "mkdir -p " .. tmp .. "/.freechains"
+                "mkdir -p " .. tmp .. "/.freechains/likes"
             )
             exec ("chains add : copy genesis failed",
                 "cp -r " .. args.path .. "/* " .. tmp .. "/.freechains/"
@@ -168,7 +177,7 @@ if args.chains then
 elseif args.chain then
     local repo = args.root .. "/chains/" .. args.alias .. "/"
 
-    if args.post or args.like then
+    if args.post or args.like or args.dislike then
         local kind, file
 
         if args.post then
@@ -199,15 +208,15 @@ elseif args.chain then
                     "cp " .. args.path .. " " .. repo .. "/"
                 )
             end
-        elseif args.like then
+        elseif args.like or args.dislike then
             kind = "like"
 
             if not args.sign then
                 ERROR("chain like : --sign is required")
             end
 
-            if not args.number:match("^[%+%-]%d+$") then
-                ERROR("chain like : number must start with + or -")
+            if not args.number:match("^%d+$") then
+                ERROR("chain like : expected number")
             end
 
             if args.target ~= "post" and args.target ~= "author" then
@@ -228,6 +237,9 @@ elseif args.chain then
 
             -- write like payload
             local num = tonumber(args.number)
+            if args.dislike then
+                num = -num
+            end
             local payload = [[
                 return {
                     target = "]] .. args.target .. [[",
@@ -240,7 +252,7 @@ elseif args.chain then
                 "printf '%s' '" .. payload
                     .. "' | git hash-object --stdin"
             )
-            file = "like-" .. os.time() .. "-" .. blob:sub(1,8) .. ".lua"
+            file = ".freechains/likes/like-" .. os.time() .. "-" .. blob:sub(1,8) .. ".lua"
             local f = io.open(repo .. file, "w")
             f:write(payload)
             f:close()
