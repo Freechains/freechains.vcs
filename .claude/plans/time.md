@@ -177,6 +177,41 @@ temporary non-determinism, because:
    than the unbounded gaming that write-time-only would
    allow
 
+## 7-Day Hard Fork Threshold
+
+The hard fork rule (see [consensus.md](consensus.md)) uses
+a **7-day** time threshold. If two concurrent branches are
+separated by more than 7 days of elapsed time, syncing them
+results in permanent consensus divergence — each peer keeps
+its own local ordering.
+
+### Timing Implications
+
+- The 7-day window is measured from committer timestamps
+  in the DAG, not wall-clock time at sync
+- A node that stays offline for >7 days and then syncs will
+  trigger a hard fork if the remote also posted during that
+  window
+- Timestamp forgery interacts with this rule: a node could
+  backdate or future-date commits to manipulate whether the
+  7-day threshold is crossed
+- The 1-hour tolerance (Section "Not in the future") bounds
+  future-dating to <1h — negligible vs 7 days (<0.6%)
+- Backdating is harder to prevent but is bounded by the
+  monotonic parent rule (commit.timestamp >= parent.timestamp)
+
+### Relationship to Other Time Rules
+
+| Rule             | Window  | Purpose                          |
+|------------------|---------|----------------------------------|
+| Future tolerance | 1 hour  | Bound clock drift                |
+| 12h maturation   | 12 hours| Prevent reputation inflation     |
+| Hard fork        | 7 days  | Freeze consensus, force diverge  |
+
+All three rules depend on committer timestamps but operate
+at different scales. The hard fork threshold is the largest
+and defines the boundary of consensus convergence.
+
 ## Status
 
 - [x] Decision: committer timestamp as time basis
