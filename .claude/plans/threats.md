@@ -147,6 +147,25 @@ The monotonic rule prevents arbitrary backdating. Offline
 branches are weakened by design. The time-based rules
 add defense in depth but are not the sole protection.
 
+**Unreviewed idea — merge-witness timestamps**: Use the
+earliest merge commit that witnesses a post as a lower
+bound on its network arrival time. Time-based rules
+(12h penalty, 24h reward) would use
+`max(post_timestamp, first_merge_witness_timestamp)`
+as the effective time, not the author's claimed timestamp.
+
+- Rationale: the merge is created by the *receiving* peer,
+  not the author. The author cannot control it.
+- A backdated post would have a large gap between its
+  claimed timestamp and its first merge witness → the
+  gap itself signals manipulation.
+- Weakness: if the first receiver colludes with the author,
+  both timestamps can be forged. Raises cost from 1 node
+  to 2 colluding nodes, and leaves an auditable trail
+  (the fake merge is permanently in the DAG).
+- Does not solve T2a, but makes it more expensive and
+  detectable. NOT REVIEWED.
+
 ### T2b. Future-Dating Posts
 
 **Mechanism**: Set a post's timestamp into the future.
