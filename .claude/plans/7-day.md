@@ -107,50 +107,77 @@ This is far more dangerous than the 100-post attack:
 - Harder to detect — not obvious spam, just a single
   branch arriving at slightly different times
 
-## Consequences of the Boundary Attack
+### Who can execute this attack?
+
+To win rule 2, the attacker's branch needs **more than
+half of the total prefix reputation**. This means:
+
+- **Pioneers**: a single pioneer in a 1-pioneer chain
+  (30/30) trivially wins, but they already control the
+  chain. In a 2-pioneer chain (15/30), one pioneer alone
+  ties. In a 3-pioneer chain (10/30), one pioneer can't
+  win alone.
+- **Popular members**: any user who accumulated significant
+  reputation through received likes.
+- **Colluding groups**: any coalition holding >50% of
+  prefix reputation.
+
+The prefix reputation is **frozen at the fork point**. So
+a group that held >50% at **any point in the past** could
+use that historical snapshot as their fork point. They can
+attempt the attack **at any time in the future** — the
+old prefix doesn't change.
+
+However, the fork point must be **recent (~7 days ago)**
+for the boundary attack to work. If the attacker forks
+from months ago, the community's local branch has long
+crossed the 7-day threshold, so rule 1 applies and the
+local branch wins unconditionally. The attacker must have
+held >50% of reputation **at a point ~7 days before the
+attack**.
+
+This reduces to the standard Byzantine assumption: **a
+majority coalition can attack the system**. This is true
+of essentially every consensus protocol.
+
+## Consequences of Both Attacks
 
 Assuming peers A and B communicate soon after the attack:
 
-### 1. Detection: difficult
+### 1. Detection: easy
 
-Unlike the 100-post attack (where equivocation is obvious),
-this attack uses a **single branch**. Both peers received
-the same content from the same author. The only difference
-is **when** they received it. There is no equivocation to
-detect — the attacker sent the same thing to both peers.
+For the 100-post attack: obvious equivocation — same
+author, 200 simultaneous posts, two different branches.
 
-A and B will notice they disagree on ordering when they
-sync, but attributing this to an attack (rather than
-natural timing variance) is hard. The attacker looks like
-a normal participant whose branch happened to arrive at an
-unfortunate time.
+For the boundary attack: the attacker was **offline for
+~7 days** in a network where correct peers sync often.
+A 7-day silence followed by perfectly-timed delivery is
+a strong signal. Not as blatant as equivocation, but
+suspicious.
 
-### 2. Recovery: same hard fork problem, harder to justify
+### 2. Recovery: revert to common prefix
 
-The protocol has no mechanism to undo a hard fork. A and B
-must manually coordinate out-of-band. But unlike the
-100-post attack where the attacker is obviously malicious,
-here there's **ambiguity** — was it an attack or bad luck?
-This makes it harder to agree on who should yield their
-ordering.
+Both peers share the same common prefix up to the fork
+point. The protocol has no automatic mechanism to undo a
+hard fork, but peers can manually revert to the common
+prefix and discard the attacker's branch. The attacker's
+identity is known (they were offline, they hold >50%
+prefix rep). Out-of-band coordination is needed but the
+path is clear.
 
-### 3. Content damage: potentially significant
+### 3. Content damage: near zero
 
-At peer A, the attacker's branch **won on prefix
-reputation** and is ordered first. This means the
-attacker's branch **reorders A's legitimate content** —
-posts from real users may shift in consensus position.
+In both attacks, the only divergent content is the
+**attacker's own**. The legitimate users' posts are all
+in the common prefix — identical on both sides. Since
+peers were syncing often, the fork point is very recent
+(minutes for the 100-post attack, ~7 days for the
+boundary attack but with the attacker offline the whole
+time — no legitimate content was lost).
 
-At peer B, the local branch won, so local ordering is
-preserved.
-
-The damage is **asymmetric**: peer A's consensus was
-disrupted, peer B's was not. All content written by
-legitimate users in the ~7 days since divergence is
-ordered differently between the two peers. The attacker
-didn't need to create any fake content — they just
-changed the consensus ordering of everyone else's real
-content.
+The attacker destroyed **their own reputation** and
+caused an operational headache, but actual content loss
+is near zero.
 
 ## References
 
