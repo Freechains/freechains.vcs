@@ -5,7 +5,15 @@ end
 
 function exec (a, b, c)
     local stderr, cmd, err
-    if a == 'stderr' then
+    if a == true then
+        err = true
+        if b == 'stderr' then
+            stderr = true
+            cmd = c
+        else
+            cmd = b
+        end
+    elseif a == 'stderr' then
         stderr = true
         cmd, err = b, c
     else

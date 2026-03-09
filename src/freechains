@@ -132,30 +132,25 @@ if args.chains then
                 , "chains add : git init failed"
             )
             git_config(tmp)
-            exec (
+            exec (true,
                 "mkdir -p " .. tmp .. "/.freechains/likes"
-                , true
             )
-            exec (
+            exec (true,
                 "touch " .. tmp .. "/.freechains/likes/.gitkeep"
-                , true
             )
             exec (
                 "cp -r " .. args.path .. "/* " .. tmp .. "/.freechains/"
                 , "chains add : copy genesis failed"
             )
-            exec (
+            exec (true,
                 "git -C " .. tmp .. " add .freechains/"
-                , true
             )
-            exec (
+            exec (true,
                 "git -C " .. tmp .. ' commit --allow-empty-message -m ""'
-                , true
             )
 
-            local hash = exec (
+            local hash = exec (true,
                 "git -C " .. tmp .. " rev-parse HEAD"
-                , true
             )
 
             local final = chains .. "/" .. hash
@@ -163,9 +158,8 @@ if args.chains then
                 assert(exec("rm -rf " .. tmp))
                 ERROR("chains add : chain already exists: " .. hash)
             end
-            exec (
+            exec (true,
                 "ln -s " .. hash .. "/ " .. chains .. "/" .. args.alias
-                , true
             )
 
             print(hash)
@@ -176,15 +170,13 @@ if args.chains then
             "readlink " .. alias
             , "chains rem : not found: " .. args.alias
         )
-        exec (
+        exec (true,
             "rm -rf " .. chains .. lnk
-            , true
         )
         os.remove(alias)
     elseif args.dir then
-        local out = exec (
+        local out = exec (true,
             "find " .. chains .. " -maxdepth 1 -type l -printf '%f\\n' | sort"
-            , true
         )
         io.write(out)
     end
@@ -208,9 +200,8 @@ elseif args.chain then
                     f:write(text)
                     f:close()
                 else
-                    local hash = exec (
+                    local hash = exec (true,
                         "printf '%s' '" .. text .. "' | git hash-object --stdin"
-                        , true
                     )
                     file = "post-" .. os.time() .. "-" .. hash:sub(1,8) .. ".txt"
                     local f = io.open(repo .. file, "w")        -- truncates
@@ -263,9 +254,8 @@ elseif args.chain then
                     number = ]]  .. num         .. [[,
                 }
             ]]
-            local blob = exec (
+            local blob = exec (true,
                 "printf '%s' '" .. payload .. "' | git hash-object --stdin"
-                , true
             )
             file = ".freechains/likes/like-" .. os.time() .. "-" .. blob:sub(1,8) .. ".lua"
             local f = io.open(repo .. file, "w")
@@ -274,9 +264,8 @@ elseif args.chain then
         end
 
         -- common tail: add, commit, rev-parse
-        exec (
+        exec (true,
             "git -C " .. repo .. " add " .. file
-            , true
         )
 
         local s1, s2 = "", ""
@@ -286,14 +275,12 @@ elseif args.chain then
         end
 
         local msg = args.why or ""
-        exec (
+        exec (true,
             "git -C " .. repo .. s1 .. " commit" .. s2 .. " --trailer 'freechains: " .. kind .. "'" .. " --allow-empty-message" .. " -m '" .. msg .. "'"
-            , true
         )
 
-        local hash = exec (
+        local hash = exec (true,
             "git -C " .. repo .. " rev-parse HEAD"
-            , true
         )
         print(hash)
     end

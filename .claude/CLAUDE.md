@@ -10,10 +10,20 @@ Examples:
 
 # exec Format
 
+With error message:
+
 ```
-exec ('stderr',         -- if applies (with ')
+exec (['stderr',]
     "command"           -- one line
-    , [error message]   -- if applies
+    , "error message"   -- one line
+)
+```
+
+With `"bug found"` flag:
+
+```
+exec (true, ['stderr',]
+    "command"           -- one line
 )
 ```
 
