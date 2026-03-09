@@ -179,6 +179,78 @@ The attacker destroyed **their own reputation** and
 caused an operational headache, but actual content loss
 is near zero.
 
+## Toward a Replacement: Design Constraints
+
+Analysis of alternatives to the 7-day rule, exploring what
+can and cannot work.
+
+### What we need
+
+A rule that **breaks the symmetry** between two branches
+at merge time, so all peers agree on ordering. The rule
+must be:
+
+1. **Deterministic** — all peers compute the same result
+2. **Based on shared data** — not local state
+3. **Resistant to boundary attacks** — no sharp threshold
+
+### What doesn't work
+
+**Prefix-only solutions**: At merge, the common prefix is
+the only mutually trusted state. But any function applied
+to prefix data yields identical results for both branches
+— it can't break symmetry. Even reputation decay applied
+uniformly to the prefix preserves relative ordering
+(10 vs 5 decays to 5 vs 2.5 — same winner).
+
+**Local state (read time)**: Using "when did I first
+receive this branch" would break symmetry naturally —
+content you've been reading wins over late arrivals. But
+different peers have different read times → different
+orderings → different reputation calculations →
+**consensus breaks, spam wins**.
+
+### What must be true
+
+To break symmetry, you need data that:
+
+1. **Differs between the two branches** (not just prefix)
+2. **Is the same for all peers** (not local state)
+3. **Is trusted** (embedded in commits, verifiable)
+
+**Timestamps** are the only data fitting all three
+criteria. They're embedded in commits, visible to all
+peers, and differ between branches.
+
+**A time-based rule is unavoidable.** The question is: can
+we replace the hard 7-day cutoff with a **continuous**
+function that has no exploitable boundary?
+
+### Direction: continuous decay of advantage
+
+Instead of a binary threshold, the prefix reputation
+**advantage** decays continuously as a function of
+divergence time:
+
+```
+divergence = max_timestamp(both branches) - fork_timestamp
+advantage  = (rep_A - rep_B) * decay(divergence)
+```
+
+- Just forked: full advantage → higher prefix rep wins
+- Over time: advantage shrinks toward zero
+- Eventually: tiebreaker decides (active branch wins)
+
+No sharp boundary. The 6.999 vs 7.001 attack becomes
+meaningless — there's no moment where the rule flips.
+
+**Open questions**:
+
+- What decay function? (linear, exponential, sigmoid?)
+- What's the half-life? (replaces the 7-day constant)
+- How does this interact with the 100-post threshold?
+- Does the tiebreaker (lexicographic hash) need revision?
+
 ## References
 
 - SBSeg-23 paper: `fsantanna-no/sbseg-23` — Section on
