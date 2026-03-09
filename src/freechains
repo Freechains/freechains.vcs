@@ -5,6 +5,8 @@ local VERSION = "v0.20"
 local argparse = require "argparse"
 local common   = require "common"
 
+math.randomseed(os.time())
+
 local parser = argparse()
 
 parser
@@ -146,7 +148,6 @@ if args.chains then
                 ERROR("chains add : alias already exists: " .. args.alias)
             end
 
-            math.randomseed(os.time())
             local rand = math.random(0, math.maxinteger)
             local tmp
             while true do
@@ -154,7 +155,7 @@ if args.chains then
                 if not io.open(tmp .. ".") then
                     break
                 end
-                rand = math.random(0, math.HUGE)
+                rand = math.random(0, math.maxinteger)
             end
 
             exec (
@@ -353,7 +354,7 @@ elseif args.chain then
                     num = -num
                 end
 
-                num = num * 0.9     -- apply tax
+                num = num * 9 // 10     -- apply tax
 
                 if args.target == "post" then
                     local a = exec (true,
