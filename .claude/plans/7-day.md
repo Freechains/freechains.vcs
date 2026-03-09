@@ -256,11 +256,10 @@ peers, and differ between branches.
 we replace the hard 7-day cutoff with a **continuous**
 function that has no exploitable boundary?
 
-### Direction: continuous decay of advantage
+### Rejected: continuous decay of advantage
 
-Instead of a binary threshold, the prefix reputation
-**advantage** decays continuously as a function of
-divergence time:
+The idea: replace the binary threshold with a continuous
+decay function on prefix reputation advantage:
 
 ```
 divergence = max_timestamp(both branches) - fork_timestamp
@@ -271,29 +270,25 @@ advantage  = (rep_A - rep_B) * decay(divergence)
 - Over time: advantage shrinks toward zero
 - Eventually: advantage → zero → tiebreaker needed
 
-No sharp boundary. The 6.999 vs 7.001 attack becomes
-meaningless — there's no moment where the rule flips.
+This eliminates the sharp boundary — the 6.999 vs 7.001
+attack becomes meaningless.
 
-**Tiebreaker problem**: when the advantage decays to zero,
-something must break the tie. A **hash-based tiebreaker**
-(lexicographic comparison of HEAD tips) does **not work** —
+**Fatal flaw: no viable tiebreaker.** When the advantage
+decays to zero, something must break the tie. The obvious
+candidate — lexicographic hash of HEAD tips — fails because
 each peer has different commits on their local branch, so
-they see different HEAD hashes. The hash is local state, not
-shared data. Any tiebreaker must satisfy the same three
-criteria from "What must be true" above: differs between
-branches, same for all peers, embedded in commits. This is
-an **open problem** for the decay approach alone — without
-checkpoint commits or another shared-state mechanism, there
-is no obvious deterministic tiebreaker once reputation
-advantage reaches zero.
+they see different hashes. It's local state, not shared data.
 
-**Open questions**:
+More fundamentally: **all data embedded in a branch's commits
+was put there by that branch's author.** If the attacker
+controls one branch, they control all its data — timestamps,
+hashes, commit count, content. Any tiebreaker function over
+single-branch data is gameable by the attacker. The only
+ungameable data is what **other peers** contribute — which
+requires a collective mechanism like checkpoint commits.
 
-- What decay function? (linear, exponential, sigmoid?)
-- What's the half-life? (replaces the 7-day constant)
-- How does this interact with the 100-post threshold?
-- What replaces the hash tiebreaker? (checkpoint commits
-  may be the only viable answer)
+Decay alone cannot reach a deterministic consensus without
+an external tiebreaker. It is not a standalone solution.
 
 ### Direction: checkpoint commits (trust ring via DAG)
 
@@ -375,22 +370,17 @@ either — git fetch transfers all objects unconditionally.
 - **Requires signing**: checkpoints must be signed to
   prevent forgery — chains without signing can't use this
 
-#### Interaction with continuous decay
+#### Why checkpoint commits are the only viable direction
 
-The two directions are **complementary**, not competing:
+Continuous decay was rejected above (no viable tiebreaker
+when advantage reaches zero). Checkpoint commits are the
+only remaining proposal that addresses both:
 
-- **Continuous decay** eliminates the sharp boundary for
-  the reputation-based ordering rule (rule 2) — no
-  threshold to exploit
-- **Checkpoint commits** provide peer agreement on WHEN
-  to override reputation entirely (rule 1 / local-wins)
-  — the transition is unanimous
-
-Combined: reputation advantage decays continuously, AND
-when a quorum of peers confirms maturity via checkpoints,
-the transition to local-wins is unanimous. Neither
-mechanism alone solves the problem fully; together they
-cover both the gradual and the categorical cases.
+- **Boundary attacks**: unanimous adoption via quorum
+  eliminates the sharp threshold
+- **Tiebreaker**: the collective input from multiple
+  peers (signed checkpoints) provides shared data that
+  no single attacker controls
 
 ## References
 
