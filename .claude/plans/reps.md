@@ -66,17 +66,17 @@ If the author's reputation is insufficient, the post is
 accepted into the DAG but marked **BLOCKED** (invisible
 to consensus).
 
-### Like (unified command)
+### Like / Dislike (split subcommands)
 
-A like is a zero-payload commit with an extra header:
+Likes and dislikes are separate subcommands.
+The number is always a positive integer.
+Internally both produce a like commit — dislike
+negates the number.
 
 ```
-freechains-like: +N <target>
-freechains-like: -N <target>
+freechains chain <alias> like 1 post <hash> --sign <key>
+freechains chain <alias> dislike 1 post <hash> --sign <key>
 ```
-
-Where `<target>` is a post hash or an author pubkey.
-The number must have an explicit `+` or `-` sign.
 
 #### Like targeting a post
 
@@ -157,6 +157,7 @@ Reputation state lives inside each chain repo under
 <chain-repo>/
   .freechains/
     genesis.lua            -- genesis block definition
+    likes/                 -- like payload files (created at chain init)
     reps-authors.lua       -- author → internal reputation
     reps-posts.lua         -- post → internal reputation
 ```
@@ -239,7 +240,8 @@ regular posts.
 ## CLI Commands
 
 ```
-freechains chain <alias> like <+/-N> <target> --sign <key> [--why <reason>]
+freechains chain <alias> like <N> <target> <id> --sign <key> [--why <reason>]
+freechains chain <alias> dislike <N> <target> <id> --sign <key> [--why <reason>]
 freechains chain <alias> reps <pubkey-or-hash>
 ```
 
@@ -260,11 +262,12 @@ truncated toward zero).
 
 - [x] Plan: internal/external rep model (1000x)
 - [x] Plan: 10% tax on likes
-- [x] Plan: unified like command (+/- N)
+- [x] Plan: like/dislike split subcommands
 - [x] Plan: self-like allowed
 - [x] Tests: cli-like.lua (like command structure)
 - [x] Tests: reps.lua (reputation math)
-- [x] Impl: like command in src/freechains
+- [x] Impl: like/dislike commands in src/freechains
+- [x] Impl: .freechains/likes/ created at chain init
 
 ## TODO
 
