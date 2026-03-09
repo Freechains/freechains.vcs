@@ -179,6 +179,36 @@ The attacker destroyed **their own reputation** and
 caused an operational headache, but actual content loss
 is near zero.
 
+## Scope: Local-First vs Permanently Connected
+
+The analysis above assumes **local-first** requirements — peers
+operate offline, sync intermittently, and must resolve divergence
+after the fact. This is the hard case.
+
+For **permanently connected chains** (peers always online and
+syncing continuously), the picture changes:
+
+- **Content loss is solvable**: reducing the threshold (days or
+  posts) eliminates the window where content can be trapped on
+  the wrong side of a hard fork. With frequent sync and a low
+  threshold, branches are short-lived and the common prefix is
+  always recent — legitimate content is never at risk.
+- **Divergence remains**: even with a reduced threshold, the
+  **permanent divergence** attack still applies. The attacker
+  can still deliver conflicting branches to different peers
+  within a single sync interval, causing a hard fork. A lower
+  threshold makes the 100-post variant harder (less time to
+  generate posts) but the boundary attack adapts to whatever
+  threshold is chosen — 1 day, 1 hour, any sharp cutoff is
+  exploitable.
+
+In short: permanent connectivity + low threshold solves the
+**content loss** problem but not the **consensus divergence**
+problem. The design alternatives below (continuous decay,
+checkpoint commits) remain necessary for chains that require
+Byzantine-resilient consensus, regardless of connectivity
+assumptions.
+
 ## Toward a Replacement: Design Constraints
 
 Analysis of alternatives to the 7-day rule, exploring what
