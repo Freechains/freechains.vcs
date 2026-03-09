@@ -104,6 +104,22 @@ end
 
 local args = parser:parse()
 
+local function skel (path)
+    exec ("skel : mkdir freechains failed",
+        "mkdir -p " .. path .. "/.freechains/likes"
+    )
+    exec ("skel : mkdir reps failed",
+        "mkdir -p " .. path .. "/.freechains/reps"
+    )
+    local f = io.open(path .. "/.freechains/likes/.gitkeep", "w")
+    f:close()
+    for _, name in ipairs({"authors", "posts"}) do
+        local f = io.open(path .. "/.freechains/reps/" .. name .. ".lua", "w")
+        f:write("return {}\n")
+        f:close()
+    end
+end
+
 if args.chains then
     local chains = args.root .. "/chains/"
     if args.add then
@@ -131,14 +147,9 @@ if args.chains then
                 "git init " .. tmp
             )
             git_config(tmp)
-            exec ("chains add : mkdir failed",
-                "mkdir -p " .. tmp .. "/.freechains/likes"
-            )
-            exec ("chains add : touch failed",
-                "touch " .. tmp .. "/.freechains/likes/.gitkeep"
-            )
+            skel(tmp)
             exec ("chains add : copy genesis failed",
-                "cp -r " .. args.path .. "/* " .. tmp .. "/.freechains/"
+                "cp -Rf " .. args.path .. "/* " .. tmp .. "/.freechains/"
             )
             exec ("chains add : git add failed",
                 "git -C " .. tmp .. " add .freechains/"
