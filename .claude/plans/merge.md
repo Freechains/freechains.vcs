@@ -218,6 +218,95 @@ even unintentionally:
    (same content, same trailers → same hash across peers),
    so all peers converge on the same veto set.
 
+### Network split — veto propagation boundaries
+
+The veto on the winning side creates a **de facto network
+partition**. This is intentional, but must be handled
+carefully to avoid poisoning peers on the losing side.
+
+#### The problem
+
+1. Peer A vetoes merge M (second parent = Y, from peer B)
+2. Veto commit V is on A's surviving branch
+3. A's guard blocks fetching from B (B's HEAD descends
+   from Y → rejected)
+4. But B can still initiate a fetch from A — B has no
+   vetos, so A's content passes B's guard
+5. B receives V as part of the merge. Now B's guard
+   also blocks descendants of Y — **B's own history**
+6. The veto has propagated to the losing side and
+   poisoned it
+
+#### Solution: perspective-relative enforcement
+
+The pre-merge guard must be **perspective-relative** —
+a veto only blocks content that is **foreign** to the
+peer's own first-parent lineage:
+
+1. When evaluating a veto, the guard checks: "is the
+   vetoed merge's second parent (Y) an ancestor of
+   **my own first-parent chain**?"
+   - **Yes** → I am on the losing side of this veto.
+     **Ignore it** — it's about my own content, not
+     foreign content sneaking in.
+   - **No** → I am on the winning side (or a neutral
+     peer). **Enforce it** — block any FETCH_HEAD
+     descended from Y.
+
+2. This means the same veto commit has different effects
+   depending on which side of the split you're on:
+   - **Winning side peers**: enforce the veto, block
+     the vetoed content
+   - **Losing side peers**: see the veto but don't
+     enforce it against their own history
+
+3. **Determinism is preserved**: the check is purely
+   DAG-based. Given the same DAG, all peers on the same
+   side reach the same decision. Two peers with identical
+   first-parent lineage always agree.
+
+#### Natural partition behavior
+
+With perspective-relative enforcement, the network splits
+cleanly:
+
+- **Winning partition**: peers whose first-parent lineage
+  does NOT include Y. They enforce the veto. They can sync
+  with each other freely. They reject content from the
+  losing side.
+
+- **Losing partition**: peers whose first-parent lineage
+  includes Y. They receive the veto but ignore it (it
+  targets their own history). They can sync with each
+  other freely. They can receive winning-side content
+  (including the veto commit) without self-poisoning.
+
+- **Cross-partition sync**: winning → losing is blocked
+  by the guard (losing side's content descends from Y).
+  Losing → winning: the veto propagates, but losing-side
+  peers ignore it. The partition is **asymmetric**: losing
+  side can receive winning-side content, but not the
+  reverse.
+
+#### Reconciliation
+
+To reunify after a veto-induced split:
+
+1. The losing side **individually dislikes** or removes
+   the problematic content that triggered the veto
+2. A peer on the losing side creates a **new branch**
+   from the common prefix (before the fork), re-posting
+   only the legitimate content as new commits
+3. This new branch does NOT descend from Y → not blocked
+   by the veto guard
+4. A new merge with the winning side succeeds — the
+   legitimate content re-enters through normal validation
+
+Alternatively, if the losing side believes the veto was
+unjust, they simply continue independently — the chain
+has forked, and both sides evolve separately. This is
+the correct outcome when a community genuinely disagrees.
+
 ### Why first-parent ordering matters
 
 The rollback is well-defined **because** git preserves
@@ -284,7 +373,18 @@ wouldn't know which side to keep.
    commits, new hashes) — the original merge path is
    closed. This is intentional: it forces content to
    re-enter through normal validation rather than
-   piggy-backing on an already-rejected sync.
+   piggy-backing on an already-rejected sync. See
+   "Reconciliation" above for the full reunification path.
+
+9. **Perspective-relative edge cases**: The guard ignores
+   vetos targeting your own first-parent lineage. But what
+   if a peer is on NEITHER side (joined after the split)?
+   They have no first-parent relationship to Y, so they
+   enforce the veto — correct behavior (they align with
+   the winning side by default). What if a peer has BOTH
+   sides in their history (merged before the veto)? They
+   have Y as a second-parent ancestor — the check must
+   use **first-parent only** traversal to determine side.
 
 ---
 
