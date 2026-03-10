@@ -252,12 +252,33 @@ freechains chain <alias> reps <pubkey-or-hash>
 `reps` returns the external integer (internal // 1000,
 truncated toward zero).
 
+## Fork Votes and Reputation
+
+When a branch divergence triggers voting (see merge.md),
+votes are weighted by the author's reputation **in the
+common prefix** — reputation computed up to the fork
+point, not beyond it. This ensures:
+
+- Only authors with established standing can influence
+  the fork decision
+- Reputation earned after the fork (in either branch)
+  doesn't affect the vote
+- The vote weight is deterministic — all peers compute
+  the same prefix reputation
+
+A vote is a signed commit (like a dislike) that references
+the fork point and declares a branch preference. The cost
+is the same as a dislike (1 rep). The weight is the
+author's prefix reputation at the fork point.
+
 ## Related Plans
 
 - [chains.md](chains.md) — chain types and pioneer setup
 - [commands.md](commands.md) — CLI command mapping
 - [consensus.md](consensus.md) — reputation as validation
   gate
+- [merge.md](merge.md) — fork votes weighted by prefix
+  reputation
 - [layout.md](layout.md) — filesystem layout including
   `.freechains/`
 - [tests.md](tests.md) — Sections C, M, N test reputation

@@ -88,6 +88,19 @@ Shell versions:
 - Requires: full consensus + reputation implementation
 - 9 tests for multi-peer merge scenarios (tie, win, ok, fail)
 
+### Section V — Vote & Hard Fork (NEW)
+
+- Requires: vote mechanism + fork implementation (merge.md)
+- `v01.sh` — vote on branch divergence, below threshold → consensus rule wins
+- `v02.sh` — vote crosses threshold, one-sided → veto drops minority branch
+- `v03.sh` — vote crosses threshold, balanced → hard fork into two chains
+- `v04.sh` — owner's vote determines which fork the peer follows
+- `v05.sh` — peer who didn't vote follows majority
+- `v06.sh` — only common-prefix authors can vote (suffix authors rejected)
+- `v07.sh` — vote weight matches prefix reputation at fork point
+- `v08.sh` — pre-merge guard rejects content from vetoed/dropped set
+- `v09.sh` — reunification: two forked chains merge back
+
 ### Section X — Stress & Scale
 
 - `x01.sh` — 100-block bulk send
@@ -223,4 +236,5 @@ Source: `freechains.kt/src/test/kotlin/Test.kt` — 2552 lines, 58 tests (52 act
 | M | 20 | 0 | CLI integration |
 | N | 9 | 0 | Merge convergence |
 | X | 1 | 3 | Stress tests |
+| V | 0 | 0 | Vote & hard fork (planned) |
 | **Total** | **52** | **6** | |

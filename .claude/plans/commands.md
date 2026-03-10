@@ -23,6 +23,7 @@
 | `freechains peer <addr> send <chain>` | `git push` | 4 | strong match, both client-server |
 | `freechains peer <addr> recv <chain>` | `git fetch` + validate + `git merge` | 4 | fetch → validate (signatures, reputation, DAG) → merge; pull bypasses validation |
 | `freechains keys shared <passphrase>` | libsodium `crypto_secretbox_keygen` via luasodium | 1 | implement in Lua |
+| `freechains chain <n> vote <branch> --sign <key>` | signed commit with `freechains-vote: <fork-point> <branch>` header | 1 | vote for a branch in a fork divergence (merge.md) |
 | `freechains keys pubpvt <passphrase>` | libsodium `crypto_sign_keypair` via luasodium | 1 | implement in Lua |
 
 ---

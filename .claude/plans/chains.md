@@ -128,6 +128,36 @@ The genesis hash is always the authoritative identifier.
 Prefix conventions (`#`, `$`, `@`) are application-level
 notation and carry no meaning to the protocol.
 
+## Chain Forking (Hard Fork)
+
+When a community vote on a branch divergence crosses the
+hard-fork threshold (see merge.md), the chain splits into
+two new chain identities:
+
+1. The **fork point** (last common ancestor commit)
+   becomes the shared root of both new chains
+2. Each new chain carries forward only its branch's
+   commits from the fork point onward
+3. The original chain's genesis hash is preserved in both
+   — they share the same common prefix history
+4. Each new chain gets a **derived identifier** based on
+   the fork point + branch tip (exact derivation TBD)
+
+### Identity after fork
+
+Both forked chains share the original genesis hash as
+history, but diverge from the fork point. Peers subscribe
+to one or both chains. The owner's vote (local repo's
+signing key) determines which chain the peer follows by
+default.
+
+### Reunification
+
+Two forked chains can reunify if both communities agree.
+This is a mutual merge of the two chain identities back
+into one. The shared common prefix makes this possible —
+no history is lost, the fork is just a DAG detour.
+
 ## Layers
 
 ```

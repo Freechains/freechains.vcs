@@ -40,6 +40,7 @@ Key specs in `.claude/plans/`:
 | `layout.md`      | Filesystem layout: config/ + chains/           |
 | `replication.md` | Owner vs non-owner sync rules                  |
 | `signing.md`     | GPG signing via `git commit -S`                |
+| `merge.md`       | Merge ordering, veto, owner-driven hard fork   |
 | `consensus.md`   | Fetch validation pipeline                      |
 | `reps.md`        | Reputation: likes, dislikes, pioneers, 12h rule|
 | `crypto.md`      | Crypto choices (openssl, luasodium)            |

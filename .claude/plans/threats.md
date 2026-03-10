@@ -31,7 +31,14 @@ attacker inherits the fork, risking a cascading split.
 computations differ across the split. Posts LINKED on
 one side may be BLOCKED on the other.
 
-**Mitigation status**: None implemented. See T1a below.
+**Mitigation**: Owner-driven vote mechanism (merge.md).
+Authors in the common prefix vote for branches. If the
+vote difference crosses the threshold → hard fork into
+two chain identities. Each peer follows its owner's vote.
+This makes deliberate partition a legitimate community
+split rather than an attack — both sides get a clean
+chain. The attack becomes "force a fork," but the fork
+is now a controlled, explicit event.
 
 ---
 
@@ -59,9 +66,12 @@ delivery timing within one sync interval.
 spam, no equivocation, just one branch arriving at
 slightly different times.
 
-**Mitigation direction**: Replace the hard 7-day cutoff
-with a continuous decay function (see 7-day.md). No
-sharp boundary means no exploitable threshold.
+**Mitigation**: Two layers. (1) The vote-based hard fork
+(merge.md) subsumes the activity threshold — crossing
+7 days is an implicit vote, not a hard cutoff. (2)
+Replace the sharp boundary with continuous decay
+(7-day.md). Together: no exploitable threshold, and
+forks are explicit community decisions via votes.
 
 ---
 
@@ -377,9 +387,9 @@ is correct by design.
 
 | ID   | Threat                        | Severity | Likelihood | Implemented? |
 |------|-------------------------------|----------|------------|--------------|
-| T1   | 7-day partition fork          | High     | Low        | No defense   |
-| T1a  | Boundary attack               | High     | Medium     | No defense   |
-| T1b  | Equivocation (100-post)       | High     | Low        | No defense   |
+| T1   | 7-day partition fork          | Medium   | Low        | Vote+fork    |
+| T1a  | Boundary attack               | Medium   | Medium     | Vote+decay   |
+| T1b  | Equivocation (100-post)       | High     | Low        | Vote+fork    |
 | T2a  | Backdating offline branches   | Medium   | Medium     | Consensus    |
 | T2b  | Future-dating posts           | Medium   | Medium     | Tolerance    |
 | T2c  | Timestamp ordering            | Medium   | Medium     | Planned      |
@@ -413,11 +423,12 @@ is correct by design.
    commits** (T4a) — e.g., lexicographic commit hash.
    Prevents silent honest-peer divergence.
 
-3. **Replace 7-day hard cutoff with continuous decay +
-   checkpoint commits** (T1, T1a) — continuous decay
-   removes the sharp boundary; checkpoint commits
-   (trust ring via DAG) ensure peers unanimously agree
-   on when local-wins applies. See 7-day.md.
+3. **Owner-driven vote + hard fork** (T1, T1a, T1b) —
+   vote-based mechanism (merge.md) makes community
+   splits explicit. Combined with continuous decay
+   (7-day.md) to remove the sharp boundary. Checkpoint
+   commits (trust ring via DAG) ensure peers agree on
+   when local-wins applies.
 
 4. **Add size limits to non-owner fetch validation**
    (T6a) — max payload size, max commits per fetch.

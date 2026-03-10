@@ -69,24 +69,45 @@ leaves no merge state — no abort needed.
 
 ## Hard Fork Rule
 
-A **hard fork** occurs when a local branch crosses either
-activity threshold:
+A **hard fork** occurs via community vote on a branch
+divergence. See merge.md for the full mechanism.
+
+### Two regimes
+
+| Vote difference | Action                          |
+|-----------------|---------------------------------|
+| Below threshold | Consensus rule (deterministic)  |
+| Above, one-sided| Veto — drop the minority branch |
+| Above, balanced | Hard fork — chain splits in two |
+
+When a hard fork triggers:
+- The fork point (last common ancestor) becomes the root
+  of two new chain identities
+- Each peer follows its **owner's vote** (the local
+  repo's signing key determines the side)
+- Peers who didn't vote follow the majority
+
+### Legacy thresholds (activity-based)
+
+The original hard-fork triggers were activity-based:
 
 - **7 days** of elapsed time, OR
 - **100 posts**
 
-When this threshold is crossed, the local branch takes
-priority and is ordered first — **regardless of the remote
-branch's reputation**. The two peers permanently disagree
-on consensus ordering and cannot converge.
+These remain as **automatic hard-fork signals** — if a
+local branch crosses either threshold, the peer treats it
+as an implicit vote for its own branch. The vote-based
+mechanism subsumes these.
 
 ### Branch Merge Ordering (precedence)
 
-1. **Activity threshold** — if local branch crosses 7 days
-   or 100 posts, it wins unconditionally (hard fork)
-2. **Reputation** — whichever branch has more reputation in
+1. **Vote-based hard fork** — if the vote difference
+   crosses the threshold, the chain splits (merge.md)
+2. **Activity threshold** — if local branch crosses 7 days
+   or 100 posts, implicit hard fork vote
+3. **Reputation** — whichever branch has more reputation in
    the common prefix is ordered first
-3. **Tiebreaker** — lexicographical order of hashes
+4. **Tiebreaker** — lexicographical order of hashes
 
 ### Stable vs Unstable Consensus
 
@@ -127,3 +148,10 @@ git merge --abort              — clean up dry-run
     |
 git merge                      — real merge
 ```
+
+## Related Plans
+
+- [merge.md](merge.md) — Owner-driven vote, veto, hard fork
+- [merge-hook.md](merge-hook.md) — Pre-merge-commit hook
+- [threats.md](threats.md) — T1 partition fork, T1a boundary
+- [7-day.md](7-day.md) — Activity threshold analysis

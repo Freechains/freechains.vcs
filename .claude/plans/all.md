@@ -83,6 +83,16 @@ reps equally. Stored as zero-payload commits with extra
 headers. Computed by DAG walk, stored in
 `.freechains/reps/authors.lua` and `reps/posts.lua`.
 
+### Merge, Veto & Hard Fork — [merge.md](merge.md)
+
+Owner-driven vote mechanism for branch divergences. Two
+regimes: below threshold → consensus rule (deterministic);
+above threshold → veto (drop minority branch) or hard fork
+(chain splits into two identities). Votes weighted by
+common-prefix reputation. Each peer follows its owner's
+vote. Hard forks produce two new chain identities that
+share the original common prefix.
+
 ### Crypto — [crypto.md](crypto.md)
 
 Current: openssl CLI (Ed25519 + X25519 + AES-256-CBC). Next: luasodium (NaCl API, matches Kotlin original). Full comparison of 7 alternatives.

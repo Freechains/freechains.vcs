@@ -64,3 +64,51 @@ if [ -z "$GIT_MERGE_HEAD" ]; then
   exit 1
 fi
 ```
+
+---
+
+## Veto & Fork Guards (merge.md)
+
+The pre-merge-commit hook must also enforce veto and fork
+decisions:
+
+### Veto guard (dropped set)
+
+If a veto has passed (>50% of prefix reputation voted to
+drop a branch), the hook must reject merges that would
+reintroduce dropped commits:
+
+```bash
+# Check if FETCH_HEAD contains any commit in the dropped set
+DROPPED=$(cat .freechains/dropped-sets/*.list 2>/dev/null)
+if [ -n "$DROPPED" ]; then
+  for hash in $DROPPED; do
+    if git merge-base --is-ancestor "$hash" FETCH_HEAD 2>/dev/null; then
+      echo "Merge blocked: contains vetoed commit $hash"
+      exit 1
+    fi
+  done
+fi
+```
+
+### Fork guard (chain identity)
+
+After a hard fork (vote difference crossed threshold),
+the hook must reject merges from the other fork:
+
+```bash
+# Check if FETCH_HEAD belongs to a different fork identity
+# (fork-point + branch-side stored in .freechains/fork)
+if [ -f .freechains/fork ]; then
+  FORK_POINT=$(head -1 .freechains/fork)
+  OUR_SIDE=$(tail -1 .freechains/fork)
+  # FETCH_HEAD must descend from our side, not the other
+  if ! git merge-base --is-ancestor "$OUR_SIDE" FETCH_HEAD 2>/dev/null; then
+    echo "Merge blocked: FETCH_HEAD belongs to other fork"
+    exit 1
+  fi
+fi
+```
+
+These guards ensure that once a veto or fork decision is
+made, it cannot be undone by a careless or malicious merge.
