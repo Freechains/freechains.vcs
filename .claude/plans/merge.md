@@ -292,78 +292,118 @@ With a >50% threshold:
   merge that already happened — it's not a replacement
   for branch ordering, it's a correction mechanism.
 
-#### Fundamental limit: the veto is social, not algorithmic
+#### Resolution: owner-driven vote with hard fork
 
-The >50% threshold prevents competing vetos mechanically.
-But it doesn't help neutral peers C and D **choose which
-side to join**.
+The veto is fundamentally social — neutral peers C and D
+can't decide which branch to follow from content alone
+(prefix reputation is symmetric, suffix content is
+subjective). The question "which side am I on?" requires
+knowing **who** is on each side, not **what** is on each
+side.
 
-The decision "which branch do I follow?" cannot be
-answered by content-based consensus:
+**Solution: two regimes separated by a threshold.**
 
-- **Prefix reputation** is the same for both sides — it
-  can't break symmetry when both sides have legitimate
-  content.
-- **Suffix content** (the divergent part) differs by
-  definition — each side has different posts. But C and D
-  care about **who** wrote the suffix, not just **what**
-  it contains.
-- **The veto itself is a signed vote**: it carries the
-  author's pubkey and reputation. C and D need to look at
-  which authors voted for which side — it's a coalition
-  decision, not a content decision.
+##### Regime 1: below threshold → consensus rule
 
-This means the veto mechanism requires some form of
-**peer/author affiliation** to function in the general
-case. Possible directions:
+When the vote difference between branches X and Y does
+**not** cross the hard-fork threshold:
 
-1. **Author-weighted votes**: C looks at the authors who
-   signed veto dislikes on each side. "Authors I follow /
-   trust have >50% reputation and voted to drop Y → I
-   follow their decision." This is implicit coalition
-   membership via trust relationships.
+- Normal consensus ordering applies (reputation in common
+  prefix, tiebreakers per consensus.md)
+- No special action needed — the system picks a winner
+  deterministically
+- Authors who disagree can still post on the winning
+  branch
 
-2. **Explicit chain fork**: instead of a veto within one
-   chain, the split produces **two new chain identities**
-   derived from the original. Peers subscribe to the
-   chain whose author set they want to follow. The fork
-   is a first-class operation, not a side effect of
-   competing votes. The original chain is frozen at the
-   fork point — a historical record of the shared past.
+This is the common case. Most forks are benign (parallel
+work, sync delays) and resolve automatically.
 
-3. **Pioneer/owner arbitration**: in chains with a clear
-   authority structure (owned chains, or chains where
-   pioneers hold decisive reputation), the authority
-   resolves the split. This works for hierarchical
-   communities but not for fully decentralized ones.
+##### Regime 2: above threshold → hard fork
 
-4. **Peer mapping**: each peer maintains a local mapping
-   of "peers I sync with" → "authors I trust." When a
-   fork occurs, the peer follows the branch containing
-   the authors in its trust set. This is subjective
-   (different peers may choose differently), but that
-   may be correct — a genuine community split SHOULD
-   result in different peers going different ways.
+When votes from common-prefix authors diverge enough to
+cross the threshold:
 
-**Open question**: which of these directions (or
-combination) fits Freechains? Option 4 (peer mapping /
-local trust) is the most general but breaks deterministic
-consensus — two peers with different trust sets reach
-different conclusions. Option 2 (explicit chain fork) is
-cleanest but requires new chain identity machinery.
-Option 1 (author-weighted votes) reuses existing
-reputation but needs a way for peers to express "I follow
-these authors" beyond just having their content.
+1. **Each local repo has an owner** — the peer's own
+   author identity (pubkey). This already exists: it's
+   the key used to sign posts.
 
-The core tension: **deterministic consensus requires
-shared rules, but choosing a side in a genuine split is
-inherently subjective.** Any mechanism that resolves this
-deterministically (>50% threshold) imposes the majority's
-choice on the minority. Any mechanism that allows
-subjective choice (peer mapping) breaks consensus
-determinism. The right answer depends on whether
-Freechains prioritizes network unity (deterministic) or
-individual autonomy (subjective fork).
+2. **Authors in the common prefix can vote** for branch X
+   or branch Y. Votes are signed posts (like dislikes
+   but targeting a branch, not a specific commit). Only
+   authors with reputation in the common prefix have
+   standing to vote — newcomers from the suffix don't
+   count.
+
+3. **If the vote difference crosses the threshold** →
+   the chain **hard forks** into two chain identities.
+   The fork point (last common ancestor) becomes the
+   root of both new chains. Each chain carries forward
+   only its branch's commits.
+
+4. **Each peer follows its owner's vote.** The local
+   repo's owner key determines which fork this repo
+   belongs to. If the owner voted for X → this repo
+   follows chain-X. If the owner voted for Y → follows
+   chain-Y. If the owner didn't vote → follows the
+   consensus rule (majority side).
+
+##### Properties
+
+- **No ambiguity for C and D**: C's owner key is the
+  tiebreaker. C doesn't need to analyze coalitions — C
+  just votes (or doesn't, and gets the majority).
+
+- **Genuine splits are explicit**: a hard fork is a
+  first-class event, not a side effect. Both sides get
+  a clean chain. The shared history (common prefix) is
+  preserved in both.
+
+- **Deterministic within each fork**: after the split,
+  each chain has its own deterministic consensus. No
+  subjective trust mapping needed — the fork already
+  separated the communities.
+
+- **Reunification is possible**: the two chains share a
+  common prefix. A future merge can reunify them if both
+  communities agree (mutual merge of the two chain
+  identities).
+
+##### Vote mechanics
+
+- A vote is a signed commit in the chain (like a dislike)
+  that references the fork point and declares a branch
+  preference (X or Y).
+- Votes are weighted by the author's reputation in the
+  common prefix (reputation computed up to the fork
+  point, not beyond it).
+- The hard-fork threshold should be high enough that
+  casual disagreements don't trigger forks — e.g., the
+  difference must exceed some fraction of total
+  common-prefix reputation. Exact threshold TBD.
+- Votes propagate through normal sync — peers receive
+  all votes and can compute the tally locally.
+
+##### Relationship to veto
+
+The veto (>50% threshold, drops a branch) and the hard
+fork (vote divergence, splits the chain) are two
+different mechanisms for two different situations:
+
+- **Veto**: the community mostly agrees. >50% want to
+  reject a branch. The minority loses, the chain stays
+  unified. Appropriate when the rejected content is
+  clearly bad (spam, attack, policy violation).
+
+- **Hard fork**: the community genuinely splits. Both
+  sides have significant support. Neither side should
+  be forced to follow the other. Appropriate when the
+  disagreement is about direction, not content quality.
+
+The vote-with-threshold mechanism handles both: small
+differences → consensus rule (no action). Large
+difference with one dominant side → veto (drop the
+minority branch). Large difference with balanced sides
+→ hard fork (split the chain).
 
 #### Cascade: peers who already merged vetoed content
 
