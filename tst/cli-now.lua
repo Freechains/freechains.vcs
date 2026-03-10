@@ -52,7 +52,7 @@ do
         local out = exec(EXE .. " chain now post inline 'no fake time'")
         local after = os.time()
         assert(#out == 40, "hash: " .. out)
-        local ts = tonumber(exec("git -C " .. REPO .. " log -1 --format=%at"))
+        local ts = tonumber((exec("git -C " .. REPO .. " log -1 --format=%at")))
         assert(ts >= before and ts <= after, "timestamp not in range: " .. ts)
     end
 end
