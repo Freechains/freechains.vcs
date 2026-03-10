@@ -27,18 +27,20 @@ rebuildable.
 
 ### Shared + Immutable
 
-Set once at chain creation. Never modified after genesis.
+Set once at chain creation. Has a validation rule: must
+never change after genesis.
 
 | File | Content | Set by |
 |------|---------|--------|
 | `shared/genesis.lua` | Chain definition: `{version, type, [key], [shared], [tolerance]}` | `chains add` |
-| `shared/reps/authors.lua` (genesis) | Pioneer initial reputation: `{[pubkey]=30000/N, ...}` | `chains add` |
 
 `genesis.lua` defines the chain's identity and rules.
-`reps/authors.lua` in the genesis commit defines pioneers
-by their non-zero entries. Both are committed in the
-genesis commit and never modified — the genesis commit
-hash **is** the chain identifier.
+The genesis commit hash **is** the chain identifier.
+This is the only file with a real immutability
+constraint — validation rejects any commit that modifies
+it. (Other files in the genesis commit are immutable only
+in the trivial sense that all committed data is
+content-addressed.)
 
 ### Shared + Mutable
 
@@ -53,19 +55,39 @@ to the same state (deterministic from DAG walk).
 | `shared/dropped-sets/<hash>.list` | Vetoed commit hashes (one per line) | Veto passes (>50%) |
 | `shared/peers.lua` | Known peers with real IPs in the network: `{[pubkey]=url, ...}` | Peer announcements |
 
-`peers.lua` is the chain-level peer directory — a shared
-registry of peers participating in this chain, with their
-real network addresses. Any peer can announce itself by
-posting a signed commit. This is **shared** because all
-peers need to discover each other. Contrast with
-`local/neighbours.lua`, which is which of these peers
-*this node* actually syncs with.
+`reps/authors.lua` — initial state in the genesis commit
+defines pioneers (non-zero entries = pioneers). Updated
+on every subsequent commit. The genesis version is just
+the first snapshot, like any other commit.
 
-Note: `reps/authors.lua` has two lives — immutable in the
-genesis commit (pioneer definitions), mutable in HEAD
-(current reputation state). The genesis version is
-reconstructible; the HEAD version is a cache updated on
-every commit.
+`peers.lua` — chain-level peer directory. Shared registry
+of peers participating in this chain, with real network
+addresses. Any peer can announce itself by posting a
+signed commit. Contrast with `local/neighbours.lua`,
+which is which of these peers *this node* actually syncs
+with.
+
+`dropped-sets/` — **INVENTED** (not in original design).
+Created as part of the veto guard in merge-hook.md.
+Stores hashes of commits dropped by a veto decision.
+Needs review.
+
+### Origin tracking
+
+Items **not from the original Freechains design** that
+were introduced during plan development:
+
+| Item | Introduced in | Purpose |
+|------|--------------|---------|
+| `shared/dropped-sets/` | merge-hook.md (veto guard) | Track vetoed commit hashes |
+| `local/owner` | metadata.md | Store which pubkey owns this repo |
+| `local/fork` | merge-hook.md (fork guard) | Track hard fork choice |
+| `local/cache.sqlite` | sqlite.md | Consensus + reputation cache |
+| `config/config.toml` | layout.md | Host port, default peers, active key |
+| `config/peers.toml` | layout.md | Known peers registry |
+| `freechains-vote` header | commands.md | Vote for a branch in a fork |
+
+All need review before implementation.
 
 ### Local + Immutable
 
@@ -88,7 +110,7 @@ and rebuildable (except `fork`, which records a decision).
 | File | Content | Updated by |
 |------|---------|------------|
 | `local/fork` | Fork choice: line 1 = fork-point hash, line 2 = our-side hash | Hard fork trigger |
-| `local/neighbours.lua` | Peers this node pushes/pulls to: `{[url]=pubkey, ...}` | User config / `peer add` |
+| `local/neighbours.lua` | Peers this node syncs with, split by direction (see below) | User config / `peer add` |
 | `local/cache.sqlite` | Consensus linearization + reputation checkpoints | Post-merge hook |
 
 `fork` records which side of a hard fork this peer chose
@@ -96,10 +118,30 @@ and rebuildable (except `fork`, which records a decision).
 other fork are rejected by the pre-merge guard.
 
 `neighbours.lua` lists the peers this node actively syncs
-with (push/pull targets). This is **local** because each
-peer has its own sync partners — A may sync with B and C,
-while B syncs with A and D. The neighbour list is a
-per-node operational decision, not shared state.
+with, split by direction:
+
+```lua
+return {
+    pull = {              -- peers I fetch from
+        ["http://B:8330"] = "pubkey-B",
+        ["http://C:8330"] = "pubkey-C",
+    },
+    push = {              -- peers I push to
+        ["http://B:8330"] = "pubkey-B",
+    },
+}
+```
+
+Pull and push are independent choices. A node may pull
+from many peers (receive content) but push to few (or
+none — passive consumer). Conversely, a seed node may
+push to many but pull from few. This asymmetry is
+intentional: pull = "I want their content", push = "I
+want them to have my content."
+
+This is **local** because each peer has its own sync
+partners — A may pull from B and C, push only to B,
+while B pulls from A and D, pushes to all three.
 
 `cache.sqlite` holds two tables:
 
@@ -169,8 +211,7 @@ commits are content-addressed.
 | Data | Scope | Mutability | Path |
 |------|-------|------------|------|
 | genesis.lua | shared | immutable | `.freechains/shared/genesis.lua` |
-| pioneer reps | shared | immutable | `.freechains/shared/reps/authors.lua` (genesis) |
-| author reps | shared | mutable | `.freechains/shared/reps/authors.lua` (HEAD) |
+| author reps | shared | mutable | `.freechains/shared/reps/authors.lua` |
 | post reps | shared | mutable | `.freechains/shared/reps/posts.lua` |
 | like payloads | shared | mutable | `.freechains/shared/likes/` |
 | dropped sets | shared | mutable | `.freechains/shared/dropped-sets/` |
