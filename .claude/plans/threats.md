@@ -143,26 +143,23 @@ bounded by monotonic parent rule once implemented.
 ### T3a. Sockpuppet Reputation Farming
 
 **Mechanism**: A pioneer (30 rep) creates sockpuppet
-identities and transfers rep via likes. After one hop:
-- Pioneer spends 1 rep (cost) + transfers N rep
-- 10% tax burns N*10%
-- Sockpuppet receives N*90% (split between post/author)
-
-With a +15 like: pioneer pays 1 cost, sockpuppet
-receives 15 * 900 / 2 = 6750 internal (6 external) to
-author + 6750 to post. Net: sockpuppet has 6 rep from a
-single like.
+identities and transfers rep via likes.
 
 **Resources**: Pioneer status or accumulated reputation.
 
-**Real threat**: Medium — the 10% tax and cost make it
-expensive but not prohibitive. A 30-rep pioneer can
-bootstrap ~2-3 sockpuppets with meaningful reputation
-before exhausting their own.
+**Real threat**: **Low** — sockpuppets do not amplify
+voting power. A like of +N costs 1 rep and delivers
+N×900 internal regardless of who sends it. Splitting
+votes across 3 sockpuppets (3 likes of +1 = 3 rep cost,
+2700 delivered) is strictly worse than 1 like of +3
+(1 rep cost, 2700 delivered). The system is purely
+arithmetic on reputation values — there is no rule
+that treats number of distinct voters differently from
+vote magnitude. Sockpuppets dilute, not amplify.
 
-**Impact**: Sybil presence in the chain. Sockpuppets can
-post, vote, and participate as if they were independent
-users.
+**Impact**: Minimal. Sybil presence exists but confers
+no advantage over a single account with the same total
+reputation.
 
 ### T3b. Reputation Cycling (A→B→C→A)
 
@@ -181,19 +178,23 @@ Self-limiting.
 **Mechanism**: Author posts while at 0 rep (post is
 BLOCKED/invisible). Later receives likes from an
 accomplice. Post retroactively becomes LINKED — appears
-in consensus at its original timestamp position.
+in the DAG at its original position.
 
 **Resources**: Two colluding accounts, one with rep.
 
-**Real threat**: Medium — allows inserting content at
-arbitrary historical positions in the consensus ordering.
-Other users may have already read and acted on a timeline
-that didn't include this post. The post materializes
-after the fact.
+**Real threat**: **Low** — this is only a concern if
+users interpret the chain chronologically by timestamp.
+The DAG tells the real story: cause-effect is explicit
+in parent references. When A's post becomes LINKED, no
+existing post has it as a parent — the DAG proves
+nobody saw it when they acted. The "retroactive
+insertion" is a UI/presentation issue, not a protocol
+threat. If the client shows DAG causality (parent
+links), there is nothing to exploit.
 
-**Impact**: Context manipulation. A reply that made sense
-in one ordering becomes confusing when an earlier post
-appears retroactively.
+**Impact**: Minimal at protocol level. A client that
+sorts purely by timestamp could mislead users, but
+that is a client design choice, not a consensus flaw.
 
 ---
 
@@ -321,9 +322,9 @@ is correct by design.
 | T2a  | Backdating likes              | High     | High       | Planned      |
 | T2b  | Future-dating likes           | Medium   | Medium     | Planned      |
 | T2c  | Timestamp ordering            | Medium   | Medium     | Planned      |
-| T3a  | Sockpuppet farming            | Medium   | Medium     | Partial (tax)|
+| T3a  | Sockpuppet farming            | Low      | Low        | By design    |
 | T3b  | Rep cycling                   | Low      | Low        | Yes (tax)    |
-| T3c  | Retroactive BLOCKED→LINKED    | Medium   | Medium     | No defense   |
+| T3c  | Retroactive BLOCKED→LINKED    | Low      | Medium     | By design    |
 | T4a  | Merge-induced divergence      | High     | Low        | No defense   |
 | T4b  | 12h maturation divergence     | Low      | Medium     | Accepted     |
 | T5a  | Private key compromise        | High     | Low        | No defense   |
@@ -335,9 +336,17 @@ is correct by design.
 
 ## Priority Recommendations
 
-1. **Implement timestamp validation** (T2a, T2b, T2c) —
-   monotonic parent + 1h future tolerance. Blocks the
-   cheapest attacks.
+1. **CRITICAL: Implement timestamp validation** (T2a,
+   T2b, T2c) — This is the most dangerous open threat.
+   T2a costs nothing, requires no collusion, and
+   completely bypasses the 12h maturation rule. Without
+   timestamp validation, the entire reputation system
+   is hollow: an attacker backdates a like to 12h+ ago,
+   the like appears already matured, and reputation
+   inflates instantly. Every other defense (10% tax,
+   12h maturation, post cost) assumes timestamps are
+   honest. Monotonic parent rule + 1h future tolerance
+   must be the first implementation priority.
 
 2. **Add deterministic tiebreaker for same-timestamp
    commits** (T4a) — e.g., lexicographic commit hash.
@@ -354,6 +363,25 @@ is correct by design.
 
 5. **Design key revocation** (T5a, T5b) — at minimum,
    a "chain retired" marker that honest peers respect.
+
+## Analysis Notes
+
+- **T3a downgraded**: Sockpuppets do not amplify voting
+  power. Like math is purely arithmetic — splitting
+  votes across N accounts costs more than a single
+  vote of the same magnitude. No rule distinguishes
+  number of voters from vote size.
+
+- **T3c downgraded**: Only exploitable if users trust
+  timestamps over DAG causality. The DAG parent links
+  prove that no existing post referenced the retroactive
+  post — nobody saw it. A DAG-aware client eliminates
+  this threat entirely.
+
+- **T2a is the critical gap**: It undermines the 12h
+  rule, which is the foundation for all reputation
+  timing defenses. Until timestamps are validated,
+  the reputation system operates on the honor system.
 
 ## Related Plans
 
