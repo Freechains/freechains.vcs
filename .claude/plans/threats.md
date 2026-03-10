@@ -88,40 +88,101 @@ straightforward.
 
 ## T2. Timestamp Manipulation
 
-### T2a. Backdating Likes
+### T2a. Backdating Posts on Offline Branches
 
-**Mechanism**: Set `GIT_COMMITTER_DATE` to 12+ hours in
-the past when creating a like commit. The like appears
-already matured to all receivers — 12h rule bypassed.
+**Mechanism**: Post on a stale branch (parent 12+ hours
+old) so the post's timestamp bypasses the 12h penalty
+window and 24h consolidation reward. The post arrives at
+peers appearing already settled — penalty expired,
+reward collected.
 
-**Resources**: None beyond posting ability.
+Only offline branches can be exploited: the monotonic
+parent rule (`commit.timestamp >= parent.timestamp`)
+prevents arbitrary backdating, so the attacker needs a
+parent whose timestamp is already old. A past tolerance
+rule cannot help — freechains is local-first, so nodes
+may legitimately be offline for days or weeks.
 
-**Real threat**: High — **no validation is currently
-implemented**. The planned monotonic parent rule bounds
-backdating to the gap between parent timestamp and now,
-but if the parent is old (e.g., chain was quiet for
-hours), the gap is large.
+**Resources**: None beyond posting ability (1 rep) and
+an offline branch.
 
-**Impact**: Instant reputation inflation. Enables
-reputation cycling (A likes B, B immediately spends new
-reps) that the 12h rule was designed to prevent.
+**Real threat**: Medium. The attack only works on offline
+branches, which are inherently weakened by the consensus
+mechanism:
 
-**Mitigation status**: Planned (time.md) — monotonic
-parent rule + future tolerance. Not yet implemented.
+1. **Consensus ordering** — branches are ordered by
+   prefix reputation (SBSeg-23, Section 2.1). An offline
+   branch with fewer reputed authors is ordered after the
+   majority branch. Posts in the secondary branch are
+   applied later and may be rejected if operations
+   conflict.
 
-### T2b. Future-Dating Likes
+2. **Reactive defense** — the paper's stated defense
+   (Section 2.2): users in the majority branch can post
+   dislikes after seeing the offline branch, invalidating
+   its posts. The attacker bypasses the *timestamp-based*
+   reaction window, but the *consensus-based* defense
+   still applies.
 
-**Mechanism**: Set timestamp 12+ hours in the future.
-The like appears mature on arrival.
+3. **Visibility** — offline branches are conspicuous.
+   A branch that was disconnected for 12+ hours is
+   already suspect. The longer the disconnection, the
+   weaker the branch's consensus weight.
 
-**Resources**: None.
+**Impact**: Bypasses the 12h/24h time-based rules, but
+the consensus ordering and reactive dislike mechanism
+provide a secondary defense. The attacker gains a timing
+advantage (post appears settled on arrival) but cannot
+override the majority branch's reputation.
 
-**Real threat**: Medium — bounded by the planned 1-hour
-future tolerance (< 9% of the 12h window). Once
-implemented, this attack gains at most ~1 hour.
+**Gap in paper**: The SBSeg-23 paper assumes honest
+timestamps and does not discuss timestamp manipulation.
+The time-based rules (12h penalty, 24h reward) are
+bypassable on offline branches, but the paper's
+consensus defense was designed for exactly this scenario
+(offline branches rejoining).
 
-**Mitigation status**: Planned — `commit.timestamp <=
-receiver.local_time + 1h`. Not yet implemented.
+**Status**: Partially mitigated by consensus ordering.
+The monotonic rule prevents arbitrary backdating. Offline
+branches are weakened by design. The time-based rules
+add defense in depth but are not the sole protection.
+
+**Unreviewed idea — merge-witness timestamps**: Use the
+earliest merge commit that witnesses a post as a lower
+bound on its network arrival time. Time-based rules
+(12h penalty, 24h reward) would use
+`max(post_timestamp, first_merge_witness_timestamp)`
+as the effective time, not the author's claimed timestamp.
+
+- Rationale: the merge is created by the *receiving* peer,
+  not the author. The author cannot control it.
+- A backdated post would have a large gap between its
+  claimed timestamp and its first merge witness → the
+  gap itself signals manipulation.
+- Weakness: if the first receiver colludes with the author,
+  both timestamps can be forged. Raises cost from 1 node
+  to 2 colluding nodes, and leaves an auditable trail
+  (the fake merge is permanently in the DAG).
+- Does not solve T2a, but makes it more expensive and
+  detectable. NOT REVIEWED.
+
+### T2b. Future-Dating Posts
+
+**Mechanism**: Set a post's timestamp into the future.
+The post appears in `--date-order` traversal at a later
+position than it should, affecting consensus ordering
+and reputation flow.
+
+**Resources**: None beyond posting ability (1 rep).
+
+**Real threat**: Medium — bounded by the 1-hour future
+tolerance (`commit.timestamp <= receiver.local_time + 1h`).
+At most ~1 hour of manipulation, which is < 9% of the
+12h maturation window.
+
+**Mitigation**: Future tolerance rule rejects commits
+with timestamps more than 1 hour ahead of the receiver's
+local clock.
 
 ### T2c. Timestamp Manipulation of `--date-order`
 
@@ -319,8 +380,8 @@ is correct by design.
 | T1   | 7-day partition fork          | High     | Low        | No defense   |
 | T1a  | Boundary attack               | High     | Medium     | No defense   |
 | T1b  | Equivocation (100-post)       | High     | Low        | No defense   |
-| T2a  | Backdating likes              | High     | High       | Planned      |
-| T2b  | Future-dating likes           | Medium   | Medium     | Planned      |
+| T2a  | Backdating offline branches   | Medium   | Medium     | Consensus    |
+| T2b  | Future-dating posts           | Medium   | Medium     | Tolerance    |
 | T2c  | Timestamp ordering            | Medium   | Medium     | Planned      |
 | T3a  | Sockpuppet farming            | Low      | Low        | By design    |
 | T3b  | Rep cycling                   | Low      | Low        | Yes (tax)    |

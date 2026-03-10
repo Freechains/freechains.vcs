@@ -37,6 +37,38 @@ Used in `src/freechains:330` for every chain commit.
 --trailer 'Freechains-Ref: abc123def456'
 ```
 
+### 3. Add `Freechains-Peer: <pubkey>` on merge commits
+
+- Peers sign merge commits and identify themselves
+- Merge commits already exist at sync time (`--no-ff`
+  required, see merge-hook.md)
+- The git author field already records the committer, but
+  `Freechains-Peer:` records the peer's **chain-level
+  public key** — the identity that matters for reputation
+
+```
+--trailer 'Freechains-Peer: CA6391CE...'
+```
+
+- Combined with GPG signing (`git commit -S`), this
+  creates a signed attestation: "peer X saw this branch
+  state at time T"
+
+#### Peer reputation
+
+- Each signed merge is a verifiable act of service:
+  the peer fetched, validated consensus, and committed
+- Peers that consistently relay content build a track
+  record in the DAG — countable via
+  `git log --grep='Freechains-Peer: <key>'`
+- A peer's merge count is a measure of participation
+  and reliability, independent of authoring content
+- Enables trust decisions: prefer syncing with peers
+  that have a long, visible history of honest merges
+- Unlike author reputation (which flows from likes),
+  peer reputation is earned by doing work that is
+  costly to fake — you must actually fetch and validate
+
 ## Notes
 
 - Finding the lua file in a commit is trivial:
@@ -52,3 +84,4 @@ Used in `src/freechains:330` for every chain commit.
 
 - [ ] Rename `freechains:` → `Freechains-Kind:`
 - [ ] Add `Freechains-Ref:` to like/dislike commits
+- [ ] Add `Freechains-Peer:` to merge commits
