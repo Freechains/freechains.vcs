@@ -51,6 +51,15 @@ to the same state (deterministic from DAG walk).
 | `shared/reps/posts.lua` | Post → internal reputation: `{[hash]=N, ...}` | Every like/dislike commit |
 | `shared/likes/` | Like payload files | Like/dislike commits |
 | `shared/dropped-sets/<hash>.list` | Vetoed commit hashes (one per line) | Veto passes (>50%) |
+| `shared/peers.lua` | Known peers with real IPs in the network: `{[pubkey]=url, ...}` | Peer announcements |
+
+`peers.lua` is the chain-level peer directory — a shared
+registry of peers participating in this chain, with their
+real network addresses. Any peer can announce itself by
+posting a signed commit. This is **shared** because all
+peers need to discover each other. Contrast with
+`local/neighbours.lua`, which is which of these peers
+*this node* actually syncs with.
 
 Note: `reps/authors.lua` has two lives — immutable in the
 genesis commit (pioneer definitions), mutable in HEAD
@@ -79,11 +88,18 @@ and rebuildable (except `fork`, which records a decision).
 | File | Content | Updated by |
 |------|---------|------------|
 | `local/fork` | Fork choice: line 1 = fork-point hash, line 2 = our-side hash | Hard fork trigger |
+| `local/neighbours.lua` | Peers this node pushes/pulls to: `{[url]=pubkey, ...}` | User config / `peer add` |
 | `local/cache.sqlite` | Consensus linearization + reputation checkpoints | Post-merge hook |
 
 `fork` records which side of a hard fork this peer chose
 (based on owner's vote). Once written, merges from the
 other fork are rejected by the pre-merge guard.
+
+`neighbours.lua` lists the peers this node actively syncs
+with (push/pull targets). This is **local** because each
+peer has its own sync partners — A may sync with B and C,
+while B syncs with A and D. The neighbour list is a
+per-node operational decision, not shared state.
 
 `cache.sqlite` holds two tables:
 
@@ -158,8 +174,10 @@ commits are content-addressed.
 | post reps | shared | mutable | `.freechains/shared/reps/posts.lua` |
 | like payloads | shared | mutable | `.freechains/shared/likes/` |
 | dropped sets | shared | mutable | `.freechains/shared/dropped-sets/` |
+| peer directory | shared | mutable | `.freechains/shared/peers.lua` |
 | owner identity | local | immutable | `.freechains/local/owner` |
 | fork choice | local | mutable | `.freechains/local/fork` |
+| neighbours | local | mutable | `.freechains/local/neighbours.lua` |
 | cache DB | local | mutable | `.freechains/local/cache.sqlite` |
 | keys | host | immutable | `config/keys/` |
 | host config | host | mutable | `config/config.toml` |
@@ -190,8 +208,10 @@ and rebuilt (except `fork`, which is a decision record).
 | `shared/reps/authors.lua` | Yes | Replay DAG walk from genesis |
 | `shared/reps/posts.lua` | Yes | Replay DAG walk from genesis |
 | `shared/dropped-sets/` | Yes | Replay vote commits, recompute threshold |
+| `shared/peers.lua` | Yes | Replay peer announcement commits |
 | `local/owner` | No | Must be set by user (which key to use) |
 | `local/fork` | Partially | Can recompute from votes + owner, but owner's vote is the input |
+| `local/neighbours.lua` | No | User's sync partner choices (operational) |
 | `local/cache.sqlite` | Yes | Recompute from git history |
 
 ---
