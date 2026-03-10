@@ -58,5 +58,6 @@ end
 function git_config (dir)
     exec("git -C " .. dir .. " config user.name  '-'")
     exec("git -C " .. dir .. " config user.email '-'")
+    exec("git -C " .. dir .. " config commit.gpgsign false")
     exec("git -C " .. dir .. " config pull.rebase false")
 end

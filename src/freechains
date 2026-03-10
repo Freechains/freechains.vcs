@@ -171,9 +171,8 @@ if args.chains then
             exec (true,
                 "git -C " .. tmp .. " add .freechains/"
             )
-            exec ('stderr',
+            exec (true,
                 "git -C " .. tmp .. ' commit --allow-empty-message -m ""'
-                , "chains add : commit failed"
             )
 
             local hash = exec (true,
