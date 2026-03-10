@@ -74,10 +74,10 @@ Symlinks give human-readable names while actual storage is content-addressed, mi
 | `#<topic>` | Public topic chain |
 | `$<name>` | Private shared chain |
 
-The `.freechains/` directory inside each chain repo holds
-genesis and reputation state as Lua tables — all tracked
-by git. If deleted, they can be fully reconstructed by
-replaying the git history.
+The `.freechains/` directory inside each chain repo is
+split into `shared/` (replicated via git) and `local/`
+(gitignored, peer-specific). See [metadata.md](metadata.md)
+for the full data inventory.
 
 ## XDG Mapping (per-user default)
 

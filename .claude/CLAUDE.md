@@ -47,4 +47,5 @@ Key specs in `.claude/plans/`:
 | `commands.md`    | Freechains CLI to Git command mapping          |
 | `tests.md`       | Test catalog (58 tests across sections A–X)    |
 | `merge-hook.md`  | Pre-merge-commit consensus verification        |
+| `metadata.md`    | Data inventory: local/shared, mutable/immutable |
 | `threats.md`     | Security threat catalog (T1–T6), mitigations   |
