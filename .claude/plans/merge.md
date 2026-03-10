@@ -292,6 +292,79 @@ With a >50% threshold:
   merge that already happened — it's not a replacement
   for branch ordering, it's a correction mechanism.
 
+#### Fundamental limit: the veto is social, not algorithmic
+
+The >50% threshold prevents competing vetos mechanically.
+But it doesn't help neutral peers C and D **choose which
+side to join**.
+
+The decision "which branch do I follow?" cannot be
+answered by content-based consensus:
+
+- **Prefix reputation** is the same for both sides — it
+  can't break symmetry when both sides have legitimate
+  content.
+- **Suffix content** (the divergent part) differs by
+  definition — each side has different posts. But C and D
+  care about **who** wrote the suffix, not just **what**
+  it contains.
+- **The veto itself is a signed vote**: it carries the
+  author's pubkey and reputation. C and D need to look at
+  which authors voted for which side — it's a coalition
+  decision, not a content decision.
+
+This means the veto mechanism requires some form of
+**peer/author affiliation** to function in the general
+case. Possible directions:
+
+1. **Author-weighted votes**: C looks at the authors who
+   signed veto dislikes on each side. "Authors I follow /
+   trust have >50% reputation and voted to drop Y → I
+   follow their decision." This is implicit coalition
+   membership via trust relationships.
+
+2. **Explicit chain fork**: instead of a veto within one
+   chain, the split produces **two new chain identities**
+   derived from the original. Peers subscribe to the
+   chain whose author set they want to follow. The fork
+   is a first-class operation, not a side effect of
+   competing votes. The original chain is frozen at the
+   fork point — a historical record of the shared past.
+
+3. **Pioneer/owner arbitration**: in chains with a clear
+   authority structure (owned chains, or chains where
+   pioneers hold decisive reputation), the authority
+   resolves the split. This works for hierarchical
+   communities but not for fully decentralized ones.
+
+4. **Peer mapping**: each peer maintains a local mapping
+   of "peers I sync with" → "authors I trust." When a
+   fork occurs, the peer follows the branch containing
+   the authors in its trust set. This is subjective
+   (different peers may choose differently), but that
+   may be correct — a genuine community split SHOULD
+   result in different peers going different ways.
+
+**Open question**: which of these directions (or
+combination) fits Freechains? Option 4 (peer mapping /
+local trust) is the most general but breaks deterministic
+consensus — two peers with different trust sets reach
+different conclusions. Option 2 (explicit chain fork) is
+cleanest but requires new chain identity machinery.
+Option 1 (author-weighted votes) reuses existing
+reputation but needs a way for peers to express "I follow
+these authors" beyond just having their content.
+
+The core tension: **deterministic consensus requires
+shared rules, but choosing a side in a genuine split is
+inherently subjective.** Any mechanism that resolves this
+deterministically (>50% threshold) imposes the majority's
+choice on the minority. Any mechanism that allows
+subjective choice (peer mapping) breaks consensus
+determinism. The right answer depends on whether
+Freechains prioritizes network unity (deterministic) or
+individual autonomy (subjective fork).
+
 #### Cascade: peers who already merged vetoed content
 
 When a veto passes (>50%), peers who already merged the
