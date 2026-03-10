@@ -218,94 +218,117 @@ even unintentionally:
    (same content, same trailers → same hash across peers),
    so all peers converge on the same veto set.
 
-### Network split — veto propagation boundaries
+### Network split — veto propagation
 
-The veto on the winning side creates a **de facto network
-partition**. This is intentional, but must be handled
-carefully to avoid poisoning peers on the losing side.
+The veto on the winning side must propagate to prevent
+re-merge. But propagation interacts badly with peers who
+received the vetoed content through normal sync.
 
 #### The problem
 
 1. Peer A vetoes merge M (second parent = Y, from peer B)
 2. Veto commit V is on A's surviving branch
-3. A's guard blocks fetching from B (B's HEAD descends
-   from Y → rejected)
-4. But B can still initiate a fetch from A — B has no
-   vetos, so A's content passes B's guard
-5. B receives V as part of the merge. Now B's guard
-   also blocks descendants of Y — **B's own history**
-6. The veto has propagated to the losing side and
-   poisoned it
+3. Meanwhile, neutral peer C synced with B **before** the
+   veto — Y is now in C's history through C's own merge
+4. C later syncs with A and receives V
+5. V says "drop everything from Y's subtree" — but C
+   already has Y in its DAG
 
-#### Solution: perspective-relative enforcement
+This is the **typical case**: most peers will have received
+content from both sides before any veto propagates. The
+peer's "side" becomes a function of sync timing — who
+they talked to first — which is arbitrary.
 
-The pre-merge guard must be **perspective-relative** —
-a veto only blocks content that is **foreign** to the
-peer's own first-parent lineage:
+#### Why perspective-relative enforcement fails
 
-1. When evaluating a veto, the guard checks: "is the
-   vetoed merge's second parent (Y) an ancestor of
-   **my own first-parent chain**?"
-   - **Yes** → I am on the losing side of this veto.
-     **Ignore it** — it's about my own content, not
-     foreign content sneaking in.
-   - **No** → I am on the winning side (or a neutral
-     peer). **Enforce it** — block any FETCH_HEAD
-     descended from Y.
+A naive fix: "ignore vetos that target your own first-
+parent lineage." This fails because:
 
-2. This means the same veto commit has different effects
-   depending on which side of the split you're on:
-   - **Winning side peers**: enforce the veto, block
-     the vetoed content
-   - **Losing side peers**: see the veto but don't
-     enforce it against their own history
+- Peer C received Y first (by chance), so Y is in C's
+  first-parent chain. C ignores the veto.
+- Peer D received A's side first. D enforces the veto.
+- C and D are on the same network, saw the same content,
+  but reach **different conclusions** based on sync order.
+- The "side" assignment is non-deterministic — it depends
+  on network timing, not community intent.
 
-3. **Determinism is preserved**: the check is purely
-   DAG-based. Given the same DAG, all peers on the same
-   side reach the same decision. Two peers with identical
-   first-parent lineage always agree.
+#### Uniform enforcement with logical drop
 
-#### Natural partition behavior
+The veto must be enforced **uniformly** by all peers,
+regardless of sync order. The mechanism:
 
-With perspective-relative enforcement, the network splits
-cleanly:
+1. The veto commit V references merge M by hash. The
+   **dropped set** is deterministically computed:
+   `git rev-list M^2 --not M^1` — all commits reachable
+   from M's second parent but not from M's first parent.
+   These are the commits the remote side contributed.
 
-- **Winning partition**: peers whose first-parent lineage
-  does NOT include Y. They enforce the veto. They can sync
-  with each other freely. They reject content from the
-  losing side.
+2. **Every peer** that receives V excludes the dropped
+   set from consensus computation. The DAG still contains
+   the commits (git doesn't delete objects), but the
+   consensus walk skips them.
 
-- **Losing partition**: peers whose first-parent lineage
-  includes Y. They receive the veto but ignore it (it
-  targets their own history). They can sync with each
-  other freely. They can receive winning-side content
-  (including the veto commit) without self-poisoning.
+3. This is sync-order independent: the dropped set is
+   computed from M's hash, which is the same for everyone.
 
-- **Cross-partition sync**: winning → losing is blocked
-  by the guard (losing side's content descends from Y).
-  Losing → winning: the veto propagates, but losing-side
-  peers ignore it. The partition is **asymmetric**: losing
-  side can receive winning-side content, but not the
-  reverse.
+#### Cascade: what happens to peer C?
+
+Peer C already merged Y's content through its own merge
+M_c. When C receives the veto:
+
+1. The dropped set (from M) overlaps with C's history —
+   C has those commits in its DAG
+2. C's own merge M_c brought in dropped commits →
+   **M_c is also logically dropped** (it integrated
+   rejected content)
+3. C's effective HEAD reverts to the first parent of M_c
+   (C's state before merging Y's content)
+
+**Content C posted after M_c**: these commits are
+children of M_c in the DAG, so they're orphaned by the
+logical drop. But their content is independent of Y's
+content — they're C's own posts. Two options:
+
+- **Hard drop**: C's post-merge content is also dropped.
+  C must re-post it. Simple, but harsh — C loses work
+  through no fault of its own.
+- **Logical rebase**: the consensus walk "replays" C's
+  own commits on top of the pre-merge HEAD, skipping the
+  dropped merge. More complex, but preserves C's work.
+  Requires that C's commits are semantically independent
+  of the dropped content (true for posts, may not be true
+  for likes/dislikes that reference dropped posts).
+
+#### Pre-merge guard
+
+The veto also prevents **future** merges that would
+reintroduce dropped content:
+
+- Before merging FETCH_HEAD, check: does FETCH_HEAD
+  contain any commit in any active dropped set?
+- If yes → reject the merge automatically
+- This is what prevents re-merge, even unintentionally
 
 #### Reconciliation
 
-To reunify after a veto-induced split:
+To reunify after a veto:
 
-1. The losing side **individually dislikes** or removes
-   the problematic content that triggered the veto
-2. A peer on the losing side creates a **new branch**
-   from the common prefix (before the fork), re-posting
-   only the legitimate content as new commits
-3. This new branch does NOT descend from Y → not blocked
-   by the veto guard
-4. A new merge with the winning side succeeds — the
-   legitimate content re-enters through normal validation
+1. Peers who had the vetoed content see it logically
+   dropped — their effective HEAD reverts to before
+   the merge that brought it in
+2. The bad content's authors can re-post legitimate
+   parts as **new commits** (new hashes) — these are
+   not in any dropped set
+3. New commits enter through normal validation
+   (12h penalty, reputation checks, etc.)
+4. The veto blocks the **specific commits**, not the
+   authors — authors can continue participating
 
-Alternatively, if the losing side believes the veto was
-unjust, they simply continue independently — the chain
-has forked, and both sides evolve separately. This is
-the correct outcome when a community genuinely disagrees.
+If a significant group disagrees with the veto, they
+effectively fork: they ignore the veto commit (treat it
+as invalid / don't propagate it). This is an explicit
+community split — the same outcome as any irreconcilable
+disagreement in a decentralized system.
 
 ### Why first-parent ordering matters
 
@@ -334,10 +357,15 @@ wouldn't know which side to keep.
 1. **Threshold**: Same as post-ban? Different? Should it
    scale with the amount of content in the merge?
 
-2. **Cascading drops**: If merge M1 is dropped, and merge
-   M2 was built on top of M1, M2 must also be dropped.
-   But M2 might have brought in legitimate content too.
-   Is this acceptable collateral?
+2. **Cascading drops**: When a veto drops commits, any
+   merge by a neutral peer that already integrated those
+   commits is also logically dropped. Content posted by
+   the neutral peer after that merge is orphaned. Should
+   the system do a hard drop (peer re-posts) or a logical
+   rebase (consensus walk replays their commits)? Logical
+   rebase is friendlier but more complex — and breaks if
+   the orphaned commits reference dropped content (e.g.,
+   a like targeting a dropped post).
 
 3. **Timing**: Can a merge be voted out at any time, or
    only within a window (e.g., 24h)? Unbounded voting
@@ -376,15 +404,16 @@ wouldn't know which side to keep.
    piggy-backing on an already-rejected sync. See
    "Reconciliation" above for the full reunification path.
 
-9. **Perspective-relative edge cases**: The guard ignores
-   vetos targeting your own first-parent lineage. But what
-   if a peer is on NEITHER side (joined after the split)?
-   They have no first-parent relationship to Y, so they
-   enforce the veto — correct behavior (they align with
-   the winning side by default). What if a peer has BOTH
-   sides in their history (merged before the veto)? They
-   have Y as a second-parent ancestor — the check must
-   use **first-parent only** traversal to determine side.
+9. **Logical rebase semantics**: If the consensus walk
+   replays orphaned commits (from neutral peers who
+   merged vetoed content before the veto arrived), what
+   happens to commits that reference dropped content?
+   A like on a dropped post becomes invalid. A reply to
+   a dropped post is orphaned. Must define: (a) which
+   commit types can be replayed, (b) which must be
+   dropped with the content they reference, and (c) how
+   to notify the affected peer that their content was
+   collateral damage.
 
 ---
 
