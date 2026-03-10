@@ -221,114 +221,122 @@ even unintentionally:
 ### Network split — veto propagation
 
 The veto on the winning side must propagate to prevent
-re-merge. But propagation interacts badly with peers who
-received the vetoed content through normal sync.
+re-merge. But propagation creates fundamental problems
+when multiple sides issue competing vetos.
 
-#### The problem
+#### The competing vetos problem
 
-1. Peer A vetoes merge M (second parent = Y, from peer B)
-2. Veto commit V is on A's surviving branch
-3. Meanwhile, neutral peer C synced with B **before** the
-   veto — Y is now in C's history through C's own merge
-4. C later syncs with A and receives V
-5. V says "drop everything from Y's subtree" — but C
-   already has Y in its DAG
+1. A and B diverge from common ancestor. A has branch X,
+   B has branch Y.
+2. A merges Y, then vetoes it → V_A: "drop Y's subtree"
+3. B merges X, then vetoes it → V_B: "drop X's subtree"
+4. Neutral peer C syncs with both. Receives V_A and V_B.
 
-This is the **typical case**: most peers will have received
-content from both sides before any veto propagates. The
-peer's "side" becomes a function of sync timing — who
-they talked to first — which is arbitrary.
+If C enforces both vetos: **everything is dropped** — X
+and Y are both excluded, only genesis survives.
 
-#### Why perspective-relative enforcement fails
+If C enforces only one: **which one?** This is exactly
+the branch ordering problem the veto was supposed to
+complement. Competing vetos collapse into consensus.
 
-A naive fix: "ignore vetos that target your own first-
-parent lineage." This fails because:
+#### Neutral peers who received the wrong side first
 
-- Peer C received Y first (by chance), so Y is in C's
-  first-parent chain. C ignores the veto.
-- Peer D received A's side first. D enforces the veto.
-- C and D are on the same network, saw the same content,
-  but reach **different conclusions** based on sync order.
-- The "side" assignment is non-deterministic — it depends
-  on network timing, not community intent.
+Even with a single veto, neutral peers are affected:
 
-#### Uniform enforcement with logical drop
+- Peer C synced with B before the veto — Y is in C's
+  history through C's own merge
+- C later receives V_A. Uniform enforcement drops Y's
+  commits, but C already built on top of them.
+- C's own content (posted after merging Y) is orphaned
+  as collateral damage.
 
-The veto must be enforced **uniformly** by all peers,
-regardless of sync order. The mechanism:
+This is the **typical case**: most peers will have
+received content from both sides before any veto
+propagates.
 
-1. The veto commit V references merge M by hash. The
-   **dropped set** is deterministically computed:
-   `git rev-list M^2 --not M^1` — all commits reachable
-   from M's second parent but not from M's first parent.
-   These are the commits the remote side contributed.
+#### Resolution: veto threshold > 50%
 
-2. **Every peer** that receives V excludes the dropped
-   set from consensus computation. The DAG still contains
-   the commits (git doesn't delete objects), but the
-   consensus walk skips them.
+The threshold determines whether competing vetos can
+coexist:
 
-3. This is sync-order independent: the dropped set is
-   computed from M's hash, which is the same for everyone.
+- **Threshold > 50% of total chain reputation**: at most
+  one side can ever accumulate enough dislikes to veto.
+  Competing vetos are **impossible** — the reputation
+  backing V_A and V_B must sum to > 100%, which can't
+  happen. Peer C receives both vote sets but only one
+  (or neither) crosses the threshold.
 
-#### Cascade: what happens to peer C?
+- **Threshold ≤ 50%**: competing vetos are possible and
+  the system needs a tiebreaker — which reduces to the
+  same consensus ordering problem. This is undesirable.
 
-Peer C already merged Y's content through its own merge
-M_c. When C receives the veto:
+**Therefore: the veto threshold must exceed 50% of total
+reputation.** This guarantees that at most one veto can
+be active for any given fork. The veto becomes a genuine
+**supermajority decision**, not just a faction's preference.
 
-1. The dropped set (from M) overlaps with C's history —
-   C has those commits in its DAG
-2. C's own merge M_c brought in dropped commits →
-   **M_c is also logically dropped** (it integrated
-   rejected content)
-3. C's effective HEAD reverts to the first parent of M_c
-   (C's state before merging Y's content)
+#### Consequence: the veto is rare and decisive
 
-**Content C posted after M_c**: these commits are
-children of M_c in the DAG, so they're orphaned by the
-logical drop. But their content is independent of Y's
-content — they're C's own posts. Two options:
+With a >50% threshold:
 
-- **Hard drop**: C's post-merge content is also dropped.
-  C must re-post it. Simple, but harsh — C loses work
-  through no fault of its own.
-- **Logical rebase**: the consensus walk "replays" C's
-  own commits on top of the pre-merge HEAD, skipping the
-  dropped merge. More complex, but preserves C's work.
-  Requires that C's commits are semantically independent
-  of the dropped content (true for posts, may not be true
-  for likes/dislikes that reference dropped posts).
+- A veto requires the **majority** of the community's
+  reputation to agree. This is a high bar — appropriate
+  for a nuclear option.
+- The losing side is genuinely in the minority. The veto
+  reflects community consensus, not a factional split.
+- If neither side reaches >50%, **no veto passes** and
+  normal consensus ordering applies (reputation in common
+  prefix, tiebreakers per consensus.md).
+- The veto adds value over normal consensus ordering only
+  when the community wants to **retroactively reject** a
+  merge that already happened — it's not a replacement
+  for branch ordering, it's a correction mechanism.
+
+#### Cascade: peers who already merged vetoed content
+
+When a veto passes (>50%), peers who already merged the
+vetoed content through normal sync are affected:
+
+1. The **dropped set** is deterministically computed from
+   the vetoed merge M: `git rev-list M^2 --not M^1`
+2. All peers exclude dropped commits from consensus —
+   sync-order independent, same hash → same dropped set
+3. A peer C who merged Y before the veto sees its own
+   merge M_c logically dropped (it brought in dropped
+   commits)
+4. C's content posted after M_c is orphaned in the DAG
+
+For orphaned content, two options:
+- **Hard drop**: C re-posts. Simple, harsh.
+- **Logical rebase**: consensus walk replays C's own
+  commits, skipping the dropped merge. Breaks if C's
+  commits reference dropped content (likes on dropped
+  posts).
 
 #### Pre-merge guard
 
-The veto also prevents **future** merges that would
-reintroduce dropped content:
+The veto prevents **future** re-merges:
 
 - Before merging FETCH_HEAD, check: does FETCH_HEAD
   contain any commit in any active dropped set?
 - If yes → reject the merge automatically
-- This is what prevents re-merge, even unintentionally
+- This prevents re-merge, even unintentionally
 
 #### Reconciliation
 
 To reunify after a veto:
 
-1. Peers who had the vetoed content see it logically
-   dropped — their effective HEAD reverts to before
-   the merge that brought it in
-2. The bad content's authors can re-post legitimate
-   parts as **new commits** (new hashes) — these are
-   not in any dropped set
-3. New commits enter through normal validation
-   (12h penalty, reputation checks, etc.)
-4. The veto blocks the **specific commits**, not the
-   authors — authors can continue participating
+1. Dropped content's authors can re-post legitimate parts
+   as **new commits** (new hashes) — not in any dropped
+   set
+2. New commits enter through normal validation (12h
+   penalty, reputation checks)
+3. The veto blocks **specific commits**, not authors
 
-If a significant group disagrees with the veto, they
-effectively fork: they ignore the veto commit (treat it
-as invalid / don't propagate it). This is an explicit
-community split — the same outcome as any irreconcilable
-disagreement in a decentralized system.
+If the minority disagrees with the veto, they can fork:
+refuse to propagate the veto commit. This is an explicit
+community split — correct outcome when >50% vs <50%
+genuinely disagree.
 
 ### Why first-parent ordering matters
 
@@ -354,8 +362,10 @@ wouldn't know which side to keep.
 
 ### Open questions (NOT REVIEWED)
 
-1. **Threshold**: Same as post-ban? Different? Should it
-   scale with the amount of content in the merge?
+1. **Threshold**: Must exceed 50% of total chain reputation
+   to prevent competing vetos (see "Resolution" above).
+   Exact value TBD — 51%? 67% (supermajority)? Higher
+   thresholds make vetos rarer but more legitimate.
 
 2. **Cascading drops**: When a veto drops commits, any
    merge by a neutral peer that already integrated those
