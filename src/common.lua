@@ -29,7 +29,11 @@ function exec (a, b, c)
     if code == 0 then
         return out, code
     elseif err then
-        ERROR(err==true and "bug found" or err)
+        if err == true then
+            error("bug found : [" .. code .. "] : " .. cmd)
+        else
+            ERROR(err==true and "bug found" or err)
+        end
     else
         return false, code
     end
