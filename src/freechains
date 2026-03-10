@@ -171,8 +171,9 @@ if args.chains then
             exec (true,
                 "git -C " .. tmp .. " add .freechains/"
             )
-            exec (true,
+            exec ('stderr',
                 "git -C " .. tmp .. ' commit --allow-empty-message -m ""'
+                , "chains add : commit failed"
             )
 
             local hash = exec (true,
@@ -181,7 +182,7 @@ if args.chains then
 
             local final = chains .. "/" .. hash
             if not os.rename(tmp, final) then
-                assert(exec("rm -rf " .. tmp))
+                exec(true, "rm -rf " .. tmp)
                 ERROR("chains add : chain already exists: " .. hash)
             end
             exec (true,

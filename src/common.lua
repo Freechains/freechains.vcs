@@ -1,5 +1,8 @@
-function ERROR (msg)
+function ERROR (msg, out)
     io.stderr:write("ERROR : " .. msg .. "\n")
+    if out then
+        io.stderr:write(">>>\n" .. out .. "<<<\n")
+    end
     os.exit(1)
 end
 
@@ -30,12 +33,12 @@ function exec (a, b, c)
         return out, code
     elseif err then
         if err == true then
-            error("bug found : [" .. code .. "] : " .. cmd)
+            error("bug found : [" .. code .. "] : " .. cmd .. " : " .. out)
         else
-            ERROR(err==true and "bug found" or err)
+            ERROR(err, out)
         end
     else
-        return false, code
+        return false, code, out
     end
 end
 
