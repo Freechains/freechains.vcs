@@ -179,6 +179,45 @@ peer audite a decisão depois, mesmo que a reputação tenha mudado desde então
    never existed. The DAG still contains them (git doesn't
    delete objects), but the consensus walk ignores them.
 
+### Veto storage — winning side
+
+The veto record **must be stored on the winning side**
+(first parent / surviving branch) as a committed artifact.
+This prevents the vetoed content from being re-merged,
+even unintentionally:
+
+1. When a merge is vetoed, a **veto commit** is created on
+   the surviving branch. It records the hash of the rejected
+   merge commit (and thus its second-parent subtree):
+
+   ```
+   Freechains-Kind: veto
+   Freechains-Ref: <rejected-merge-hash>
+   ```
+
+2. The veto commit is a normal post on the winning branch —
+   it propagates through replication like any other commit.
+
+3. **Pre-merge guard**: before completing any future merge,
+   the `pre-merge-commit` hook checks whether the incoming
+   content (FETCH_HEAD subtree) overlaps with any vetoed
+   merge. If the second parent of a previously vetoed merge
+   is an ancestor of FETCH_HEAD, the merge is **rejected
+   automatically** — the vetoed content cannot sneak back in
+   through a different peer or a later sync.
+
+4. **Why the winning side**: if the veto were stored only in
+   memory or on the losing side, it would be invisible after
+   the drop. A new sync with the same (or a superset of the)
+   remote content would succeed, silently re-introducing
+   everything the community voted to reject. Storing the
+   veto on the surviving branch makes it a permanent,
+   replicable part of the chain history.
+
+5. **Determinism**: the veto commit hash is deterministic
+   (same content, same trailers → same hash across peers),
+   so all peers converge on the same veto set.
+
 ### Why first-parent ordering matters
 
 The rollback is well-defined **because** git preserves
@@ -238,10 +277,14 @@ wouldn't know which side to keep.
    censorship on posts — does the threshold provide
    adequate protection?
 
-8. **Recovery**: After a merge is dropped, can the remote
-   content be re-merged later (by a different peer, or
-   after the attacker's posts are individually disliked)?
-   Or is it permanently excluded?
+8. **Recovery**: After a merge is dropped, the veto commit
+   on the winning side **permanently blocks** re-merging
+   the same content. To recover legitimate posts from a
+   vetoed merge, they must be re-posted individually (new
+   commits, new hashes) — the original merge path is
+   closed. This is intentional: it forces content to
+   re-enter through normal validation rather than
+   piggy-backing on an already-rejected sync.
 
 ---
 
