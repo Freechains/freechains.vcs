@@ -179,8 +179,8 @@ if args.chains then
 
             local dt = args.now and
                 (
-                    "GIT_AUTHOR_DATE=" .. now .. " " ..
-                    "GIT_COMMITTER_DATE=" .. now .. " "
+                    "GIT_AUTHOR_DATE=$(date -u -d @" .. now .. " --iso-8601=seconds) " ..
+                    "GIT_COMMITTER_DATE=$(date -u -d @" .. now .. " --iso-8601=seconds) "
                 )
                 or ""
 
@@ -395,7 +395,7 @@ elseif args.chain then
         end
 
         local msg = args.why or ""
-        local dt = args.now and ("GIT_AUTHOR_DATE=" .. now .. " GIT_COMMITTER_DATE=" .. now .. " ") or ""
+        local dt = args.now and ("GIT_AUTHOR_DATE=$(date -u -d @" .. now .. " --iso-8601=seconds) GIT_COMMITTER_DATE=$(date -u -d @" .. now .. " --iso-8601=seconds) ") or ""
         exec (true,
             dt .. "git -C " .. REPO .. s1 .. " commit" .. s2 .. " --trailer 'freechains: " .. kind .. "'" .. " --allow-empty-message" .. " -m '" .. msg .. "'"
         )
