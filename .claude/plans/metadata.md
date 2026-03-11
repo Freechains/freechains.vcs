@@ -75,19 +75,122 @@ Needs review.
 ### Origin tracking
 
 Items **not from the original Freechains design** that
-were introduced during plan development:
+were introduced during plan development. All need review
+before implementation.
 
-| Item | Introduced in | Purpose | Explanation |
-|------|--------------|---------|-------------|
-| `shared/dropped-sets/` | merge-hook.md (veto guard) | Track vetoed commit hashes | Original design says veto drops a post, but doesn't say where the decision is stored. Needed a persistent record so peers can enforce "already vetoed" across syncs. |
-| `local/owner` | metadata.md | Store which pubkey owns this repo | Original design has "repo owner" concept (replication.md) but never says how a peer knows which key is its own. This file binds a repo to a key. |
-| `local/fork` | merge-hook.md (fork guard) | Track hard fork choice | Original design says owner picks a side in a fork, but doesn't say where that choice is persisted. Without it, the pre-merge hook can't reject the other side. |
-| `local/cache.sqlite` | sqlite.md | Consensus + reputation cache | Original design says reputation is computed from DAG walk. Cache avoids replaying the entire history on every operation. Pure optimization — deletable and rebuildable. |
-| `config/config.toml` | layout.md | Host port, default peers, active key | Original design has CLI commands (`freechains host`) but doesn't specify where host-level settings are stored on disk. |
-| `config/peers.toml` | layout.md | Known peers registry | Original design has peer sync but doesn't specify where the host-level peer list lives. Distinct from chain-level `peers.lua` (shared) and `neighbours.lua` (local). |
-| `freechains-vote` header | commands.md | Vote for a branch in a fork | Original design says owner votes to resolve a fork, but doesn't specify the commit format for the vote itself. |
+**`shared/dropped-sets/`** — introduced in merge-hook.md.
+The original design (merge.md) says a veto drops the
+merge commit and all commits reachable only through its
+second parent. The veto decision is recorded as a special
+commit (`Freechains-Kind: veto`, `Freechains-Ref:
+<rejected-merge-hash>`) on the surviving branch. But
+during fetch validation, the pre-merge hook needs to
+quickly answer: "is this incoming commit one that was
+already vetoed?" Walking the DAG to find veto commits
+and then computing their reachability sets on every fetch
+is expensive. `dropped-sets/` materializes the answer —
+one file per veto, listing the hashes that were dropped.
+It's a shared cache: deterministic from the DAG (any
+peer can rebuild it from veto commits), but storing it
+avoids recomputation. Question: is this redundant with
+the veto commit itself? Could the hook just walk veto
+commits instead?
 
-All need review before implementation.
+**`local/owner`** — introduced in metadata.md. The
+original design (replication.md) defines "owner peers" as
+peers sharing the same key material — they replicate with
+full trust, no validation. But nothing says how a peer
+knows *which* pubkey from `config/keys/` is bound to
+*this* chain repo. When a chain is joined, the peer must
+record which key it's using, because: (1) the pre-merge
+hook needs to know the owner's pubkey to check fork
+votes, (2) replication needs to distinguish owner vs
+non-owner peers, (3) a host may have multiple keys (e.g.,
+one personal key, one organizational key). This file
+stores one line: the pubkey that was active when the
+chain was created or joined. Question: could this be
+derived from git config instead of a separate file?
+
+**`local/fork`** — introduced in merge-hook.md. The
+original design (merge.md) says when a fork divergence
+crosses a threshold, the chain hard-forks. Each peer
+follows its owner's vote: if owner voted for branch X,
+the repo follows chain-X; merges from branch Y are
+rejected. But the pre-merge hook runs on every
+`git merge` — it needs to know, right now, which side
+this peer chose. Without a persistent record, the hook
+would have to: find the fork point, collect all vote
+commits, weight them by prefix reputation, determine the
+owner's vote, and compute the winning side — on every
+single merge. `local/fork` caches that decision: line 1
+is the fork-point hash, line 2 is the chosen branch tip.
+Once written, the hook just checks "is the incoming
+merge from the other side?" and rejects if so. Question:
+what happens if the owner changes their vote? Is the
+fork decision final or reversible?
+
+**`local/cache.sqlite`** — introduced in sqlite.md. The
+original design (reps.md) defines reputation as a
+deterministic function of the DAG: walk commits in
+`--date-order` from genesis, apply costs (posting costs
+1 rep, likes transfer rep with 10% tax, merge-only
+commits are skipped). This means computing any author's
+current reputation requires replaying the entire chain
+history. For a chain with thousands of commits, this is
+too slow for every post or like operation. The cache
+stores two things: (1) the consensus linearization order
+(which commits, in what sequence), and (2) a reputation
+checkpoint (author reps at a known commit hash). To get
+current reps, replay only from the checkpoint forward.
+Pure optimization — deletable and rebuildable from git
+history. Question: is sqlite the right choice, or would
+a simple lua file (like reps/authors.lua) suffice?
+
+**`config/config.toml`** — introduced in layout.md. The
+original design has CLI commands like `freechains host
+create` and `freechains host start --port 8330`, but
+doesn't specify where host-level settings persist on
+disk. The `config/` directory is a separate git repo (not
+inside any chain), holding keys and settings. Config
+stores: which port to listen on, which key is currently
+active, and default peer addresses for new chains. It's
+never shared with non-owner peers — only replicated
+between owner peers (same person, different machines) via
+`git push/fetch`. Question: TOML vs lua for consistency
+with chain-level files?
+
+**`config/peers.toml`** — introduced in layout.md. The
+original design has peer synchronization but three
+different levels of "peer list" aren't distinguished:
+(1) `config/peers.toml` — host-level registry of all
+known peers across all chains, (2) `shared/peers.lua` —
+chain-level directory of peers participating in a
+specific chain, with real network addresses, shared with
+all chain members, (3) `local/neighbours.lua` —
+per-chain, per-node list of which peers this node
+actually syncs with (push/pull targets). The host-level
+registry is the broadest: "all peers I've ever heard of."
+Chain-level `peers.lua` is narrower: "peers in this
+chain." Neighbours is narrowest: "peers I actively sync
+with for this chain." Question: is the host-level
+registry actually needed, or can it be derived from the
+union of all chain-level peer directories?
+
+**`freechains-vote` header** — introduced in commands.md.
+The original design (merge.md) says fork resolution is
+owner-driven: authors vote for a branch, votes are
+weighted by prefix reputation (reputation computed up to
+the fork point, not beyond), and when the difference
+crosses a threshold the chain hard-forks. But the vote
+itself needs a commit format. The header
+`freechains-vote: <fork-point-hash> <branch-side-hash>`
+is a signed commit (like a like/dislike) that declares
+the author's branch preference. The fork-point hash
+identifies which fork this vote is about (a chain could
+have multiple forks). The branch-side hash identifies
+which branch the author supports. Question: should this
+be a trailer (`Freechains-Vote`) instead of an extra
+header, for consistency with other Freechains metadata?
 
 ### Local + Immutable
 
