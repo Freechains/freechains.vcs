@@ -77,15 +77,15 @@ Needs review.
 Items **not from the original Freechains design** that
 were introduced during plan development:
 
-| Item | Introduced in | Purpose |
-|------|--------------|---------|
-| `shared/dropped-sets/` | merge-hook.md (veto guard) | Track vetoed commit hashes |
-| `local/owner` | metadata.md | Store which pubkey owns this repo |
-| `local/fork` | merge-hook.md (fork guard) | Track hard fork choice |
-| `local/cache.sqlite` | sqlite.md | Consensus + reputation cache |
-| `config/config.toml` | layout.md | Host port, default peers, active key |
-| `config/peers.toml` | layout.md | Known peers registry |
-| `freechains-vote` header | commands.md | Vote for a branch in a fork |
+| Item | Introduced in | Purpose | Explanation |
+|------|--------------|---------|-------------|
+| `shared/dropped-sets/` | merge-hook.md (veto guard) | Track vetoed commit hashes | Original design says veto drops a post, but doesn't say where the decision is stored. Needed a persistent record so peers can enforce "already vetoed" across syncs. |
+| `local/owner` | metadata.md | Store which pubkey owns this repo | Original design has "repo owner" concept (replication.md) but never says how a peer knows which key is its own. This file binds a repo to a key. |
+| `local/fork` | merge-hook.md (fork guard) | Track hard fork choice | Original design says owner picks a side in a fork, but doesn't say where that choice is persisted. Without it, the pre-merge hook can't reject the other side. |
+| `local/cache.sqlite` | sqlite.md | Consensus + reputation cache | Original design says reputation is computed from DAG walk. Cache avoids replaying the entire history on every operation. Pure optimization — deletable and rebuildable. |
+| `config/config.toml` | layout.md | Host port, default peers, active key | Original design has CLI commands (`freechains host`) but doesn't specify where host-level settings are stored on disk. |
+| `config/peers.toml` | layout.md | Known peers registry | Original design has peer sync but doesn't specify where the host-level peer list lives. Distinct from chain-level `peers.lua` (shared) and `neighbours.lua` (local). |
+| `freechains-vote` header | commands.md | Vote for a branch in a fork | Original design says owner votes to resolve a fork, but doesn't specify the commit format for the vote itself. |
 
 All need review before implementation.
 
