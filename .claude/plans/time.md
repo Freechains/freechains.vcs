@@ -225,13 +225,32 @@ and defines the boundary of consensus convergence.
 
 - [x] Decision: committer timestamp as time basis
 - [x] Impl: monotonic check at post time (tolerance 1h)
-- [ ] Impl: future check at fetch time (tolerance 1h)
-- [ ] Impl: 12h maturation rule using committer timestamp
 - [x] Tests: monotonic violation rejected
-- [ ] Tests: future timestamp rejected (fetch time)
+
+## Next: Fetch-Time Validation Infrastructure
+
+The future check (`commit.ts <= receiver.now + tolerance`)
+is only meaningful at fetch time — at post time the commit
+timestamp equals local time, so the check is trivially true.
+
+Steps:
+- [ ] Build fetch-time validation hook (pre-merge-commit
+  or post-fetch script that walks incoming commits)
+- [ ] Future check: reject incoming commits with
+  `commit.ts > local_now + TOLERANCE`
+- [ ] Monotonic check on incoming commits (reuse same rule)
+- [ ] Tests: future-dated remote commit rejected
+- [ ] Tests: monotonic violation in fetched commit rejected
+
+## Later: 12h Maturation (depends on consensus engine)
+
+- [ ] Impl: 12h maturation rule using committer timestamp
 - [ ] Tests: 12h maturation
+- Requires DAG-walking reputation recomputation engine
+- See [reps.md](reps.md) for maturation details
 
 ## Related Plans
 
 - [reps.md](reps.md) — reputation system, 12h rule usage
 - [consensus.md](consensus.md) — fetch validation pipeline
+- [hardcoded.md](hardcoded.md) — all hardcoded settings
