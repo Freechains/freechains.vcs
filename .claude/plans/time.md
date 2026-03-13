@@ -71,10 +71,15 @@ fetch/merge. Possible rules:
 ### 1. Monotonic relative to parent
 
 ```
-commit.timestamp >= parent.timestamp
+commit.timestamp >= parent.timestamp - tolerance
 ```
 
-Ensures time never goes backwards within the DAG.
+Ensures time never goes significantly backwards within the
+DAG.
+**Default tolerance: 1 hour (3600 seconds)** — same as the
+future tolerance.
+Accommodates clock drift between nodes that post
+sequentially on the same chain.
 
 ### 2. Not in the future
 
@@ -93,8 +98,9 @@ Configurable per chain via `genesis.lua` field `tolerance`
 
 ### 3. Both combined
 
-Ensures a sane timeline: monotonically increasing and
-bounded by the receiver's clock.
+Ensures a sane timeline: monotonically increasing (within
+tolerance) and bounded by the receiver's clock. Both rules
+share the same 1-hour default tolerance.
 
 ## 12-Hour Maturation Rule
 
