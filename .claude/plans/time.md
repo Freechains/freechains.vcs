@@ -218,9 +218,11 @@ and defines the boundary of consensus convergence.
 ## Status
 
 - [x] Decision: committer timestamp as time basis
-- [ ] Impl: timestamp validation in consensus
+- [x] Impl: monotonic check at post time (tolerance 1h)
+- [ ] Impl: future check at fetch time (tolerance 1h)
 - [ ] Impl: 12h maturation rule using committer timestamp
-- [ ] Tests: forged timestamps rejected
+- [x] Tests: monotonic violation rejected
+- [ ] Tests: future timestamp rejected (fetch time)
 - [ ] Tests: 12h maturation
 
 ## Related Plans
