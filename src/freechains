@@ -139,6 +139,7 @@ end
 
 local args = parser:parse()
 
+local TOLERANCE = 3600
 local NOW = os.time()
 local DATE = ""
 
@@ -341,6 +342,17 @@ elseif args.chain then
             local f = io.open(REPO .. files, "w")
             f:write(payload)
             f:close()
+        end
+
+        -- monotonic timestamp validation
+        do
+            local date = tonumber ((exec (true,
+                "git -C " .. REPO .. " log -1 --format=%at"
+            )))
+            assert(date, "bug found : date is not a number")
+            if NOW < date-TOLERANCE then
+                ERROR("chain " .. kind .. " : cannot be older than parent")
+            end
         end
 
         -- update reps on post/like
