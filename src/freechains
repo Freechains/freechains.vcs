@@ -299,7 +299,7 @@ elseif args.chain then
                 ERROR("chain like : --sign is required")
             end
 
-            if not math.tointeger(args.number) or args.number <= 0 then
+            if args.number <= 0 then
                 ERROR("chain like : expected positive integer")
             end
 
