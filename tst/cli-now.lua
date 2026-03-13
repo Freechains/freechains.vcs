@@ -41,16 +41,6 @@ do
         local ts = exec("git -C " .. DIR .. " log -1 --format=%at")
         assert(ts == "200", "post timestamp: " .. ts)
     end
-
-    do
-        TEST "post without --now uses system clock"
-        local before = os.time()
-        local out = exec(EXE .. " chain cli-now post inline 'no fake time'")
-        local after = os.time()
-        assert(#out == 40, "hash: " .. out)
-        local ts = tonumber((exec("git -C " .. DIR .. " log -1 --format=%at")))
-        assert(ts>=before and ts<=after, "timestamp not in range: " .. ts)
-    end
 end
 
 -- LIKE TIMESTAMP
@@ -96,6 +86,51 @@ do
         assert(ts[3] == 100, "t[3]: " .. ts[3])
         assert(ts[4] == 0,   "t[4]: " .. ts[4])
     end
+end
+
+-- MONOTONIC TIMESTAMP VALIDATION
+do
+    print("==> Monotonic timestamp validation")
+
+    do
+        TEST "post within tolerance (1h backwards) passes"
+        exec (
+            EXE .. " --now=10000 chain cli-now post inline 'base'"
+        )
+        local ok = exec (
+            EXE .. " --now=7000 chain cli-now post inline 'back 3000s'"
+        )
+        assert(#ok == 40, "hash: " .. ok)
+    end
+
+    do
+        TEST "post beyond tolerance (>1h backwards) fails"
+        exec (
+            EXE .. " --now=10000 chain cli-now post inline 'base2'"
+        )
+        local ok, code, msg = exec ('stderr',
+            EXE .. " --now=5000 chain cli-now post inline 'too far back'"
+        )
+        local err = "ERROR : chain post : cannot be older than parent"
+        assert(ok==false and msg==err, "should fail: " .. tostring(ok))
+    end
+
+    do
+        TEST "like beyond tolerance fails"
+        local h = exec(ENV_EXE .. " --now=10000 chain cli-now post inline 'base3' --sign " .. KEY)
+        local ok, code = exec(ENV_EXE .. " --now=5000 chain cli-now like 1 post " .. h .. " --sign " .. KEY)
+        assert(ok == false, "should fail: " .. tostring(ok))
+    end
+end
+
+do
+    TEST "post without --now uses system clock"
+    local before = os.time()
+    local out = exec(EXE .. " chain cli-now post inline 'no fake time'")
+    local after = os.time()
+    assert(#out == 40, "hash: " .. out)
+    local ts = tonumber((exec("git -C " .. DIR .. " log -1 --format=%at")))
+    assert(ts>=before and ts<=after, "timestamp not in range: " .. ts)
 end
 
 print("<== ALL PASSED")
