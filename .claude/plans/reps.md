@@ -51,22 +51,84 @@ Chains without pioneers have an empty
 | `$` private | All holders of shared key = infinite|
 | `@` personal| Key holder = infinite               |
 
+## Constraints
+
+| Rule | Name | Effect                        | Ref             |
+|------|------|-------------------------------|-----------------|
+| 4.a  | min  | Author needs >= 1 rep to post | Sybil gate      |
+| 4.b  | max  | Author capped at 30 reps      | Spend incentive |
+| 4.c  | size | Post <= 128 KB                | DDoS prevention |
+
+No post expiry — posts are permanent.
+
 ## Actions and Costs
 
-### Posting
+### Posting (Rule 2 — Expense)
 
-Each post costs **1 external rep** (1000 internal) from
-the author:
+A signed post costs **-1 rep** (1000 internal)
+**temporarily**.
+The cost is refunded after a **variable discount
+period** (0–12 hours) that depends on subsequent
+activity from reputed authors.
 
 ```
-post block:  author.reps -= 1000
+post block:
+    if author.reps < 1000:
+        state = BLOCKED
+    else:
+        state = ACCEPTED
+    author.reps -= 1000
+    add to time/posts.lua with state "00-12"
 ```
 
-If the author's reputation is insufficient, the post is
-accepted into the DAG but marked **BLOCKED** (invisible
-to consensus).
+If the author's reputation is insufficient (Rule 4.a),
+the post is accepted into the DAG but marked
+**BLOCKED** (invisible to consensus).
 
-### Like / Dislike (split subcommands)
+### Variable Discount Period (Rule 2)
+
+The discount period varies from 0 to 12 hours based on
+subsequent reputed activity:
+
+```
+subsequent_reps = sum of reps of authors who posted
+                  after this post
+total_reps      = total reputation in the chain
+ratio           = subsequent_reps / total_reps
+discount_secs   = 43200 * max(0, 1 - 2*ratio)
+```
+
+| Ratio | Discount | Meaning                    |
+|-------|----------|----------------------------|
+| 0.0   | 12h      | No activity after post     |
+| 0.25  | 6h       | 25% of reps active         |
+| 0.5+  | 0h       | 50%+ of reps active        |
+
+The discount is **not stored** — it is recomputed on
+every commit because new activity shortens it.
+
+When discount ends:
+- Refund: `author.reps += 1000`
+- Transition: entry moves from state `"00-12"` to
+  `"12-24"` in `time/posts.lua`
+
+### Consolidation (Rule 1.b — Emission)
+
+After the discount period ends AND 24h have passed
+since the post's timestamp AND the author has not
+consolidated another post within 24h:
+
+```
+author.reps += 1000
+cap: author.reps = min(author.reps, 30000)
+record in time/authors.lua
+remove from time/posts.lua
+```
+
+Only **1 consolidated post per author per day** counts.
+This is the only way to create new reps in the system.
+
+### Like / Dislike (Rules 3.a, 3.b — Transfer)
 
 Likes and dislikes are separate subcommands.
 The number is always a positive integer.
@@ -117,32 +179,42 @@ This prevents reputation cycling exploits
   to author — net effect is reduced by cost + tax)
 - **Self-dislike**: allowed
 
-## The 12-Hour Maturation Rule
+### Content Revocation (Rule 3.b)
 
-See [time.md](time.md) for full details on time source
-(committer timestamp), trust model, and validation.
+A post becomes **REVOKED** when:
+- It has **>= 3 dislikes**, AND
+- The number of **dislikes > likes**
 
-A post must sit in the DAG for **12 hours** before it is
-considered settled. During this window the community can
-evaluate the post and potentially dislike it.
-
-This gives the community a guaranteed reaction window
-before content becomes part of settled consensus.
+When REVOKED, the post's payload is stripped (not
+retransmitted).
+The post hash remains in the DAG (metadata only).
+If the post later receives enough likes to reverse the
+condition, it returns to ACCEPTED.
 
 ## Block States
 
-A block's acceptance depends on its author's reputation
-at the time of consensus evaluation:
+A post has three possible states:
 
-| State   | Meaning                                      |
-|---------|----------------------------------------------|
-| LINKED  | Author had enough reps; visible in consensus |
-| BLOCKED | Author's reps too low; invisible             |
+| State    | Meaning                                       |
+|----------|-----------------------------------------------|
+| ACCEPTED | Author has reps; linked in DAG                |
+| BLOCKED  | Author's reps too low; not linked             |
+| REVOKED  | dislikes >= 3 AND dislikes > likes; no payload|
 
-A BLOCKED post can become LINKED if the author later
-receives enough likes.
-A LINKED post can become BLOCKED if the author receives
-dislikes that drop their reputation below the threshold.
+### State Machine
+
+```
+start -> reps >= 1 -> ACCEPTED <-> +/- reps -> ACCEPTED
+      -> reps  = 0 -> BLOCKED  -> +1 like   -> ACCEPTED
+                                             -> REVOKED
+ACCEPTED -> dislikes >= 3 AND dislikes > likes -> REVOKED
+REVOKED  -> likes >= dislikes                  -> ACCEPTED
+```
+
+A BLOCKED post can become ACCEPTED if the author
+later receives enough likes.
+A REVOKED post keeps its metadata but loses its
+payload.
 
 ## Storage
 
@@ -152,21 +224,23 @@ Reputation state lives inside each chain repo under
 ```
 <chain-repo>/
   .freechains/
-    genesis.lua            -- genesis block definition
-    likes/                 -- like payload files (created at chain init)
+    genesis.lua
+    likes/
     reps/
-      authors.lua          -- author → internal reputation
-      posts.lua            -- post → internal reputation
+      authors.lua          -- author -> internal reputation
+      posts.lua            -- post -> internal reputation
+    time/
+      posts.lua            -- posts in discount or consolidation
+      authors.lua          -- last consolidation time per author
 ```
 
 The `chains add` command calls `skel()` to create all
 directories and default files before copying genesis input.
-`reps/authors.lua` and `reps/posts.lua` default to
-`return {}`.
+All files in `reps/` and `time/` default to `return {}`.
 Genesis input's `reps/authors.lua` overwrites the default
 (pioneers get initial reps).
 
-All three files are tracked by git (committed).
+All files are tracked by git (committed).
 If deleted, they can be rebuilt by replaying git history.
 
 ### reps/authors.lua
@@ -192,19 +266,89 @@ return {
 }
 ```
 
+### time/posts.lua
+
+Tracks posts in discount period (`"00-12"`) or
+awaiting consolidation (`"12-24"`):
+
+```lua
+return {
+    ["a1b2c3d4..."] = { author="CA6391CE...", time=1710288000, state="00-12" },
+    ["e5f6g7h8..."] = { author="CA6391CE...", time=1710201600, state="12-24" },
+}
+```
+
+- `"00-12"`: post in variable discount period (Rule 2).
+  Discount is recomputed on every commit.
+  When discount ends: refund -1, transition to `"12-24"`.
+- `"12-24"`: discount ended, awaiting 24h consolidation
+  (Rule 1.b).
+  When 24h passed AND author has no other consolidation
+  today: grant +1, cap at 30, remove entry.
+
+### time/authors.lua
+
+Last consolidation timestamp per author (for 1/day
+limit):
+
+```lua
+return {
+    ["CA6391CE..."] = 1710374400,
+}
+```
+
 ### Update frequency
 
-Both files are updated on **every commit** (post or
+All files are updated on **every commit** (post or
 like).
+
+## Processing on Every Commit
+
+```
+on every commit (post, like, or dislike):
+    1. scan time/posts.lua:
+       for each "00-12" entry:
+           recompute discount:
+               subsequent_reps = sum of reps of authors
+                   who posted after this post
+               total_reps = sum of all reps in authors.lua
+               ratio = subsequent_reps / total_reps
+               discount = 43200 * max(0, 1 - 2*ratio)
+           if NOW >= entry.time + discount:
+               authors[entry.author] += 1000
+               entry.state = "12-24"
+       for each "12-24" entry:
+           if NOW >= entry.time + 86400:
+               last = time_authors[entry.author]
+               if last is nil OR entry.time - last >= 86400:
+                   authors[entry.author] += 1000
+                   cap at 30000
+                   time_authors[entry.author] = entry.time
+               remove entry from time/posts.lua
+    2. apply this commit's immediate effects:
+       post:    author.reps -= 1000
+                add entry to time/posts.lua ("00-12")
+       like:    liker.reps -= 1000
+                tax + split to target
+       dislike: liker.reps -= 1000
+                tax + split (negative) to target
+                check revocation threshold
+    3. gate: check author has >= 1 rep (Rule 4.a)
+       -> ACCEPTED or BLOCKED
+    4. cap: clamp all authors at 30000
+    5. write all modified files
+    6. git add + git commit
+```
 
 ## Computation
 
-Reputation is computed by walking the DAG in
-`--date-order`:
+Reputation can be recomputed from scratch by walking
+the DAG in `--date-order`:
 
 ```
 load reps/authors.lua from genesis commit
 for each commit after genesis in git log --date-order:
+    process time effects (discount, consolidation)
     if commit has freechains-like header:
         parse sign, number, target
         liker.reps -= 1000
@@ -217,7 +361,9 @@ for each commit after genesis in git log --date-order:
             target_author.reps += delivered
     elif commit is a regular post:
         author.reps -= 1000
+        add to time tracking
     (skip merge-only commits)
+    cap all authors at 30000
 ```
 
 ## Git Representation
@@ -252,6 +398,64 @@ freechains chain <alias> reps <pubkey-or-hash>
 `reps` returns the external integer (internal // 1000,
 truncated toward zero).
 
+## Test: Time Flow Example
+
+1-pioneer chain, KEY has 30 reps (30000 internal).
+
+```
+t=0:    KEY posts P1 (signed)
+        authors:     KEY=29000 (-1000)
+        time/posts:  P1={author=KEY, time=0, state="00-12"}
+
+t=0:    KEY posts P2 (signed)
+        -- scan "00-12": P1 discount recomputed
+        --   subsequent_reps: KEY posted after P1, KEY has 29000
+        --   total_reps: 29000
+        --   ratio = 29000/29000 = 1.0 >= 0.5
+        --   discount = 0
+        --   NOW(0) >= 0+0 -> refund P1
+        authors:     KEY=29000 (29000+1000-1000)
+        time/posts:  P1={..., state="12-24"}
+                     P2={author=KEY, time=0, state="00-12"}
+
+t=0:    KEY posts P3 (signed)
+        -- scan "00-12": P2 discount = 0 (ratio=1.0) -> refund
+        -- scan "12-24": P1 time=0, NOW=0 < 0+86400 -> wait
+        authors:     KEY=29000 (29000+1000-1000)
+        time/posts:  P1={..., state="12-24"}
+                     P2={..., state="12-24"}
+                     P3={author=KEY, time=0, state="00-12"}
+
+t=24h:  KEY posts P4 (signed)
+        -- scan "00-12": P3 discount = 0 -> refund
+        -- scan "12-24": P1 time=0, NOW=86400 >= 86400
+        --   time_authors[KEY] absent -> grant +1
+        --   authors[KEY] += 1000, cap 30000
+        --   time_authors[KEY] = 0
+        -- scan "12-24": P2 time=0, NOW=86400 >= 86400
+        --   time_authors[KEY] = 0, 0-0 = 0 < 86400
+        --   -> no grant (1/day limit), discard
+        authors:     KEY=30000 (29000+1000+1000-1000, capped)
+        time/posts:  P3={..., state="12-24"}
+                     P4={author=KEY, time=86400, state="00-12"}
+        time/authors: KEY=0
+
+t=48h:  KEY posts P5 (signed)
+        -- scan "00-12": P4 discount = 0 -> refund
+        -- scan "12-24": P3 time=0, NOW=172800 >= 86400
+        --   time_authors[KEY]=0, 0-0=0 < 86400 -> no grant
+        --   discard P3
+        authors:     KEY=30000 (capped)
+        time/posts:  P5={author=KEY, time=172800, state="00-12"}
+        time/authors: KEY=0
+```
+
+Observations:
+- Posts are effectively free in active chains (discount=0)
+- Consolidation grants +1/day, capped at 30
+- Pioneer stays at 30 despite posting (cost refunded)
+- Matches Kotlin test c03/c04 behavior (reps=30 after posts)
+
 ## Related Plans
 
 - [chains.md](chains.md) — chain types and pioneer setup
@@ -261,6 +465,7 @@ truncated toward zero).
 - [layout.md](layout.md) — filesystem layout including
   `.freechains/`
 - [tests.md](tests.md) — Sections C, M, N test reputation
+- [references.md](references.md) — papers, docs, guides
 
 ## Done
 
@@ -268,6 +473,12 @@ truncated toward zero).
 - [x] Plan: 10% tax on likes
 - [x] Plan: like/dislike split subcommands
 - [x] Plan: self-like allowed
+- [x] Plan: variable discount (0-12h, Rule 2)
+- [x] Plan: consolidation regrant (+1/day, Rule 1.b)
+- [x] Plan: 3 block states (ACCEPTED/BLOCKED/REVOKED)
+- [x] Plan: 30-rep cap (Rule 4.b)
+- [x] Plan: revocation threshold (Rule 3.b)
+- [x] Plan: time/ storage (posts.lua, authors.lua)
 - [x] Tests: cli-like.lua (like command structure)
 - [x] Tests: reps.lua (reputation math)
 - [x] Impl: like/dislike commands in src/freechains
@@ -277,9 +488,17 @@ truncated toward zero).
 
 ## TODO
 
+- [ ] Impl: time/ dir created by skel()
+- [ ] Impl: gate check (Rule 4.a, >= 1 rep to post)
+- [ ] Impl: variable discount engine (Rule 2)
+- [ ] Impl: consolidation engine (Rule 1.b)
+- [ ] Impl: 30-rep cap (Rule 4.b)
+- [ ] Impl: revocation state (Rule 3.b)
+- [ ] Impl: 128 KB size limit (Rule 4.c)
 - [ ] Impl: reps command in src/freechains
-- [ ] Impl: reputation engine (update reps files on
-  commit)
-- [ ] Impl: 12h maturation rule
-- [ ] Tests: 12h maturation
+- [ ] Tests: variable discount (0-12h)
+- [ ] Tests: consolidation (+1/day, 24h)
+- [ ] Tests: 30-rep cap
+- [ ] Tests: revocation threshold
+- [ ] Tests: time flow example (above)
 - [ ] Tests: author-targeted likes
