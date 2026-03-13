@@ -122,12 +122,12 @@ This prevents reputation cycling exploits
 See [time.md](time.md) for full details on time source
 (committer timestamp), trust model, and validation.
 
-Reputation gained from likes does **not** materialize
-immediately.
-It only becomes visible after **12 hours** have elapsed
-since the like commit's committer timestamp.
+A post must sit in the DAG for **12 hours** before it is
+considered settled. During this window the community can
+evaluate the post and potentially dislike it.
 
-This prevents rapid reputation inflation exploits.
+This gives the community a guaranteed reaction window
+before content becomes part of settled consensus.
 
 ## Block States
 

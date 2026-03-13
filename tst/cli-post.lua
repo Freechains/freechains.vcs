@@ -2,9 +2,9 @@
 
 require "tests"
 
-local DIR = ROOT .. "/chains/cli-chain/"
+local DIR = ROOT .. "/chains/cli-post/"
 
-exec(EXE .. " chains add cli-chain dir " .. GEN)
+exec(EXE .. " chains add cli-post dir " .. GEN)
 
 -- POST FILE
 do
@@ -13,7 +13,7 @@ do
     do
         TEST "post file success"
         local out, code = exec (
-            EXE .. " chain cli-chain post file hello.txt"
+            EXE .. " chain cli-post post file hello.txt"
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -44,7 +44,7 @@ do
         f:write("hello world updated\n")
         f:close()
         local hash2, code = exec (
-            EXE .. " chain cli-chain post file " .. tmp
+            EXE .. " chain cli-post post file " .. tmp
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(hash1 ~= hash2, "hashes should differ")
@@ -57,7 +57,7 @@ do
         f:write("second file\n")
         f:close()
         exec (
-            EXE .. " chain cli-chain post file " .. tmp
+            EXE .. " chain cli-post post file " .. tmp
         )
         local _, code1 = exec (
             "test -f " .. DIR .. "/hello.txt"
@@ -77,7 +77,7 @@ do
     do
         TEST "inline auto-name"
         local out, code = exec (
-            EXE .. " chain cli-chain post inline 'Quick note'"
+            EXE .. " chain cli-post post inline 'Quick note'"
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -98,7 +98,7 @@ do
     do
         TEST "inline --file creates file"
         local _, code = exec (
-            EXE .. " chain cli-chain post inline 'Line 1'"
+            EXE .. " chain cli-post post inline 'Line 1'"
             .. " --file log.txt"
         )
         assert(code == 0, "exit code: " .. tostring(code))
@@ -109,7 +109,7 @@ do
     do
         TEST "inline --file appends"
         local _, code = exec (
-            EXE .. " chain cli-chain post inline 'Line 2'"
+            EXE .. " chain cli-post post inline 'Line 2'"
             .. " --file log.txt"
         )
         assert(code == 0, "exit code: " .. tostring(code))
@@ -125,7 +125,7 @@ do
     do
         TEST "inline --why sets commit message"
         exec (
-            EXE .. " chain cli-chain post inline 'some text'"
+            EXE .. " chain cli-post post inline 'some text'"
             .. " --why 'reason for posting'"
         )
         local msg = exec("git -C " .. DIR .. " log -1 --format=%s")
@@ -139,7 +139,7 @@ do
         f:write("why test content\n")
         f:close()
         exec (
-            EXE .. " chain cli-chain post file " .. tmp
+            EXE .. " chain cli-post post file " .. tmp
             .. " --why 'file reason'"
         )
         local msg = exec("git -C " .. DIR .. " log -1 --format=%s")
@@ -148,7 +148,7 @@ do
 
     do
         TEST "post without --why has empty message"
-        exec(EXE .. " chain cli-chain post inline 'no reason'")
+        exec(EXE .. " chain cli-post post inline 'no reason'")
         local msg = exec("git -C " .. DIR .. " log -1 --format=%s")
         assert(msg == "freechains: post", "commit message should be empty: " .. msg)
     end

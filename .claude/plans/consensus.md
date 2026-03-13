@@ -67,6 +67,53 @@ leaves no merge state — no abort needed.
 | Conflict (code 1)    | yes        | yes          |
 | Unrelated (code 128) | no         | no           |
 
+## Hard Fork Rule
+
+A **hard fork** occurs when a local branch crosses either
+activity threshold:
+
+- **7 days** of elapsed time, OR
+- **100 posts**
+
+When this threshold is crossed, the local branch takes
+priority and is ordered first — **regardless of the remote
+branch's reputation**. The two peers permanently disagree
+on consensus ordering and cannot converge.
+
+### Branch Merge Ordering (precedence)
+
+1. **Activity threshold** — if local branch crosses 7 days
+   or 100 posts, it wins unconditionally (hard fork)
+2. **Reputation** — whichever branch has more reputation in
+   the common prefix is ordered first
+3. **Tiebreaker** — lexicographical order of hashes
+
+### Stable vs Unstable Consensus
+
+- **Stable**: posts that have crossed the activity threshold
+  are frozen permanently in the local ordering
+- **Unstable**: recent posts (below the threshold) may still
+  be reordered by incoming branches
+
+Stable consensus freezes the order progressively — the
+threshold operates backward from the newest local post,
+freezing older posts as permanent. This creates checkpoints
+for efficient reputation caching.
+
+### Test Coverage
+
+| Test              | Scenario                                    | Result   |
+|-------------------|---------------------------------------------|----------|
+| `n03_merge_ok`    | 6 concurrent posts, no time gap             | converge |
+| `n04_merge_fail`  | 101 concurrent posts per peer (>100)        | diverge  |
+| `n05_merge_fail`  | 8 days apart (>7 days)                      | diverge  |
+| `n05_merge_ok`    | 3 pioneers, concurrent posts, within limits | converge |
+
+### Reference
+
+SBSeg-23 paper: `fsantanna-no/sbseg-23` — Section on
+consensus merge rules.
+
 ## Pipeline Summary
 
 ```
