@@ -5,6 +5,29 @@ local VERSION = "v0.20"
 local argparse = require "argparse"
 local common   = require "common"
 
+local function skel (rand, path)
+    exec (true,
+        "mkdir -p " .. path .. "/.freechains/likes"
+    )
+    exec (true,
+        "mkdir -p " .. path .. "/.freechains/reps"
+    )
+    do
+        local f = io.open(path .. "/.freechains/random", "w")
+        f:write(tostring(rand) .. "\n")
+        f:close()
+    end
+    do
+        local f = io.open(path .. "/.freechains/likes/.gitkeep", "w")
+        f:close()
+    end
+    for _, name in ipairs{"authors", "posts"} do
+        local f = io.open(path .. "/.freechains/reps/" .. name .. ".lua", "w")
+        f:write("return {}\n")
+        f:close()
+    end
+end
+
 math.randomseed()
 
 local parser = argparse()
@@ -115,29 +138,16 @@ do
 end
 
 local args = parser:parse()
-local now  = args.now or os.time()
 
-local function skel (rand, path)
-    exec (true,
-        "mkdir -p " .. path .. "/.freechains/likes"
+local NOW = os.time()
+local DATE = ""
+
+if args.now then
+    NOW = args.now
+    DATE = (
+        "GIT_AUTHOR_DATE=$(date -u -d @" .. NOW .. " --iso-8601=seconds) " ..
+        "GIT_COMMITTER_DATE=$(date -u -d @" .. NOW .. " --iso-8601=seconds) "
     )
-    exec (true,
-        "mkdir -p " .. path .. "/.freechains/reps"
-    )
-    do
-        local f = io.open(path .. "/.freechains/random", "w")
-        f:write(tostring(rand) .. "\n")
-        f:close()
-    end
-    do
-        local f = io.open(path .. "/.freechains/likes/.gitkeep", "w")
-        f:close()
-    end
-    for _, name in ipairs{"authors", "posts"} do
-        local f = io.open(path .. "/.freechains/reps/" .. name .. ".lua", "w")
-        f:write("return {}\n")
-        f:close()
-    end
 end
 
 if args.chains then
@@ -177,15 +187,8 @@ if args.chains then
                 "git -C " .. tmp .. " add .freechains/"
             )
 
-            local dt = args.now and
-                (
-                    "GIT_AUTHOR_DATE=$(date -u -d @" .. now .. " --iso-8601=seconds) " ..
-                    "GIT_COMMITTER_DATE=$(date -u -d @" .. now .. " --iso-8601=seconds) "
-                )
-                or ""
-
             exec (true,
-                dt .. "git -C " .. tmp .. ' commit --allow-empty-message -m ""'
+                DATE .. "git -C " .. tmp .. ' commit --allow-empty-message -m ""'
             )
 
             local hash = exec (true,
@@ -280,7 +283,7 @@ elseif args.chain then
                     local hash = exec (true,
                         "printf '%s' '" .. text .. "' | git hash-object --stdin"
                     )
-                    files = "post-" .. now .. "-" .. hash:sub(1,8) .. ".txt"
+                    files = "post-" .. NOW .. "-" .. hash:sub(1,8) .. ".txt"
                     local f = io.open(REPO .. files, "w")       -- truncates
                     f:write(text)
                     f:close()
@@ -334,7 +337,7 @@ elseif args.chain then
             local blob = exec (true,
                 "printf '%s' '" .. payload .. "' | git hash-object --stdin"
             )
-            files = ".freechains/likes/like-" .. now .. "-" .. blob:sub(1,8) .. ".lua"
+            files = ".freechains/likes/like-" .. NOW .. "-" .. blob:sub(1,8) .. ".lua"
             local f = io.open(REPO .. files, "w")
             f:write(payload)
             f:close()
@@ -395,9 +398,8 @@ elseif args.chain then
         end
 
         local msg = args.why or ""
-        local dt = args.now and ("GIT_AUTHOR_DATE=$(date -u -d @" .. now .. " --iso-8601=seconds) GIT_COMMITTER_DATE=$(date -u -d @" .. now .. " --iso-8601=seconds) ") or ""
         exec (true,
-            dt .. "git -C " .. REPO .. s1 .. " commit" .. s2 .. " --trailer 'freechains: " .. kind .. "'" .. " --allow-empty-message" .. " -m '" .. msg .. "'"
+            DATE .. "git -C " .. REPO .. s1 .. " commit" .. s2 .. " --trailer 'freechains: " .. kind .. "'" .. " --allow-empty-message" .. " -m '" .. msg .. "'"
         )
 
         local hash = exec (true,
