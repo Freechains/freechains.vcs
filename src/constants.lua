@@ -1,6 +1,7 @@
 local s   = 1
 local min = 60 * s
 local h   = 60 * min
+local u   = 1000
 
 return {
     time = {
@@ -10,10 +11,10 @@ return {
         hardfork      = 7*24*h,     -- branch divergence limit
     },
     reps = {
-        scale   = 1000,             -- 1 ext rep = 1000 internal
-        pioneer = 30000,            -- 30 ext split among pioneers
-        cost    = 1000,             -- 1 ext per signed post
-        max     = 30000,            -- 30 ext cap per author
+        scale   = 1*u,              -- 1 ext rep = 1000 internal
+        pioneer = 30*u,             -- 30 ext split among pioneers
+        cost    = 1*u,              -- 1 ext per signed post
+        max     = 30*u,             -- 30 ext cap per author
     },
     like = {
         tax   = 10,                 -- 10% burned on likes
