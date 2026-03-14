@@ -318,6 +318,114 @@ batch of incoming content is bad.
 
 ---
 
+## 6. Distributed Merge Properties
+
+### Non-Determinism of Merge Commit Hashes
+
+When two peers independently produce a merge of the same
+logical tips, their resulting merge commit SHAs will differ:
+
+```
+Peer A: merge(x, y) → z_A
+Peer B: merge(x, y) → z_B
+
+SHA(z_A) ≠ SHA(z_B)
+```
+
+Git's commit hash is computed over the full commit object,
+which includes author, committer, and timestamp fields. Two
+independent peers cannot produce the same SHA for a newly
+minted commit object, even if the tree and parent references
+are identical.
+
+**This is not a problem for Freechains.** The protocol
+requires content agreement, not pointer agreement.
+
+### Tip Divergence is Normal
+
+When both peers are actively producing data:
+
+- Peer A and peer B will independently merge divergent tips
+  and produce different merge commit hashes
+- Both peers will have the same content reachable from their
+  respective tips
+- Their local tip pointers will differ
+
+This is expected behavior. Tip divergence between active
+peers is not a failure state. The protocol only requires:
+
+- Content is eventually shared across peers via gossip
+- Rep-based conflict resolution is deterministic so peers
+  independently reach the same content
+- **Idle peers converge** by fast-forwarding to the remote
+  tip
+
+Eventually one side becomes idle and fast-forwards to the
+remote, achieving tip convergence. There is no need for a
+globally canonical tip hash at any point.
+
+### The "Recursion" Non-Problem
+
+A concern can be raised that tip divergence leads to
+recursive merging:
+
+```
+Round 1: A merges (a, b) → x;  B merges (b, a) → y
+Round 2: A merges (x, y) → z_A;  B merges (x, y) → z_B
+Round 3: ...
+```
+
+This recursion is not a problem because:
+
+- Each round the set of content commits is finite and
+  already shared
+- Git's content-addressing guarantees no commit is
+  duplicated — a commit appearing in multiple branches
+  appears exactly once as an object
+- What differs across peers is only DAG traversal order,
+  not content
+- The recursion terminates naturally as peers become idle
+  and fast-forward
+- No canonical tip hash is required at any round
+
+### Back-Compatibility with Vanilla Git
+
+| Operation                  | Compat | Notes                        |
+|----------------------------|--------|------------------------------|
+| `git clone` / `git fetch`  | Yes    | Freechains commits are valid |
+| `git log`, `git show`      | Yes    | Extra headers preserved      |
+| `git push` (vanilla client)| No     | Missing headers + signature  |
+| `git merge` (vanilla)      | No     | Unsigned, headerless commit  |
+
+Read compatibility is high. Write compatibility is
+intentionally broken at the transport boundary via Git hooks
+(`pre-receive`, `update`), which enforce Freechains protocol
+invariants.
+
+### Key Conclusions
+
+- **Merge commits are necessary** when both branches'
+  histories must be preserved. Fast-forwarding to the winner
+  would silently drop the other branch's commits from
+  reachable history.
+- **Non-deterministic merge commit hashes are not a
+  problem** because Freechains requires content agreement,
+  not tip hash agreement.
+- **Tip divergence between active peers is normal** and
+  resolves naturally when one side becomes idle and
+  fast-forwards.
+- **Rep-based ours/theirs resolution is deterministic** —
+  any peer given the same inputs reaches the same content,
+  independent of merge commit hash.
+- **Git fast-forward remains the consensus-safe operation**
+  for idle peers converging on a remote. Merge is used only
+  when actively integrating divergent tips.
+- **The losing branch is only discarded on merge failure**,
+  not on merge success. Ours/theirs is a conflict resolution
+  strategy, not a branch deletion strategy.
+
+---
+
 ## Related Plans
 
 - [trailer.md](trailer.md) — `Freechains-Peer:` on merges
