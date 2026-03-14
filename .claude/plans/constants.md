@@ -22,4 +22,4 @@ all occurrences. Then delete `hardcoded.md`.
 - [x] Step 1: Create `src/constants.lua`
 - [x] Step 2: Edit `src/freechains`
 - [x] Step 3: Delete `.claude/plans/hardcoded.md`
-- [ ] Verification: run tests
+- [x] Verification: run tests

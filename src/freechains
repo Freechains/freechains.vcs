@@ -382,7 +382,7 @@ elseif args.chain then
                 local posts = dofile(REPO .. "/.freechains/reps/posts.lua")
                 files = files .. " .freechains/reps/posts.lua"
 
-                local num = args.number * C.reps.scale
+                local num = args.number * C.reps.unit
                 authors[args.sign] = (authors[args.sign] or 0) - num
 
                 if args.dislike then
