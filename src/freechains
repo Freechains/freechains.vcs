@@ -357,7 +357,7 @@ elseif args.chain then
                 "git -C " .. REPO .. " log -1 --format=%at"
             )))
             assert(date, "bug found : date is not a number")
-            if NOW < date-C.TOLERANCE then
+            if NOW < date-C.time.tolerance then
                 ERROR("chain " .. kind .. " : cannot be older than parent")
             end
         end
@@ -375,28 +375,28 @@ elseif args.chain then
 
             if kind == "post" then
                 if args.sign then
-                    authors[args.sign] = (authors[args.sign] or 0) - C.POST_COST
+                    authors[args.sign] = (authors[args.sign] or 0) - C.reps.cost
                 end
 
             elseif kind == "like" then
                 local posts = dofile(REPO .. "/.freechains/reps/posts.lua")
                 files = files .. " .freechains/reps/posts.lua"
 
-                local num = args.number * C.SCALE
+                local num = args.number * C.reps.scale
                 authors[args.sign] = (authors[args.sign] or 0) - num
 
                 if args.dislike then
                     num = -num
                 end
 
-                num = num * (100 - C.LIKE_TAX) // 100     -- apply tax
+                num = num * (100 - C.like.tax) // 100     -- apply tax
 
                 if args.target == "post" then
                     local a = exec (true,
                         "git -C " .. REPO .. " log -1 --format='%GK' " .. args.id
                     )
-                    authors[a] = (authors[a] or 0) + num // C.LIKE_SPLIT
-                    posts[args.id] = (posts[args.id] or 0) + num // C.LIKE_SPLIT
+                    authors[a] = (authors[a] or 0) + num // C.like.split
+                    posts[args.id] = (posts[args.id] or 0) + num // C.like.split
                     write(posts, REPO.."/.freechains/reps/posts.lua")
                 else
                     authors[args.id] = (authors[args.id] or 0) + num
