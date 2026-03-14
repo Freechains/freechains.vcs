@@ -426,6 +426,211 @@ invariants.
 
 ---
 
+## 7. Merge Strategies & Consensus Implications
+
+### Why Merge Breaks Consensus
+
+When two peers independently run `git merge` on the same
+pair of branches, the result can differ depending on:
+
+- The merge **strategy** chosen (`recursive`, `ort`,
+  `octopus`…)
+- The **local commit ordering** (which may differ between
+  peers after sync)
+- **Conflict resolution** — if conflicts exist, each peer
+  may resolve them differently, producing a merge commit
+  with a **different hash**
+
+After sync, a chain has multiple HEADs. To get a canonical
+HEAD, someone must create a merge commit. But:
+
+1. Any peer can create that commit → different hashes →
+   forks
+2. The merge commit itself needs signing → only the chain
+   owner can sign → **centralization**
+3. Two peers synchronizing independently produce different
+   merge commits even with identical content → **chain
+   split**
+
+### Consensus Requires Total Order
+
+Git merge produces **partial order** — it says "X and Y
+converged into Z", but says nothing about which of X or Y
+came "first" globally. For Freechains:
+
+- **Likes/dislikes** depend on ordering: the same block
+  receiving a like before or after a reputation threshold
+  produces different outcomes
+- **Spam resistance** depends on cumulative counts — order
+  matters
+- Merge gives no guarantee that all peers calculate the same
+  reputation for the same block
+
+### Merge Options vs Consensus
+
+#### `--ff` (fast-forward)
+
+No merge commit is created — Git just moves the HEAD
+pointer.
+
+```
+Before:  A - B - C  (main)
+                  \
+                   D - E  (feature)
+
+After:   A - B - C - D - E  (main)
+```
+
+**For consensus:** the only safe Git merge operation.
+Deterministic, no new commit, preserves existing hashes.
+But it only applies when linearity already exists.
+
+#### `--no-ff` (explicit merge commit)
+
+Always creates a merge commit even when fast-forward would
+be possible. The merge commit hash depends on timestamp,
+author, and resulting tree — **non-deterministic between
+peers.**
+
+#### `--squash`
+
+Collapses all commits from the source branch into a single
+new commit. **Worse than `--no-ff`** — loses the identity
+of original commits entirely. Any peer that had them
+individually can no longer reconcile with the squashed
+state.
+
+### Rebase — The Most Dangerous Operation
+
+Rebase **rewrites commits** — it takes commits from one
+branch and re-applies them on top of another point,
+producing **new commits with new hashes.**
+
+```
+Before:  A - B - C  (main)
+              \
+               D - E  (feature)
+
+After:   A - B - C - D' - E'  (feature)
+```
+
+`D'` and `E'` carry the same content as `D` and `E` but
+are **entirely different objects** with different hashes.
+
+| Variant              | Description                       |
+|----------------------|-----------------------------------|
+| `git rebase`         | Linear, replays commits one by one|
+| `git rebase -i`      | Interactive — reorder, squash, edit|
+| `git rebase --onto`  | Rebase onto arbitrary point       |
+
+**For consensus:** rebase violates the immutability that
+Freechains requires. If one peer rebases and another does
+not, the same content blocks have different hashes — the
+DAG diverges irreconcilably. There is no recovery path
+without treating one peer's history as authoritative.
+
+### Three-Way Merge Algorithm
+
+For every file, Git compares three versions: the common
+ancestor (BASE), side A, and side B:
+
+| BASE | A | B | Result          |
+|------|---|---|-----------------|
+| X    | X | X | X (no change)   |
+| X    | Y | X | Y (only A changed) |
+| X    | X | Y | Y (only B changed) |
+| X    | Y | Y | Y (both same)   |
+| X    | Y | Z | **CONFLICT**    |
+
+### `recursive` Strategy
+
+When there are multiple common ancestors (multiple LCAs),
+merge them **first** to produce a virtual common ancestor,
+then run a normal three-way merge using that synthetic base.
+
+```
+Common ancestors: M1, M2
+
+Step 1: merge(M1, M2) → VIRTUAL_BASE
+Step 2: three-way merge(A, B, VIRTUAL_BASE)
+```
+
+This can recurse — if M1 and M2 also have multiple common
+ancestors, the process repeats. Hence the name.
+
+The virtual merge is temporary, exists only in memory.
+But it **can have internal conflicts** resolved
+automatically using `ours` — which introduces **silent
+bias** depending on which branch is considered "current".
+
+### `ort` Strategy (Ostensibly Recursive's Twin)
+
+Introduced in Git 2.34 as a drop-in replacement for
+`recursive`. Conceptually identical — same LCA, same
+virtual ancestor — but completely reimplemented.
+
+`recursive` had a fundamental architectural flaw: it
+**modified the working tree and index** during the merge
+calculation itself. `ort` cleanly separates merge
+calculation from filesystem application:
+
+```
+recursive:  calculate → apply → calculate → apply
+ort:        calculate everything → apply everything
+```
+
+Concrete improvements: more accurate rename detection,
+explicit rename/rename and rename/delete conflict handling,
+improved submodule merges, better performance.
+
+### Why `recursive`/`ort` Are Non-Deterministic
+
+Two peers with identical history can arrive at **different
+virtual ancestors**:
+
+1. **Order of LCA merging** — if there are 3 LCAs, the
+   order in which they are merged pairwise affects the
+   result; the spec does not mandate a canonical ordering
+2. **Internal conflict resolution** — conflicts inside the
+   virtual merge are resolved with `ours`, which depends on
+   which branch is "current" — and that depends on the
+   peer's local checkout state
+
+Different virtual ancestors → different merge base →
+different conflict resolution → different merge commits →
+**different hashes**.
+
+### Summary: Operations vs Consensus
+
+| Operation            | New hash? | Preserves history? | Deterministic? |
+|----------------------|-----------|--------------------|----------------|
+| fast-forward merge   | No        | Yes                | Yes            |
+| `--no-ff` merge      | Yes       | Yes                | No             |
+| `--squash` merge     | Yes       | No                 | No             |
+| rebase               | Yes       | Partially          | No             |
+| `recursive` / `ort`  | Yes       | Yes                | No             |
+
+### Architectural Consequence
+
+**Fast-forward is the only Git merge operation compatible
+with consensus** — and it only applies when no divergence
+exists, meaning the chain is already linear.
+
+- Git must be used strictly as **transport and immutable
+  block storage**
+- All DAG ordering logic — resolving multiple HEADs after
+  sync, determining canonical sequence, computing
+  reputation — must live in the **Freechains protocol
+  layer**, outside Git
+- Git hooks may trigger Freechains processing, but Git
+  itself must never be asked to resolve divergence
+
+This mirrors the approach taken by Radicle: avoid merge
+entirely, work with independent refs, and let the
+higher-level protocol define what "current state" means.
+
+---
+
 ## Related Plans
 
 - [trailer.md](trailer.md) — `Freechains-Peer:` on merges
