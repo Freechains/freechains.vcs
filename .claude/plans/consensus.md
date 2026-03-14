@@ -26,21 +26,15 @@ consensus-level rules that git doesn't know about:
 ## Merge (after validation)
 
 `git merge` integrates validated commits.
-The pre-merge-commit hook (see merge-hook.md) runs as a
-final safety net before creating the merge commit.
+The `pre-merge-commit` hook (see [merge.md](merge.md) §3)
+runs as a final safety net before creating the merge commit.
 
 ## Trust Levels
 
-| Peer type | Fetch validation   | Merge              |
-|-----------|--------------------|--------------------|
-| Owner     | no-op (full trust) | direct merge       |
-| Non-owner | signatures, rep, DAG | merge after pass |
-
-Owner-to-owner replication skips freechains validation
-entirely — both peers share the same key material and
-trust each other fully.
-
-Non-owner validation is future scope.
+See [replication.md](replication.md) for the full
+owner/non-owner trust table. Owner-to-owner replication
+skips freechains validation entirely. Non-owner validation
+is future scope.
 
 ## Dry-run Merge Check
 

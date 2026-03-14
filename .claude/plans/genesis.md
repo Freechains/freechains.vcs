@@ -1,8 +1,8 @@
 # Genesis Block
 
-## Status: In progress
+## Status: Done
 
-CLI implementation pending in `src/freechains`.
+CLI implemented in `src/freechains`.
 
 ## Spec
 

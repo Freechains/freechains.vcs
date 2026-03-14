@@ -53,56 +53,8 @@
 | Author's page    | https://fsantanna.github.io/                           |
 | Author's Twitter | https://twitter.com/_fsantanna                         |
 
-## Key Rules Quick Reference (SBSeg 2023, Table 2)
+## Reputation Rules
 
-| Rule | Name     | Effect                 | Key detail                                                                    |
-|------|----------|------------------------|-------------------------------------------------------------------------------|
-| 1.a  | pioneers | +30 reps split equally | Bootstrap                                                                     |
-| 1.b  | old post | +1 rep to author       | 24h to consolidate; 1 per day per author                                      |
-| 2    | new post | -1 rep temporarily     | Discount 0-12h, proportional to subsequent reputed activity;                  |
-|      |          |                        | 0 if >=50% total reps active after it; 12h if no activity                     |
-| 3.a  | like     | -1 origin, +1 target   | Targets: post + author                                                        |
-| 3.b  | dislike  | -1 origin, -1 target   | >=3 dislikes AND more dislikes than likes -> contents hidden                  |
-| 4.a  | min      | need >=1 rep to post   | Sybil gate                                                                    |
-| 4.b  | max      | capped at 30 reps      | Incentivizes spending                                                         |
-| 4.c  | size     | <=128 KB per post      | DDoS prevention                                                               |
-
-## Block States (SBSeg 2023, Figure 3)
-
-```
-start -> reps > 0 -> ACCEPTED <-> +/- reps
-      -> reps = 0 -> BLOCKED  -> +1 like -> ACCEPTED
-                                          -> REVOKED (no payload)
-```
-
-## Variable Discount Period (Rule 2, Key Formula)
-
-From SBSeg 2023 paper, Table 2 observation:
-
-> The discount period varies from 0 to 12 hours and is
-> proportional to the sum of authors' reps in subsequent
-> posts.
-> It is 12 hours with no further activity.
-> It is zero if further active authors concentrate at
-> least 50% of the total reputation in the chain.
-
-```
-subsequent_reps = sum of reps of authors who posted after this post
-total_reps      = total reputation in the chain
-ratio           = subsequent_reps / total_reps
-
-discount_hours  = 12 * max(0, 1 - ratio/0.5)
-                = 12 * max(0, 1 - 2*ratio)
-
-Examples:
-    ratio = 0.0  -> 12h  (no activity)
-    ratio = 0.25 ->  6h  (25% of reps active)
-    ratio = 0.5  ->  0h  (50%+ of reps active)
-```
-
-## Consolidation (Rule 1.b)
-
-After the discount period ends AND 24h have passed since
-the author's previous consolidated post, the post
-consolidates and grants +1 rep to the author.
-Only 1 consolidated post per author per day counts.
+See [reps.md](../plans/reps.md) for the full reputation
+specification (rules, block states, discount formula,
+consolidation).

@@ -25,61 +25,61 @@ already merged B's content), C sees A's merge commit with
 A's parent ordering intact. C then creates its own merge.
 The chain preserves local/remote distinction at each hop.
 
-### Estratégias (`-s`)
-- **`ort`** (padrão atual): detecta renomeações, lida bem com merges cruzados.
-- **`recursive`**: antigo padrão, merge three-way recursivo.
-- **`resolve`**: mais simples, um único ancestral comum.
-- **`octopus`**: múltiplos branches ao mesmo tempo, não aceita conflitos manuais.
-- **`ours`**: ignora completamente o outro branch — mantém HEAD integralmente.
-- **`subtree`**: variante do `ort` para subárvores de diretório.
+### Strategies (`-s`)
+- **`ort`** (current default): detects renames, handles criss-cross merges well.
+- **`recursive`**: old default, recursive three-way merge.
+- **`resolve`**: simplest, single common ancestor.
+- **`octopus`**: multiple branches at once, no manual conflicts.
+- **`ours`**: ignores the other branch entirely — keeps HEAD as-is.
+- **`subtree`**: variant of `ort` for directory subtrees.
 
-### Opções de Desempate (`-X`)
-Atuam **somente nas partes em conflito** — mudanças não conflitantes entram normalmente.
+### Tiebreak Options (`-X`)
+Apply **only to conflicting hunks** — non-conflicting changes merge normally.
 
-- **`-X ours`**: em conflito, vence o lado do HEAD.
-- **`-X theirs`**: em conflito, vence o lado do branch mergeado.
-- **`-X ignore-space-change`** / **`ignore-all-space`**: ignora diferenças de espaçamento.
+- **`-X ours`**: on conflict, HEAD side wins.
+- **`-X theirs`**: on conflict, merged branch side wins.
+- **`-X ignore-space-change`** / **`ignore-all-space`**: ignores whitespace differences.
 
-> **Distinção importante:**
-> | Mecanismo | Escopo |
+> **Important distinction:**
+> | Mechanism | Scope |
 > |---|---|
-> | `-X ours` / `-X theirs` | Só resolve o empate nos conflitos |
-> | `-s ours` | Descarta tudo do outro branch |
+> | `-X ours` / `-X theirs` | Only resolves conflicting hunks |
+> | `-s ours` | Discards everything from the other branch |
 
-### Atributos de Merge (`.gitattributes`)
-Permite definir drivers por tipo de arquivo: `text`, `binary`, `union` (concatena sem conflito), `ours`, ou drivers externos customizados.
+### Merge Attributes (`.gitattributes`)
+Per-file-type merge drivers: `text`, `binary`, `union` (concatenates without conflict), `ours`, or custom external drivers.
 
 ### Rerere
-`git rerere` memoriza resoluções de conflito e as reutiliza automaticamente — útil em rebases repetidos.
+`git rerere` memorizes conflict resolutions and reapplies them automatically — useful for repeated rebases.
 
 ---
 
-## 2. Detectar Conflitos Antes do Merge
+## 2. Detecting Conflicts Before Merge
 
-### `git merge-tree` (melhor opção)
-Faz o merge virtualmente, sem tocar no working tree:
+### `git merge-tree` (best option)
+Performs the merge virtually, without touching the working tree:
 
 ```bash
-git merge-tree --write-tree HEAD branch-alvo
-echo $?   # 0 = sem conflito, 1 = tem conflito
+git merge-tree --write-tree HEAD target-branch
+echo $?   # 0 = no conflict, 1 = has conflict
 ```
 
-Disponível de forma completa a partir do Git 2.38. Ideal para automação e CI.
+Fully available from Git 2.38+. Ideal for automation and CI.
 
 ### `--no-commit --no-ff`
-Faz o merge mas não commita — permite inspecionar antes de confirmar:
+Performs the merge but does not commit — allows inspection before confirming:
 
 ```bash
-git merge --no-commit --no-ff branch-alvo
+git merge --no-commit --no-ff target-branch
 git diff --cached
-git merge --abort   # desfaz tudo
+git merge --abort   # undo everything
 ```
 
-### `git diff` dos branches
-Dá uma visão das divergências (não detecta conflitos diretamente):
+### `git diff` between branches
+Shows divergences (does not detect conflicts directly):
 
 ```bash
-git diff HEAD...branch-alvo
+git diff HEAD...target-branch
 ```
 
 ---
@@ -89,16 +89,66 @@ git diff HEAD...branch-alvo
 ### Merge = sync event
 
 - Merges are always `--no-ff` — an explicit merge commit
-  is created every time (see merge-hook.md)
+  is created every time
 - The merge commit is a **sync event**: "peer X integrated
   remote content at time T"
 - `Freechains-Peer: <pubkey>` trailer identifies the peer
-  (see trailer.md)
+  (see [trailer.md](trailer.md))
 - GPG signing (`-S`) makes it a signed attestation
 - Merge commits are currently **skipped** in reputation
-  computation (reps.md)
+  computation ([reps.md](reps.md))
 - The `pre-merge-commit` hook runs consensus checks before
   the merge is finalized
+
+### `--no-ff` requirement
+
+Fast-forward merges do not create a merge commit, so the
+`pre-merge-commit` hook **does not fire**. All freechains
+merges must use `--no-ff`:
+
+- **Preserves topology** — the group of commits that entered
+  together is visible as a unit. Fast-forward hides the
+  branch in linear history.
+- **Explicit merge point** — a concrete commit where
+  integration happened. Anchor for hooks, audits, and
+  consensus proofs.
+- **Atomic record** — the merge commit can carry metadata
+  (who merged, when, consensus proof) in the message or
+  trailers.
+- **Clean revert** — reverting a `--no-ff` merge is one
+  commit. With fast-forward, each commit must be reverted
+  individually.
+- A merge in a chain is a **deliberate consensus event**,
+  not just "advance the pointer." The merge commit *is* the
+  consensus record.
+- Fast-forward would imply commits were already accepted —
+  skipping the entire validation stage.
+
+### `pre-merge-commit` hook
+
+Runs after the merge commit is prepared but before it is
+finalized. Exiting with non-zero aborts the merge.
+
+```bash
+# .git/hooks/pre-merge-commit
+#!/bin/sh
+if ! ./scripts/check-consensus.sh; then
+  echo "Consensus check failed. Merge aborted."
+  exit 1
+fi
+
+# Reject fast-forward (no merge commit)
+if [ -z "$GIT_MERGE_HEAD" ]; then
+  echo "Fast-forward detected. Use --no-ff for Freechains merges."
+  exit 1
+fi
+```
+
+Other relevant hooks:
+- **`pre-receive`** (server-side) — runs on the server
+  before any ref is updated. Ideal for centralized workflows.
+- **`update`** (server-side) — similar to `pre-receive`,
+  but per branch. More granular.
 
 ### Sync flow
 
@@ -111,47 +161,53 @@ git merge --no-edit FETCH_HEAD             # real merge (--no-ff)
 
 - Never use `git pull` (bypasses validation)
 - Fast-forward skips `pre-merge-commit` hook → must be
-  rejected (see merge-hook.md)
+  rejected
 
-### Resolução de Conflitos por Reputação
+### Conflict Resolution by Reputation
 
 ```
-1. merge-tree --write-tree HEAD branch-alvo
+1. merge-tree --write-tree HEAD target-branch
        │
-       ├── exit 0 → sem conflito → merge normal
-       └── exit 1 → tem conflito → consulta reputação
+       ├── exit 0 → no conflict → normal merge
+       └── exit 1 → conflict → consult reputation
                                         │
                                 ours > theirs?
-                                   ├── sim → merge -X ours
-                                   └── não → merge -X theirs
+                                   ├── yes → merge -X ours
+                                   └── no  → merge -X theirs
 ```
 
-### Bloco de Merge
+### Merge Block
 
-O commit de merge deve registrar no metadata se houve conflito e quem venceu,
-permitindo que outros peers verifiquem a decisão de forma independente:
+The merge commit must record in metadata whether there was
+a conflict and who won, allowing other peers to verify the
+decision independently:
 
 ```
 merge-block:
   parents: [hash-A, hash-B]
   conflict: true | false
-  winner: "ours" | "theirs" | null   # null se não houve conflito
+  winner: "ours" | "theirs" | null   # null if no conflict
   rep-ours: 42
   rep-theirs: 31
 ```
 
-### Considerações
+### Considerations
 
-**Determinismo é crítico.** Todos os peers precisam chegar à mesma decisão.
-Duas abordagens para garantir isso:
-- A reputação usada no desempate é **snapshotada no momento do bloco** e gravada nele.
-- Ou a reputação é calculada **até o ancestral comum** (ponto de consenso entre os dois lados), evitando divergências causadas por estado local diferente.
+**Determinism is critical.** All peers must reach the same
+decision. Two approaches to guarantee this:
+- The reputation used for tiebreaking is **snapshotted at
+  block time** and recorded in the block.
+- Or reputation is computed **up to the common ancestor**
+  (consensus point between both sides), avoiding divergence
+  caused by different local state.
 
-**Empate de reputação** requer critério de desempate secundário determinístico,
-por exemplo: hash do bloco, timestamp, ou ordem lexicográfica dos autores.
+**Reputation tie** requires a deterministic secondary
+tiebreaker, e.g.: block hash, timestamp, or lexicographic
+order of authors.
 
-**Auditabilidade:** gravar `rep-ours` e `rep-theirs` no bloco permite que qualquer
-peer audite a decisão depois, mesmo que a reputação tenha mudado desde então.
+**Auditability:** recording `rep-ours` and `rep-theirs` in
+the block lets any peer audit the decision later, even if
+reputation has changed since then.
 
 ---
 
@@ -264,8 +320,6 @@ batch of incoming content is bad.
 
 ## Related Plans
 
-- [merge-hook.md](merge-hook.md) — `--no-ff` requirement,
-  `pre-merge-commit` hook
 - [trailer.md](trailer.md) — `Freechains-Peer:` on merges
 - [threats.md](threats.md) — T2a merge-witness timestamps
 - [reps.md](reps.md) — Reputation computation (skips merges)

@@ -104,17 +104,11 @@ share the same 1-hour default tolerance.
 
 ## 12-Hour Maturation Rule
 
-A post must sit in the DAG for **12 hours** before it is
-considered settled. During this window the community can
-evaluate the post and potentially dislike it.
-
-```
-if (now - post.committer_timestamp) < 12h:
-    post is not yet settled (reaction window open)
-```
-
-This gives the community a guaranteed window to react
-to new content before it becomes part of settled consensus.
+The 12h variable discount period is specified in full in
+[reps.md](reps.md) (Rule 2). From the timestamp
+perspective: the committer timestamp marks when the post
+entered the DAG, and the discount window is measured from
+that point.
 
 ## Read-Time vs Write-Time Validation
 

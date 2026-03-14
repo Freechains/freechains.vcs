@@ -36,33 +36,8 @@ provide human-readable aliases.
 
 ## Replication Model
 
-Both `config/` and `chains/` use git for replication, but the rules differ based on peer ownership.
-
-### Same-owner peers (owner ↔ owner)
-
-| Directory | Sync method | Rules |
-|---|---|---|
-| `config/` | `git push` / `git fetch+merge` | As-is. Full trust. All files replicate without filtering. |
-| `chains/` | `git push` / `git fetch+merge` (per chain repo) | As-is. Full trust. All blocks replicate without filtering. |
-
-The owner's own peers are extensions of the same node. Config and chains replicate identically — it's the same person on different machines.
-
-### Different-owner peers (owner ↔ other)
-
-| Directory | Sync method | Rules |
-|---|---|---|
-| `config/` | **Never synced** | Config is private to the owner. Other peers never see it. |
-| `chains/` | `git fetch` + freechains merge | Freechains rules apply: reputation, consensus, block acceptance pipeline. Only chains both peers have joined are synced. |
-
-### Summary
-
-```
-owner-peer A  <-- config: git push/pull -->  owner-peer B
-              <-- chains: git push/pull -->
-
-owner-peer A  <-- config: NEVER        -->  other-peer C
-              <-- chains: freechains    -->  other-peer C
-```
+See [replication.md](replication.md) for the full
+owner/non-owner sync rules and trust levels.
 
 ## Chain naming and aliases
 

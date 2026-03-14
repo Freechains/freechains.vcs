@@ -35,7 +35,7 @@ Key specs in `.claude/plans/`:
 |------------------|-----------------------------------------------|
 | `all.md`         | Architecture overview and design rationale     |
 | `git.md`         | Git as database: commit fields, DAG traversal  |
-| `genesis.md`     | Deterministic genesis block specification      |
+| `genesis.md`     | Non-deterministic genesis block specification   |
 | `chains.md`      | Chain types, identification, synchronization   |
 | `layout.md`      | Filesystem layout: config/ + chains/           |
 | `replication.md` | Owner vs non-owner sync rules                  |
@@ -45,5 +45,4 @@ Key specs in `.claude/plans/`:
 | `crypto.md`      | Crypto choices (openssl, luasodium)            |
 | `commands.md`    | Freechains CLI to Git command mapping          |
 | `tests.md`       | Test catalog (58 tests across sections A–X)    |
-| `merge-hook.md`  | Pre-merge-commit consensus verification        |
 | `threats.md`     | Security threat catalog (T1–T6), mitigations   |

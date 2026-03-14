@@ -18,49 +18,19 @@ host multiple author identities but is always one peer.
 
 ## 2. Peer Identity in the DAG
 
-### `Freechains-Peer: <pubkey>` trailer
+Every merge commit carries a `Freechains-Peer: <pubkey>`
+trailer identifying the peer that performed the sync.
+Combined with GPG signing, this is a signed attestation.
 
-Every merge commit carries a trailer identifying the peer
-that performed the sync (see trailer.md):
-
-```
---trailer 'Freechains-Peer: CA6391CE...'
-```
-
-Combined with GPG signing (`git commit -S`), this is a
-signed attestation: "peer X saw this branch state at
-time T."
-
-### Peer track record
-
-Each signed merge is a verifiable act of service — the
-peer fetched, validated consensus, and committed. The
-merge history is countable:
-
-```bash
-git log --grep='Freechains-Peer: <key>'
-```
-
-A peer's merge count is a measure of participation and
-reliability, independent of authoring content. Unlike
-author reputation (which flows from likes), peer
-reputation is earned by doing work that is costly to
-fake — you must actually fetch and validate.
+See [trailer.md](trailer.md) for trailer format and
+peer reputation details.
 
 ---
 
 ## 3. Peer Trust Levels
 
-| Peer type | config/ | chains/               |
-|-----------|---------|-----------------------|
-| Owner     | sync    | git push/fetch+merge  |
-| Other     | never   | freechains rules      |
-
-Owner peers share the same key material — full trust, no
-validation, no consensus checks. See replication.md.
-
-Non-owner peers require signature verification, reputation
-checks, and size limits before accepting content.
+See [replication.md](replication.md) for the full
+owner/non-owner trust table and sync rules.
 
 ---
 

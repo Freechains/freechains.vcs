@@ -71,7 +71,10 @@ Two trust levels. Owner peers sync both `config/` and `chains/` as-is via git pu
 
 ### Genesis Block — [genesis.md](genesis.md)
 
-Deterministic first commit per chain. Canonical Lua-style serialization of `(version, type)` as commit message, zeroed author/date fields. Commit hash = chain identifier. `user` field excluded from hash. Tested in `tst/x1.sh` (26 assertions).
+Non-deterministic first commit per chain (real pubkey +
+current timestamp make each hash unique). Lua table in
+`.genesis.lua` blob, blank author/date fields. Commit
+hash = chain identifier.
 
 ### Reputation — [reps.md](reps.md)
 

@@ -41,7 +41,7 @@ Used in `src/freechains:330` for every chain commit.
 
 - Peers sign merge commits and identify themselves
 - Merge commits already exist at sync time (`--no-ff`
-  required, see merge-hook.md)
+  required, see [merge.md](merge.md) §3)
 - The git author field already records the committer, but
   `Freechains-Peer:` records the peer's **chain-level
   public key** — the identity that matters for reputation
