@@ -26,6 +26,14 @@ local function skel (rand, path)
         f:write("return {}\n")
         f:close()
     end
+    exec (true,
+        "mkdir -p " .. path .. "/.freechains/time"
+    )
+    for _, name in ipairs{"authors", "posts"} do
+        local f = io.open(path .. "/.freechains/time/" .. name .. ".lua", "w")
+        f:write("return {}\n")
+        f:close()
+    end
 end
 
 math.randomseed()
