@@ -6,11 +6,19 @@ local argparse = require "argparse"
 local common   = require "common"
 
 local function skel (rand, path)
+    local function empty (file)
+        local f = io.open(path .. "/.freechains/" .. file, "w")
+        f:write("return {}\n")
+        f:close()
+    end
     exec (true,
         "mkdir -p " .. path .. "/.freechains/likes"
     )
     exec (true,
         "mkdir -p " .. path .. "/.freechains/reps"
+    )
+    exec (true,
+        "mkdir -p " .. path .. "/.freechains/time"
     )
     do
         local f = io.open(path .. "/.freechains/random", "w")
@@ -21,19 +29,10 @@ local function skel (rand, path)
         local f = io.open(path .. "/.freechains/likes/.gitkeep", "w")
         f:close()
     end
-    for _, name in ipairs{"authors", "posts"} do
-        local f = io.open(path .. "/.freechains/reps/" .. name .. ".lua", "w")
-        f:write("return {}\n")
-        f:close()
-    end
-    exec (true,
-        "mkdir -p " .. path .. "/.freechains/time"
-    )
-    for _, name in ipairs{"authors", "posts"} do
-        local f = io.open(path .. "/.freechains/time/" .. name .. ".lua", "w")
-        f:write("return {}\n")
-        f:close()
-    end
+    empty("reps/authors.lua")
+    empty("reps/posts.lua")
+    empty("time/authors.lua")
+    empty("time/posts.lua")
 end
 
 math.randomseed()
