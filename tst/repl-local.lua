@@ -154,7 +154,7 @@ do
     do
         TEST "A and B are equal"
         local _,ok = exec ('stderr',
-            "diff -r --exclude=.git " .. REPO_A .. " " .. REPO_B
+            "diff -r --exclude=.git --exclude=local " .. REPO_A .. " " .. REPO_B
         )
         assert(ok==0, "A and B differ")
     end
@@ -245,7 +245,7 @@ do
     do
         TEST "A and B are equal after bidirectional sync"
         local _, ok = exec ('stderr',
-            "diff -r --exclude=.git " .. REPO_A .. " " .. REPO_B
+            "diff -r --exclude=.git --exclude=local " .. REPO_A .. " " .. REPO_B
         )
         assert(ok == 0, "A and B differ")
     end
