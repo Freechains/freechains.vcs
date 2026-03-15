@@ -43,16 +43,29 @@ function exec (a, b, c)
 end
 
 function serial (t)
-    local keys = {}
-    for k in pairs(t) do
-        keys[#keys+1] = k
+    local function val (v)
+        if type(v) == 'boolean' then
+            return tostring(v)
+        elseif type(v) == 'number' then
+            return tonumber(v)
+        elseif type(v) == 'string' then
+            assert(not string.find(v,'"'))
+            return '"' .. v .. '"'
+        elseif type(v) ~= "table" then
+            error("TODO : unsupported type")
+        else
+            local keys = {}
+            for k in pairs(v) do keys[#keys+1] = k end
+            table.sort(keys)
+            local parts = {}
+            for _, k in ipairs(keys) do
+                local pfx = type(k) == "number" and "[" .. k .. "]=" or '["' .. k .. '"]='
+                parts[#parts+1] = pfx .. val(v[k])
+            end
+            return "{ " .. table.concat(parts, ", ") .. " }"
+        end
     end
-    table.sort(keys)
-    local lines = {}
-    for _, k in ipairs(keys) do
-        lines[#lines+1] = '    ["' .. k .. '"] = ' .. t[k] .. ","
-    end
-    return "return {\n" .. table.concat(lines, "\n") .. "\n}\n"
+    return "return " .. val(t) .. "\n"
 end
 
 function git_config (dir)

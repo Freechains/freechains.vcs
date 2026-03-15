@@ -64,7 +64,7 @@ do
             ENV_EXE .. " chain cli-reps reps author " .. KEY
         )
         assert(code==0, "exit code: " .. tostring(code))
-        assert(out == "27", "reps: " .. out)    -- KEY: 30 -> posts -> 27
+        assert(out == "29", "reps: " .. out)    -- KEY: 30 -> posts -> 29 (discount refunds)
     end
 end
 
@@ -127,9 +127,9 @@ do
             ENV_EXE .. " chain cli-reps reps author " .. KEY2
         )
         assert(code == 0, "exit code: " .. tostring(code))
-        -- KEY2: 15 - 1(post) - 1(dislike penalty) = 13
+        -- KEY2: 15 - 1(post) - 1(dislike) + refunds = 14
         local n = tonumber(out)
-        assert(n < 14, "target should lose reps: " .. out)
+        assert(n == 14, "target should lose reps: " .. out)
     end
 
     exec(ENV_EXE .. " chains rem cli-reps")
