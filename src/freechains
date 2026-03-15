@@ -6,6 +6,16 @@ local argparse = require "argparse"
 local C        = require "constants"
 local common   = require "common"
 
+-- .freechains/
+--   random              -- chain identity seed
+--   genesis.lua         -- chain type, parameters
+--   likes/              -- like/dislike payload files
+--   reps/
+--     authors.lua       -- pubkey → internal reputation
+--     posts.lua         -- commit hash → internal reputation
+--   time/
+--     authors.lua       -- pubkey → last consolidation timestamp
+--     posts.lua         -- entries in 00-12h or 12-24h
 local function skel (rand, path)
     local function empty (file)
         local f = io.open(path .. "/.freechains/" .. file, "w")
@@ -397,7 +407,7 @@ elseif args.chain then
                     end
 
                     local ratio = (tot>0 and cur/tot) or 0
-                    local discount = C.time.halfway * math.max(0, 1 - 2*ratio)
+                    local discount = C.time.half * math.max(0, 1 - 2*ratio)
 
                     if NOW >= entry.time + discount then
                         fc_reps_authors[entry.author] = (fc_reps_authors[entry.author] or 0) + C.reps.cost
