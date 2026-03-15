@@ -115,17 +115,31 @@ When discount ends:
 ### Consolidation (Rule 1.b — Emission)
 
 After the discount period ends AND 24h have passed
-since the post's timestamp AND the author has not
-consolidated another post within 24h:
+since the post's timestamp:
 
 ```
-author.reps += 1000
-cap: author.reps = min(author.reps, 30000)
-record in time/authors.lua
-remove from time/posts.lua
+last = time_authors[author]
+if NOW - last >= 86400:
+    author.reps += 1000
+    time_authors[author] = last + 86400
+    remove from time/posts.lua
+else:
+    keep in time/posts.lua (retry next commit)
 ```
 
-Only **1 consolidated post per author per day** counts.
+Grant slots advance by fixed 24h from last grant,
+not from NOW.
+This prevents "wasting" time if commits are
+infrequent — multiple entries can consolidate in
+one commit if enough 24h slots have elapsed.
+
+The author enters `time/authors.lua` at first signed
+post (`time_authors[author] = NOW`), so `last` is
+never nil during consolidation.
+
+Cap at 30000 is applied after all effects (step 4).
+
+Only **1 consolidated post per author per 24h slot**.
 This is the only way to create new reps in the system.
 
 ### Like / Dislike (Rules 3.a, 3.b — Transfer)
@@ -283,13 +297,15 @@ return {
   When discount ends: refund -1, transition to `"12-24"`.
 - `"12-24"`: discount ended, awaiting 24h consolidation
   (Rule 1.b).
-  When 24h passed AND author has no other consolidation
-  today: grant +1, cap at 30, remove entry.
+  When 24h passed AND author's grant slot is open:
+  grant +1, remove entry.
+  Otherwise keep entry for retry on next commit.
 
 ### time/authors.lua
 
-Last consolidation timestamp per author (for 1/day
-limit):
+Last grant-slot timestamp per author.
+Initialized to NOW on first signed post.
+Advanced by +24h on each consolidation grant:
 
 ```lua
 return {
@@ -320,14 +336,18 @@ on every commit (post, like, or dislike):
        for each "12-24" entry:
            if NOW >= entry.time + 86400:
                last = time_authors[entry.author]
-               if last is nil OR entry.time - last >= 86400:
+               if NOW - last >= 86400:
                    authors[entry.author] += 1000
-                   cap at 30000
-                   time_authors[entry.author] = entry.time
-               remove entry from time/posts.lua
+                   time_authors[entry.author] = last + 86400
+                   remove entry from time/posts.lua
+               else:
+                   keep entry (retry next commit)
+       remove processed entries from time/posts.lua
     2. apply this commit's immediate effects:
        post:    author.reps -= 1000
                 add entry to time/posts.lua ("00-12")
+                if time_authors[author] is nil:
+                    time_authors[author] = NOW
        like:    liker.reps -= 1000
                 tax + split to target
        dislike: liker.reps -= 1000
@@ -488,17 +508,17 @@ Observations:
 
 ## TODO
 
-- [ ] Impl: time/ dir created by skel()
+- [x] Impl: time/ dir created by skel()
 - [ ] Impl: gate check (Rule 4.a, >= 1 rep to post)
-- [ ] Impl: variable discount engine (Rule 2)
-- [ ] Impl: consolidation engine (Rule 1.b)
-- [ ] Impl: 30-rep cap (Rule 4.b)
+- [x] Impl: variable discount engine (Rule 2)
+- [x] Impl: consolidation engine (Rule 1.b)
+- [x] Impl: 30-rep cap (Rule 4.b)
 - [ ] Impl: revocation state (Rule 3.b)
 - [ ] Impl: 128 KB size limit (Rule 4.c)
-- [ ] Impl: reps command in src/freechains
-- [ ] Tests: variable discount (0-12h)
-- [ ] Tests: consolidation (+1/day, 24h)
-- [ ] Tests: 30-rep cap
+- [x] Impl: reps command in src/freechains
+- [x] Tests: variable discount (0-12h)
+- [x] Tests: consolidation (+1/day, 24h)
+- [x] Tests: 30-rep cap
 - [ ] Tests: revocation threshold
 - [ ] Tests: time flow example (above)
 - [ ] Tests: author-targeted likes
