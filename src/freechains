@@ -14,14 +14,6 @@ end
 
 local function stage (REPO, NOW, sign)
     local L = REPO .. ".freechains/local/"
-    if not io.open(L .. "now.lua") then
-        exec (true,
-            "mkdir -p " .. L
-        )
-        local f = io.open(L .. "now.lua", "w")
-        f:write("return 0\n")
-        f:close()
-    end
     local stored = dofile(L .. "now.lua")
     if sign == nil and NOW <= stored then
         return dofile(REPO .. "/.freechains/reps/authors.lua"), dofile(REPO .. "/.freechains/time/posts.lua"), dofile(REPO .. "/.freechains/time/authors.lua")

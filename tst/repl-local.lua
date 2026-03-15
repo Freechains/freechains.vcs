@@ -65,6 +65,19 @@ do
             "ln -s " .. hash .. " " .. ROOT_B .. "/chains/test"
         )
         git_config(REPO_B)
+        exec (
+            "mkdir -p " .. REPO_B .. ".freechains/local"
+        )
+        do
+            local f = io.open(REPO_B .. ".freechains/local/now.lua", "w")
+            f:write("return 0\n")
+            f:close()
+        end
+        do
+            local f = io.open(REPO_B .. ".git/info/exclude", "a")
+            f:write(".freechains/local/\n")
+            f:close()
+        end
     end
 
     do
