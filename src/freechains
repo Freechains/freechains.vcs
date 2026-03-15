@@ -6,6 +6,16 @@ local argparse = require "argparse"
 local C        = require "constants"
 local common   = require "common"
 
+-- .freechains/
+--   random              -- chain identity seed
+--   genesis.lua         -- chain type, parameters
+--   likes/              -- like/dislike payload files
+--   reps/
+--     authors.lua       -- pubkey → internal reputation
+--     posts.lua         -- commit hash → internal reputation
+--   time/
+--     authors.lua       -- pubkey → last consolidation timestamp
+--     posts.lua         -- entries in 00-12h or 12-24h
 local function skel (rand, path)
     local function empty (file)
         local f = io.open(path .. "/.freechains/" .. file, "w")
@@ -357,7 +367,7 @@ elseif args.chain then
                 "git -C " .. REPO .. " log -1 --format=%at"
             )))
             assert(date, "bug found : date is not a number")
-            if NOW < date-C.time.tolerance then
+            if NOW < date-C.time.future then
                 ERROR("chain " .. kind .. " : cannot be older than parent")
             end
         end
@@ -366,6 +376,7 @@ elseif args.chain then
         do
             local fc_reps_authors = dofile(REPO .. "/.freechains/reps/authors.lua")
             local fc_time_posts   = dofile(REPO .. "/.freechains/time/posts.lua")
+            local fc_time_authors = dofile(REPO .. "/.freechains/time/authors.lua")
             files = files .. " .freechains/reps/authors.lua"
 
             local function write (T, file)
@@ -397,7 +408,7 @@ elseif args.chain then
                     end
 
                     local ratio = (tot>0 and cur/tot) or 0
-                    local discount = C.time.discount * math.max(0, 1 - 2*ratio)
+                    local discount = C.time.half * math.max(0, 1 - 2*ratio)
 
                     if NOW >= entry.time + discount then
                         fc_reps_authors[entry.author] = (fc_reps_authors[entry.author] or 0) + C.reps.cost
@@ -406,10 +417,40 @@ elseif args.chain then
                 end
             end
 
+            -- consolidation scan
+            for _, entry in ipairs(fc_time_posts) do
+                if entry.state == "12-24" then
+                    if NOW >= entry.time+C.time.full then
+                        local last = fc_time_authors[entry.author]
+                        if NOW - last >= C.time.full then
+                            fc_reps_authors[entry.author] = (fc_reps_authors[entry.author] or 0) + C.reps.cost
+                            fc_time_authors[entry.author] = last + C.time.full
+                            entry._remove = true
+                        end
+                    end
+                end
+            end
+
+            -- remove consolidated entries
+            local survivors = {}
+            for _, entry in ipairs(fc_time_posts) do
+                if not entry._remove then
+                    survivors[#survivors+1] = entry
+                end
+            end
+            fc_time_posts = survivors
+
             if kind == "post" then
                 if args.sign then
                     fc_reps_authors[args.sign] = (fc_reps_authors[args.sign] or 0) - C.reps.cost
-                    fc_time_posts[#fc_time_posts+1] = { author = args.sign, time = NOW, state = "00-12" }
+                    fc_time_posts[#fc_time_posts+1] = {
+                        author = args.sign,
+                        time   = NOW,
+                        state  = "00-12",
+                    }
+                    if fc_time_authors[args.sign] == nil then
+                        fc_time_authors[args.sign] = NOW
+                    end
                 end
 
             elseif kind == "like" then
@@ -437,9 +478,17 @@ elseif args.chain then
                 end
             end
 
+            -- cap all authors at max
+            for k, v in pairs(fc_reps_authors) do
+                if v > C.reps.max then
+                    fc_reps_authors[k] = C.reps.max
+                end
+            end
+
             write(fc_reps_authors, REPO.."/.freechains/reps/authors.lua")
             write(fc_time_posts,   REPO.."/.freechains/time/posts.lua")
-            files = files .. " .freechains/time/posts.lua"
+            write(fc_time_authors, REPO.."/.freechains/time/authors.lua")
+            files = files .. " .freechains/time/posts.lua .freechains/time/authors.lua"
         end
 
         exec (true,
