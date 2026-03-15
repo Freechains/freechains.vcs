@@ -115,6 +115,19 @@ do
             "ln -s " .. hash .. " " .. ROOT_B .. "/chains/test"
         )
         git_config(REPO_B)
+        exec (
+            "mkdir -p " .. REPO_B .. ".freechains/local"
+        )
+        do
+            local f = io.open(REPO_B .. ".freechains/local/now.lua", "w")
+            f:write("return 0\n")
+            f:close()
+        end
+        do
+            local f = io.open(REPO_B .. ".git/info/exclude", "a")
+            f:write(".freechains/local/\n")
+            f:close()
+        end
     end
 
     do
@@ -204,7 +217,7 @@ do
     do
         TEST "A and B are equal"
         local _,ok = exec ('stderr',
-            "diff -r --exclude=.git " .. REPO_A .. " " .. REPO_B
+            "diff -r --exclude=.git --exclude=local " .. REPO_A .. " " .. REPO_B
         )
         assert(ok==0, "A and B differ")
     end
@@ -295,7 +308,7 @@ do
     do
         TEST "A and B are equal after bidirectional sync"
         local _, ok = exec ('stderr',
-            "diff -r --exclude=.git " .. REPO_A .. " " .. REPO_B
+            "diff -r --exclude=.git --exclude=local " .. REPO_A .. " " .. REPO_B
         )
         assert(ok == 0, "A and B differ")
     end

@@ -16,6 +16,8 @@ local common   = require "common"
 --   time/
 --     authors.lua       -- pubkey → last consolidation timestamp
 --     posts.lua         -- entries in 00-12h or 12-24h
+--   local/              -- untracked local state
+--     now.lua           -- last staged timestamp
 local function skel (rand, path)
     local function empty (file)
         local f = io.open(path .. "/.freechains/" .. file, "w")
@@ -31,6 +33,9 @@ local function skel (rand, path)
     exec (true,
         "mkdir -p " .. path .. "/.freechains/time"
     )
+    exec (true,
+        "mkdir -p " .. path .. "/.freechains/local"
+    )
     do
         local f = io.open(path .. "/.freechains/random", "w")
         f:write(tostring(rand) .. "\n")
@@ -44,6 +49,16 @@ local function skel (rand, path)
     empty("reps/posts.lua")
     empty("time/authors.lua")
     empty("time/posts.lua")
+    do
+        local f = io.open(path .. "/.freechains/local/now.lua", "w")
+        f:write("return 0\n")
+        f:close()
+    end
+    do
+        local f = io.open(path .. "/.git/info/exclude", "a")
+        f:write(".freechains/local/\n")
+        f:close()
+    end
 end
 
 math.randomseed()
@@ -243,6 +258,94 @@ if args.chains then
 elseif args.chain then
     local REPO = args.root .. "/chains/" .. args.alias .. "/"
 
+    local function write (T, file)
+        local f = io.open(file, "w")
+        f:write(serial(T))
+        f:close()
+    end
+
+    -- stage: advance time effects
+    local fc_reps_authors, fc_time_posts, fc_time_authors
+    do
+        local L = REPO .. ".freechains/local/"
+        local stored = dofile(L .. "now.lua")
+
+        fc_reps_authors = dofile(REPO .. "/.freechains/reps/authors.lua")
+        fc_time_posts   = dofile(REPO .. "/.freechains/time/posts.lua")
+        fc_time_authors = dofile(REPO .. "/.freechains/time/authors.lua")
+
+        if args.sign ~= nil or NOW > stored then
+            -- discount scan
+            for i, entry in ipairs(fc_time_posts) do
+                if entry.state == "00-12" then
+                    local subs = {}
+                    for j, other in ipairs(fc_time_posts) do
+                        if j > i then
+                            subs[other.author] = true
+                        end
+                    end
+                    if args.sign then
+                        subs[args.sign] = true
+                    end
+
+                    local cur = 0
+                    for a in pairs(subs) do
+                        cur = cur + math.max(0, fc_reps_authors[a] or 0)
+                    end
+                    local tot = 0
+                    for _, v in pairs(fc_reps_authors) do
+                        tot = tot + math.max(0, v)
+                    end
+
+                    local ratio = (tot>0 and cur/tot) or 0
+                    local discount = C.time.half * math.max(0, 1 - 2*ratio)
+
+                    if NOW >= entry.time + discount then
+                        fc_reps_authors[entry.author] = (fc_reps_authors[entry.author] or 0) + C.reps.cost
+                        entry.state = "12-24"
+                    end
+                end
+            end
+
+            -- consolidation scan
+            for _, entry in ipairs(fc_time_posts) do
+                if entry.state == "12-24" then
+                    if NOW >= entry.time + C.time.full then
+                        local last = fc_time_authors[entry.author]
+                        if NOW - last >= C.time.full then
+                            fc_reps_authors[entry.author] = (fc_reps_authors[entry.author] or 0) + C.reps.cost
+                            fc_time_authors[entry.author] = last + C.time.full
+                            entry._remove = true
+                        end
+                    end
+                end
+            end
+
+            -- remove consolidated entries
+            local survivors = {}
+            for _, entry in ipairs(fc_time_posts) do
+                if not entry._remove then
+                    survivors[#survivors+1] = entry
+                end
+            end
+            fc_time_posts = survivors
+
+            -- cap all authors at max (for query paths)
+            if args.sign == nil then
+                for k, v in pairs(fc_reps_authors) do
+                    if v > C.reps.max then
+                        fc_reps_authors[k] = C.reps.max
+                    end
+                end
+            end
+
+            write(fc_reps_authors, REPO .. "/.freechains/reps/authors.lua")
+            write(fc_time_posts,   REPO .. "/.freechains/time/posts.lua")
+            write(fc_time_authors, REPO .. "/.freechains/time/authors.lua")
+            write(NOW, L .. "now.lua")
+        end
+    end
+
     if args.reps then
         local function ext (int)
             if int > 0 then
@@ -265,13 +368,11 @@ elseif args.chain then
             if not args.key then
                 ERROR("chain reps : author requires a pubkey")
             end
-            local authors = dofile(REPO .. ".freechains/reps/authors.lua")
-            local v = authors[args.key] or 0
+            local v = fc_reps_authors[args.key] or 0
             print(ext(v))
         elseif args.target == "authors" then
-            local authors = dofile(REPO .. ".freechains/reps/authors.lua")
             local T = {}
-            for k, v in pairs(authors) do
+            for k, v in pairs(fc_reps_authors) do
                 T[#T+1] = { k=k, v=v }
             end
             table.sort(T, function (a, b) return a.v > b.v end)
@@ -374,71 +475,7 @@ elseif args.chain then
 
         -- update reps on post/like
         do
-            local fc_reps_authors = dofile(REPO .. "/.freechains/reps/authors.lua")
-            local fc_time_posts   = dofile(REPO .. "/.freechains/time/posts.lua")
-            local fc_time_authors = dofile(REPO .. "/.freechains/time/authors.lua")
             files = files .. " .freechains/reps/authors.lua"
-
-            local function write (T, file)
-                local f = io.open(file, "w")
-                f:write(serial(T))
-                f:close()
-            end
-
-            -- discount scan
-            for i, entry in ipairs(fc_time_posts) do
-                if entry.state == "00-12" then
-                    local subs = {}
-                    for j, other in ipairs(fc_time_posts) do
-                        if j > i then
-                            subs[other.author] = true
-                        end
-                    end
-                    if args.sign then
-                        subs[args.sign] = true
-                    end
-
-                    local cur = 0
-                    for a in pairs(subs) do
-                        cur = cur + math.max(0, fc_reps_authors[a] or 0)
-                    end
-                    local tot = 0
-                    for _, v in pairs(fc_reps_authors) do
-                        tot = tot + math.max(0, v)
-                    end
-
-                    local ratio = (tot>0 and cur/tot) or 0
-                    local discount = C.time.half * math.max(0, 1 - 2*ratio)
-
-                    if NOW >= entry.time + discount then
-                        fc_reps_authors[entry.author] = (fc_reps_authors[entry.author] or 0) + C.reps.cost
-                        entry.state = "12-24"
-                    end
-                end
-            end
-
-            -- consolidation scan
-            for _, entry in ipairs(fc_time_posts) do
-                if entry.state == "12-24" then
-                    if NOW >= entry.time+C.time.full then
-                        local last = fc_time_authors[entry.author]
-                        if NOW - last >= C.time.full then
-                            fc_reps_authors[entry.author] = (fc_reps_authors[entry.author] or 0) + C.reps.cost
-                            fc_time_authors[entry.author] = last + C.time.full
-                            entry._remove = true
-                        end
-                    end
-                end
-            end
-
-            -- remove consolidated entries
-            local survivors = {}
-            for _, entry in ipairs(fc_time_posts) do
-                if not entry._remove then
-                    survivors[#survivors+1] = entry
-                end
-            end
-            fc_time_posts = survivors
 
             if kind == "post" then
                 if args.sign then
