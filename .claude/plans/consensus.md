@@ -117,6 +117,10 @@ consensus merge rules.
 ## Pipeline Summary
 
 ```
+unstage                        — restore tracked files,
+                                 reset local/now.lua
+                                 (see local-staging.md)
+    |
 git fetch                      — git validates objects
     |
 freechains                     — validate signatures,
@@ -127,3 +131,8 @@ git merge --abort              — clean up dry-run
     |
 git merge                      — real merge
 ```
+
+Note: `stage()` writes to tracked `reps/` and `time/`
+files without committing (local-staging.md).
+Unstage restores clean working tree before merge:
+`git checkout -- .freechains/reps/ .freechains/time/`

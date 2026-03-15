@@ -103,6 +103,7 @@ git diff HEAD...branch-alvo
 ### Sync flow
 
 ```
+unstage (restore tracked files, reset local/now.lua)
 git fetch <remote> <branch>
 git merge --no-commit --no-ff FETCH_HEAD   # dry-run
 git merge --abort                          # clean up
@@ -112,6 +113,13 @@ git merge --no-edit FETCH_HEAD             # real merge (--no-ff)
 - Never use `git pull` (bypasses validation)
 - Fast-forward skips `pre-merge-commit` hook → must be
   rejected (see merge-hook.md)
+- **Unstage required**: `stage()` (local-staging.md)
+  writes to tracked `reps/` and `time/` files without
+  committing, leaving a dirty working tree.
+  Before fetch/merge:
+  `git checkout -- .freechains/reps/ .freechains/time/`
+  and reset `local/now.lua` to 0.
+  After merge, next `stage()` re-scans from merged state.
 
 ### Resolução de Conflitos por Reputação
 
