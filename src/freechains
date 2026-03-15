@@ -364,7 +364,8 @@ elseif args.chain then
 
         -- update reps on post/like
         do
-            local authors = dofile(REPO .. "/.freechains/reps/authors.lua")
+            local fc_reps_authors = dofile(REPO .. "/.freechains/reps/authors.lua")
+            local fc_time_posts   = dofile(REPO .. "/.freechains/time/posts.lua")
             files = files .. " .freechains/reps/authors.lua"
 
             local function write (T, file)
@@ -373,9 +374,42 @@ elseif args.chain then
                 f:close()
             end
 
+            -- discount scan
+            for i, entry in ipairs(fc_time_posts) do
+                if entry.state == "00-12" then
+                    local subs = {}
+                    for j, other in ipairs(fc_time_posts) do
+                        if j > i then
+                            subs[other.author] = true
+                        end
+                    end
+                    if args.sign then
+                        subs[args.sign] = true
+                    end
+
+                    local cur = 0
+                    for a in pairs(subs) do
+                        cur = cur + math.max(0, fc_reps_authors[a] or 0)
+                    end
+                    local tot = 0
+                    for _, v in pairs(fc_reps_authors) do
+                        tot = tot + math.max(0, v)
+                    end
+
+                    local ratio = (tot>0 and cur/tot) or 0
+                    local discount = C.time.discount * math.max(0, 1 - 2*ratio)
+
+                    if NOW >= entry.time + discount then
+                        fc_reps_authors[entry.author] = (fc_reps_authors[entry.author] or 0) + C.reps.cost
+                        entry.state = "12-24"
+                    end
+                end
+            end
+
             if kind == "post" then
                 if args.sign then
-                    authors[args.sign] = (authors[args.sign] or 0) - C.reps.cost
+                    fc_reps_authors[args.sign] = (fc_reps_authors[args.sign] or 0) - C.reps.cost
+                    fc_time_posts[#fc_time_posts+1] = { author = args.sign, time = NOW, state = "00-12" }
                 end
 
             elseif kind == "like" then
@@ -383,7 +417,7 @@ elseif args.chain then
                 files = files .. " .freechains/reps/posts.lua"
 
                 local num = args.number * C.reps.unit
-                authors[args.sign] = (authors[args.sign] or 0) - num
+                fc_reps_authors[args.sign] = (fc_reps_authors[args.sign] or 0) - num
 
                 if args.dislike then
                     num = -num
@@ -395,15 +429,17 @@ elseif args.chain then
                     local a = exec (true,
                         "git -C " .. REPO .. " log -1 --format='%GK' " .. args.id
                     )
-                    authors[a] = (authors[a] or 0) + num // C.like.split
+                    fc_reps_authors[a] = (fc_reps_authors[a] or 0) + num // C.like.split
                     posts[args.id] = (posts[args.id] or 0) + num // C.like.split
                     write(posts, REPO.."/.freechains/reps/posts.lua")
                 else
-                    authors[args.id] = (authors[args.id] or 0) + num
+                    fc_reps_authors[args.id] = (fc_reps_authors[args.id] or 0) + num
                 end
             end
 
-            write(authors, REPO.."/.freechains/reps/authors.lua")
+            write(fc_reps_authors, REPO.."/.freechains/reps/authors.lua")
+            write(fc_time_posts,   REPO.."/.freechains/time/posts.lua")
+            files = files .. " .freechains/time/posts.lua"
         end
 
         exec (true,
