@@ -347,6 +347,7 @@ if args.chains then
     end
 elseif args.chain then
     local REPO = args.root .. "/chains/" .. args.alias .. "/"
+    local fc_reps_authors, fc_time_posts, fc_time_authors = stage(REPO, NOW, args.sign)
 
     if args.reps then
         local function ext (int)
@@ -359,8 +360,6 @@ elseif args.chain then
             end
         end
 
-        stage(REPO, NOW, nil)
-
         if args.target == "post" then
             if not args.key then
                 ERROR("chain reps : post requires a hash")
@@ -372,13 +371,11 @@ elseif args.chain then
             if not args.key then
                 ERROR("chain reps : author requires a pubkey")
             end
-            local authors = dofile(REPO .. ".freechains/reps/authors.lua")
-            local v = authors[args.key] or 0
+            local v = fc_reps_authors[args.key] or 0
             print(ext(v))
         elseif args.target == "authors" then
-            local authors = dofile(REPO .. ".freechains/reps/authors.lua")
             local T = {}
-            for k, v in pairs(authors) do
+            for k, v in pairs(fc_reps_authors) do
                 T[#T+1] = { k=k, v=v }
             end
             table.sort(T, function (a, b) return a.v > b.v end)
@@ -481,7 +478,6 @@ elseif args.chain then
 
         -- update reps on post/like
         do
-            local fc_reps_authors, fc_time_posts, fc_time_authors = stage(REPO, NOW, args.sign)
             files = files .. " .freechains/reps/authors.lua"
 
             if kind == "post" then
