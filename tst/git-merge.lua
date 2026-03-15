@@ -102,9 +102,7 @@ do
     do
         TEST "B adds c.txt"
         post(DIR_B, "c.txt", "from B")
-    end
 
-    do
         TEST "A adds a2.txt"
         post(DIR_A, "a2.txt", "from A")
 
@@ -155,9 +153,7 @@ do
     do
         TEST "B adds d.txt"
         post(DIR_B, "d.txt", "from B")
-    end
 
-    do
         TEST "A adds a3.txt"
         post(DIR_A, "a3.txt", "from A")
 
