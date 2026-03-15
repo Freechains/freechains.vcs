@@ -65,6 +65,8 @@ echo $?   # 0 = no conflict, 1 = has conflict
 ```
 
 Fully available from Git 2.38+. Ideal for automation and CI.
+**Not available on Git 2.34** (current target). Use the
+`--no-commit --no-ff` approach below instead.
 
 ### `--no-commit --no-ff`
 Performs the merge but does not commit — allows inspection before confirming:
