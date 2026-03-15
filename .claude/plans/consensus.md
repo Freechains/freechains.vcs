@@ -108,6 +108,17 @@ for efficient reputation caching.
 SBSeg-23 paper: `fsantanna-no/sbseg-23` — Section on
 consensus merge rules.
 
+## Paper vs Git-Based Conflict Rejection
+
+The original paper rejects commits from the conflicting
+commit onward — earlier commits in the losing branch are
+kept. Git-based merge rejects the **entire** losing branch,
+including commits before the conflict. This is because git
+merge operates on whole branches, not individual commits.
+
+See [merge.md](merge.md) §3 "Paper vs Git-Based Merge" for
+the full comparison.
+
 ## Pipeline Summary
 
 ```

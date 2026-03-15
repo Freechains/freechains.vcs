@@ -163,6 +163,18 @@ git merge --no-edit FETCH_HEAD             # real merge (--no-ff)
 - Fast-forward skips `pre-merge-commit` hook → must be
   rejected
 
+### Strategies Are Equivalent Without Conflict
+
+When there is **no conflict**, all merge strategies (`ort`,
+`recursive`, `resolve`) produce the **same tree** — every
+file from both sides is included. `-X ours`/`-X theirs` are
+also irrelevant (no conflicting hunks to tiebreak). The only
+strategy that behaves differently without conflict is
+`-s ours`, which discards the other side entirely.
+
+This means: for conflict-free merges, strategy choice does
+not matter. The default (`ort`, Git 2.34+) is fine.
+
 ### Conflict Resolution by Reputation
 
 ```
@@ -172,9 +184,59 @@ git merge --no-edit FETCH_HEAD             # real merge (--no-ff)
        └── exit 1 → conflict → consult reputation
                                         │
                                 ours > theirs?
-                                   ├── yes → merge -X ours
-                                   └── no  → merge -X theirs
+                                   ├── yes → -s ours
+                                   └── no  → read-tree hack
 ```
+
+When a conflict is detected, the **entire losing branch is
+discarded** — not just the conflicting hunks. This uses
+full-branch rejection:
+
+- **Ours wins** → `-s ours` (native git, discards remote)
+- **Theirs wins** → read-tree hack (no `-s theirs` in git)
+
+The read-tree hack creates a merge commit whose tree is
+entirely from the remote side:
+
+```
+git merge --no-commit -s ours FETCH_HEAD
+git read-tree --reset -u FETCH_HEAD
+git commit
+```
+
+### No `-s theirs` in Git
+
+Git has **no `-s theirs` strategy**. `-s ours` exists
+(discards the other branch entirely), but there is no
+symmetric counterpart. The read-tree hack above is the
+standard workaround.
+
+Alternative: **reverse the actor** — the remote peer merges
+with `-s ours` (discarding the local side), then the local
+peer fast-forwards. Requires the remote to be the one
+performing the merge.
+
+### Paper vs Git-Based Merge
+
+The original paper and the git-based implementation differ
+in conflict rejection scope:
+
+| Aspect    | Paper                         | Git                           |
+|-----------|-------------------------------|-------------------------------|
+| Conflict  | Reject commits from the other | Reject the **entire** other   |
+| rejection | branch **from the conflicting | branch — including commits    |
+|           | commit onward** (earlier      | **before** the conflicting    |
+|           | commits are kept)             | commit                        |
+
+In the paper, if branch B has commits [b1, b2, b3] and b2
+causes a conflict, only b2 and b3 are rejected — b1 is
+kept. In git, `-s ours` (or the read-tree hack) discards
+the entire branch: b1, b2, and b3 are all rejected.
+
+This is a fundamental difference: git merge operates on
+**whole branches**, not individual commits. There is no
+built-in way to accept some commits from a branch and
+reject others during a merge.
 
 ### Merge Block
 
@@ -208,6 +270,12 @@ order of authors.
 **Auditability:** recording `rep-ours` and `rep-theirs` in
 the block lets any peer audit the decision later, even if
 reputation has changed since then.
+
+**Whole-branch rejection vs paper semantics:** the conflict
+resolution diagram uses `-s ours` / read-tree hack, which
+discard the entire losing branch. The paper only rejects
+commits from the conflicting commit onward. See "Paper vs
+Git-Based Merge" above — this is an accepted divergence.
 
 ---
 
