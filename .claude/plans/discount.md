@@ -1,4 +1,4 @@
-# Plan: Variable Discount Engine (Rule 2)
+# Plan: Variable Discount Engine (Rule 2) — COMPLETED
 
 ## Context
 
@@ -184,11 +184,20 @@ P2: discount scan: tposts[1] state="00-12"
 reps author KEY → 29 ✓ (line 23)
 ```
 
-## Verification
+## Verification — ALL PASSED
 
 ```
-make test T=cli-time
-make test T=cli-reps
-make test T=cli-like
-make test T=cli-now
+make test T=cli-time   ✓
+make test T=cli-reps   ✓
+make test T=cli-like   ✓
+make test T=cli-now    ✓
 ```
+
+## Changes vs Plan
+
+- `serial()`: simplified beyond plan — unified `val()` handles
+  all types (boolean, number, string, table), no array/map
+  distinction, always uses explicit keys `[k]=`
+- `tst/cli-reps.lua`: also fixed `reps-target-disliked`
+  assertion (`n < 14` → `n == 14`) to account for discount
+  refunds
