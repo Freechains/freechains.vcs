@@ -7,9 +7,10 @@ tests: src/argparse.lua
 	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 cli-like.lua
 	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 cli-reps.lua
 	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 cli-now.lua
-	#cd tst && LUA_PATH="../src/?.lua;;" lua5.4 cli-time.lua
+	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 cli-time.lua
 	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 repl-local.lua
 	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 repl-remote.lua
+	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 git-merge.lua
 	@rm -Rf /tmp/freechains/
 
 test: src/argparse.lua
