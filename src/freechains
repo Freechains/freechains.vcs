@@ -12,16 +12,17 @@ local function write (T, file)
     f:close()
 end
 
-local function stage (REPO, NOW, sign)
+local function stage (REPO, NOW, author)
     local L = REPO .. ".freechains/local/"
     local stored = dofile(L .. "now.lua")
-    if sign == nil and NOW <= stored then
-        return dofile(REPO .. "/.freechains/reps/authors.lua"), dofile(REPO .. "/.freechains/time/posts.lua"), dofile(REPO .. "/.freechains/time/authors.lua")
-    end
 
     local fc_reps_authors = dofile(REPO .. "/.freechains/reps/authors.lua")
     local fc_time_posts   = dofile(REPO .. "/.freechains/time/posts.lua")
     local fc_time_authors = dofile(REPO .. "/.freechains/time/authors.lua")
+
+    if author==nil and NOW<=stored then
+        return fc_reps_authors, fc_time_posts, fc_time_authors
+    end
 
     -- discount scan
     for i, entry in ipairs(fc_time_posts) do
@@ -32,8 +33,8 @@ local function stage (REPO, NOW, sign)
                     subs[other.author] = true
                 end
             end
-            if sign then
-                subs[sign] = true
+            if author then
+                subs[author] = true
             end
 
             local cur = 0
@@ -79,7 +80,7 @@ local function stage (REPO, NOW, sign)
     fc_time_posts = survivors
 
     -- cap all authors at max (for query paths)
-    if sign == nil then
+    if author == nil then
         for k, v in pairs(fc_reps_authors) do
             if v > C.reps.max then
                 fc_reps_authors[k] = C.reps.max
