@@ -357,7 +357,7 @@ elseif args.chain then
                 "git -C " .. REPO .. " log -1 --format=%at"
             )))
             assert(date, "bug found : date is not a number")
-            if NOW < date-C.time.tolerance then
+            if NOW < date-C.time.future then
                 ERROR("chain " .. kind .. " : cannot be older than parent")
             end
         end
@@ -397,7 +397,7 @@ elseif args.chain then
                     end
 
                     local ratio = (tot>0 and cur/tot) or 0
-                    local discount = C.time.discount * math.max(0, 1 - 2*ratio)
+                    local discount = C.time.halfway * math.max(0, 1 - 2*ratio)
 
                     if NOW >= entry.time + discount then
                         fc_reps_authors[entry.author] = (fc_reps_authors[entry.author] or 0) + C.reps.cost
