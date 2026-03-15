@@ -7,7 +7,7 @@ local unit = 1000
 return {
     time = {
         tolerance     = 1*h,        -- max clock drift
-        --discount      = 12*h,     -- max discount period
+        discount      = 12*h,       -- max discount period
         --consolidation = 24*h,     -- consolidation window
         --hardfork      = 7*24*h,   -- branch divergence limit
     },
