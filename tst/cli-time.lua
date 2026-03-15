@@ -77,4 +77,28 @@ do
     exec(ENV_EXE .. " chains rem cli-time")
 end
 
+-- REPS QUERY WITH TIME SIMULATION
+do
+    print("==> Reps query")
+
+    exec(ENV_EXE .. " --now=0 chains add cli-time dir " .. GEN_1P)
+
+    do
+        TEST "time-reps-query-simulates"
+
+        exec (  -- 30 -> 29 (post)
+            ENV_EXE .. " --now=0 chain cli-time post inline 'p1' --sign " .. KEY
+        )
+        -- query at now=0: still in discount → 29
+        local out = exec(ENV_EXE .. " --now=0 chain cli-time reps author " .. KEY)
+        assert(out == "29", "reps at now=0: " .. out)
+
+        -- query at now=86400: refund + consolidation → 30
+        local out = exec(ENV_EXE .. " --now=86400 chain cli-time reps author " .. KEY)
+        assert(out == "30", "reps at now=86400: " .. out)
+    end
+
+    exec(ENV_EXE .. " chains rem cli-time")
+end
+
 print("<== ALL PASSED")
