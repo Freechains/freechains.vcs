@@ -116,6 +116,7 @@ if ARGS.reps then
         local posts = dofile(REPO .. ".freechains/reps/posts.lua")
         local v = posts[ARGS.key] or 0
         print(ext(v))
+--[[
     elseif ARGS.target == "posts" then
         local posts = dofile(REPO .. ".freechains/reps/posts.lua")
         local T = {}
@@ -126,12 +127,14 @@ if ARGS.reps then
         for _, e in ipairs(T) do
             print(e.k .. " " .. ext(e.v))
         end
+]]
     elseif ARGS.target == "author" then
         if not ARGS.key then
             ERROR("chain reps : author requires a pubkey")
         end
         local v = fc_reps_authors[ARGS.key] or 0
         print(ext(v))
+--[[
     elseif ARGS.target == "authors" then
         local T = {}
         for k, v in pairs(fc_reps_authors) do
@@ -141,6 +144,7 @@ if ARGS.reps then
         for _, e in ipairs(T) do
             print(e.k .. " " .. ext(e.v))
         end
+]]
     else
         ERROR("chain reps : invalid target : " .. ARGS.target)
     end

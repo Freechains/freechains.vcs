@@ -25,6 +25,7 @@ do
         assert(out=="0", "reps: " .. out)
     end
 
+--[[
     do
         TEST "reps-list-all"
         local out, code = exec (
@@ -34,6 +35,7 @@ do
         assert(out:match(KEY),  "KEY not listed")
         assert(out:match("30"), "30 not in output")
     end
+]]
 end
 
 -- AFTER POSTS
