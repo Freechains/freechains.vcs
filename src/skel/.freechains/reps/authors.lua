@@ -1,0 +1,2 @@
+-- pubkey → internal reputation
+return {}
