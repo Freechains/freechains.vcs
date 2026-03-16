@@ -138,6 +138,11 @@ if ARGS.reps then
 elseif ARGS.post or ARGS.like or ARGS.dislike then
     local kind, files, blob
 
+    local num = ARGS.number
+    if ARGS.dislike then
+        num = -num
+    end
+
     -- signing gate
     if ARGS.sign then
         G.authors[ARGS.sign] = G.authors[ARGS.sign] or { reps=0 }
@@ -157,54 +162,41 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
         end
     end
 
+    -- post payload
     if ARGS.post then
         kind = "post"
-        if ARGS.inline then     -- before ambiguous ARGS.file
-            local text = ARGS.text
-            if not text:match("\n$") then
-                text = text .. "\n"
-            end
-
-            if ARGS.file then   -- ambiguous with post file
-                files = ARGS.file
-                local f = io.open(REPO .. ARGS.file, "a")   -- appends
-                f:write(text)
-                f:close()
-            else
-                blob = exec (true,
-                    "printf '%s' '" .. text .. "' | git hash-object --stdin"
-                )
-                files = "post-" .. NOW.s .. "-" .. blob:sub(1,8) .. ".txt"
-                local f = io.open(REPO .. files, "w")       -- truncates
-                f:write(text)
-                f:close()
-            end
-        elseif ARGS.file then   -- after ARGS.inline
+        if ARGS.inline then
+            local text = ARGS.text .. (ARGS.text:match("\n$") and "" or "\n")
+            blob = exec (true,
+                "printf '%s' '" .. text .. "' | git hash-object --stdin"
+            )
+            files = ARGS.file or
+                        "post-" .. NOW.s .. "-" .. blob:sub(1,8) .. ".txt"
+            local f = io.open(REPO .. files, (ARGS.file and "a") or "w")
+            f:write(text)
+            f:close()
+        else
+            assert(ARGS.file)
             files = ARGS.path:match("[^/]+$")
             exec (
                 "cp " .. ARGS.path .. " " .. REPO .. "/"
                 , "chain post : copy failed: " .. ARGS.path
             )
-        end
-        if not blob then
             blob = exec (true,
                 "git hash-object " .. REPO .. files
             )
         end
-    elseif ARGS.like or ARGS.dislike then
-        kind = "like"
 
+    -- like payload
+    else
+        assert(ARGS.like or ARGS.dislike)
+        kind = "like"
         if ARGS.number <= 0 then
             ERROR("chain like : expected positive integer")
         end
-
         if ARGS.target ~= "post" and ARGS.target ~= "author" then
-            ERROR(
-                "chain like : target must be 'post' or 'author'"
-            )
+            ERROR("chain like : target must be 'post' or 'author'")
         end
-
-        -- validate target exists
         if ARGS.target == "post" then
             local tp = exec (
                 "git -C " .. REPO .. " cat-file -t " .. ARGS.id
@@ -214,11 +206,6 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
             end
         end
 
-        -- write like payload
-        local num = ARGS.number
-        if ARGS.dislike then
-            num = -num
-        end
         local payload = [[
             return {
                 target = "]] .. ARGS.target .. [[",
@@ -237,43 +224,34 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
 
     -- monotonic timestamp validation
     do
-        local date = tonumber ((exec (true,
-            "git -C " .. REPO .. " log -1 --format=%at"
-        )))
+        local date = tonumber((
+            exec (true,
+                "git -C " .. REPO .. " log -1 --format=%at"
+            )
+        ))
         assert(date, "bug found : date is not a number")
-        if NOW.s < date-C.time.future then
+        if NOW.s < date - C.time.future then
             ERROR("chain " .. kind .. " : cannot be older than parent")
         end
     end
 
-    -- update reps on post/like
-    do
-        files = files .. " .freechains/authors.lua .freechains/posts.lua"
-
+    -- metadata: post/like: reps
+    if ARGS.sign then
         if kind == "post" then
-            if ARGS.sign then
-                G.authors[ARGS.sign].reps = G.authors[ARGS.sign].reps - C.reps.cost
-                if G.authors[ARGS.sign].time == nil then
-                    G.authors[ARGS.sign].time = NOW.s
-                end
-                G.posts[blob] = {
-                    author = ARGS.sign,
-                    time   = NOW.s,
-                    state  = "00-12",
-                    reps   = 0,
-                }
+            G.authors[ARGS.sign].reps = G.authors[ARGS.sign].reps - C.reps.cost
+            if G.authors[ARGS.sign].time == nil then
+                G.authors[ARGS.sign].time = NOW.s
             end
-
-        elseif kind == "like" then
-            local num = ARGS.number * C.reps.unit
-            G.authors[ARGS.sign].reps = G.authors[ARGS.sign].reps - num
-
-            if ARGS.dislike then
-                num = -num
-            end
-
-            num = num * (100 - C.like.tax) // 100     -- apply tax
-
+            G.posts[blob] = {
+                author = ARGS.sign,
+                time   = NOW.s,
+                state  = "00-12",
+                reps   = 0,
+            }
+        else
+            local num = num * C.reps.unit
+            G.authors[ARGS.sign].reps = G.authors[ARGS.sign].reps - math.abs(num)
+            num = num * (100 - C.like.tax) // 100
             if ARGS.target == "post" then
                 local a = exec (true,
                     "git -C " .. REPO .. " log -1 --format='%GK' " .. ARGS.id
@@ -287,35 +265,41 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
                 G.authors[ARGS.id].reps = G.authors[ARGS.id].reps + num
             end
         end
+    end
 
-        -- cap all authors at max
-        for k, v in pairs(G.authors) do
-            if v.reps > C.reps.max then
-                v.reps = C.reps.max
-            end
+    -- cap all authors at max
+    for k, v in pairs(G.authors) do
+        if v.reps > C.reps.max then
+            v.reps = C.reps.max
         end
+    end
 
+    -- write state + commit
+    do
         write(G.authors, REPO .. ".freechains/authors.lua")
         write(G.posts,   REPO .. ".freechains/posts.lua")
+
+        files = files .. " .freechains/authors.lua .freechains/posts.lua"
+        exec (true,
+            "git -C " .. REPO .. " add " .. files
+        )
+
+        local s1, s2 = "", ""
+        if ARGS.sign then
+            s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=openpgp"
+            s2 = " -S"
+        end
+
+        local msg = ARGS.why or ""
+        exec (true,
+            NOW.git .. "git -C " .. REPO .. s1 .. " commit" .. s2 ..
+                " --trailer 'freechains: " .. kind .. "'" ..
+                " --allow-empty-message" .. " -m '" .. msg .. "'"
+        )
+
+        local hash = exec (true,
+            "git -C " .. REPO .. " rev-parse HEAD"
+        )
+        print(hash)
     end
-
-    exec (true,
-        "git -C " .. REPO .. " add " .. files
-    )
-
-    local s1, s2 = "", ""
-    if ARGS.sign then
-        s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=openpgp"
-        s2 = " -S"
-    end
-
-    local msg = ARGS.why or ""
-    exec (true,
-        NOW.git .. "git -C " .. REPO .. s1 .. " commit" .. s2 .. " --trailer 'freechains: " .. kind .. "'" .. " --allow-empty-message" .. " -m '" .. msg .. "'"
-    )
-
-    local hash = exec (true,
-        "git -C " .. REPO .. " rev-parse HEAD"
-    )
-    print(hash)
 end
