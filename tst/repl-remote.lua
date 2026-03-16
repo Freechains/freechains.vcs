@@ -6,9 +6,9 @@ local ROOT_A = ROOT .. "/repl-remote/A/"
 local ROOT_B = ROOT .. "/repl-remote/B/"
 local ROOT_C = ROOT .. "/repl-remote/C/"
 
-local EXE_A  = ENV .. " ../src/freechains --root " .. ROOT_A
-local EXE_B  = ENV .. " ../src/freechains --root " .. ROOT_B
-local EXE_C  = ENV .. " ../src/freechains --root " .. ROOT_C
+local EXE_A  = ENV .. " ../src/freechains.lua --root " .. ROOT_A
+local EXE_B  = ENV .. " ../src/freechains.lua --root " .. ROOT_B
+local EXE_C  = ENV .. " ../src/freechains.lua --root " .. ROOT_C
 
 local REPO_A = ROOT_A .. "/chains/test/"
 local REPO_B = ROOT_B .. "/chains/test/"

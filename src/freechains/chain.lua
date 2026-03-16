@@ -1,4 +1,4 @@
-local C = require "constants"
+local C = require "freechains.constants"
 
 local REPO = ARGS.root .. "/chains/" .. ARGS.alias .. "/"
 
