@@ -48,7 +48,8 @@ do
     do
         TEST "like-payload-file"
         local file = exec (
-            "git -C " .. DIR .. " diff-tree --no-commit-id --name-only -r " .. LIKE
+            "git -C " .. DIR .. " diff-tree --no-commit-id --name-only -r "
+                .. LIKE .. " -- .freechains/likes/"
         )
         assert(file ~= "", "like payload file missing")
         local out = exec("git -C " .. DIR .. " show " .. LIKE .. ":" .. file)
