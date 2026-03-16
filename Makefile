@@ -22,5 +22,8 @@ src/freechains/argparse.lua:
 	curl -sL -o $@ \
 	  https://raw.githubusercontent.com/luarocks/argparse/0.7.1/src/argparse.lua
 
+install: src/freechains/argparse.lua
+	sudo luarocks --lua-version=5.4 make freechains-0.20-1.rockspec
+
 clean:
 	rm -f src/freechains/argparse.lua
