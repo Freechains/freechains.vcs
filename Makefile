@@ -1,4 +1,4 @@
-tests: src/argparse.lua
+tests: src/freechains/argparse.lua
 	@rm -Rf /tmp/freechains/
 	@mkdir -p /tmp/freechains/
 	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 cli-chains.lua
@@ -13,20 +13,18 @@ tests: src/argparse.lua
 	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 git-merge.lua
 	@rm -Rf /tmp/freechains/
 
-test: src/argparse.lua
+test: src/freechains/argparse.lua
 	@rm -Rf /tmp/freechains/
 	@mkdir -p /tmp/freechains/
 	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 $(T).lua
 	@rm -Rf /tmp/freechains/
 
-src/argparse.lua:
+src/freechains/argparse.lua:
 	curl -sL -o $@ \
 	  https://raw.githubusercontent.com/luarocks/argparse/0.7.1/src/argparse.lua
 
-install: src/argparse.lua
-	install -m 755 src/freechains /usr/local/bin/freechains
-	install -m 644 src/argparse.lua \
-	  /usr/local/share/lua/5.4/
+install: src/freechains/argparse.lua
+	sudo luarocks --lua-version=5.4 make freechains-0.20-1.rockspec
 
 clean:
-	rm -f src/argparse.lua
+	rm -f src/freechains/argparse.lua

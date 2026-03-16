@@ -1,4 +1,4 @@
-require "common"
+require "freechains.common"
 
 TMP    = "/tmp/freechains/"
 GEN    = "genesis/"
@@ -6,7 +6,7 @@ GEN_1P = "genesis-1p/"
 GEN_2P = "genesis-2p/"
 GEN_3P = "genesis-3p/"
 ROOT   = TMP .. "/root/"
-EXE    = "../src/freechains --root " .. ROOT
+EXE    = "../src/freechains.lua --root " .. ROOT
 
 GPG     = exec("realpath gnupg/") .. "/"
 KEY     = "CA6391CEA51882DF980E0F0C6774E21538E4078B"

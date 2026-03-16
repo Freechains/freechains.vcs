@@ -2,8 +2,8 @@
 
 local VERSION = "v0.20"
 
-local argparse = require "argparse"
-local common   = require "common"
+local argparse = require "freechains.argparse"
+local common   = require "freechains.common"
 
 local parser = argparse()
 
@@ -124,7 +124,7 @@ if ARGS.now then
 end
 
 if ARGS.chains then
-    require "chains"
+    require "freechains.chains"
 elseif ARGS.chain then
-    require "chain"
+    require "freechains.chain"
 end
