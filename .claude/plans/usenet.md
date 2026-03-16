@@ -303,7 +303,7 @@ likely the right migration path.
 - Hash-addressed systems make "deletion" a social/consensus
   problem, not cryptographic
 
-## MH + Git: Prior Art
+## MH + Git: Prior Art & Real-World Landscape
 
 ### Real Projects
 
@@ -312,6 +312,8 @@ likely the right migration path.
   Each message is a blob, threads reconstructed via index.
   Serves IMAP/NNTP on top of the git repo.
   Most relevant precedent for Freechains.
+  Deliberately avoids sync complexity by being read-only /
+  append-only — aligns with our design.
 - **git-appraise** — uses git refs to store code reviews
   as "messages" (same idea, not email)
 - **muchsync** — syncs Notmuch (email indexer) via
@@ -321,6 +323,57 @@ likely the right migration path.
 - **aerc** — TUI email client, alternative backends
   (not git directly)
 
+### Git's Built-in Email Tooling
+
+`git format-patch` generates patch emails,
+`git imap-send` uploads a mailbox into IMAP drafts,
+`git am` applies mbox-formatted patches.
+Used by: Linux kernel, PostgreSQL, Git itself.
+This is email *as* a code-review transport — email is the
+medium, not the stored artifact.
+
+### DIY Git + Maildir Backup
+
+Common pattern: periodically `git add -A` on a maildir,
+then `git commit` only if there are changes.
+Deletions are just new commits; history is append-only.
+Simple and effective for backup, but no conflict resolution
+and not designed for multi-machine sync.
+
+### git-annex + Maildir
+
+**`git-annex-maildir`** (fletcher, GitHub): configures a
+git-annex repo for maildir storage — multi-machine sync,
+offsite backup, bit-rot detection via checksums.
+
+**"Poor man's IMAP"** (git-annex forum): a check-mail
+script adds files on the server, commits, then calls
+`git annex sync` locally — replacing IMAP with SSH +
+git-annex.
+
+### git-notmuch (Metadata Only)
+
+`git-notmuch` (felipec): treats notmuch tag metadata as a
+Git repository.
+Edit tag files, `git commit`, push back to the notmuch
+database.
+Does not version message bodies — only the metadata overlay.
+
+### Comparison: Proposal vs Existing Tools
+
+| Tool                  | Git stores     | Sync model       | Scale pain |
+|-----------------------|----------------|------------------|------------|
+| `git send-email`/`am` | patches        | email transport  | N/A        |
+| DIY git + maildir     | message files  | backup only      | low        |
+| git-annex + maildir   | message files  | multi-machine    | high       |
+| git-notmuch           | tag metadata   | notmuch state    | low        |
+| **This proposal**     | MH files       | git push/pull    | low-medium |
+
+No existing tool combines: per-topic repo partitioning +
+append-only MH files + GPG-signed commits as delivery
+receipt.
+The proposal occupies a gap in the landscape.
+
 ### Why MH+Git Is Not More Common
 
 - Email has mutable semantics (read/unread, flags, move
@@ -328,6 +381,48 @@ likely the right migration path.
 - IMAP already solves sync ubiquitously
 - Performance: git not optimized for thousands of small
   objects
+
+## Scalability Analysis
+
+### Shared Root Cause with git-annex Failures
+
+Both use Git to track many small files.
+Git's index scales O(N) with file count — reading and
+rewriting it on every commit is unavoidable.
+
+### Why This Proposal Is Better Positioned
+
+1. **No git-annex daemon overhead.**
+   The memory explosions were from git-annex assistant's
+   symlink/lock machinery.
+   This design uses plain `git add` + `git commit`.
+
+2. **Per-chain repository partitioning.**
+   Separate Git repos per Freechains chain naturally caps
+   index size.
+   A chain is topic/peer-scoped, not a global inbox.
+
+3. **Append-only workload.**
+   MH messages are write-once.
+   The `lock`/`unlock` cycle that was catastrophically slow
+   in git-annex has no equivalent here.
+
+### Scalability Pain Points (Reported)
+
+- 87,000 maildir files (19 GB): git-annex assistant
+  consumed all RAM + swap on 512 MB servers
+- 150,000 emails: initial add + first sync took hours;
+  subsequent incremental syncs were fast
+- `git annex lock` on large repos: extremely slow due to
+  O(N) index operations
+
+### Practical Threshold
+
+Pain starts at ~87k–150k files *per single repo*.
+With per-chain partitioning, hitting that threshold requires
+years of traffic on one very active chain.
+
+**Conclusion: same disease, much lower exposure by design.**
 
 ## Related: Local Microblogging
 
