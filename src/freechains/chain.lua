@@ -2,6 +2,11 @@ local C = require "freechains.constants"
 
 local REPO = ARGS.root .. "/chains/" .. ARGS.alias .. "/"
 
+local G = {
+    authors = dofile(REPO .. ".freechains/authors.lua"),
+    posts   = dofile(REPO .. ".freechains/posts.lua"),
+}
+
 local function write (T, file)
     local f = io.open(file, "w")
     f:write(serial(T))
@@ -17,22 +22,17 @@ do
 end
 
 -- stage: advance time effects
-local fc_reps_authors, fc_time_posts, fc_time_authors
 do
     local L = REPO .. ".freechains/local/"
     local stored = dofile(L .. "now.lua")
 
-    fc_reps_authors = dofile(REPO .. "/.freechains/reps/authors.lua")
-    fc_time_posts   = dofile(REPO .. "/.freechains/time/posts.lua")
-    fc_time_authors = dofile(REPO .. "/.freechains/time/authors.lua")
-
     if ARGS.sign ~= nil or NOW.s > stored then
         -- discount scan
-        for i, entry in ipairs(fc_time_posts) do
+        for hash, entry in pairs(G.posts) do
             if entry.state == "00-12" then
                 local subs = {}
-                for j, other in ipairs(fc_time_posts) do
-                    if j > i then
+                for h2, other in pairs(G.posts) do
+                    if other.time and other.time > entry.time then
                         subs[other.author] = true
                     end
                 end
@@ -42,58 +42,49 @@ do
 
                 local cur = 0
                 for a in pairs(subs) do
-                    cur = cur + math.max(0, fc_reps_authors[a] or 0)
+                    cur = cur + math.max(0, (G.authors[a] and G.authors[a].reps) or 0)
                 end
                 local tot = 0
-                for _, v in pairs(fc_reps_authors) do
-                    tot = tot + math.max(0, v)
+                for _, v in pairs(G.authors) do
+                    tot = tot + math.max(0, v.reps)
                 end
 
                 local ratio = (tot>0 and cur/tot) or 0
                 local discount = C.time.half * math.max(0, 1 - 2*ratio)
 
                 if NOW.s >= entry.time + discount then
-                    fc_reps_authors[entry.author] = (fc_reps_authors[entry.author] or 0) + C.reps.cost
+                    G.authors[entry.author].reps = G.authors[entry.author].reps + C.reps.cost
                     entry.state = "12-24"
                 end
             end
         end
 
         -- consolidation scan
-        for _, entry in ipairs(fc_time_posts) do
+        for hash, entry in pairs(G.posts) do
             if entry.state == "12-24" then
                 if NOW.s >= entry.time + C.time.full then
-                    local last = fc_time_authors[entry.author]
+                    local last = G.authors[entry.author].time
                     if NOW.s - last >= C.time.full then
-                        fc_reps_authors[entry.author] = (fc_reps_authors[entry.author] or 0) + C.reps.cost
-                        fc_time_authors[entry.author] = last + C.time.full
-                        entry._remove = true
+                        G.authors[entry.author].reps = G.authors[entry.author].reps + C.reps.cost
+                        G.authors[entry.author].time = last + C.time.full
+                        entry.state = nil
+                        entry.time  = nil
                     end
                 end
             end
         end
 
-        -- remove consolidated entries
-        local survivors = {}
-        for _, entry in ipairs(fc_time_posts) do
-            if not entry._remove then
-                survivors[#survivors+1] = entry
-            end
-        end
-        fc_time_posts = survivors
-
         -- cap all authors at max (for query paths)
         if ARGS.sign == nil then
-            for k, v in pairs(fc_reps_authors) do
-                if v > C.reps.max then
-                    fc_reps_authors[k] = C.reps.max
+            for k, v in pairs(G.authors) do
+                if v.reps > C.reps.max then
+                    v.reps = C.reps.max
                 end
             end
         end
 
-        write(fc_reps_authors, REPO .. "/.freechains/reps/authors.lua")
-        write(fc_time_posts,   REPO .. "/.freechains/time/posts.lua")
-        write(fc_time_authors, REPO .. "/.freechains/time/authors.lua")
+        write(G.authors, REPO .. ".freechains/authors.lua")
+        write(G.posts,   REPO .. ".freechains/posts.lua")
         write(NOW.s, L .. "now.lua")
     end
 end
@@ -113,43 +104,39 @@ if ARGS.reps then
         if not ARGS.key then
             ERROR("chain reps : post requires a hash")
         end
-        local posts = dofile(REPO .. ".freechains/reps/posts.lua")
-        local v = posts[ARGS.key] or 0
+        local e = G.posts[ARGS.key]
+        local v = (e and e.reps) or 0
         print(ext(v))
---[[
     elseif ARGS.target == "posts" then
-        local posts = dofile(REPO .. ".freechains/reps/posts.lua")
         local T = {}
-        for k, v in pairs(posts) do
-            T[#T+1] = { k=k, v=v }
+        for k, v in pairs(G.posts) do
+            T[#T+1] = { k=k, v=v.reps }
         end
         table.sort(T, function (a, b) return a.v > b.v end)
         for _, e in ipairs(T) do
             print(e.k .. " " .. ext(e.v))
         end
-]]
     elseif ARGS.target == "author" then
         if not ARGS.key then
             ERROR("chain reps : author requires a pubkey")
         end
-        local v = fc_reps_authors[ARGS.key] or 0
+        local e = G.authors[ARGS.key]
+        local v = (e and e.reps) or 0
         print(ext(v))
---[[
     elseif ARGS.target == "authors" then
         local T = {}
-        for k, v in pairs(fc_reps_authors) do
-            T[#T+1] = { k=k, v=v }
+        for k, v in pairs(G.authors) do
+            T[#T+1] = { k=k, v=v.reps }
         end
         table.sort(T, function (a, b) return a.v > b.v end)
         for _, e in ipairs(T) do
             print(e.k .. " " .. ext(e.v))
         end
-]]
     else
         ERROR("chain reps : invalid target : " .. ARGS.target)
     end
 elseif ARGS.post or ARGS.like or ARGS.dislike then
-    local kind, files
+    local kind, files, blob
 
     if ARGS.post then
         kind = "post"
@@ -165,10 +152,10 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
                 f:write(text)
                 f:close()
             else
-                local hash = exec (true,
+                blob = exec (true,
                     "printf '%s' '" .. text .. "' | git hash-object --stdin"
                 )
-                files = "post-" .. NOW.s .. "-" .. hash:sub(1,8) .. ".txt"
+                files = "post-" .. NOW.s .. "-" .. blob:sub(1,8) .. ".txt"
                 local f = io.open(REPO .. files, "w")       -- truncates
                 f:write(text)
                 f:close()
@@ -219,7 +206,7 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
                 number = ]]  .. num         .. [[,
             }
         ]]
-        local blob = exec (true,
+        blob = exec (true,
             "printf '%s' '" .. payload .. "' | git hash-object --stdin"
         )
         files = ".freechains/likes/like-" .. NOW.s .. "-" .. blob:sub(1,8) .. ".lua"
@@ -241,27 +228,22 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
 
     -- update reps on post/like
     do
-        files = files .. " .freechains/reps/authors.lua"
+        files = files .. " .freechains/authors.lua .freechains/posts.lua"
 
         if kind == "post" then
             if ARGS.sign then
-                fc_reps_authors[ARGS.sign] = (fc_reps_authors[ARGS.sign] or 0) - C.reps.cost
-                fc_time_posts[#fc_time_posts+1] = {
-                    author = ARGS.sign,
-                    time   = NOW.s,
-                    state  = "00-12",
-                }
-                if fc_time_authors[ARGS.sign] == nil then
-                    fc_time_authors[ARGS.sign] = NOW.s
+                G.authors[ARGS.sign] = G.authors[ARGS.sign] or { reps=0 }
+                G.authors[ARGS.sign].reps = G.authors[ARGS.sign].reps - C.reps.cost
+                if G.authors[ARGS.sign].time == nil then
+                    G.authors[ARGS.sign].time = NOW.s
                 end
+                G.posts[blob] = { reps=0, author=ARGS.sign, time=NOW.s, state="00-12" }
             end
 
         elseif kind == "like" then
-            local posts = dofile(REPO .. "/.freechains/reps/posts.lua")
-            files = files .. " .freechains/reps/posts.lua"
-
             local num = ARGS.number * C.reps.unit
-            fc_reps_authors[ARGS.sign] = (fc_reps_authors[ARGS.sign] or 0) - num
+            G.authors[ARGS.sign] = G.authors[ARGS.sign] or { reps=0 }
+            G.authors[ARGS.sign].reps = G.authors[ARGS.sign].reps - num
 
             if ARGS.dislike then
                 num = -num
@@ -273,25 +255,25 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
                 local a = exec (true,
                     "git -C " .. REPO .. " log -1 --format='%GK' " .. ARGS.id
                 )
-                fc_reps_authors[a] = (fc_reps_authors[a] or 0) + num // C.like.split
-                posts[ARGS.id] = (posts[ARGS.id] or 0) + num // C.like.split
-                write(posts, REPO.."/.freechains/reps/posts.lua")
+                G.authors[a] = G.authors[a] or { reps=0 }
+                G.authors[a].reps = G.authors[a].reps + num // C.like.split
+                G.posts[ARGS.id] = G.posts[ARGS.id] or { reps=0, author=a }
+                G.posts[ARGS.id].reps = G.posts[ARGS.id].reps + num // C.like.split
             else
-                fc_reps_authors[ARGS.id] = (fc_reps_authors[ARGS.id] or 0) + num
+                G.authors[ARGS.id] = G.authors[ARGS.id] or { reps=0 }
+                G.authors[ARGS.id].reps = G.authors[ARGS.id].reps + num
             end
         end
 
         -- cap all authors at max
-        for k, v in pairs(fc_reps_authors) do
-            if v > C.reps.max then
-                fc_reps_authors[k] = C.reps.max
+        for k, v in pairs(G.authors) do
+            if v.reps > C.reps.max then
+                v.reps = C.reps.max
             end
         end
 
-        write(fc_reps_authors, REPO.."/.freechains/reps/authors.lua")
-        write(fc_time_posts,   REPO.."/.freechains/time/posts.lua")
-        write(fc_time_authors, REPO.."/.freechains/time/authors.lua")
-        files = files .. " .freechains/time/posts.lua .freechains/time/authors.lua"
+        write(G.authors, REPO .. ".freechains/authors.lua")
+        write(G.posts,   REPO .. ".freechains/posts.lua")
     end
 
     exec (true,
