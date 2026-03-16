@@ -519,16 +519,21 @@ Observations:
 ## TODO
 
 - [x] Impl: time/ dir created by skel()
-- [ ] Impl: gate check (Rule 4.a, >= 1 rep to post)
+- [x] Impl: gate check (Rule 4.a, > 0 internal rep to post)
 - [x] Impl: variable discount engine (Rule 2)
 - [x] Impl: consolidation engine (Rule 1.b)
 - [x] Impl: 30-rep cap (Rule 4.b)
-- [ ] Impl: revocation state (Rule 3.b)
-- [ ] Impl: 128 KB size limit (Rule 4.c)
+- [x] Impl: signing gate (--sign required, --beg bypass)
 - [x] Impl: reps command in src/freechains
+- [x] Refactor: merge reps/ + time/ into authors.lua + posts.lua
+- [x] Refactor: chain.lua flatten (less nesting)
 - [x] Tests: variable discount (0-12h)
 - [x] Tests: consolidation (+1/day, 24h)
 - [x] Tests: 30-rep cap
+- [x] Tests: gate check (blocked, accepted, unblocked, beg-with-reps)
+- [x] Tests: author-targeted likes (cost, gains, like 2, dislike)
+- [ ] Impl: revocation state (Rule 3.b)
+- [ ] Impl: 128 KB size limit (Rule 4.c)
+- [ ] Impl: --beg creates BLOCKED post
 - [ ] Tests: revocation threshold
 - [ ] Tests: time flow example (above)
-- [ ] Tests: author-targeted likes
