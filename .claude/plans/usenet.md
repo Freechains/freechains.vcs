@@ -70,21 +70,74 @@ The directory can contain them safely.
 
 ## GPG Signing
 
-### Double Signing
+### The Core Problem: Signature Mismatch
 
-- Email signature covers email bytes (MIME body)
-- Git commit signature covers the commit object
-- These can never be the same bytes — unification is
-  impossible
-- **Resolution**: same GPG key signs both artifacts
-  independently; identity link is cryptographic (same key
-  fingerprint)
+A GPG signature covers a specific byte sequence:
+- **Email signature** covers email bytes (MIME body)
+- **Git commit signature** covers the commit object
+  (tree + parent + metadata)
+
+These can never be the same bytes — unification is
+impossible.
+Every bridging approach is either a workaround or an
+attestation, not true unification.
+
+### Rejected: format-patch / git am
+
+- `git format-patch` produces `.eml` files, one per commit
+- `git am` applies them, reconstructing commits
+- **Problem**: commit hashes change on receipt — signatures
+  are lost
+
+### Double Signing (Chosen Approach)
+
+- Sign **both** artifacts with the same GPG key at send time:
+  - `git commit -S` signs the commit object
+  - GPG signs the email file
+- Same key, two signatures over two different byte sequences
+- Identity link is cryptographic: same key fingerprint
+  proves co-authorship
+- Neither signature is reused — they are independent but
+  **bound** by the shared key
 
 ### Git Bundle as Transport
 
 - Preserves exact commit hashes and signatures
 - Transport-agnostic: USB, email, HTTP, sneakernet
 - Best option when exact commit identity must be preserved
+- Incremental: `git bundle create changes.bundle
+  origin/main..HEAD`
+- Verify: `git bundle verify changes.bundle`
+- Supports `--bundle-uri` (git 2.36+) for CDN-style
+  bootstrap
+
+### The Circular Hash Problem
+
+Injecting a git commit hash into the email file that is
+inside that commit is impossible — the hash is derived from
+the content, so it can't be embedded in that content.
+
+**Resolution**: the link only needs to go one direction.
+The commit *contains* the email file, so the email is
+always reachable via:
+```bash
+git log --all -- sent/42
+```
+Reverse lookup doesn't require embedding.
+A git note or sidecar file can carry the hash without
+affecting the commit.
+
+### GPG Agent / Key Unlocking
+
+- `gpg-agent` caches the unlocked key — no manual
+  intervention per-commit
+- If key is locked, `pinentry` prompts automatically
+- Configure TTL in `~/.gnupg/gpg-agent.conf`:
+  ```
+  default-cache-ttl 3600
+  max-cache-ttl 86400
+  ```
+- Unlock once, sign silently all day
 
 ## The Local Numbering Problem
 
@@ -196,6 +249,16 @@ msgnum = hours_since_2025 * 1000 + hash3
   numbers
 - **Best client for this architecture**
 
+### Local Delivery (No MTA Needed)
+
+- Received mail is written directly to MH directories on
+  disk (no intermediate MTA)
+- Sent mail is also written directly to the Sent MH folder
+  at send time
+- This filesystem write is the natural hook for git
+  integration
+- No SMTP/IMAP required for a fully local setup
+
 ### Claws Mail vs Sylpheed
 
 | Aspect           | Sylpheed          | Claws Mail           |
@@ -260,6 +323,13 @@ done
       .mh_sequences        ← MH sidecar, ignored
 ```
 
+### Git as Transport (No SMTP)
+
+- Alice's `sent/` is pushed to Bob's `received/`
+- Bob's inotify fires, commits on his side
+- Both repos hold a signed commit for the same message
+- **Mail delivery = git push**
+
 ### Sync Layers
 
 ```
@@ -274,6 +344,17 @@ Freechains / git       ← canonical, content-addressed, signed
 
 MH numbers are a **rebuildable local cache**, not the
 canonical store.
+
+### Key Abstraction
+
+This architecture is a **git-native messaging protocol**:
+- Each message = a file
+- Each delivery = a commit
+- Each identity = a GPG key
+
+Strongly convergent with Freechains' model (post = block,
+signed, content-addressed).
+Email becomes a legacy approximation of the same idea.
 
 ## Convergence with Freechains
 
