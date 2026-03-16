@@ -56,7 +56,7 @@ do
         local tbl = load(out)()
         assert(tbl.target == "post", "target: " .. tostring(tbl.target))
         assert(tbl.id == POST, "id: " .. tostring(tbl.id))
-        assert(tbl.number == 1, "number: " .. tostring(tbl.number))
+        assert(tbl.number == 1000, "number: " .. tostring(tbl.number))
     end
 
     do

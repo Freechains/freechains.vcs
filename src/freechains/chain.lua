@@ -138,7 +138,7 @@ if ARGS.reps then
 elseif ARGS.post or ARGS.like or ARGS.dislike then
     local kind, files, blob
 
-    local num = ARGS.number
+    local num = (ARGS.number or 0) * C.reps.unit
     if ARGS.dislike then
         num = -num
     end
@@ -249,7 +249,6 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
                 reps   = 0,
             }
         else
-            local num = num * C.reps.unit
             G.authors[ARGS.sign].reps = G.authors[ARGS.sign].reps - math.abs(num)
             num = num * (100 - C.like.tax) // 100
             if ARGS.target == "post" then
