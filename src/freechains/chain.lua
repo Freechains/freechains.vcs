@@ -116,6 +116,16 @@ if ARGS.reps then
         local posts = dofile(REPO .. ".freechains/reps/posts.lua")
         local v = posts[ARGS.key] or 0
         print(ext(v))
+    elseif ARGS.target == "posts" then
+        local posts = dofile(REPO .. ".freechains/reps/posts.lua")
+        local T = {}
+        for k, v in pairs(posts) do
+            T[#T+1] = { k=k, v=v }
+        end
+        table.sort(T, function (a, b) return a.v > b.v end)
+        for _, e in ipairs(T) do
+            print(e.k .. " " .. ext(e.v))
+        end
     elseif ARGS.target == "author" then
         if not ARGS.key then
             ERROR("chain reps : author requires a pubkey")
