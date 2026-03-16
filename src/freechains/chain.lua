@@ -8,6 +8,14 @@ local function write (T, file)
     f:close()
 end
 
+do
+    local f = io.open(REPO .. ".freechains/genesis.lua")
+    if not f then
+        ERROR("chain " .. ARGS.alias .. " : not found")
+    end
+    f:close()
+end
+
 -- stage: advance time effects
 local fc_reps_authors, fc_time_posts, fc_time_authors
 do
