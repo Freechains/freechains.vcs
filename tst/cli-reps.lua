@@ -169,7 +169,7 @@ do
 end
 
 -- GATE CHECK (Rule 4.a: >= 1 rep to post)
-if false then
+do
     print("==> Gate check")
 
     exec("rm -rf " .. TMP)

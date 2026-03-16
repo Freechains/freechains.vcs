@@ -187,15 +187,17 @@ Update `files` string for git add accordingly.
 
 ## Done
 
-## TODO
+- [x] Step 1: Update skel and genesis templates
+- [x] Step 2: Update chains.lua (no change needed)
+- [x] Step 3: Refactor chain.lua — loading (G.authors/G.posts)
+- [x] Step 4: Refactor chain.lua — discount scan
+- [x] Step 5: Refactor chain.lua — consolidation scan
+- [x] Step 6: Refactor chain.lua — post handler (blob key)
+- [x] Step 7: Refactor chain.lua — like handler
+- [x] Step 8: Refactor chain.lua — queries (authors/posts uncommented)
+- [x] Step 9: Refactor chain.lua — writing (2 files)
+- [x] Tests: cli-post, cli-sign, cli-like, cli-reps all pass
+- [x] Fix: cli-like diff-tree filter for likes/ dir
+- [x] Fix: blob hash fallback for post file path
 
-- [ ] Step 1: Update skel and genesis templates
-- [ ] Step 2: Update chains.lua (init)
-- [ ] Step 3: Refactor chain.lua — loading
-- [ ] Step 4: Refactor chain.lua — discount scan
-- [ ] Step 5: Refactor chain.lua — consolidation scan
-- [ ] Step 6: Refactor chain.lua — post handler
-- [ ] Step 7: Refactor chain.lua — like handler
-- [ ] Step 8: Refactor chain.lua — queries
-- [ ] Step 9: Refactor chain.lua — writing
-- [ ] Tests pass
+## TODO
