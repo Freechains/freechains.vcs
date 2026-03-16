@@ -25,9 +25,8 @@ do
         assert(out=="0", "reps: " .. out)
     end
 
---[[
     do
-        TEST "reps-list-all"
+        TEST "reps-list-authors"
         local out, code = exec (
             ENV_EXE .. " chain cli-reps reps authors"
         )
@@ -35,7 +34,15 @@ do
         assert(out:match(KEY),  "KEY not listed")
         assert(out:match("30"), "30 not in output")
     end
-]]
+
+    do
+        TEST "reps-list-posts-empty"
+        local out, code = exec (
+            ENV_EXE .. " chain cli-reps reps posts"
+        )
+        assert(code==0, "exit code: " .. tostring(code))
+        assert(out == "", "should be empty: " .. out)
+    end
 end
 
 -- AFTER POSTS
@@ -67,6 +74,18 @@ do
         )
         assert(code==0, "exit code: " .. tostring(code))
         assert(out == "29", "reps: " .. out)    -- KEY: 30 -> posts -> 29 (discount refunds)
+    end
+
+    do
+        TEST "reps-list-posts-after-3"
+        local out, code = exec (
+            ENV_EXE .. " chain cli-reps reps posts"
+        )
+        assert(code==0, "exit code: " .. tostring(code))
+        -- 3 posts, all with 0 reps (no likes)
+        local count = 0
+        for _ in out:gmatch("[^\n]+") do count = count + 1 end
+        assert(count == 3, "expected 3 posts, got: " .. count)
     end
 end
 

@@ -26,7 +26,7 @@ do
     local L = REPO .. ".freechains/local/"
     local stored = dofile(L .. "now.lua")
 
-    if ARGS.sign ~= nil or NOW.s > stored then
+    if ARGS.sign~=nil or NOW.s>stored then
         -- discount scan
         for hash, entry in pairs(G.posts) do
             if entry.state == "00-12" then
