@@ -1,2 +1,4 @@
--- pubkey → internal reputation
-return {}
+-- pubkey -> internal reputation
+return {
+    -- ["CA6391CE..."] = 29000,
+}

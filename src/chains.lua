@@ -1,59 +1,7 @@
 math.randomseed()
 
--- .freechains/
---   random              -- chain identity seed
---   genesis.lua         -- chain type, parameters
---   likes/              -- like/dislike payload files
---   reps/
---     authors.lua       -- pubkey → internal reputation
---     posts.lua         -- commit hash → internal reputation
---   time/
---     authors.lua       -- pubkey → last consolidation timestamp
---     posts.lua         -- entries in 00-12h or 12-24h
---   local/              -- untracked local state
---     now.lua           -- last staged timestamp
-local function skel (rand, path)
-    local function empty (file)
-        local f = io.open(path .. "/.freechains/" .. file, "w")
-        f:write("return {}\n")
-        f:close()
-    end
-    exec (true,
-        "mkdir -p " .. path .. "/.freechains/likes"
-    )
-    exec (true,
-        "mkdir -p " .. path .. "/.freechains/reps"
-    )
-    exec (true,
-        "mkdir -p " .. path .. "/.freechains/time"
-    )
-    exec (true,
-        "mkdir -p " .. path .. "/.freechains/local"
-    )
-    do
-        local f = io.open(path .. "/.freechains/random", "w")
-        f:write(tostring(rand) .. "\n")
-        f:close()
-    end
-    do
-        local f = io.open(path .. "/.freechains/likes/.gitkeep", "w")
-        f:close()
-    end
-    empty("reps/authors.lua")
-    empty("reps/posts.lua")
-    empty("time/authors.lua")
-    empty("time/posts.lua")
-    do
-        local f = io.open(path .. "/.freechains/local/now.lua", "w")
-        f:write("return 0\n")
-        f:close()
-    end
-    do
-        local f = io.open(path .. "/.git/info/exclude", "a")
-        f:write(".freechains/local/\n")
-        f:close()
-    end
-end
+-- TODO: resolve relative to script
+local SKEL = "/x/freechains/vcs/.claude/worktrees/reps/src/skel/"
 
 local chains = ARGS.root .. "/chains/"
 if ARGS.add then
@@ -82,7 +30,14 @@ if ARGS.add then
             , "chains add : git init failed"
         )
         git_config(tmp)
-        skel(rand, tmp)
+        exec (true,
+            "cp -r " .. SKEL .. ". " .. tmp .. "/"
+        )
+        do
+            local f = io.open(tmp .. "/.freechains/random", "w")
+            f:write(tostring(rand) .. "\n")
+            f:close()
+        end
         exec (
             "cp -r " .. ARGS.path .. "/* " .. tmp .. "/.freechains/"
             , "chains add : copy genesis failed"

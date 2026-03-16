@@ -1,2 +1,3 @@
--- last staged timestamp (monotonic)
 return 0
+    -- 86400
+    -- last staged timestamp (monotonic)
