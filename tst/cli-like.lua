@@ -2,7 +2,7 @@
 
 require "tests"
 
-exec(ENV_EXE .. " chains add cli-like dir " .. GEN_1P)
+exec(ENV_EXE .. " chains add cli-like dir " .. GEN_2P)
 local DIR = ROOT .. "/chains/cli-like/"
 
 -- Pioneer posts a target block

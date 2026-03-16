@@ -38,21 +38,21 @@ do
     end
 end
 
--- UNSIGNED POST (regression)
+-- UNSIGNED POST (--beg)
 do
-    print("==> freechains chain post (unsigned)")
+    print("==> freechains chain post --beg")
 
     do
-        TEST "unsigned post still works"
+        TEST "beg post succeeds"
         local out, code = exec (
-            ENV_EXE .. " chain cli-sign post inline unsigned"
+            ENV_EXE .. " chain cli-sign post inline unsigned --beg"
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
     end
 
     do
-        TEST "unsigned commit has no gpgsig"
+        TEST "beg commit has no gpgsig"
         local out = exec (
             "git -C " .. DIR .. " cat-file commit HEAD"
         )

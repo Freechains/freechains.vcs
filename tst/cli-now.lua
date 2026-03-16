@@ -28,7 +28,7 @@ do
 
     do
         TEST "post with --now=100"
-        local out = exec(EXE .. " --now=100 chain cli-now post inline 'hello'")
+        local out = exec(EXE .. " --now=100 chain cli-now post inline 'hello' --beg")
         assert(#out == 40, "hash: " .. out)
         local ts = exec("git -C " .. DIR .. " log -1 --format=%at")
         assert(ts == "100", "post timestamp: " .. ts)
@@ -36,7 +36,7 @@ do
 
     do
         TEST "post with --now=200"
-        local out = exec(EXE .. " --now=200 chain cli-now post inline 'world'")
+        local out = exec(EXE .. " --now=200 chain cli-now post inline 'world' --beg")
         assert(#out == 40, "hash: " .. out)
         local ts = exec("git -C " .. DIR .. " log -1 --format=%at")
         assert(ts == "200", "post timestamp: " .. ts)
@@ -66,10 +66,10 @@ do
 
     do
         TEST "all commits have expected timestamps"
-        exec(EXE .. " --now=0   chain cli-now post inline 0")
-        exec(EXE .. " --now=100 chain cli-now post inline 1")
-        exec(EXE .. " --now=200 chain cli-now post inline 2")
-        exec(EXE .. " --now=300 chain cli-now post inline 3")
+        exec(EXE .. " --now=0   chain cli-now post inline 0 --beg")
+        exec(EXE .. " --now=100 chain cli-now post inline 1 --beg")
+        exec(EXE .. " --now=200 chain cli-now post inline 2 --beg")
+        exec(EXE .. " --now=300 chain cli-now post inline 3 --beg")
 
         -- newest first
         local logs = exec("git -C " .. DIR .. " log --format=%at")
@@ -95,10 +95,10 @@ do
     do
         TEST "post within tolerance (1h backwards) passes"
         exec (
-            EXE .. " --now=10000 chain cli-now post inline 'base'"
+            EXE .. " --now=10000 chain cli-now post inline 'base' --beg"
         )
         local ok = exec (
-            EXE .. " --now=7000 chain cli-now post inline 'back 3000s'"
+            EXE .. " --now=7000 chain cli-now post inline 'back 3000s' --beg"
         )
         assert(#ok == 40, "hash: " .. ok)
     end
@@ -106,10 +106,10 @@ do
     do
         TEST "post beyond tolerance (>1h backwards) fails"
         exec (
-            EXE .. " --now=10000 chain cli-now post inline 'base2'"
+            EXE .. " --now=10000 chain cli-now post inline 'base2' --beg"
         )
         local ok, code, msg = exec ('stderr',
-            EXE .. " --now=5000 chain cli-now post inline 'too far back'"
+            EXE .. " --now=5000 chain cli-now post inline 'too far back' --beg"
         )
         local err = "ERROR : chain post : cannot be older than parent"
         assert(ok==false and msg==err, "should fail: " .. tostring(ok))
@@ -126,7 +126,7 @@ end
 do
     TEST "post without --now uses system clock"
     local before = os.time()
-    local out = exec(EXE .. " chain cli-now post inline 'no fake time'")
+    local out = exec(EXE .. " chain cli-now post inline 'no fake time' --beg")
     local after = os.time()
     assert(#out == 40, "hash: " .. out)
     local ts = tonumber((exec("git -C " .. DIR .. " log -1 --format=%at")))

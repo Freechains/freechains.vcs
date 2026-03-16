@@ -79,6 +79,7 @@ do
     cmd.chain.post._ = cmd.chain._:command("post")
     cmd.chain.post._:option("--sign")
     cmd.chain.post._:option("--why")
+    cmd.chain.post._:flag("--beg")
     do
         -- cmd.chain.post.file
         cmd.chain.post.file._ = cmd.chain.post._:command("file")
@@ -97,6 +98,7 @@ do
     cmd.chain.like._:argument("id")
     cmd.chain.like._:option("--sign")
     cmd.chain.like._:option("--why")
+    cmd.chain.like._:flag("--beg")
 
     -- cmd.chain.dislike
     cmd.chain.dislike._ = cmd.chain._:command("dislike")
@@ -105,6 +107,7 @@ do
     cmd.chain.dislike._:argument("id")
     cmd.chain.dislike._:option("--sign")
     cmd.chain.dislike._:option("--why")
+    cmd.chain.dislike._:flag("--beg")
 
     -- cmd.chain.reps
     cmd.chain.reps._ = cmd.chain._:command("reps")
