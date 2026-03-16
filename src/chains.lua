@@ -1,7 +1,6 @@
 math.randomseed()
 
--- TODO: resolve relative to script
-local SKEL = "/x/freechains/vcs/.claude/worktrees/reps/src/skel/"
+local SKEL = debug.getinfo(1, "S").source:match("@(.*/)")  .. "skel/"
 
 local chains = ARGS.root .. "/chains/"
 if ARGS.add then
