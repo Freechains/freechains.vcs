@@ -147,7 +147,7 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
     if ARGS.sign then
         G.authors[ARGS.sign] = G.authors[ARGS.sign] or { reps=0 }
 
-        if G.authors[ARGS.sign].reps < C.reps.unit then
+        if G.authors[ARGS.sign].reps <= 0 then
             if not ARGS.beg then
                 ERROR("chain post : insufficient reputation")
             end
