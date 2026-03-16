@@ -138,8 +138,23 @@ if ARGS.reps then
 elseif ARGS.post or ARGS.like or ARGS.dislike then
     local kind, files, blob
 
-    if G.authors[ARGS.sign].reps < C.reps.unit then
-        ERROR("chain post : BLOCKED : insufficient reputation")
+    -- signing gate
+    if ARGS.sign then
+        G.authors[ARGS.sign] = G.authors[ARGS.sign] or { reps=0 }
+
+        if G.authors[ARGS.sign].reps < C.reps.unit then
+            if not ARGS.beg then
+                ERROR("chain post : insufficient reputation")
+            end
+        else
+            if ARGS.beg then
+                ERROR("chain post : --beg error : author has sufficient reputation")
+            end
+        end
+    else
+        if not ARGS.beg then
+            ERROR("chain post : requires --sign or --beg")
+        end
     end
 
     if ARGS.post then
@@ -178,10 +193,6 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
         end
     elseif ARGS.like or ARGS.dislike then
         kind = "like"
-
-        if not ARGS.sign then
-            ERROR("chain like : --sign is required")
-        end
 
         if ARGS.number <= 0 then
             ERROR("chain like : expected positive integer")
@@ -241,7 +252,6 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
 
         if kind == "post" then
             if ARGS.sign then
-                G.authors[ARGS.sign] = G.authors[ARGS.sign] or { reps=0 }
                 G.authors[ARGS.sign].reps = G.authors[ARGS.sign].reps - C.reps.cost
                 if G.authors[ARGS.sign].time == nil then
                     G.authors[ARGS.sign].time = NOW.s
@@ -256,7 +266,6 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
 
         elseif kind == "like" then
             local num = ARGS.number * C.reps.unit
-            G.authors[ARGS.sign] = G.authors[ARGS.sign] or { reps=0 }
             G.authors[ARGS.sign].reps = G.authors[ARGS.sign].reps - num
 
             if ARGS.dislike then

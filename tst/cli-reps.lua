@@ -183,7 +183,7 @@ do
             ENV_EXE .. " chain cli-reps post inline 'blocked'" .. " --sign " .. KEY2
         )
         assert(code ~= 0, "should fail: non-pioneer with 0 reps")
-        assert(out:match("BLOCKED"), "should say BLOCKED: " .. out)
+        assert(out:match("ERROR : chain post : insufficient reputation"))
     end
 
     do
@@ -212,6 +212,16 @@ do
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#post == 40, "expected commit hash: " .. post)
+    end
+
+    do
+        TEST "gate-beg-with-reps-fails"
+        -- KEY is pioneer with reps -> --beg must fail
+        local ok, code, out = exec ('stderr',
+            ENV_EXE .. " chain cli-reps post inline 'no beg needed'" .. " --sign " .. KEY .. " --beg"
+        )
+        assert(code ~= 0, "should fail: --beg with sufficient reps")
+        assert(out:match("sufficient reputation"), "should mention sufficient: " .. out)
     end
 
     exec(ENV_EXE .. " chains rem cli-reps")
