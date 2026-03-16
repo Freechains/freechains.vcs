@@ -179,7 +179,7 @@ do
     do
         TEST "gate-blocked-no-reps"
         -- KEY2 is not a pioneer, has 0 reps -> post must fail
-        local out, code = exec ('stderr',
+        local ok, code, out = exec ('stderr',
             ENV_EXE .. " chain cli-reps post inline 'blocked'" .. " --sign " .. KEY2
         )
         assert(code ~= 0, "should fail: non-pioneer with 0 reps")
@@ -200,7 +200,7 @@ do
         TEST "gate-unblocked-after-like"
         -- KEY likes KEY2 (author-targeted) to give reps, then KEY2 can post
         exec (
-            ENV_EXE .. " chain cli-reps like 1 author " .. KEY2 .. " --sign " .. KEY
+            ENV_EXE .. " chain cli-reps like 2 author " .. KEY2 .. " --sign " .. KEY
         )
         local out2 = exec (
             ENV_EXE .. " chain cli-reps reps author " .. KEY2

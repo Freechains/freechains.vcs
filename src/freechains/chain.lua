@@ -138,6 +138,10 @@ if ARGS.reps then
 elseif ARGS.post or ARGS.like or ARGS.dislike then
     local kind, files, blob
 
+    if G.authors[ARGS.sign].reps < C.reps.unit then
+        ERROR("chain post : BLOCKED : insufficient reputation")
+    end
+
     if ARGS.post then
         kind = "post"
         if ARGS.inline then     -- before ambiguous ARGS.file
