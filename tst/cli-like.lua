@@ -114,10 +114,13 @@ do
     end
 end
 
--- LIKE AUTHOR
+-- LIKE AUTHOR (fresh chain)
+exec(ENV_EXE .. " chains rem cli-like")
+exec(ENV_EXE .. " chains add cli-like dir " .. GEN_2P)
 do
     print("==> freechains chain like author")
 
+    -- KEY=15, KEY2=15
     do
         TEST "like-author-success"
         local out, code = exec (
@@ -125,6 +128,41 @@ do
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
+    end
+
+    do
+        TEST "like-author-liker-cost"
+        -- KEY: 15 - 1 (cost) = 14
+        local out = exec(ENV_EXE .. " chain cli-like reps author " .. KEY)
+        assert(out == "14", "liker reps: " .. out)
+
+        TEST "like-author-target-gains"
+        -- KEY2: 15000 + 900 = 15900 -> ext = 16
+        local out = exec(ENV_EXE .. " chain cli-like reps author " .. KEY2)
+        assert(out == "16", "target reps: " .. out)
+    end
+
+    do
+        TEST "like-author-2-transfer"
+        -- like 2: KEY pays 2000 cost, KEY2 gets 2000*90%=1800
+        exec(ENV_EXE .. " chain cli-like like 2 author " .. KEY2 .. " --sign " .. KEY)
+        local k1 = exec(ENV_EXE .. " chain cli-like reps author " .. KEY)
+        local k2 = exec(ENV_EXE .. " chain cli-like reps author " .. KEY2)
+        -- KEY: 14000 - 2000 = 12000 -> ext=12
+        -- KEY2: 15900 + 1800 = 17700 -> ext=18
+        assert(k1 == "12", "liker reps: " .. k1)
+        assert(k2 == "18", "target reps: " .. k2)
+    end
+
+    do
+        TEST "dislike-author"
+        exec(ENV_EXE .. " chain cli-like dislike 1 author " .. KEY2 .. " --sign " .. KEY)
+        local k1 = exec(ENV_EXE .. " chain cli-like reps author " .. KEY)
+        local k2 = exec(ENV_EXE .. " chain cli-like reps author " .. KEY2)
+        -- KEY: 12000 - 1000 = 11000 -> ext=11
+        -- KEY2: 17700 - 900 = 16800 -> ext=17
+        assert(k1 == "11", "liker reps: " .. k1)
+        assert(k2 == "17", "target reps: " .. k2)
     end
 end
 
