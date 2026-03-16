@@ -168,4 +168,53 @@ do
     end
 end
 
+-- GATE CHECK (Rule 4.a: >= 1 rep to post)
+if false then
+    print("==> Gate check")
+
+    exec("rm -rf " .. TMP)
+    exec("mkdir -p " .. ROOT)
+    exec(ENV_EXE .. " chains add cli-reps dir " .. GEN_1P)
+
+    do
+        TEST "gate-blocked-no-reps"
+        -- KEY2 is not a pioneer, has 0 reps -> post must fail
+        local out, code = exec ('stderr',
+            ENV_EXE .. " chain cli-reps post inline 'blocked'" .. " --sign " .. KEY2
+        )
+        assert(code ~= 0, "should fail: non-pioneer with 0 reps")
+        assert(out:match("BLOCKED"), "should say BLOCKED: " .. out)
+    end
+
+    do
+        TEST "gate-accepted-with-reps"
+        -- KEY is pioneer with 30 reps -> post must succeed
+        local out, code = exec (
+            ENV_EXE .. " chain cli-reps post inline 'accepted'" .. " --sign " .. KEY
+        )
+        assert(code == 0, "exit code: " .. tostring(code))
+        assert(#out == 40, "expected commit hash: " .. out)
+    end
+
+    do
+        TEST "gate-unblocked-after-like"
+        -- KEY likes KEY2 (author-targeted) to give reps, then KEY2 can post
+        exec (
+            ENV_EXE .. " chain cli-reps like 1 author " .. KEY2 .. " --sign " .. KEY
+        )
+        local out2 = exec (
+            ENV_EXE .. " chain cli-reps reps author " .. KEY2
+        )
+        assert(tonumber(out2) >= 1, "KEY2 should have reps: " .. out2)
+
+        local post, code = exec (
+            ENV_EXE .. " chain cli-reps post inline 'now ok'" .. " --sign " .. KEY2
+        )
+        assert(code == 0, "exit code: " .. tostring(code))
+        assert(#post == 40, "expected commit hash: " .. post)
+    end
+
+    exec(ENV_EXE .. " chains rem cli-reps")
+end
+
 print("<== ALL PASSED")

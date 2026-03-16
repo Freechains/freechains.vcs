@@ -167,6 +167,11 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
                 , "chain post : copy failed: " .. ARGS.path
             )
         end
+        if not blob then
+            blob = exec (true,
+                "git hash-object " .. REPO .. files
+            )
+        end
     elseif ARGS.like or ARGS.dislike then
         kind = "like"
 
@@ -237,7 +242,12 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
                 if G.authors[ARGS.sign].time == nil then
                     G.authors[ARGS.sign].time = NOW.s
                 end
-                G.posts[blob] = { reps=0, author=ARGS.sign, time=NOW.s, state="00-12" }
+                G.posts[blob] = {
+                    author = ARGS.sign,
+                    time   = NOW.s,
+                    state  = "00-12",
+                    reps   = 0,
+                }
             end
 
         elseif kind == "like" then
