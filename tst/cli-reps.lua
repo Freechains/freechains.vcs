@@ -198,7 +198,7 @@ do
     do
         TEST "gate-blocked-no-reps"
         -- KEY2 is not a pioneer, has 0 reps -> post must fail
-        local ok, code, out = exec ('stderr',
+        local ok, code, out = exec (true, 'stderr',
             ENV_EXE .. " chain cli-reps post inline 'blocked'" .. " --sign " .. KEY2
         )
         assert(code ~= 0, "should fail: non-pioneer with 0 reps")
@@ -236,7 +236,7 @@ do
     do
         TEST "gate-beg-with-reps-fails"
         -- KEY is pioneer with reps -> --beg must fail
-        local ok, code, out = exec ('stderr',
+        local ok, code, out = exec (true, 'stderr',
             ENV_EXE .. " chain cli-reps post inline 'no beg needed'" .. " --sign " .. KEY .. " --beg"
         )
         assert(code ~= 0, "should fail: --beg with sufficient reps")

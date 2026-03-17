@@ -161,7 +161,7 @@ do
     do
         TEST "post to nonexistent chain fails"
         local tmp = TMP .. "/hello.txt"
-        local _, code = exec (
+        local _, code = exec (true,
             ENV_EXE .. " chain nochain post file " .. tmp .. " --sign " .. KEY
         )
         assert(code ~= 0, "should fail")

@@ -173,7 +173,7 @@ do
     do
         TEST "like-nonexistent-post"
         local fake = "0000000000000000000000000000000000000000"
-        local _, code = exec (
+        local _, code = exec (true,
             ENV_EXE .. " chain cli-like like 1 post " .. fake .. " --sign " .. KEY2
         )
         assert(code ~= 0, "should fail")
@@ -203,7 +203,7 @@ do
 
     do
         TEST "like-requires-sign"
-        local _, code = exec (
+        local _, code = exec (true,
             ENV_EXE .. " chain cli-like like 1 post " .. POST
         )
         assert(code ~= 0, "like without --sign should fail")
@@ -211,7 +211,7 @@ do
 
     do
         TEST "like-bad-target-type"
-        local _, code = exec (
+        local _, code = exec (true,
             ENV_EXE .. " chain cli-like like 1 foo " .. POST .. " --sign " .. KEY
         )
         assert(code ~= 0, "bad target type should fail")

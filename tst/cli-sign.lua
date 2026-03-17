@@ -65,7 +65,7 @@ do
 
     do
         TEST "post without --sign or --beg fails"
-        local ok, code, out = exec ('stderr',
+        local ok, code, out = exec (true, 'stderr',
             ENV_EXE .. " chain cli-sign post inline 'no auth'"
         )
         assert(code ~= 0, "should fail without --sign or --beg")

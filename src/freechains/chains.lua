@@ -29,7 +29,7 @@ if ARGS.add then
             , "chains add : git init failed"
         )
         git_config(tmp)
-        exec (true,
+        exec (
             "cp -r " .. SKEL .. ". " .. tmp .. "/"
         )
         do
@@ -41,24 +41,24 @@ if ARGS.add then
             "cp -r " .. ARGS.path .. "/* " .. tmp .. "/.freechains/"
             , "chains add : copy genesis failed"
         )
-        exec (true,
+        exec (
             "git -C " .. tmp .. " add .freechains/"
         )
 
-        exec (true,
+        exec (
             NOW.git .. "git -C " .. tmp .. ' commit --allow-empty-message -m ""'
         )
 
-        local hash = exec (true,
+        local hash = exec (
             "git -C " .. tmp .. " rev-parse HEAD"
         )
 
         local final = chains .. "/" .. hash
         if not os.rename(tmp, final) then
-            exec(true, "rm -rf " .. tmp)
+            exec("rm -rf " .. tmp)
             ERROR("chains add : chain already exists: " .. hash)
         end
-        exec (true,
+        exec (
             "ln -s " .. hash .. "/ " .. chains .. "/" .. ARGS.alias
         )
 
@@ -70,12 +70,12 @@ elseif ARGS.rem then
         "readlink " .. alias
         , "chains rem : not found: " .. ARGS.alias
     )
-    exec (true,
+    exec (
         "rm -rf " .. chains .. lnk
     )
     os.remove(alias)
 elseif ARGS.dir then
-    local out = exec (true,
+    local out = exec (
         "find " .. chains .. " -maxdepth 1 -type l -printf '%f\\n' | sort"
     )
     io.write(out)

@@ -55,7 +55,7 @@ do
             f:write('return "not a table"\n')
             f:close()
         end
-        local _, code = exec (
+        local _, code = exec (true,
             EXE .. " chains add x dir " .. bad
         )
         assert(code ~= 0, "should fail")
@@ -63,7 +63,7 @@ do
 
     do
         TEST "add args fails"
-        local _, code = exec (
+        local _, code = exec (true,
             EXE .. " chains add x args --type '#'"
         )
         assert(code ~= 0, "should fail")
@@ -71,7 +71,7 @@ do
 
     do
         TEST "add remote fails"
-        local _, code = exec (
+        local _, code = exec (true,
             EXE .. " chains add x remote host hash"
         )
         assert(code ~= 0, "should fail")
@@ -116,13 +116,13 @@ do
         assert(code == 0, "exit code: " .. tostring(code))
 
         TEST "dir removed"
-        local _, code = exec (
+        local _, code = exec (true,
             "test -d " .. ROOT .. "/chains/cli-chains"
         )
         assert(code ~= 0, "dir should not exist")
 
         TEST "symlink removed"
-        local _, code = exec (
+        local _, code = exec (true,
             "test -L " .. ROOT .. "/chains/cli-chains"
         )
         assert(code ~= 0, "symlink should not exist")
@@ -130,7 +130,7 @@ do
 
     do
         TEST "rem nonexistent fails"
-        local _, code = exec (
+        local _, code = exec (true,
             EXE .. " chains rem nonexistent"
         )
         assert(code ~= 0, "should fail")

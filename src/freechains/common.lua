@@ -33,12 +33,12 @@ function exec (a, b, c)
         return out, code
     elseif err then
         if err == true then
-            error("bug found : [" .. code .. "] : " .. cmd .. " : " .. out)
+            return false, code, out
         else
             ERROR(err, out)
         end
     else
-        return false, code, out
+        error("bug found : [" .. code .. "] : " .. cmd .. " : " .. out)
     end
 end
 

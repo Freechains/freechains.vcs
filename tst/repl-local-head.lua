@@ -295,7 +295,7 @@ do
         assert(code == 0, "fetch should succeed")
 
         TEST "dry-run merge from unrelated chain fails"
-        local _, code = exec (
+        local _, code = exec (true,
             "git -C " .. REPO_C .. " merge --no-commit --no-ff FETCH_HEAD"
         )
         assert(code ~= 0, "should reject unrelated histories")
@@ -333,7 +333,7 @@ do
         assert(code == 0, "fetch should succeed")
 
         TEST "dry-run merge fails with conflict"
-        local _, code = exec (
+        local _, code = exec (true,
             "git -C " .. REPO_A .. " merge --no-commit --no-ff FETCH_HEAD"
         )
         assert(code ~= 0, "should fail with conflict")
@@ -343,7 +343,7 @@ do
         assert(code == 0, "abort failed")
 
         TEST "merge fails with conflict"
-        local _, code = exec (
+        local _, code = exec (true,
             "git -C " .. REPO_A .. " merge --no-edit FETCH_HEAD"
         )
         assert(code ~= 0, "should fail with conflict")
