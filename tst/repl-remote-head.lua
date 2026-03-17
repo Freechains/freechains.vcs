@@ -76,7 +76,7 @@ do
     do
         TEST "chain created"
         CHAIN_HASH = exec (
-            EXE_A .. " chains add test dir " .. GEN
+            EXE_A .. " chains add test dir " .. GEN_1P
         )
         assert(#CHAIN_HASH == 40, "hash: " .. CHAIN_HASH)
         assert(CHAIN_HASH:match("^%x+$"), "not hex")
@@ -85,7 +85,7 @@ do
     do
         TEST "post on A"
         local out = exec (
-            EXE_A .. " chain test post inline 'post from A' --beg"
+            EXE_A .. " chain test post inline 'post from A' --sign " .. KEY
         )
         assert(#out == 40, "hash: " .. out)
         assert(out:match("^%x+$"), "not hex")
@@ -152,7 +152,7 @@ do
     do
         TEST "post on B"
         local out = exec (
-            EXE_B .. " chain test post inline 'post from B' --beg"
+            EXE_B .. " chain test post inline 'post from B' --sign " .. KEY
         )
         assert(#out == 40, "hash: " .. out)
         assert(out:match("^%x+$"), "not hex")
@@ -230,13 +230,13 @@ do
     do
         TEST "A posts again"
         local out = exec (
-            EXE_A .. " chain test post inline 'second from A' --beg"
+            EXE_A .. " chain test post inline 'second from A' --sign " .. KEY
         )
         assert(#out == 40, "hash: " .. out)
 
         TEST "B posts again"
         local out = exec (
-            EXE_B .. " chain test post inline 'second from B' --beg"
+            EXE_B .. " chain test post inline 'second from B' --sign " .. KEY
         )
         assert(#out == 40, "hash: " .. out)
     end
@@ -319,7 +319,7 @@ do
     print("==> Unrelated histories rejected")
 
     local h = exec (
-        EXE_C .. " chains add test dir " .. GEN
+        EXE_C .. " chains add test dir " .. GEN_1P
     )
     assert(h ~= CHAIN_HASH, "should differ")
 
@@ -348,7 +348,7 @@ do
     do
         TEST "A posts to log.txt"
         local out = exec (
-            EXE_A .. " chain test post" .. " inline 'from A' --file log.txt --beg"
+            EXE_A .. " chain test post" .. " inline 'from A' --file log.txt --sign " .. KEY
         )
         assert(#out == 40, "hash: " .. out)
     end
@@ -356,7 +356,7 @@ do
     do
         TEST "B posts to log.txt"
         local out = exec (
-            EXE_B .. " chain test post" .. " inline 'from B' --file log.txt --beg"
+            EXE_B .. " chain test post" .. " inline 'from B' --file log.txt --sign " .. KEY
         )
         assert(#out == 40, "hash: " .. out)
     end
