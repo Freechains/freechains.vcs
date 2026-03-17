@@ -197,3 +197,25 @@ Uses `GEN_1P` (KEY=30 reps, KEY2/KEY3=0 reps).
 - [ ] Impl: like beg → append to beg branch + merge
 - [ ] Impl: remove blocked field on unblock
 - [ ] Tests pass
+
+## Done so far
+
+### Implementation (src/freechains/chain.lua)
+- After commit: if `ARGS.beg`, `update-ref refs/begs/<ts>-<blob8> HEAD` + `reset --hard HEAD~1`
+- Metadata: `if ARGS.beg` → `state='blocked'`, no cost deduction; else → `state='00-12'`, normal cost
+- Removed outer `if ARGS.sign` wrapper on metadata block (unsigned begs get `author=nil`)
+- `--beg` only on `post` subcommand (argparse enforces, no runtime check needed)
+
+### Test files adapted for beg behavior
+- `tst/cli-begs.lua` — new, 5 sections (simple beg, multiple, different heads, likes, merge structure)
+- `tst/cli-post.lua` — `GEN` → `GEN_1P`, `--beg` → `--sign KEY`, `EXE` → `ENV_EXE`
+- `tst/cli-sign.lua` — beg section checks commit by hash, not HEAD
+- `tst/cli-now.lua` — `--beg` → `--sign KEY`, `EXE` → `ENV_EXE`
+- `tst/repl-local-begs.lua` — new, beg replication via `refs/begs/*` (fetch, merge, unrelated, conflict)
+- `tst/repl-local-head.lua` — needs `--beg` → `--sign KEY` (not yet done)
+
+### Remaining work
+1. **Step 4**: like beg → checkout beg ref, commit like, update-ref, checkout main, merge, delete ref
+2. **Step 5**: on unblock, change `state='blocked'` → `state='00-12'` + set time + deduct cost
+3. **repl-local-head.lua**: switch to `GEN_1P` + `--sign KEY`
+4. **repl-remote-*.lua**: same split as local (head vs begs)
