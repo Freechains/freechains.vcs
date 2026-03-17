@@ -58,6 +58,7 @@ Chains without pioneers have an empty
 | 4.a  | min  | Author needs >= 1 rep to post | Sybil gate      |
 | 4.b  | max  | Author capped at 30 reps      | Spend incentive |
 | 4.c  | size | Post <= 128 KB                | DDoS prevention |
+| 5    | ops  | Each file op costs 1 rep      | Edit throttle   |
 
 No post expiry — posts are permanent.
 
@@ -65,7 +66,8 @@ No post expiry — posts are permanent.
 
 ### Posting (Rule 2 — Expense)
 
-A signed post costs **-1 rep** (1000 internal)
+A signed post costs **-N rep** (N * 1000 internal)
+where N = number of file operations (Rule 5),
 **temporarily**.
 The cost is refunded after a **variable discount
 period** (0–12 hours) that depends on subsequent
@@ -73,17 +75,62 @@ activity from reputed authors.
 
 ```
 post block:
-    if author.reps < 1000:
+    N = count file ops outside .freechains/
+    if author.reps < N * 1000:
         state = BLOCKED
     else:
         state = ACCEPTED
-    author.reps -= 1000
+    author.reps -= N * 1000
     add to time/posts.lua with state "00-12"
+        and cost = N * 1000
 ```
 
 If the author's reputation is insufficient (Rule 4.a),
 the post is accepted into the DAG but marked
 **BLOCKED** (invisible to consensus).
+
+### File Operation Costs (Rule 5 — Per-Op Expense)
+
+Each file operation outside `.freechains/` costs
+**1 rep** (1000 internal).
+Operations: add, modify, delete.
+`.freechains/` changes are free (deterministic,
+verifiable by recomputation).
+
+A normal post adds 1 file → 1 rep.
+An edition touching 3 files → 3 rep.
+A mass delete of 100 files → 100 rep (self-limiting).
+
+```
+post:
+    N = count file ops outside .freechains/
+        (via git diff-tree --no-commit-id -r )
+    author.reps -= N * 1000
+    add entry to time/posts.lua ("00-12")
+        with cost = N * 1000
+```
+
+Discount refunds the full N * 1000.
+Consolidation still grants +1/day (1000 internal).
+Heavy edits drain rep over time — natural pressure.
+
+#### Validation at Fetch/Merge
+
+For each incoming commit:
+1. `git diff-tree --no-commit-id -r <commit>`
+2. Count A/M/D entries outside `.freechains/`
+3. Verify author had >= N * 1000 reps at that
+   DAG position
+4. Reject commit if insufficient
+
+#### Editions and Community Moderation
+
+Editions (modify/delete) are allowed.
+Community recourse: dislike bad edits.
+If dislikes accumulate, the post (commit) gets
+REVOKED — its file changes are stripped.
+Authors can self-correct by reverting in a new
+commit (costs more rep).
 
 ### Variable Discount Period (Rule 2)
 
@@ -354,8 +401,10 @@ on every commit (post, like, or dislike):
                    keep entry (retry next commit)
        remove processed entries from time/posts.lua
     2. apply this commit's immediate effects:
-       post:    author.reps -= 1000
+       post:    N = count file ops outside .freechains/
+                author.reps -= N * 1000
                 add entry to time/posts.lua ("00-12")
+                    with cost = N * 1000
                 if time_authors[author] is nil:
                     time_authors[author] = NOW
        like:    liker.reps -= 1000
@@ -532,6 +581,11 @@ Observations:
 - [x] Tests: 30-rep cap
 - [x] Tests: gate check (blocked, accepted, unblocked, beg-with-reps)
 - [x] Tests: author-targeted likes (cost, gains, like 2, dislike)
+- [ ] Plan: file-op cost model (Rule 5)
+- [ ] Impl: file-op count via git diff-tree (Rule 5)
+- [ ] Impl: N * 1000 post cost (Rule 5)
+- [ ] Impl: fetch/merge file-op validation (Rule 5)
+- [ ] Tests: file-op cost (1 file, multi-file, .freechains/ exempt)
 - [ ] Impl: revocation state (Rule 3.b)
 - [ ] Impl: 128 KB size limit (Rule 4.c)
 - [ ] Impl: --beg creates BLOCKED post
