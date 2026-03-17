@@ -13,8 +13,9 @@ chain-specific rules.
 
 ## Core Concept
 
-- Smart contracts are **Lua scripts** stored in the genesis
-  block
+- Smart contracts are **Lua scripts** stored as **blob
+  files in the genesis commit tree** (not inline in the
+  commit message)
 - They run automatically on every new post
 - Return value:
   - `false` → reject the block
@@ -25,15 +26,48 @@ chain-specific rules.
 ## User-Submitted Scripts
 
 - Users can post new scripts to the chain
-- Acceptance requires **likes from the nodes that will
-  execute them** (consent-based execution)
+- Any author can spend **1 like** to execute a
+  user-submitted script (consent-based execution)
 - The `why` field serves as the input/argument to the
   script
+
+## Script API
+
+- Scripts have **full chain read access**
+- They can traverse the DAG, read previous posts, and
+  aggregate state
+- Read-only access to chain history — scripts cannot
+  modify existing posts
+
+## Determinism
+
+- Scripts **should** be deterministic, but this **cannot
+  be enforced** by the protocol
+- If a script produces non-deterministic results, users
+  may dislike it enough to remove it
+- Best-effort: script authors are expected to write
+  deterministic code
+
+## Script Removal
+
+- When a script is removed (via sufficient dislikes):
+  - **Previously accepted posts survive** — they are not
+    retroactively rejected
+  - **Future posts stop being processed** by the removed
+    script
+- Removal is forward-only
+
+## Scope
+
+- Scripts handle **validation only**
+- They accept/reject posts and run side effects
+- **Reputation and consensus stay in the protocol** —
+  scripts cannot override them
 
 ## Filesystem Layout
 
 ```
-.freechains/scripts/    ← script storage
+chains/<name>/out/    ← script side-effect output
 ```
 
 ## Use Case: UERJ Academic Site
@@ -47,23 +81,15 @@ chain-specific rules.
 
 ## Design Questions
 
-- [ ] How are genesis scripts specified? (inline vs ref)
 - [ ] Script sandboxing / resource limits
 - [ ] How do side effects persist across nodes?
-- [ ] Determinism: must all nodes produce the same side
-  effects?
 - [ ] Script versioning: can genesis scripts be updated?
-- [ ] How does the like-based consent work for
-  user-submitted scripts?
-- [ ] What Lua APIs are available to scripts?
-- [ ] How do scripts access post content (payload, headers,
-  metadata)?
 
 ## TODO
 
-- [ ] Define script API (input/output contract)
-- [ ] Define consent mechanism for user-submitted scripts
+- [ ] Define full script API (available Lua functions,
+  DAG traversal helpers)
 - [ ] Prototype: genesis script that validates post format
 - [ ] Prototype: UERJ thesis → HTML generator
-- [ ] Define `.freechains/scripts/` structure
+- [ ] Define `chains/<name>/out/` structure
 - [ ] Sandboxing strategy for untrusted scripts
