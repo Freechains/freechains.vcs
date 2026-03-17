@@ -55,7 +55,7 @@ do
         )
         assert(hash:match("^%x+$"), "hash is hex: " .. hash)
         assert(posts[hash], "post entry not found for blob: " .. hash)
-        assert(posts[hash].blocked == true, "blocked should be true")
+        assert(posts[hash].state == "blocked", "state should be blocked")
     end
 end
 
@@ -179,7 +179,7 @@ do
             "git -C " .. DIR .. " show " .. BEG .. ":" .. blob .. " | git hash-object --stdin"
         )
         assert(posts[hash], "post entry not found for blob: " .. hash)
-        assert(posts[hash].blocked ~= true, "blocked should no longer be true")
+        assert(posts[hash].state ~= "blocked", "state should no longer be blocked")
     end
 
     do

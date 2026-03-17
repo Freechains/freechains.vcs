@@ -192,8 +192,8 @@ Uses `GEN_1P` (KEY=30 reps, KEY2/KEY3=0 reps).
 
 - [x] Write failing tests (cli-begs.lua)
 - [x] Impl: beg commit → refs/begs/ + reset HEAD
-- [ ] Impl: posts.lua blocked field
-- [ ] Impl: stage skips blocked entries
+- [x] Impl: posts.lua state="blocked" field
+- [x] Impl: stage skips blocked entries (free: scans match "00-12"/"12-24" only)
 - [ ] Impl: like beg → append to beg branch + merge
 - [ ] Impl: remove blocked field on unblock
 - [ ] Tests pass

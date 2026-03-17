@@ -236,33 +236,37 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
     end
 
     -- metadata: post/like: reps
-    if ARGS.sign then
-        if kind == 'post' then
+    if kind == 'post' then
+        local state
+        if ARGS.beg then
+            state = 'blocked'
+        else
+            state = '00-12'
             G.authors[ARGS.sign].reps = G.authors[ARGS.sign].reps - C.reps.cost
             if G.authors[ARGS.sign].time == nil then
                 G.authors[ARGS.sign].time = NOW.s
             end
-            G.posts[blob] = {
-                author = ARGS.sign,
-                time   = NOW.s,
-                state  = "00-12",
-                reps   = 0,
-            }
-        elseif kind == 'like' then
-            G.authors[ARGS.sign].reps = G.authors[ARGS.sign].reps - math.abs(num)
-            num = num * (100 - C.like.tax) // 100
-            if ARGS.target == "post" then
-                local a = exec (true,
-                    "git -C " .. REPO .. " log -1 --format='%GK' " .. ARGS.id
-                )
-                G.authors[a] = G.authors[a] or { reps=0 }
-                G.authors[a].reps = G.authors[a].reps + num // C.like.split
-                G.posts[ARGS.id] = G.posts[ARGS.id] or { reps=0, author=a }
-                G.posts[ARGS.id].reps = G.posts[ARGS.id].reps + num // C.like.split
-            else
-                G.authors[ARGS.id] = G.authors[ARGS.id] or { reps=0 }
-                G.authors[ARGS.id].reps = G.authors[ARGS.id].reps + num
-            end
+        end
+        G.posts[blob] = {
+            author = ARGS.sign,
+            time   = NOW.s,
+            state  = state,
+            reps   = 0,
+        }
+    elseif kind == 'like' then
+        G.authors[ARGS.sign].reps = G.authors[ARGS.sign].reps - math.abs(num)
+        num = num * (100 - C.like.tax) // 100
+        if ARGS.target == "post" then
+            local a = exec (true,
+                "git -C " .. REPO .. " log -1 --format='%GK' " .. ARGS.id
+            )
+            G.authors[a] = G.authors[a] or { reps=0 }
+            G.authors[a].reps = G.authors[a].reps + num // C.like.split
+            G.posts[ARGS.id] = G.posts[ARGS.id] or { reps=0, author=a }
+            G.posts[ARGS.id].reps = G.posts[ARGS.id].reps + num // C.like.split
+        else
+            G.authors[ARGS.id] = G.authors[ARGS.id] or { reps=0 }
+            G.authors[ARGS.id].reps = G.authors[ARGS.id].reps + num
         end
     end
 
