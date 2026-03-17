@@ -81,13 +81,13 @@ git -C REPO commit [signing flags] \
 BEG=$(git -C REPO rev-parse HEAD)
 
 # 4. Store as ref under refs/begs/
-git -C REPO update-ref refs/begs/$BLOB HEAD
+git -C REPO update-ref refs/begs/$NOW-$BLOB8 HEAD
 
 # 5. Reset main back (HEAD was advanced by commit)
 git -C REPO reset --hard HEAD~1
 ```
 
-The beg commit is only reachable via `refs/begs/$BLOB`.
+The beg commit is only reachable via `refs/begs/$NOW-$BLOB8`.
 
 ### Liking a beg post (unblock trigger)
 
@@ -96,21 +96,21 @@ appended to the beg branch, not to main:
 
 ```bash
 # 1. Switch to the beg branch
-git -C REPO checkout refs/begs/$BLOB
+git -C REPO checkout refs/begs/$NOW-$BLOB8
 
 # 2. Create like commit (on detached HEAD = beg tip)
 git -C REPO add <like files>
 git -C REPO commit -S --trailer 'freechains: like' ...
 
 # 3. Update the beg ref to new tip
-git -C REPO update-ref refs/begs/$BLOB HEAD
+git -C REPO update-ref refs/begs/$NOW-$BLOB8 HEAD
 
 # 4. Merge beg branch into main
 git -C REPO checkout main
-git -C REPO merge refs/begs/$BLOB
+git -C REPO merge refs/begs/$NOW-$BLOB8
 
 # 5. Clean up ref
-git -C REPO update-ref -d refs/begs/$BLOB
+git -C REPO update-ref -d refs/begs/$NOW-$BLOB8
 ```
 
 ### Listing begs
@@ -138,7 +138,7 @@ git -C REPO for-each-ref refs/begs/ \
 ### 1. Beg commit flow
 
 In chain.lua, after the normal commit:
-- If `ARGS.beg`: store commit as `refs/begs/$BLOB`,
+- If `ARGS.beg`: store commit as `refs/begs/$NOW-$BLOB8`,
   reset HEAD back
 - Add `blocked=true` to posts.lua entry
 - If `ARGS.sign`: include author field
@@ -171,18 +171,18 @@ When a like targets a post that is in `refs/begs/`:
 - Like a beg: `blocked` removed from posts.lua
 - Stage skips blocked entries
 
-## Open Questions
+## Resolved Questions
 
-1. What trailer for beg commits? Same `freechains: post`
-   or a distinct `freechains: beg`?
-2. Should `refs/begs/` use blob hash or commit hash
-   as the ref name?
-3. On unblock merge: the merge commit is unsigned?
-   Or signed by the liker?
-4. Can multiple likes target the same beg (before
-   merge)? Or does the first like trigger the merge?
-5. What if the liker's reps are insufficient to cover
-   the like cost? The beg stays pending?
+1. **Trailer:** `freechains: post` — a beg is immutable
+   and eventually becomes a regular post.
+2. **Ref name:** `refs/begs/<timestamp>-<blob8>` —
+   same pattern as like filenames. Unique, sortable.
+3. **Merge commit:** unsigned — the merge is mechanical,
+   triggered by the signed like.
+4. **Multiple likes:** first like triggers merge
+   immediately. No accumulation.
+5. **Liker can't afford:** normal like validation applies,
+   error returned, beg stays pending.
 
 ## TODO
 
