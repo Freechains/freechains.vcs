@@ -51,6 +51,35 @@ git -C <B>/chains/<hash>/ merge FETCH_HEAD
 
 B already has A as `origin` from the clone.
 
+## Input and output branches
+
+Currently replication uses a single branch (`main`) for both
+sending and receiving.
+With `--beg` posts (blocked, unsigned), the branch that a peer
+sends may not be the same as the branch it receives into.
+
+- **output**: what this peer serves to others
+- **input**: what this peer accepts from others
+
+For normal (signed, accepted) posts, input and output are the
+same branch.
+For begs, they may diverge:
+
+- A beg post is blocked locally but may still be transmitted
+  to other peers (to some extent).
+- The receiving peer must decide whether to store begs on the
+  same branch or a separate staging area.
+
+Open questions:
+
+- Should begs travel on the same branch as accepted posts?
+- Should output filter out begs, or include them for other
+  peers to evaluate?
+- Does the chain type (`#`, `$`, `@`) affect which branch
+  layout applies?
+- Is the split per-peer (different peers get different output)
+  or per-chain?
+
 ## Two trust levels (future)
 
 | Peer type | config/ | chains/               |
