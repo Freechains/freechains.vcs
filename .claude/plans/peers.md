@@ -1,194 +1,153 @@
-# Peers
+# Peers: Discovery, Reputation, and Network
 
----
+## Overview
 
-## 1. What is a Peer
+How the peer-to-peer overlay network forms, grows, and
+self-organizes over time.
+Peers are not discovered all at once — the network starts
+small and expands through trust and activity.
 
-A peer is a host running a freechains node. Each peer has:
-- A local filesystem with `config/` and `chains/` dirs
-- One or more chain repositories (git working trees)
-- An identity: Ed25519 public key (chain-level)
-- A git daemon or other transport for sync
+## Peer Storage
 
-Peers are **not** the same as authors. An author posts
-content; a peer relays and validates it. One machine can
-host multiple author identities but is always one peer.
-
----
-
-## 2. Peer Identity in the DAG
-
-Every merge commit carries a `Freechains-Peer: <pubkey>`
-trailer identifying the peer that performed the sync.
-Combined with GPG signing, this is a signed attestation.
-
-See [trailer.md](trailer.md) for trailer format and
-peer reputation details.
-
----
-
-## 3. Peer Trust Levels
-
-See [replication.md](replication.md) for the full
-owner/non-owner trust table and sync rules.
-
----
-
-## 4. Sync Topology
-
-### Pairwise sync
-
-Sync is always between exactly two peers (fetch + merge).
-There is no broadcast or gossip layer — propagation
-happens transitively through pairwise sync.
+Each host stores its known peers in a single file at the
+host level (outside chains):
 
 ```
-A ↔ B ↔ C     A syncs with B, B syncs with C
-                → A's content reaches C via B
+<root>/peers.lua
 ```
 
-### Transport options
+The file is **shared** (replicated between owner nodes)
+and **mutable** (updated as peers join, leave, or change
+reputation).
 
-- **git daemon** (`git://`): anonymous, fast, no auth.
-  Direct peer-to-peer. Requires knowing the peer's IP.
-- **GitHub/GitLab**: relay for peers behind NAT. Push
-  requires auth (not permissionless). See network.md.
-- **Self-hosted GitLab**: removes auth/centralization
-  problems. Acts as always-on seed node.
-
-### Sync flow
-
-```bash
-git fetch <remote> <branch>
-# validate fetched commits (signatures, rep, DAG rules)
-git merge --no-edit --no-ff FETCH_HEAD
+```lua
+return {
+    ["192.168.1.10:8330"] = {
+        reps   = 5,
+        chains = { "a1b2c3...", "d4e5f6..." },
+    },
+    ["freechains.org:8330"] = {
+        reps   = true,
+        chains = { "a1b2c3..." },
+    },
+    ["10.0.0.99:8330"] = {
+        reps   = false,
+        chains = {},
+    },
+    ["203.0.113.42:8330"] = {
+        reps   = 12,
+        chains = { "a1b2c3...", "f7g8h9..." },
+    },
+}
 ```
 
-Never use `git pull` — it merges before validation.
-See replication.md, consensus.md.
+### Fields
 
----
+| Field    | Type              | Description                            |
+|----------|-------------------|----------------------------------------|
+| `reps`   | number/bool       | Peer reputation (see below)            |
+| `chains` | list of hashes    | Genesis hashes the peer declares it has |
 
-## 5. Peer Coalitions (NOT REVIEWED)
+The `chains` list is **self-declared** — the peer tells you
+which chains it has during sync.
+It is not verified until an actual fetch/push is attempted.
 
-### The problem: 7-day isolation attack
+## Peer Reputation
 
-The 7-day rule (see 7-day.md) protects against offline
-reputation farming: if a branch has been active past the
-threshold, remote content can never reorder local history.
+Each peer has a `reps` field that controls sync behavior.
+Reputation is **global across chains** — a peer's
+behavior on any chain affects its standing everywhere.
 
-But a single peer is vulnerable:
-- An isolated peer doesn't know it's isolated
-- An attacker controlling the peer's only sync partner
-  can feed it a crafted branch
-- A peer that goes offline for 7+ days returns to find
-  its local branch frozen — other peers may have moved on
+| Value           | Meaning                                |
+|-----------------|----------------------------------------|
+| `reps = N`      | Numeric reputation, earned over time   |
+| `reps = true`   | Trust blindly — accept everything      |
+| `reps = false`  | Reject blindly — refuse all sync       |
 
-### The idea: peer groups
+### Reputation Signals
 
-Peers form **coalitions** — small groups that commit to
-syncing with each other regularly. A coalition provides:
+Numeric reputation increases or decreases based on
+peer behavior:
 
-1. **Isolation detection**: if a peer can't reach ANY
-   coalition member for N hours, it knows it might be
-   isolated and can act defensively (refuse merges from
-   unknown peers, pause posting, alert the user)
+| Signal                  | Effect   |
+|-------------------------|----------|
+| New valid messages      | +reps    |
+| Sync failures           | −reps    |
+| Rejected branches       | −reps    |
+| Timeout / unreachable   | −reps    |
 
-2. **Witness timestamps**: coalition members witness each
-   other's merges. A merge is only considered "settled"
-   when M-of-N coalition members have seen it (created
-   their own merge commits on top). This is the
-   merge-witness timestamp idea from threats.md, but
-   with a defined witness set.
+Peers with low or zero reputation are deprioritized
+or dropped from the active peer list.
 
-3. **7-day defense**: a coalition that stays connected
-   never has branches diverge past the 7-day threshold.
-   The attack requires isolating the **entire coalition**,
-   not just one peer. Cost scales with coalition size.
+### Trust Overrides
 
-4. **Checkpoint quorum**: checkpoint commits (see 7-day.md)
-   require a quorum of distinct authors. A coalition
-   provides a natural quorum set — the peers who are
-   expected to post checkpoints.
+- `reps = true`: for owner peers, F2F contacts, or
+  seed nodes — skip per-message validation
+- `reps = false`: for banned or known-bad peers —
+  refuse connection entirely
 
-### How it could work
+These are manual overrides set by the node operator.
+Numeric reputation is computed automatically.
 
-- A coalition is a set of public keys, stored in the
-  chain's metadata or in a well-known commit
-- Coalition membership is visible in the DAG (signed
-  commits from coalition members)
-- A peer joining a coalition commits to syncing at least
-  once per interval (e.g., every 6 hours)
-- If a coalition member goes silent for too long, the
-  others notice and can warn users
+## Bootstrap
 
-### Relationship to checkpoint commits
+New nodes start with a minimal set of known addresses:
 
-Checkpoint commits (7-day.md) are a specific mechanism;
-coalitions are the social structure that makes them work:
+- **Pre-loaded**: hardcoded seed peers (e.g.,
+  `freechains.org`)
+- **F2F (friend-to-friend)**: manually added addresses
+  from trusted contacts
+- **Centralized relay**: `freechains.org` acts as an
+  always-on seed node for initial connectivity
 
-- **Without coalitions**: any peer can post a checkpoint,
-  but there's no expectation of coverage. Lazy or offline
-  peers mean no quorum forms.
-- **With coalitions**: members are expected to post
-  checkpoints. Failure to do so is visible and
-  actionable — the coalition can exclude the peer.
+A fresh node has at least one path into the network.
 
-### Relationship to merge voting
+## Organic Growth
 
-Merge voting (merge.md §4) lets the community reject a
-bad merge. Coalitions complement this:
+Peers learn about new peers from two sources:
 
-- Coalition members are the **first responders** — they
-  see the merge first and can vote immediately
-- A coalition's collective vote carries weight because
-  they are known, active participants
-- If a coalition member performed the bad merge, the
-  other members can vote it down and stop syncing with
-  that peer
+1. **Incoming requests**: a peer that connects to you
+   becomes a candidate peer
+2. **Known peers**: peers share their own peer lists
+   during sync (gossip-style discovery)
 
-### Open questions (NOT REVIEWED)
+Discovery is passive — no DHT, no broadcast.
+The overlay grows transitively through pairwise sync.
 
-1. **Formation**: How do peers discover and join
-   coalitions? Is it manual (out-of-band agreement) or
-   on-chain (a "join" commit)?
+## Rate Limiting
 
-2. **Size**: What's the minimum viable coalition? 3 peers
-   (basic Byzantine tolerance)? 5? Too large and
-   coordination overhead grows.
+Incoming peer discovery must be rate-limited to prevent
+spam and resource exhaustion:
 
-3. **Incentives**: What motivates peers to stay in a
-   coalition and sync regularly? Reputation rewards for
-   merge activity? Penalties for going silent?
+- Cap on new candidate peers per time window
+- Candidate peers start at reps=0 and must earn
+  reputation before being promoted to active sync
+- Existing peers with established reputation are
+  prioritized over new candidates
 
-4. **Multiple coalitions**: Can a peer belong to multiple
-   coalitions? Can coalitions overlap? What happens when
-   two coalitions disagree?
+## Network Topology Over Time
 
-5. **Enforcement**: Is coalition membership enforced by
-   the protocol or just a social convention? If protocol-
-   enforced, it needs on-chain representation.
+```
+t=0   A --- freechains.org        (bootstrap)
 
-6. **Sybil coalitions**: An attacker could create a
-   coalition of sockpuppets. Coalition membership alone
-   doesn't prove independence — it needs to be combined
-   with reputation or identity verification.
+t=1   A --- freechains.org
+       \--- B                     (B discovered via seed)
 
-7. **Relationship to pioneers**: Pioneers already form a
-   natural initial coalition (they all start with 30/N
-   rep). Should the coalition mechanism be an extension
-   of the pioneer concept?
+t=2   A --- B --- C               (C discovered via B)
+       \--- freechains.org
+```
 
----
+The seed node becomes less important as the mesh grows.
+Peers with high reputation become de facto hubs.
+
+## Open Questions
+
+1. How are peer addresses exchanged during sync?
+   Dedicated commit? Sideband message? Out-of-band?
+2. What thresholds trigger peer demotion or removal?
 
 ## Related Plans
 
-- [replication.md](replication.md) — Owner sync workflow
-- [network.md](network.md) — Transport options (git daemon,
-  GitHub, Radicle)
-- [trailer.md](trailer.md) — `Freechains-Peer:` trailer
-- [merge.md](merge.md) — Merge semantics and voting
-- [7-day.md](7-day.md) — 7-day rule and checkpoint commits
-- [threats.md](threats.md) — T1 partition fork, T2a
-  merge-witness timestamps
-- [consensus.md](consensus.md) — Fetch validation pipeline
+- [metadata.md](metadata.md) — Data files catalog
+- [replication.md](replication.md) — Sync mechanics
+- [threats.md](threats.md) — Isolation attacks

@@ -63,7 +63,7 @@ proxy that inspects the pack stream.
 
 - `receive.denyNonFastForwards` — prevents history
   rewriting via push
-- Peer reputation (see [overlay.md](overlay.md)) —
+- Peer reputation (see [peers.md](peers.md)) —
   peers with repeated failures or rejected branches
   lose reputation and are eventually dropped
 
@@ -106,4 +106,4 @@ incrementally until reaching main.
 - [consensus.md](consensus.md) — Fetch validation
   pipeline
 - [replication.md](replication.md) — Sync workflow
-- [overlay.md](overlay.md) — Peer reputation
+- [peers.md](peers.md) — Peer reputation

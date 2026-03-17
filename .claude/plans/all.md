@@ -54,7 +54,7 @@ is inside the commit hash. Public key **is** the identity.
 
 Radicle validates the architecture but is the wrong tool (wrong domain, no Lua, no reputation). GitHub/GitLab useful as bootstrap/seed relay for NAT traversal. Self-hosted GitLab closest to a full Freechains seed node.
 
-### Overlay Network — [overlay.md](overlay.md)
+### Peers & Overlay Network — [peers.md](peers.md)
 
 P2P network evolves in phases: bootstrap from seed peers
 (freechains.org, F2F), then organic growth via incoming
