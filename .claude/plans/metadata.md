@@ -19,26 +19,30 @@ their content changes from one commit to the next).
 
 ## Data Files
 
-| File                              | Location             | Shared | Mutable | Notes                                      |
-|-----------------------------------|----------------------|--------|---------|---------------------------------------------|
-| `config/keys/<pub>.pub`           | root/                | local  | immut   | Public key                                  |
-| `config/keys/<pub>.key`           | root/                | local  | immut   | Encrypted private key                       |
-| `peers.lua`                       | root/                | shared | mutable | Known peers, reps, chain lists              |
-| `config.lua`                      | repo/.freechains/    | shared | immut   | Chain rules (type, time, reps, like)        |
-| `authors.lua`                     | repo/.freechains/    | shared | mutable | Author → reputation mapping                 |
-| `posts.lua`                       | repo/.freechains/    | shared | mutable | Post → like/dislike counts                  |
-| `likes/like-*.lua`                | repo/.freechains/    | shared | immut   | Individual like/dislike payloads            |
-| `random`                          | repo/.freechains/    | shared | immut   | Chain identity seed                         |
-| user content (posts, PDFs, etc.)  | repo/                | shared | mutable | Application data, changes across commits    |
-| `local/now.lua`                   | repo/.freechains/    | local  | mutable | Last staged timestamp (untracked)           |
+| File                              | Location             | Scope   | Mutable | Notes                                       |
+|-----------------------------------|----------------------|---------|---------|-----------------------------------------------|
+| `config/keys/<pub>.pub`           | root/                | local   | immut   | Public key                                    |
+| `config/keys/<pub>.key`           | root/                | local   | immut   | Encrypted private key                         |
+| `peers.lua`                       | root/                | shared  | mutable | Known peers, reps, chain lists                |
+| `config.lua`                      | repo/.freechains/    | genesis | immut   | Chain rules (type, time, reps, like)          |
+| `random`                          | repo/.freechains/    | genesis | immut   | Chain identity seed                           |
+| `likes/like-*.lua`                | repo/.freechains/    | shared  | immut   | Individual like/dislike payloads              |
+| user content (posts, PDFs, etc.)  | repo/                | shared  | mutable | Application data, changes across commits      |
+| `authors.lua`                     | repo/.freechains/    | local   | mutable | Author → reputation mapping (from DAG)        |
+| `posts.lua`                       | repo/.freechains/    | local   | mutable | Post → like/dislike counts (from DAG)         |
+| `local/now.lua`                   | repo/.freechains/    | local   | mutable | Last staged timestamp (untracked)             |
 
-## Shared vs Local
+## Scope: Shared vs Genesis vs Local
 
 - **Shared**: replicated between peers via git
   (fetch/push/clone).
+  Committed in every relevant commit.
+- **Genesis**: committed only in the genesis commit.
+  Extracted locally on clone/fetch, never recommitted.
+  Untracked after extraction (`.git/info/exclude`).
 - **Local**: never leaves the host.
-  Excluded from git tracking (`.git/info/exclude` or
-  `.gitignore`).
+  Reconstructed from DAG or created locally.
+  Excluded from git tracking (`.git/info/exclude`).
 
 ## Mutable vs Immutable
 
