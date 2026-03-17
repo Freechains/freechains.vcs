@@ -192,6 +192,15 @@ do
     end
 
     do
+        exec (
+            "git -C " .. REPO_A .. " config merge.ours.driver true"
+        )
+        do
+            local f = io.open(REPO_A .. ".git/info/attributes", "w")
+            f:write(".freechains/posts.lua merge=ours\n")
+            f:close()
+        end
+
         TEST "A fetches from B"
         local branch = exec (
             "git -C " .. REPO_A .. " rev-parse --abbrev-ref HEAD"
@@ -221,6 +230,8 @@ do
             "git -C " .. REPO_A .. " rev-list --count HEAD"
         )
         assert(count == "6", "count: " .. count)
+
+        os.remove(REPO_A .. ".git/info/attributes")
     end
 
     do
