@@ -23,7 +23,7 @@ end
 
 -- dry-run merge: returns true if clean, false if conflict
 local function dry_merge (dir)
-    local _, code = exec("git -C " .. dir .. " merge --no-commit --no-ff FETCH_HEAD")
+    local _, code = exec(true, "git -C " .. dir .. " merge --no-commit --no-ff FETCH_HEAD")
     exec("git -C " .. dir .. " merge --abort")
     return code == 0
 end
