@@ -191,7 +191,7 @@ Uses `GEN_1P` (KEY=30 reps, KEY2/KEY3=0 reps).
 ## TODO
 
 - [x] Write failing tests (cli-begs.lua)
-- [ ] Impl: beg commit → refs/begs/ + reset HEAD
+- [x] Impl: beg commit → refs/begs/ + reset HEAD
 - [ ] Impl: posts.lua blocked field
 - [ ] Impl: stage skips blocked entries
 - [ ] Impl: like beg → append to beg branch + merge

@@ -164,7 +164,7 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
 
     -- post payload
     if ARGS.post then
-        kind = "post"
+        kind = 'post'
         if ARGS.inline then
             local text = ARGS.text .. (ARGS.text:match("\n$") and "" or "\n")
             blob = exec (true,
@@ -190,7 +190,7 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
     -- like payload
     else
         assert(ARGS.like or ARGS.dislike)
-        kind = "like"
+        kind = 'like'
         if ARGS.number <= 0 then
             ERROR("chain like : expected positive integer")
         end
@@ -237,7 +237,7 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
 
     -- metadata: post/like: reps
     if ARGS.sign then
-        if kind == "post" then
+        if kind == 'post' then
             G.authors[ARGS.sign].reps = G.authors[ARGS.sign].reps - C.reps.cost
             if G.authors[ARGS.sign].time == nil then
                 G.authors[ARGS.sign].time = NOW.s
@@ -248,7 +248,7 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
                 state  = "00-12",
                 reps   = 0,
             }
-        else
+        elseif kind == 'like' then
             G.authors[ARGS.sign].reps = G.authors[ARGS.sign].reps - math.abs(num)
             num = num * (100 - C.like.tax) // 100
             if ARGS.target == "post" then
@@ -299,6 +299,16 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
         local hash = exec (true,
             "git -C " .. REPO .. " rev-parse HEAD"
         )
+
+        if ARGS.beg then
+            exec (true,
+                "git -C " .. REPO .. " update-ref refs/begs/" .. NOW.s .. "-" .. blob:sub(1,8) .. " HEAD"
+            )
+            exec (true,
+                "git -C " .. REPO .. " reset --hard HEAD~1"
+            )
+        end
+
         print(hash)
     end
 end

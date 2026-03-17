@@ -10,7 +10,7 @@ exec(ENV_EXE .. " chains add cli-begs dir " .. GEN_1P)
 do
     print("==> Simple beg")
 
-    local HEAD_BEFORE = exec("git -C " .. DIR .. " rev-parse HEAD")
+    local HEAD = exec("git -C " .. DIR .. " rev-parse HEAD")
 
     local BEG
     do
@@ -22,10 +22,12 @@ do
         assert(#out == 40, "hash length: " .. #out)
         assert(out:match("^%x+$"), "hash is hex: " .. out)
         BEG = out
+    end
 
+    do
         TEST "beg-not-on-head"
         local head = exec("git -C " .. DIR .. " rev-parse HEAD")
-        assert(head == HEAD_BEFORE, "HEAD should not advance: " .. head .. " vs " .. HEAD_BEFORE)
+        assert(head == HEAD, "HEAD should not advance: " .. head .. " vs " .. HEAD)
     end
 
     do
@@ -39,12 +41,19 @@ do
     do
         TEST "beg-blocked-in-posts"
         local posts = dofile(DIR .. ".freechains/posts.lua")
-        local blob = exec (true,
-            "git -C " .. DIR .. " diff-tree --no-commit-id --name-only -r " .. BEG .. " -- '*.txt'"
+        local file = exec (true,
+            "git -C " .. DIR ..
+                " diff-tree --no-commit-id --name-only -r " .. BEG .. " -- '*.txt'"
         )
+        assert(file:match("post%-%d+%-.-%.txt"))
+        local txt = exec (true,
+            "git -C " .. DIR .. " show " .. BEG .. ":" .. file
+        )
+        assert(txt == "please help")
         local hash = exec (true,
-            "git -C " .. DIR .. " show " .. BEG .. ":" .. blob .. " | git hash-object --stdin"
+            "echo  " .. txt .. " | git hash-object --stdin"
         )
+        assert(hash:match("^%x+$"), "hash is hex: " .. hash)
         assert(posts[hash], "post entry not found for blob: " .. hash)
         assert(posts[hash].blocked == true, "blocked should be true")
     end
@@ -58,7 +67,7 @@ do
     exec("mkdir -p " .. ROOT)
     exec(ENV_EXE .. " chains add cli-begs dir " .. GEN_1P)
 
-    local HEAD_BEFORE = exec("git -C " .. DIR .. " rev-parse HEAD")
+    local HEAD = exec("git -C " .. DIR .. " rev-parse HEAD")
 
     do
         TEST "beg-multiple-from-head"
@@ -73,7 +82,7 @@ do
         assert(code2 == 0, "beg2 exit code: " .. tostring(code2))
 
         local head = exec("git -C " .. DIR .. " rev-parse HEAD")
-        assert(head == HEAD_BEFORE, "HEAD should not advance: " .. head .. " vs " .. HEAD_BEFORE)
+        assert(head == HEAD, "HEAD should not advance: " .. head .. " vs " .. HEAD)
     end
 
     do
@@ -136,7 +145,7 @@ do
         ENV_EXE .. " chain cli-begs post inline 'please accept me' --beg --sign " .. KEY2
     )
 
-    local HEAD_BEFORE = exec("git -C " .. DIR .. " rev-parse HEAD")
+    local HEAD = exec("git -C " .. DIR .. " rev-parse HEAD")
 
     -- get ref name for later checks
     local REF = exec (
@@ -157,7 +166,7 @@ do
     do
         TEST "like-beg-merges"
         local head = exec("git -C " .. DIR .. " rev-parse HEAD")
-        assert(head ~= HEAD_BEFORE, "HEAD should advance after merge")
+        assert(head ~= HEAD, "HEAD should advance after merge")
     end
 
     do
