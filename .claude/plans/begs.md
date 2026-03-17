@@ -87,7 +87,8 @@ git -C REPO update-ref refs/begs/$NOW-$BLOB8 HEAD
 git -C REPO reset --hard HEAD~1
 ```
 
-The beg commit is only reachable via `refs/begs/$NOW-$BLOB8`.
+The beg commit is only reachable via
+`refs/begs/$NOW-$BLOB8`.
 
 ### Liking a beg post (unblock trigger)
 
@@ -120,57 +121,6 @@ git -C REPO for-each-ref refs/begs/ \
     --format='%(refname:short) %(objectname)'
 ```
 
-## Files to Modify
-
-| File                          | Changes                           |
-|-------------------------------|-----------------------------------|
-| `src/freechains/chain.lua`    | Beg commit: update-ref + reset    |
-| `src/freechains/chain.lua`    | Like: detect beg target, branch   |
-| `src/freechains/chain.lua`    | Merge beg into main after like    |
-| `src/freechains/chain.lua`    | posts.lua: blocked field          |
-| `src/freechains/chain.lua`    | Stage: skip blocked entries       |
-| `src/freechains.lua`          | (--beg flag already added)        |
-| `tst/cli-reps.lua`            | Gate tests: beg on ref            |
-| `tst/cli-sign.lua`            | Beg test: not on HEAD             |
-
-## Implementation Steps
-
-### 1. Beg commit flow
-
-In chain.lua, after the normal commit:
-- If `ARGS.beg`: store commit as `refs/begs/$NOW-$BLOB8`,
-  reset HEAD back
-- Add `blocked=true` to posts.lua entry
-- If `ARGS.sign`: include author field
-- Print the beg commit hash (not HEAD)
-
-### 2. Stage: skip blocked entries
-
-In discount/consolidation scans, skip entries where
-`blocked == true`. They don't participate in time
-effects until unblocked.
-
-### 3. Like targeting a beg post
-
-When a like targets a post that is in `refs/begs/`:
-- Checkout the beg branch (detached HEAD)
-- Append the like commit
-- Update the beg ref
-- Merge beg branch into main
-- Remove `blocked=true` from posts.lua
-- Activate time tracking
-- Clean up the beg ref
-
-### 4. Tests
-
-- `--beg` post not on HEAD (HEAD unchanged)
-- `--beg` post reachable via `refs/begs/`
-- `--beg` post has `blocked=true` in posts.lua
-- Like a beg: like appended to beg branch
-- Like a beg: merged into main
-- Like a beg: `blocked` removed from posts.lua
-- Stage skips blocked entries
-
 ## Resolved Questions
 
 1. **Trailer:** `freechains: post` — a beg is immutable
@@ -184,14 +134,66 @@ When a like targets a post that is in `refs/begs/`:
 5. **Liker can't afford:** normal like validation applies,
    error returned, beg stays pending.
 
+## Files to Modify
+
+| File                          | Changes                           |
+|-------------------------------|-----------------------------------|
+| `src/freechains/chain.lua`    | Beg commit: update-ref + reset    |
+| `src/freechains/chain.lua`    | Like: detect beg target, branch   |
+| `src/freechains/chain.lua`    | Merge beg into main after like    |
+| `src/freechains/chain.lua`    | posts.lua: blocked field          |
+| `src/freechains/chain.lua`    | Stage: skip blocked entries       |
+| `src/freechains.lua`          | (--beg flag already added)        |
+| `tst/cli-begs.lua`            | New test file                     |
+
+## Test Plan (cli-begs.lua)
+
+Uses `GEN_1P` (KEY=30 reps, KEY2/KEY3=0 reps).
+
+### 1. Simple beg
+
+- `beg-post-succeeds`: KEY2 posts with `--beg --sign`,
+  returns 40-char hash, exit 0
+- `beg-not-on-head`: HEAD unchanged after beg
+- `beg-on-ref`: commit reachable via `refs/begs/`
+- `beg-blocked-in-posts`: posts.lua has `blocked=true`
+
+### 2. Multiple begs from HEAD
+
+- `beg-multiple-from-head`: KEY2 and KEY3 both beg
+  from same HEAD. Two refs/begs/. HEAD unchanged.
+- `beg-refs-count`: `for-each-ref refs/begs/` returns 2
+
+### 3. Multiple begs from different heads
+
+- KEY posts (advances HEAD), KEY2 begs
+- KEY posts again (advances HEAD), KEY3 begs
+- `beg-different-parents`: each beg has different
+  parent (verified via `git log --format=%P`)
+
+### 4. Likes on begs
+
+- `like-beg-succeeds`: KEY likes beg (has reps), exit 0
+- `like-beg-merges`: beg merged into main, HEAD advanced
+- `like-beg-unblocks`: `blocked` removed from posts.lua
+- `like-beg-ref-removed`: ref gone after merge
+- `like-beg-insufficient-reps`: KEY3 (0 reps) likes
+  beg → error
+- `like-beg-self-no-reps`: KEY2 (beggar) likes own
+  beg → error
+
+### 5. Merge structure
+
+- `merge-two-parents`: merge commit has 2 parents
+- `merge-preserves-sig`: beg commit GPG sig intact
+- `merge-head-advances`: HEAD is merge commit
+
 ## TODO
 
+- [ ] Write failing tests (cli-begs.lua)
 - [ ] Impl: beg commit → refs/begs/ + reset HEAD
 - [ ] Impl: posts.lua blocked field
 - [ ] Impl: stage skips blocked entries
 - [ ] Impl: like beg → append to beg branch + merge
 - [ ] Impl: remove blocked field on unblock
-- [ ] Tests: beg not on HEAD
-- [ ] Tests: beg reachable via ref
-- [ ] Tests: like beg triggers merge
-- [ ] Tests: blocked removed after merge
+- [ ] Tests pass
