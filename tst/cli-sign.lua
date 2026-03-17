@@ -49,12 +49,11 @@ do
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
-    end
+        local BEG = out
 
-    do
         TEST "beg commit has no gpgsig"
         local out = exec (
-            "git -C " .. DIR .. " cat-file commit HEAD"
+            "git -C " .. DIR .. " cat-file commit " .. BEG
         )
         assert(not out:match("gpgsig"), "gpgsig should be absent")
     end
