@@ -116,49 +116,42 @@ do
         assert(count == 2, "expected 2 beg refs, got: " .. count)
     end
 
-    -- merge A's beg into HEAD
+    -- merge 1st/2nd beg into HEAD
     do
         local refs = exec (
             "git -C " .. REPO_A .. " for-each-ref refs/begs/ --sort=refname --format='%(refname)'"
         )
-        local ref1 = refs:match("[^\n]+")
+        do
+            local ref1 = refs:match("[^\n]+")
+            TEST "merge beg into HEAD (fast-forward)"
+            exec (
+                "git -C " .. REPO_A .. " merge --no-edit " .. ref1
+            )
+            local count = exec (
+                "git -C " .. REPO_A .. " rev-list --count HEAD"
+            )
+            assert(count == "2", "count: " .. count)
+        end
+        do
+            local ref2 = refs:match("[^\n]*\n([^\n]+)")
+            TEST "merge second beg into HEAD (true merge)"
+            exec (
+                "git -C " .. REPO_A .. " merge --no-edit " .. ref2
+            )
 
-        TEST "merge beg into HEAD (fast-forward)"
-        exec (
-            "git -C " .. REPO_A .. " merge --no-edit " .. ref1
-        )
-
-        local count = exec (
-            "git -C " .. REPO_A .. " rev-list --count HEAD"
-        )
-        assert(count == "2", "count: " .. count)
-    end
-
-    -- merge B's beg into HEAD
-    do
-        local refs = exec (
-            "git -C " .. REPO_A .. " for-each-ref refs/begs/ --sort=refname --format='%(refname)'"
-        )
-        local ref2 = refs:match("[^\n]*\n([^\n]+)")
-
-        TEST "merge second beg into HEAD (true merge)"
-        exec (
-            "git -C " .. REPO_A .. " merge --no-edit " .. ref2
-        )
-
-        local count = exec (
-            "git -C " .. REPO_A .. " rev-list --count HEAD"
-        )
-        assert(count == "4", "count: " .. count)
-    end
-
-    do
-        TEST "both post files present in A"
-        local h = io.popen("cat " .. REPO_A .. "*.txt")
-        local all = h:read("a")
-        h:close()
-        assert(all:match("post from A"), "A's post missing")
-        assert(all:match("post from B"), "B's post missing")
+            local count = exec (
+                "git -C " .. REPO_A .. " rev-list --count HEAD"
+            )
+            assert(count == "4", "count: " .. count)
+        end
+        do
+            TEST "both post files present in A"
+            local h = io.popen("cat " .. REPO_A .. "*.txt")
+            local all = h:read("a")
+            h:close()
+            assert(all:match("post from A"), "A's post missing")
+            assert(all:match("post from B"), "B's post missing")
+        end
     end
 end
 
