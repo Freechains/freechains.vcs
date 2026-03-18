@@ -138,7 +138,7 @@ if ARGS.reps then
 elseif ARGS.post or ARGS.like or ARGS.dislike then
     local kind, file, blob
 
-    local rand = math.random(0, math.maxinteger)
+    local rand = math.random(0, 9999999999)
 
     local num = (ARGS.number or 0) * C.reps.unit
     if ARGS.dislike then
@@ -307,7 +307,7 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
 
         if ARGS.beg then
             exec (
-                "git -C " .. REPO .. " update-ref refs/begs/" .. NOW.s .. "-" .. blob:sub(1,8) .. "-" .. rand .. " HEAD"
+                "git -C " .. REPO .. " update-ref refs/begs/beg-" .. NOW.s .. "-" .. blob:sub(1,8) .. "-" .. rand .. " HEAD"
             )
             exec (
                 "git -C " .. REPO .. " reset --hard HEAD~1"

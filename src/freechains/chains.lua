@@ -44,14 +44,14 @@ if ARGS.add then
             ERROR("chains add : file must return a table")
         end
 
-        local rand = math.random(0, math.maxinteger)
+        local rand = math.random(0, 9999999999)
         local tmp
         while true do
             tmp = DIR .. "/tmp-" .. rand .. "/"
             if not io.open(tmp .. ".") then
                 break
             end
-            rand = math.random(0, math.maxinteger)
+            rand = math.random(0, 9999999999)
         end
 
         exec (
