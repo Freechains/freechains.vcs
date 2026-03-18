@@ -131,6 +131,11 @@ do
                 "git -C " .. REPO_A .. " rev-list --count HEAD"
             )
             assert(count == "2", "count: " .. count)
+
+            TEST "remove merged beg ref"
+            exec (
+                "git -C " .. REPO_A .. " update-ref -d " .. ref1
+            )
         end
         do
             local ref2 = refs:match("[^\n]*\n([^\n]+)")
@@ -138,11 +143,22 @@ do
             exec (
                 "git -C " .. REPO_A .. " merge --no-edit " .. ref2
             )
-
             local count = exec (
                 "git -C " .. REPO_A .. " rev-list --count HEAD"
             )
             assert(count == "4", "count: " .. count)
+
+            TEST "remove merged beg ref"
+            exec (
+                "git -C " .. REPO_A .. " update-ref -d " .. ref2
+            )
+        end
+        do
+            TEST "no beg refs remain"
+            local out = exec (
+                "git -C " .. REPO_A .. " for-each-ref refs/begs/ --format='%(refname)'"
+            )
+            assert(out == "", "stale refs: " .. out)
         end
         do
             TEST "both post files present in A"
