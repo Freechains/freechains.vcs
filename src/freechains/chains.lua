@@ -1,23 +1,55 @@
 math.randomseed()
 
 local C    = require "freechains.constants"
+local SKEL = debug.getinfo(1, "S").source:match("@(.*/)")  .. "skel/"
 
-local chains = ARGS.root .. "/chains/"
+local function git_config (dir)
+    exec("git -C " .. dir .. " config user.name  '-'")
+    exec("git -C " .. dir .. " config user.email '-'")
+    exec("git -C " .. dir .. " config commit.gpgsign false")
+    exec("git -C " .. dir .. " config pull.rebase false")
+end
+
+local function pioneers (dir)
+    local T = dofile(dir .. ".freechains/genesis.lua")
+    if T.pioneers then
+        local n = C.reps.max // #T.pioneers
+        local A = {}
+        for _, key in ipairs(T.pioneers) do
+            A[key] = { reps = n }
+        end
+        local f = io.open(
+            dir .. ".freechains/local/authors.lua", "w"
+        )
+        f:write(serial(A))
+        f:close()
+    else
+        local f = io.open(
+            dir .. ".freechains/local/authors.lua", "w"
+        )
+        f:write("return {\n}\n")
+        f:close()
+    end
+end
+
+local DIR = ARGS.root .. "/chains/"
+
 if ARGS.add then
-    if ARGS.file then
+    if io.open(DIR .. "/" .. ARGS.alias) then
+        ERROR("chains add : alias already exists: " .. ARGS.alias)
+    end
+
+    if ARGS.config then
         local genesis = dofile(ARGS.path)
         if type(genesis) ~= "table" then
+            -- TODO: check format
             ERROR("chains add : file must return a table")
-        end
-
-        if io.open(chains.."/"..ARGS.alias) then
-            ERROR("chains add : alias already exists: " .. ARGS.alias)
         end
 
         local rand = math.random(0, math.maxinteger)
         local tmp
         while true do
-            tmp = chains .. "/tmp-" .. rand .. "/"
+            tmp = DIR .. "/tmp-" .. rand .. "/"
             if not io.open(tmp .. ".") then
                 break
             end
@@ -28,11 +60,26 @@ if ARGS.add then
             "git init " .. tmp
             , "chains add : git init failed"
         )
-        git_init(tmp, rand, ARGS.path)
+        git_config(tmp)
+        exec ("cp -r " .. SKEL .. ". " .. tmp .. "/")
+        do
+            local f = io.open(tmp .. "/.git/info/exclude", "a")
+            f:write(".freechains/local/\n")
+            f:close()
+        end
+        do
+            local f = io.open(tmp .. "/.freechains/random", "w")
+            f:write(tostring(rand) .. "\n")
+            f:close()
+        end
+        exec (
+            "cp " .. ARGS.path .. " " .. tmp .. "/.freechains/genesis.lua"
+            , "chains add : copy genesis failed"
+        )
+        pioneers(tmp .. "/")
         exec (
             "git -C " .. tmp .. " add .freechains/"
         )
-
         exec (
             NOW.git .. "git -C " .. tmp .. ' commit --allow-empty-message -m ""'
         )
@@ -40,31 +87,60 @@ if ARGS.add then
         local hash = exec (
             "git -C " .. tmp .. " rev-parse HEAD"
         )
-
-        local final = chains .. "/" .. hash
+        local final = DIR .. "/" .. hash
         if not os.rename(tmp, final) then
             exec("rm -rf " .. tmp)
             ERROR("chains add : chain already exists: " .. hash)
         end
         exec (
-            "ln -s " .. hash .. "/ " .. chains .. "/" .. ARGS.alias
+            "ln -s " .. hash .. "/ " .. DIR .. "/" .. ARGS.alias
         )
+        print(hash)
 
+    elseif ARGS.clone then
+        exec("mkdir -p " .. DIR)
+        local tmp = DIR .. "/" .. "_tmp" .. "/"
+        exec (
+            "git clone " .. ARGS.url .. " " .. tmp
+            , "chains add : git clone failed"
+        )
+        git_config(tmp)
+        local hash = exec (
+            "git -C " .. tmp .. " rev-list --max-parents=0 HEAD"
+        )
+        local dir = DIR .. "/" .. hash .. "/"
+        exec("mv " .. tmp .. " " .. dir)
+        exec("ln -s " .. hash .. " " .. DIR .. "/" .. ARGS.alias)
+        exec("mkdir -p " .. dir .. ".freechains/local/")
+        do
+            local f = io.open(dir .. ".git/info/exclude", "a")
+            f:write(".freechains/local/\n")
+            f:close()
+        end
+        do
+            local f = io.open(dir .. ".freechains/local/now.lua" , "w")
+            f:write("return 0\n")
+            f:close()
+        end
+        do
+            local f = io.open(dir .. ".freechains/local/posts.lua", "w")
+            f:write("return {\n}\n")
+            f:close()
+        end
+        pioneers(dir)
         print(hash)
     end
 elseif ARGS.rem then
-    local alias = chains .. "/" .. ARGS.alias
+    local alias = DIR .. "/" .. ARGS.alias
     local lnk = exec (
         "readlink " .. alias
         , "chains rem : not found: " .. ARGS.alias
     )
-    exec (
-        "rm -rf " .. chains .. lnk
-    )
+    exec ("rm -rf " .. DIR .. lnk)
     os.remove(alias)
 elseif ARGS.dir then
     local out = exec (
-        "find " .. chains .. " -maxdepth 1 -type l -printf '%f\\n' | sort"
+        "find " .. DIR .. " -maxdepth 1 -type l -printf '%f\\n'" .. " | sort"
     )
     io.write(out)
 end
