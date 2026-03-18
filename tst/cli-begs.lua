@@ -4,7 +4,7 @@ require "tests"
 
 local DIR = ROOT .. "/chains/cli-begs/"
 
-exec(ENV_EXE .. " chains add cli-begs dir " .. GEN_1)
+exec(ENV_EXE .. " chains add cli-begs file " .. GEN_1)
 
 -- 1. Simple beg
 do
@@ -65,7 +65,7 @@ do
 
     exec("rm -rf " .. TMP)
     exec("mkdir -p " .. ROOT)
-    exec(ENV_EXE .. " chains add cli-begs dir " .. GEN_1P)
+    exec(ENV_EXE .. " chains add cli-begs file " .. GEN_1)
 
     local HEAD = exec("git -C " .. DIR .. " rev-parse HEAD")
 
@@ -102,7 +102,7 @@ do
 
     exec("rm -rf " .. TMP)
     exec("mkdir -p " .. ROOT)
-    exec(ENV_EXE .. " chains add cli-begs dir " .. GEN_1P)
+    exec(ENV_EXE .. " chains add cli-begs file " .. GEN_1)
 
     -- KEY posts normally (advances HEAD)
     exec(ENV_EXE .. " chain cli-begs post inline 'normal post 1' --sign " .. KEY)
@@ -138,7 +138,7 @@ do
 
     exec("rm -rf " .. TMP)
     exec("mkdir -p " .. ROOT)
-    exec(ENV_EXE .. " chains add cli-begs dir " .. GEN_1P)
+    exec(ENV_EXE .. " chains add cli-begs file " .. GEN_1)
 
     -- KEY2 begs
     local BEG = exec (
@@ -195,7 +195,7 @@ do
         -- fresh beg for this test
         exec("rm -rf " .. TMP)
         exec("mkdir -p " .. ROOT)
-        exec(ENV_EXE .. " chains add cli-begs dir " .. GEN_1P)
+        exec(ENV_EXE .. " chains add cli-begs file " .. GEN_1)
 
         local beg = exec (
             ENV_EXE .. " chain cli-begs post inline 'another beg' --beg --sign " .. KEY2
@@ -229,7 +229,7 @@ do
 
     exec("rm -rf " .. TMP)
     exec("mkdir -p " .. ROOT)
-    exec(ENV_EXE .. " chains add cli-begs dir " .. GEN_1P)
+    exec(ENV_EXE .. " chains add cli-begs file " .. GEN_1)
 
     -- KEY2 begs
     local BEG = exec (

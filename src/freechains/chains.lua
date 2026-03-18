@@ -4,8 +4,8 @@ local C    = require "freechains.constants"
 
 local chains = ARGS.root .. "/chains/"
 if ARGS.add then
-    if ARGS.dir then
-        local genesis = dofile(ARGS.path .. "/genesis.lua")
+    if ARGS.file then
+        local genesis = dofile(ARGS.path)
         if type(genesis) ~= "table" then
             ERROR("chains add : file must return a table")
         end

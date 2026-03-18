@@ -1,3 +1,5 @@
+local C = require "freechains.constants"
+
 local SKEL = debug.getinfo(1, "S").source:match("@(.*/)")  .. "skel/"
 
 function ERROR (msg, out)
@@ -79,15 +81,15 @@ end
 
 function git_init (dir, rand, genesis)
     exec (
-        "cp -r " .. SKEL .. ". " .. tmp .. "/"
+        "cp -r " .. SKEL .. ". " .. dir .. "/"
     )
     do
-        local f = io.open(tmp .. "/.git/info/exclude", "a")
+        local f = io.open(dir .. "/.git/info/exclude", "a")
         f:write(".freechains/local/\n")
         f:close()
     end
     do
-        local f = io.open(tmp .. "/.freechains/random", "w")
+        local f = io.open(dir .. "/.freechains/random", "w")
         f:write(tostring(rand) .. "\n")
         f:close()
     end

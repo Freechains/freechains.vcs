@@ -2,7 +2,7 @@
 
 require "tests"
 
-exec(ENV_EXE .. " chains add cli-like dir " .. GEN_2P)
+exec(ENV_EXE .. " chains add cli-like file " .. GEN_2)
 local DIR = ROOT .. "/chains/cli-like/"
 
 -- Pioneer posts a target block
@@ -116,7 +116,7 @@ end
 
 -- LIKE AUTHOR (fresh chain)
 exec(ENV_EXE .. " chains rem cli-like")
-exec(ENV_EXE .. " chains add cli-like dir " .. GEN_2P)
+exec(ENV_EXE .. " chains add cli-like file " .. GEN_2)
 do
     print("==> freechains chain like author")
 

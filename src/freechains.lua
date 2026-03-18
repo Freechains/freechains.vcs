@@ -35,7 +35,7 @@ local cmd = {
     chains = {
         _ = parser:command("chains"),
         add = {
-            dir = {},
+            file = {},
         },
         rem = {},
         dir = {},
@@ -59,8 +59,8 @@ do
     do
         -- cmd.chains.add.lua
         cmd.chains.add._:argument("alias")
-        cmd.chains.add.dir._ = cmd.chains.add._:command("dir")
-        cmd.chains.add.dir._:argument("path")
+        cmd.chains.add.file._ = cmd.chains.add._:command("file")
+        cmd.chains.add.file._:argument("path")
     end
 
     -- cmd.chains.rem

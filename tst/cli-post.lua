@@ -4,7 +4,7 @@ require "tests"
 
 local DIR = ROOT .. "/chains/cli-post/"
 
-exec(ENV_EXE .. " chains add cli-post dir " .. GEN_1P)
+exec(ENV_EXE .. " chains add cli-post file " .. GEN_1)
 
 -- POST FILE
 do
