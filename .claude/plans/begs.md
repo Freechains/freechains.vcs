@@ -388,10 +388,10 @@ Fix any failures.
 
 ## TODO
 
-- [ ] Step 2: Fix cli-begs.lua (local/posts.lua path)
-- [ ] Step 3: Rewrite repl-local-begs.lua
-- [ ] Step 4: Write repl-remote-begs.lua
+- [x] Step 2: Fix cli-begs.lua (local/posts.lua path)
+- [x] Step 3: Fix repl-local-begs.lua (exec true flags, clean assert)
+- [x] Step 4: Write repl-remote-begs.lua (refs/begs/* mechanism)
 - [ ] Step 5: Compare against main
-- [ ] Step 6: Run tests
+- [x] Step 6: Run tests (all pass)
 - [ ] Impl: like beg -> append to beg branch + merge
 - [ ] Impl: remove blocked field on unblock

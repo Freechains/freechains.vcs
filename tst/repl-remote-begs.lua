@@ -2,9 +2,9 @@
 
 require "tests"
 
-local ROOT_A = ROOT .. "/repl-remote/A/"
-local ROOT_B = ROOT .. "/repl-remote/B/"
-local ROOT_C = ROOT .. "/repl-remote/C/"
+local ROOT_A = ROOT .. "/repl-remote-begs/A/"
+local ROOT_B = ROOT .. "/repl-remote-begs/B/"
+local ROOT_C = ROOT .. "/repl-remote-begs/C/"
 
 local EXE_A  = ENV .. " ../src/freechains.lua --root " .. ROOT_A
 local EXE_B  = ENV .. " ../src/freechains.lua --root " .. ROOT_B
@@ -67,11 +67,11 @@ local _ <close> = setmetatable({}, {__close=function()
     daemon_stop(PID_C)
 end})
 
--- HOST A: create chain + post
+-- HOST A: create chain + beg
 local CHAIN_HASH
 
 do
-    print("==> Host A: create chain + post")
+    print("==> Host A: create chain + beg")
 
     do
         TEST "chain created"
@@ -83,7 +83,7 @@ do
     end
 
     do
-        TEST "post on A"
+        TEST "beg on A"
         local out = exec (
             EXE_A .. " chain test post inline 'post from A' --beg"
         )
@@ -92,9 +92,9 @@ do
     end
 end
 
--- HOST B: clone chain + post
+-- HOST B: clone chain + fetch begs + beg
 do
-    print("==> Host B: clone chain + post")
+    print("==> Host B: clone chain + fetch begs")
 
     do
         TEST "clone succeeds"
@@ -115,67 +115,90 @@ do
     end
 
     do
-        TEST "B has 2 commits (genesis + A's post)"
-        local count = exec (
-            "git -C " .. REPO_B .. " rev-list --count HEAD"
+        TEST "fetch begs from A"
+        local _, code = exec (
+            "git -C " .. REPO_B .. " fetch " .. URL_A .. "test/ refs/begs/*:refs/begs/*"
         )
-        assert(count == "2", "count: " .. count)
+        assert(code == 0, "fetch begs failed")
     end
 
     do
-        TEST "post on B"
+        TEST "B has A's beg ref"
+        local a = exec (
+            "git -C " .. REPO_A .. " for-each-ref refs/begs/ --format='%(objectname)'"
+        )
+        local b = exec (
+            "git -C " .. REPO_B .. " for-each-ref refs/begs/ --format='%(objectname)'"
+        )
+        assert(a == b, "beg hashes differ: " .. a .. " vs " .. b)
+    end
+
+    do
+        TEST "beg on B"
         local out = exec (
             EXE_B .. " chain test post inline 'post from B' --beg"
         )
         assert(#out == 40, "hash: " .. out)
         assert(out:match("^%x+$"), "not hex")
     end
-
-    do
-        TEST "B has 3 commits (genesis + A + B)"
-        local count = exec (
-            "git -C " .. REPO_B .. " rev-list --count HEAD"
-        )
-        assert(count == "3", "count: " .. count)
-    end
 end
 
--- HOST A: fetch+merge from B
+-- HOST A: fetch begs from B, merge into HEAD
 do
-    print("==> Host A: fetch+merge from B")
+    print("==> Host A: fetch begs from B + merge")
 
     do
-        TEST "fetch from B"
-        local branch = exec (
-            "git -C " .. REPO_A .. " rev-parse --abbrev-ref HEAD"
-        )
+        TEST "fetch begs from B"
         local _, code = exec (
-            "git -C " .. REPO_A .. " fetch " .. URL_B .. "test/ " .. branch
+            "git -C " .. REPO_A .. " fetch " .. URL_B .. "test/ refs/begs/*:refs/begs/*"
         )
         assert(code == 0, "fetch failed")
-
-        TEST "dry-run merge ok"
-        local _, code = exec (
-            "git -C " .. REPO_A .. " merge --no-commit --no-ff FETCH_HEAD"
-        )
-        assert(code == 0, "dry-run merge failed")
-        local _, code = exec (
-            "git -C " .. REPO_A .. " merge --abort"
-        )
-        assert(code == 0, "abort failed")
-
-        TEST "merge from B"
-        exec (
-            "git -C " .. REPO_A .. " merge --no-edit FETCH_HEAD"
-        )
     end
 
     do
-        TEST "A has 3 commits (genesis + A + B, fast-forward)"
-        local count = exec(
+        TEST "A has 2 beg refs"
+        local out = exec (
+            "git -C " .. REPO_A .. " for-each-ref refs/begs/ --format='%(refname)'"
+        )
+        local count = 0
+        for _ in out:gmatch("[^\n]+") do count = count + 1 end
+        assert(count == 2, "expected 2 beg refs, got: " .. count)
+    end
+
+    -- merge A's beg into HEAD
+    do
+        local refs = exec (
+            "git -C " .. REPO_A .. " for-each-ref refs/begs/ --sort=refname --format='%(refname)'"
+        )
+        local ref1 = refs:match("[^\n]+")
+
+        TEST "merge beg into HEAD (fast-forward)"
+        exec (
+            "git -C " .. REPO_A .. " merge --no-edit " .. ref1
+        )
+
+        local count = exec (
             "git -C " .. REPO_A .. " rev-list --count HEAD"
         )
-        assert(count == "3", "count: " .. count)
+        assert(count == "2", "count: " .. count)
+    end
+
+    -- merge B's beg into HEAD
+    do
+        local refs = exec (
+            "git -C " .. REPO_A .. " for-each-ref refs/begs/ --sort=refname --format='%(refname)'"
+        )
+        local ref2 = refs:match("[^\n]*\n([^\n]+)")
+
+        TEST "merge second beg into HEAD (true merge)"
+        exec (
+            "git -C " .. REPO_A .. " merge --no-edit " .. ref2
+        )
+
+        local count = exec (
+            "git -C " .. REPO_A .. " rev-list --count HEAD"
+        )
+        assert(count == "4", "count: " .. count)
     end
 
     do
@@ -186,28 +209,20 @@ do
         assert(all:match("post from A"), "A's post missing")
         assert(all:match("post from B"), "B's post missing")
     end
-
-    do
-        TEST "A and B are equal"
-        local _,ok = exec ('stderr',
-            "diff -r --exclude=.git --exclude=local " .. REPO_A .. " " .. REPO_B
-        )
-        assert(ok==0, "A and B differ")
-    end
 end
 
--- BIDIRECTIONAL SYNC: both post, A merges B, B merges A
+-- BIDIRECTIONAL SYNC: both beg, fetch begs, merge
 do
-    print("==> Bidirectional sync")
+    print("==> Bidirectional beg sync")
 
     do
-        TEST "A posts again"
+        TEST "A begs again"
         local out = exec (
             EXE_A .. " chain test post inline 'second from A' --beg"
         )
         assert(#out == 40, "hash: " .. out)
 
-        TEST "B posts again"
+        TEST "B begs again"
         local out = exec (
             EXE_B .. " chain test post inline 'second from B' --beg"
         )
@@ -215,79 +230,32 @@ do
     end
 
     do
-        TEST "A fetches from B"
-        local branch = exec (
-            "git -C " .. REPO_A .. " rev-parse --abbrev-ref HEAD"
-        )
+        TEST "A fetches begs from B"
         local _, code = exec (
-            "git -C " .. REPO_A .. " fetch " .. URL_B .. "test/ " .. branch
+            "git -C " .. REPO_A .. " fetch " .. URL_B .. "test/ refs/begs/*:refs/begs/*"
         )
         assert(code == 0, "fetch failed")
 
-        TEST "A dry-run merge ok"
+        TEST "B fetches begs from A"
         local _, code = exec (
-            "git -C " .. REPO_A .. " merge --no-commit --no-ff FETCH_HEAD"
-        )
-        assert(code == 0, "dry-run merge failed")
-        local _, code = exec (
-            "git -C " .. REPO_A .. " merge --abort"
-        )
-        assert(code == 0, "abort failed")
-
-        TEST "A merges B (true merge)"
-        exec (
-            "git -C " .. REPO_A .. " merge --no-edit FETCH_HEAD"
-        )
-
-        TEST "A has 6 commits"
-        local count = exec (
-            "git -C " .. REPO_A .. " rev-list --count HEAD"
-        )
-        assert(count == "6", "count: " .. count)
-    end
-
-    do
-        TEST "B fetches from A"
-        local branch = exec (
-            "git -C " .. REPO_B .. " rev-parse --abbrev-ref HEAD"
-        )
-        local _, code = exec (
-            "git -C " .. REPO_B .. " fetch " .. URL_A .. "test/ " .. branch
+            "git -C " .. REPO_B .. " fetch " .. URL_A .. "test/ refs/begs/*:refs/begs/*"
         )
         assert(code == 0, "fetch failed")
-
-        TEST "B dry-run merge ok"
-        local _, code = exec (
-            "git -C " .. REPO_B .. " merge --no-commit --no-ff FETCH_HEAD"
-        )
-        assert(code == 0, "dry-run merge failed")
-        local _, code = exec (
-            "git -C " .. REPO_B .. " merge --abort"
-        )
-        assert(code == 0, "abort failed")
-
-        TEST "B merges A (fast-forward)"
-        exec (
-            "git -C " .. REPO_B .. " merge --no-edit FETCH_HEAD"
-        )
-
-        TEST "B has 6 commits"
-        local count = exec (
-            "git -C " .. REPO_B .. " rev-list --count HEAD"
-        )
-        assert(count == "6", "count: " .. count)
     end
 
     do
-        TEST "A and B are equal after bidirectional sync"
-        local _, ok = exec ('stderr',
-            "diff -r --exclude=.git --exclude=local " .. REPO_A .. " " .. REPO_B
+        TEST "A and B have same beg refs"
+        local a = exec (
+            "git -C " .. REPO_A .. " for-each-ref refs/begs/ --sort=refname --format='%(refname) %(objectname)'"
         )
-        assert(ok == 0, "A and B differ")
+        local b = exec (
+            "git -C " .. REPO_B .. " for-each-ref refs/begs/ --sort=refname --format='%(refname) %(objectname)'"
+        )
+        assert(a == b, "beg refs differ")
     end
 end
 
--- UNRELATED HISTORIES: independent chain creation must fail sync
+-- UNRELATED HISTORIES: independent chain, fetch beg, merge fails
 do
     print("==> Unrelated histories rejected")
 
@@ -297,66 +265,88 @@ do
     assert(h ~= CHAIN_HASH, "should differ")
 
     do
-        TEST "fetch from unrelated chain succeeds"
-        local branch = exec (
-            "git -C " .. REPO_C .. " rev-parse --abbrev-ref HEAD"
-        )
+        TEST "fetch begs from A succeeds"
         local _, code = exec (
-            "git -C " .. REPO_C .. " fetch " .. URL_A .. "test/ " .. branch
+            "git -C " .. REPO_C .. " fetch " .. URL_A .. "test/ refs/begs/*:refs/begs/*"
         )
         assert(code == 0, "fetch should succeed")
+    end
 
-        TEST "dry-run merge from unrelated chain fails"
+    do
+        TEST "merge beg into unrelated HEAD fails"
+        local ref = exec (
+            "git -C " .. REPO_C .. " for-each-ref refs/begs/ --sort=refname --format='%(refname)'"
+        )
+        local first = ref:match("[^\n]+")
         local _, code = exec (true,
-            "git -C " .. REPO_C .. " merge --no-commit --no-ff FETCH_HEAD"
+            "git -C " .. REPO_C .. " merge --no-commit --no-ff " .. first
         )
         assert(code ~= 0, "should reject unrelated histories")
     end
 end
 
--- CONFLICT: both post to same file independently
+-- CONFLICT: both beg to same file, merge both into HEAD
 do
-    print("==> Conflict: both post to log.txt")
+    print("==> Conflict: both beg to log.txt")
+
+    daemon_stop(PID_A)
+    daemon_stop(PID_B)
+    exec("rm -rf " .. TMP)
+    exec("mkdir -p " .. ROOT_A .. "/chains")
+    exec("mkdir -p " .. ROOT_B .. "/chains")
+    daemon_start(PORT_A, PID_A, ROOT_A .. "/chains/")
+    daemon_start(PORT_B, PID_B, ROOT_B .. "/chains/")
+    os.execute("sleep 0.3")
+
+    exec(EXE_A .. " chains add test config " .. GEN_0)
+
+    -- clone A to B
+    exec (
+        EXE_B .. " chains add test clone " .. URL_A .. "test/"
+    )
 
     do
-        TEST "A posts to log.txt"
+        TEST "A begs to log.txt"
         local out = exec (
-            EXE_A .. " chain test post" .. " inline 'from A' --file log.txt --beg"
+            EXE_A .. " chain test post inline 'from A' --file log.txt --beg"
         )
         assert(#out == 40, "hash: " .. out)
     end
 
     do
-        TEST "B posts to log.txt"
+        TEST "B begs to log.txt"
         local out = exec (
-            EXE_B .. " chain test post" .. " inline 'from B' --file log.txt --beg"
+            EXE_B .. " chain test post inline 'from B' --file log.txt --beg"
         )
         assert(#out == 40, "hash: " .. out)
     end
 
     do
-        TEST "fetch succeeds"
-        local branch = exec (
-            "git -C " .. REPO_A .. " rev-parse --abbrev-ref HEAD"
-        )
+        TEST "A fetches begs from B"
         local _, code = exec (
-            "git -C " .. REPO_A .. " fetch " .. URL_B .. "test/ " .. branch
+            "git -C " .. REPO_A .. " fetch " .. URL_B .. "test/ refs/begs/*:refs/begs/*"
         )
         assert(code == 0, "fetch should succeed")
+    end
 
-        TEST "dry-run merge fails with conflict"
-        local _, code = exec (true,
-            "git -C " .. REPO_A .. " merge --no-commit --no-ff FETCH_HEAD"
-        )
-        assert(code ~= 0, "should fail with conflict")
-        local _, code = exec (
-            "git -C " .. REPO_A .. " merge --abort"
-        )
-        assert(code == 0, "abort failed")
+    -- merge first beg (fast-forward)
+    local refs = exec (
+        "git -C " .. REPO_A .. " for-each-ref refs/begs/ --sort=refname --format='%(refname)'"
+    )
+    local ref1 = refs:match("[^\n]+")
+    local ref2 = refs:match("[^\n]*\n([^\n]+)")
 
-        TEST "merge fails with conflict"
+    exec (
+        "git -C " .. REPO_A .. " merge --no-edit " .. ref1
+    )
+
+    -- record content after first merge (order is non-deterministic)
+    local clean = io.open(REPO_A .. "log.txt"):read("a")
+
+    do
+        TEST "merge second beg fails with conflict"
         local _, code = exec (true,
-            "git -C " .. REPO_A .. " merge --no-edit FETCH_HEAD"
+            "git -C " .. REPO_A .. " merge --no-edit " .. ref2
         )
         assert(code ~= 0, "should fail with conflict")
     end
@@ -382,7 +372,7 @@ do
         local content = h:read("a")
         h:close()
         assert(
-            content == "from A\n",
+            content == clean,
             "content: " .. content
         )
     end

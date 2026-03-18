@@ -12,8 +12,8 @@ tests: src/freechains/argparse.lua
 	#cd tst && LUA_PATH="../src/?.lua;;" lua5.4 cli-begs.lua
 	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 repl-local-head.lua
 	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 repl-remote-head.lua
-	#cd tst && LUA_PATH="../src/?.lua;;" lua5.4 repl-local-begs.lua
-	#cd tst && LUA_PATH="../src/?.lua;;" lua5.4 repl-remote-begs.lua
+	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 repl-local-begs.lua
+	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 repl-remote-begs.lua
 	@rm -Rf /tmp/freechains/
 
 test: src/freechains/argparse.lua

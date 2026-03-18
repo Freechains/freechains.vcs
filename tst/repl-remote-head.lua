@@ -2,9 +2,9 @@
 
 require "tests"
 
-local ROOT_A = ROOT .. "/repl-remote/A/"
-local ROOT_B = ROOT .. "/repl-remote/B/"
-local ROOT_C = ROOT .. "/repl-remote/C/"
+local ROOT_A = ROOT .. "/repl-remote-head/A/"
+local ROOT_B = ROOT .. "/repl-remote-head/B/"
+local ROOT_C = ROOT .. "/repl-remote-head/C/"
 
 local EXE_A  = ENV .. " ../src/freechains.lua --root " .. ROOT_A
 local EXE_B  = ENV .. " ../src/freechains.lua --root " .. ROOT_B

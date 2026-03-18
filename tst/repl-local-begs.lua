@@ -2,9 +2,9 @@
 
 require "tests"
 
-local ROOT_A = ROOT .. "/repl-local/A/"
-local ROOT_B = ROOT .. "/repl-local/B/"
-local ROOT_C = ROOT .. "/repl-local/C/"
+local ROOT_A = ROOT .. "/repl-local-begs/A/"
+local ROOT_B = ROOT .. "/repl-local-begs/B/"
+local ROOT_C = ROOT .. "/repl-local-begs/C/"
 
 local EXE_A  = ENV .. " ../src/freechains.lua --root " .. ROOT_A
 local EXE_B  = ENV .. " ../src/freechains.lua --root " .. ROOT_B
@@ -229,7 +229,7 @@ do
             "git -C " .. REPO_C .. " for-each-ref refs/begs/ --sort=refname --format='%(refname)'"
         )
         local first = ref:match("[^\n]+")
-        local _, code = exec (
+        local _, code = exec (true,
             "git -C " .. REPO_C .. " merge --no-commit --no-ff " .. first
         )
         assert(code ~= 0, "should reject unrelated histories")
@@ -285,9 +285,12 @@ do
         "git -C " .. REPO_A .. " merge --no-edit " .. ref1
     )
 
+    -- record content after first merge (order is non-deterministic)
+    local clean = io.open(REPO_A .. "log.txt"):read("a")
+
     do
         TEST "merge second beg fails with conflict"
-        local _, code = exec (
+        local _, code = exec (true,
             "git -C " .. REPO_A .. " merge --no-edit " .. ref2
         )
         assert(code ~= 0, "should fail with conflict")
@@ -298,10 +301,7 @@ do
         local h = io.open(REPO_A .. "log.txt")
         local content = h:read("a")
         h:close()
-        assert(
-            content:match("<<<<<<<"),
-            "no conflict markers"
-        )
+        assert(content:match("<<<<<<<"), "no conflict markers")
     end
 
     do
@@ -313,10 +313,7 @@ do
         local h = io.open(REPO_A .. "log.txt")
         local content = h:read("a")
         h:close()
-        assert(
-            content == "from A\n",
-            "content: " .. content
-        )
+        assert(content == clean, "content: " .. content)
     end
 end
 
