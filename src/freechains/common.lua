@@ -1,3 +1,5 @@
+local SKEL = debug.getinfo(1, "S").source:match("@(.*/)")  .. "skel/"
+
 function ERROR (msg, out)
     io.stderr:write("ERROR : " .. msg .. "\n")
     if out then
@@ -73,4 +75,37 @@ function git_config (dir)
     exec("git -C " .. dir .. " config user.email '-'")
     exec("git -C " .. dir .. " config commit.gpgsign false")
     exec("git -C " .. dir .. " config pull.rebase false")
+end
+
+function git_init (dir, rand, genesis)
+    exec (
+        "cp -r " .. SKEL .. ". " .. tmp .. "/"
+    )
+    do
+        local f = io.open(tmp .. "/.git/info/exclude", "a")
+        f:write(".freechains/local/\n")
+        f:close()
+    end
+    do
+        local f = io.open(tmp .. "/.freechains/random", "w")
+        f:write(tostring(rand) .. "\n")
+        f:close()
+    end
+    do
+        exec (
+            "cp " .. genesis .. " " .. dir .. "/.freechains/"
+            , "chains add : copy genesis failed"
+        )
+        local T = dofile(dir .. "/.freechains/genesis.lua")
+        if T.pioneers then
+            local n = C.reps.max // #T.pioneers
+            local A = {}
+            for _, key in ipairs(T.pioneers) do
+                A[key] = { reps = n }
+            end
+            local f = io.open(dir .. "/.freechains/local/authors.lua", "w")
+            f:write(serial(A))
+            f:close()
+        end
+    end
 end

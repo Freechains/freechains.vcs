@@ -11,7 +11,7 @@ do
     do
         TEST "success"
         local out, code = exec (
-            EXE .. " chains add cli-chains dir " .. GEN
+            EXE .. " chains add cli-chains dir " .. GEN_0
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -19,7 +19,7 @@ do
 
         TEST "genesis file"
         local gen = DIR .. "/.freechains/genesis.lua"
-        local _, code = exec("diff -q " .. GEN .. "genesis.lua " .. gen)
+        local _, code = exec("diff -q " .. GEN_0 .. "genesis.lua " .. gen)
         assert(code == 0, "exit code: " .. tostring(code))
         local t = dofile(gen)
         assert(type(t) == "table")
@@ -94,7 +94,7 @@ do
     do
         TEST "dir two chains"
         exec (
-            EXE .. " chains add other dir " .. GEN
+            EXE .. " chains add other dir " .. GEN_0
         )
         local out, code = exec(
             EXE .. " chains dir"

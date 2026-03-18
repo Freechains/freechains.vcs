@@ -4,7 +4,7 @@ require "tests"
 
 local DIR = ROOT .. "/chains/cli-begs/"
 
-exec(ENV_EXE .. " chains add cli-begs dir " .. GEN_1P)
+exec(ENV_EXE .. " chains add cli-begs dir " .. GEN_1)
 
 -- 1. Simple beg
 do
