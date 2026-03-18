@@ -1,10 +1,11 @@
 local C = require "freechains.constants"
 
 local REPO = ARGS.root .. "/chains/" .. ARGS.alias .. "/"
+local L    = REPO .. ".freechains/local/"
 
 local G = {
-    authors = dofile(REPO .. ".freechains/authors.lua"),
-    posts   = dofile(REPO .. ".freechains/posts.lua"),
+    authors = dofile(L .. "authors.lua"),
+    posts   = dofile(L .. "posts.lua"),
 }
 
 local function write (T, file)
@@ -23,7 +24,6 @@ end
 
 -- stage: advance time effects
 do
-    local L = REPO .. ".freechains/local/"
     local stored = dofile(L .. "now.lua")
 
     if ARGS.sign~=nil or NOW.s>stored then
@@ -83,8 +83,8 @@ do
             end
         end
 
-        write(G.authors, REPO .. ".freechains/authors.lua")
-        write(G.posts,   REPO .. ".freechains/posts.lua")
+        write(G.authors, L .. "authors.lua")
+        write(G.posts,   L .. "posts.lua")
         write(NOW.s, L .. "now.lua")
     end
 end
@@ -136,7 +136,7 @@ if ARGS.reps then
         ERROR("chain reps : invalid target : " .. ARGS.target)
     end
 elseif ARGS.post or ARGS.like or ARGS.dislike then
-    local kind, files, blob
+    local kind, file, blob
 
     local num = (ARGS.number or 0) * C.reps.unit
     if ARGS.dislike then
@@ -170,20 +170,20 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
             blob = exec (
                 "printf '%s' '" .. text .. "' | git hash-object --stdin"
             )
-            files = ARGS.file or
-                        "post-" .. NOW.s .. "-" .. blob:sub(1,8) .. ".txt"
-            local f = io.open(REPO .. files, (ARGS.file and "a") or "w")
+            file = ARGS.file or
+                    "post-" .. NOW.s .. "-" .. blob:sub(1,8) .. ".txt"
+            local f = io.open(REPO .. file, (ARGS.file and "a") or "w")
             f:write(text)
             f:close()
         else
             assert(ARGS.file)
-            files = ARGS.path:match("[^/]+$")
+            file = ARGS.path:match("[^/]+$")
             exec (
                 "cp " .. ARGS.path .. " " .. REPO .. "/"
                 , "chain post : copy failed: " .. ARGS.path
             )
             blob = exec (
-                "git hash-object " .. REPO .. files
+                "git hash-object " .. REPO .. file
             )
         end
 
@@ -216,8 +216,8 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
         blob = exec (
             "printf '%s' '" .. payload .. "' | git hash-object --stdin"
         )
-        files = ".freechains/likes/like-" .. NOW.s .. "-" .. blob:sub(1,8) .. ".lua"
-        local f = io.open(REPO .. files, "w")
+        file = ".freechains/likes/like-" .. NOW.s .. "-" .. blob:sub(1,8) .. ".lua"
+        local f = io.open(REPO .. file, "w")
         f:write(payload)
         f:close()
     end
@@ -279,12 +279,11 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
 
     -- write state + commit
     do
-        write(G.authors, REPO .. ".freechains/authors.lua")
-        write(G.posts,   REPO .. ".freechains/posts.lua")
+        write(G.authors, L .. "authors.lua")
+        write(G.posts,   L .. "posts.lua")
 
-        files = files .. " .freechains/authors.lua .freechains/posts.lua"
         exec (
-            "git -C " .. REPO .. " add " .. files
+            "git -C " .. REPO .. " add " .. file
         )
 
         local s1, s2 = "", ""
@@ -297,7 +296,7 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
         exec (
             NOW.git .. "git -C " .. REPO .. s1 .. " commit" .. s2 ..
                 " --trailer 'freechains: " .. kind .. "'" ..
-                " --allow-empty-message" .. " -m '" .. msg .. "'"
+                " --allow-empty-message --allow-empty" .. " -m '" .. msg .. "'"
         )
 
         local hash = exec (

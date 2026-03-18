@@ -1,5 +1,6 @@
 math.randomseed()
 
+local C    = require "freechains.constants"
 local SKEL = debug.getinfo(1, "S").source:match("@(.*/)")  .. "skel/"
 
 local chains = ARGS.root .. "/chains/"
@@ -29,6 +30,11 @@ if ARGS.add then
             , "chains add : git init failed"
         )
         git_config(tmp)
+        do
+            local f = io.open(tmp .. "/.git/info/exclude", "a")
+            f:write(".freechains/local/\n")
+            f:close()
+        end
         exec (
             "cp -r " .. SKEL .. ". " .. tmp .. "/"
         )
@@ -41,6 +47,19 @@ if ARGS.add then
             "cp -r " .. ARGS.path .. "/* " .. tmp .. "/.freechains/"
             , "chains add : copy genesis failed"
         )
+        do
+            local genesis = dofile(tmp .. "/.freechains/genesis.lua")
+            if genesis.pioneers then
+                local n = C.reps.max // #genesis.pioneers
+                local T = {}
+                for _, key in ipairs(genesis.pioneers) do
+                    T[key] = { reps = n }
+                end
+                local f = io.open(tmp .. "/.freechains/local/authors.lua", "w")
+                f:write(serial(T))
+                f:close()
+            end
+        end
         exec (
             "git -C " .. tmp .. " add .freechains/"
         )

@@ -28,8 +28,8 @@ their content changes from one commit to the next).
 | `random`                          | repo/.freechains/    | genesis | immut   | Chain identity seed                           |
 | `likes/like-*.lua`                | repo/.freechains/    | shared  | immut   | Individual like/dislike payloads              |
 | user content (posts, PDFs, etc.)  | repo/                | shared  | mutable | Application data, changes across commits      |
-| `authors.lua`                     | repo/.freechains/    | local   | mutable | Author → reputation mapping (from DAG)        |
-| `posts.lua`                       | repo/.freechains/    | local   | mutable | Post → like/dislike counts (from DAG)         |
+| `authors.lua`                     | repo/.freechains/local/ | local   | mutable | Author → reputation mapping (from DAG)        |
+| `posts.lua`                       | repo/.freechains/local/ | local   | mutable | Post → like/dislike counts (from DAG)         |
 | `local/now.lua`                   | repo/.freechains/    | local   | mutable | Last staged timestamp (untracked)             |
 
 ## Scope: Shared vs Genesis vs Local
