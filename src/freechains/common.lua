@@ -80,6 +80,7 @@ function git_config (dir)
 end
 
 function git_init (dir, rand, genesis)
+    git_config(dir)
     exec (
         "cp -r " .. SKEL .. ". " .. dir .. "/"
     )
@@ -95,7 +96,7 @@ function git_init (dir, rand, genesis)
     end
     do
         exec (
-            "cp " .. genesis .. " " .. dir .. "/.freechains/"
+            "cp " .. genesis .. " " .. dir .. "/.freechains/genesis.lua"
             , "chains add : copy genesis failed"
         )
         local T = dofile(dir .. "/.freechains/genesis.lua")

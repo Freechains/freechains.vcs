@@ -27,7 +27,7 @@ do
     do
         TEST "chain created"
         CHAIN_HASH = exec (
-            EXE_A .. " chains add test dir " .. GEN
+            EXE_A .. " chains add test file " .. GEN_0
         )
         assert(#CHAIN_HASH == 40, "hash: " .. CHAIN_HASH)
         assert(CHAIN_HASH:match("^%x+$"), "not hex")
@@ -238,7 +238,7 @@ do
     print("==> Unrelated histories rejected")
 
     local h = exec (
-        EXE_C .. " chains add test dir " .. GEN
+        EXE_C .. " chains add test file " .. GEN_0
     )
     assert(h ~= CHAIN_HASH, "should differ")
 
@@ -270,7 +270,7 @@ do
     exec("rm -rf " .. TMP)
     exec("mkdir -p " .. ROOT_A)
     exec("mkdir -p " .. ROOT_B)
-    exec(EXE_A .. " chains add test dir " .. GEN)
+    exec(EXE_A .. " chains add test file " .. GEN_0)
 
     -- clone A to B
     exec("mkdir -p " .. ROOT_B .. "/chains")
