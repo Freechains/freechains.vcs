@@ -165,40 +165,50 @@ do
         assert(count == 2, "expected 2 beg refs, got: " .. count)
     end
 
-    -- merge A's beg into HEAD
+    -- merge 1st/2nd beg into HEAD
     do
         local refs = exec (
             "git -C " .. REPO_A .. " for-each-ref refs/begs/ --sort=refname --format='%(refname)'"
         )
-        local ref1 = refs:match("[^\n]+")
+        do
+            local ref1 = refs:match("[^\n]+")
+            TEST "merge beg into HEAD (fast-forward)"
+            exec (
+                "git -C " .. REPO_A .. " merge --no-edit " .. ref1
+            )
+            local count = exec (
+                "git -C " .. REPO_A .. " rev-list --count HEAD"
+            )
+            assert(count == "2", "count: " .. count)
 
-        TEST "merge beg into HEAD (fast-forward)"
-        exec (
-            "git -C " .. REPO_A .. " merge --no-edit " .. ref1
-        )
+            TEST "remove merged beg ref"
+            exec (
+                "git -C " .. REPO_A .. " update-ref -d " .. ref1
+            )
+        end
+        do
+            local ref2 = refs:match("[^\n]*\n([^\n]+)")
+            TEST "merge second beg into HEAD (true merge)"
+            exec (
+                "git -C " .. REPO_A .. " merge --no-edit " .. ref2
+            )
+            local count = exec (
+                "git -C " .. REPO_A .. " rev-list --count HEAD"
+            )
+            assert(count == "4", "count: " .. count)
 
-        local count = exec (
-            "git -C " .. REPO_A .. " rev-list --count HEAD"
-        )
-        assert(count == "2", "count: " .. count)
-    end
-
-    -- merge B's beg into HEAD
-    do
-        local refs = exec (
-            "git -C " .. REPO_A .. " for-each-ref refs/begs/ --sort=refname --format='%(refname)'"
-        )
-        local ref2 = refs:match("[^\n]*\n([^\n]+)")
-
-        TEST "merge second beg into HEAD (true merge)"
-        exec (
-            "git -C " .. REPO_A .. " merge --no-edit " .. ref2
-        )
-
-        local count = exec (
-            "git -C " .. REPO_A .. " rev-list --count HEAD"
-        )
-        assert(count == "4", "count: " .. count)
+            TEST "remove merged beg ref"
+            exec (
+                "git -C " .. REPO_A .. " update-ref -d " .. ref2
+            )
+        end
+        do
+            TEST "no beg refs remain"
+            local out = exec (
+                "git -C " .. REPO_A .. " for-each-ref refs/begs/ --format='%(refname)'"
+            )
+            assert(out == "", "stale refs: " .. out)
+        end
     end
 
     do
@@ -252,6 +262,48 @@ do
             "git -C " .. REPO_B .. " for-each-ref refs/begs/ --sort=refname --format='%(refname) %(objectname)'"
         )
         assert(a == b, "beg refs differ")
+    end
+
+    -- B pulls HEAD from A, then prunes merged begs
+    do
+        TEST "B fetches HEAD from A"
+        local branch = exec (
+            "git -C " .. REPO_B .. " rev-parse --abbrev-ref HEAD"
+        )
+        local _, code = exec (
+            "git -C " .. REPO_B .. " fetch " .. URL_A .. "test/ " .. branch
+        )
+        assert(code == 0, "fetch HEAD failed")
+
+        TEST "B merges A's HEAD"
+        exec (
+            "git -C " .. REPO_B .. " merge --no-edit FETCH_HEAD"
+        )
+    end
+
+    do
+        TEST "B prunes merged begs"
+        local refs = exec (
+            "git -C " .. REPO_B .. " for-each-ref refs/begs/ --format='%(refname)'"
+        )
+        for ref in refs:gmatch("[^\n]+") do
+            local _, code = exec (true,
+                "git -C " .. REPO_B .. " merge-base --is-ancestor " .. ref .. " HEAD"
+            )
+            if code == 0 then
+                exec (
+                    "git -C " .. REPO_B .. " update-ref -d " .. ref
+                )
+            end
+        end
+
+        TEST "B has 2 beg refs remaining"
+        local out = exec (
+            "git -C " .. REPO_B .. " for-each-ref refs/begs/ --format='%(refname)'"
+        )
+        local count = 0
+        for _ in out:gmatch("[^\n]+") do count = count + 1 end
+        assert(count == 2, "expected 2 beg refs, got: " .. count)
     end
 end
 
