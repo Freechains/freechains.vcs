@@ -40,7 +40,7 @@ do
 
     do
         TEST "beg-blocked-in-posts"
-        local posts = dofile(DIR .. ".freechains/posts.lua")
+        local posts = dofile(DIR .. ".freechains/local/posts.lua")
         local file = exec (true,
             "git -C " .. DIR ..
                 " diff-tree --no-commit-id --name-only -r " .. BEG .. " -- '*.txt'"
@@ -171,7 +171,7 @@ do
 
     do
         TEST "like-beg-unblocks"
-        local posts = dofile(DIR .. ".freechains/posts.lua")
+        local posts = dofile(DIR .. ".freechains/local/posts.lua")
         local blob = exec (true,
             "git -C " .. DIR .. " diff-tree --no-commit-id --name-only -r " .. BEG .. " -- '*.txt'"
         )

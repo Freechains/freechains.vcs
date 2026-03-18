@@ -131,9 +131,9 @@ Check:
 
 ## TODO
 
-- [ ] Step 1: Generate random
-- [ ] Step 2: Update naming (3 sites)
-- [ ] Step 3: Remove --allow-empty
-- [ ] Step 4: Fix cli-begs.lua paths
-- [ ] Step 5: Update test patterns
-- [ ] Step 6: Run all tests
+- [x] Step 1: Generate random
+- [x] Step 2: Update naming (3 sites)
+- [x] Step 3: Remove --allow-empty
+- [x] Step 4: Fix cli-begs.lua paths
+- [x] Step 5: Update test patterns
+- [x] Step 6: Run all tests

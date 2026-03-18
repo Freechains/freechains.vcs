@@ -1,5 +1,3 @@
-math.randomseed()
-
 local C    = require "freechains.constants"
 local SKEL = debug.getinfo(1, "S").source:match("@(.*/)")  .. "skel/"
 

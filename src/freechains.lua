@@ -1,5 +1,7 @@
 #!/usr/bin/env lua5.4
 
+math.randomseed()
+
 local VERSION = "v0.20"
 
 local argparse = require "freechains.argparse"

@@ -138,6 +138,8 @@ if ARGS.reps then
 elseif ARGS.post or ARGS.like or ARGS.dislike then
     local kind, file, blob
 
+    local rand = math.random(0, math.maxinteger)
+
     local num = (ARGS.number or 0) * C.reps.unit
     if ARGS.dislike then
         num = -num
@@ -171,7 +173,7 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
                 "printf '%s' '" .. text .. "' | git hash-object --stdin"
             )
             file = ARGS.file or
-                    "post-" .. NOW.s .. "-" .. blob:sub(1,8) .. ".txt"
+                    "post-" .. NOW.s .. "-" .. blob:sub(1,8) .. "-" .. rand .. ".txt"
             local f = io.open(REPO .. file, (ARGS.file and "a") or "w")
             f:write(text)
             f:close()
@@ -216,7 +218,7 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
         blob = exec (
             "printf '%s' '" .. payload .. "' | git hash-object --stdin"
         )
-        file = ".freechains/likes/like-" .. NOW.s .. "-" .. blob:sub(1,8) .. ".lua"
+        file = ".freechains/likes/like-" .. NOW.s .. "-" .. blob:sub(1,8) .. "-" .. rand .. ".lua"
         local f = io.open(REPO .. file, "w")
         f:write(payload)
         f:close()
@@ -296,7 +298,7 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
         exec (
             NOW.git .. "git -C " .. REPO .. s1 .. " commit" .. s2 ..
                 " --trailer 'freechains: " .. kind .. "'" ..
-                " --allow-empty-message --allow-empty" .. " -m '" .. msg .. "'"
+                " --allow-empty-message" .. " -m '" .. msg .. "'"
         )
 
         local hash = exec (
@@ -305,7 +307,7 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
 
         if ARGS.beg then
             exec (
-                "git -C " .. REPO .. " update-ref refs/begs/" .. NOW.s .. "-" .. blob:sub(1,8) .. " HEAD"
+                "git -C " .. REPO .. " update-ref refs/begs/" .. NOW.s .. "-" .. blob:sub(1,8) .. "-" .. rand .. " HEAD"
             )
             exec (
                 "git -C " .. REPO .. " reset --hard HEAD~1"
