@@ -27,7 +27,7 @@ do
     do
         TEST "chain created"
         CHAIN_HASH = exec (
-            EXE_A .. " chains add test file " .. GEN_1
+            EXE_A .. " chains add test config " .. GEN_1
         )
         assert(#CHAIN_HASH == 40, "hash: " .. CHAIN_HASH)
         assert(CHAIN_HASH:match("^%x+$"), "not hex")
@@ -49,22 +49,8 @@ do
     do
         TEST "clone succeeds"
         exec (
-            "mkdir -p " .. ROOT_B .. "/chains"
+            EXE_B .. " chains add test clone " .. REPO_A
         )
-        local tmp = ROOT_B .. "/chains/_tmp"
-        exec (
-            "git clone " .. REPO_A .. " " .. tmp
-        )
-        local hash = exec (
-            "git -C " .. tmp .. " rev-list --max-parents=0 HEAD"
-        )
-        exec (
-            "mv " .. tmp .. " " .. ROOT_B .. "/chains/" .. hash
-        )
-        exec (
-            "ln -s " .. hash .. " " .. ROOT_B .. "/chains/test"
-        )
-        git_init(REPO_B, 0, REPO_B .. ".freechains/genesis.lua")
     end
 
     do
@@ -256,7 +242,7 @@ do
     print("==> Unrelated histories rejected")
 
     local h = exec (
-        EXE_C .. " chains add test file " .. GEN_1
+        EXE_C .. " chains add test config " .. GEN_1
     )
     assert(h ~= CHAIN_HASH, "should differ")
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env lua5.4
 require "tests"
 
-exec(ENV_EXE .. " --now=0 chains add cli-time file " .. GEN_1)
+exec(ENV_EXE .. " --now=0 chains add cli-time config " .. GEN_1)
 
 -- DISCOUNT
 do
@@ -30,7 +30,7 @@ exec(ENV_EXE .. " chains rem cli-time")
 do
     print("==> Consolidation")
 
-    exec(ENV_EXE .. " --now=0 chains add cli-time file " .. GEN_1)
+    exec(ENV_EXE .. " --now=0 chains add cli-time config " .. GEN_1)
 
     do
         TEST "time-consolidation-24h"
@@ -50,7 +50,7 @@ do
 
     exec(ENV_EXE .. " chains rem cli-time")
 
-    exec(ENV_EXE .. " --now=0 chains add cli-time file " .. GEN_1)
+    exec(ENV_EXE .. " --now=0 chains add cli-time config " .. GEN_1)
 
     do
         TEST "time-consolidation-1-per-day"
@@ -81,7 +81,7 @@ end
 do
     print("==> Reps query")
 
-    exec(ENV_EXE .. " --now=0 chains add cli-time file " .. GEN_1)
+    exec(ENV_EXE .. " --now=0 chains add cli-time config " .. GEN_1)
 
     do
         TEST "time-reps-query-simulates"

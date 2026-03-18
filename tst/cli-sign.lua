@@ -4,7 +4,7 @@ require "tests"
 
 local DIR = ROOT .. "/chains/cli-sign/"
 
-exec(ENV_EXE .. " chains add cli-sign file " .. GEN_1)
+exec(ENV_EXE .. " chains add cli-sign config " .. GEN_1)
 
 -- SIGNED POST
 do

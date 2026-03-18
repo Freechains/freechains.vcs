@@ -76,7 +76,7 @@ do
     do
         TEST "chain created"
         CHAIN_HASH = exec (
-            EXE_A .. " chains add test file " .. GEN_0
+            EXE_A .. " chains add test config " .. GEN_0
         )
         assert(#CHAIN_HASH == 40, "hash: " .. CHAIN_HASH)
         assert(CHAIN_HASH:match("^%x+$"), "not hex")
@@ -99,35 +99,8 @@ do
     do
         TEST "clone succeeds"
         exec (
-            "mkdir -p " .. ROOT_B .. "/chains"
+            EXE_B .. " chains add test clone " .. URL_A .. "test/"
         )
-        local tmp = ROOT_B .. "/chains/_tmp"
-        exec (
-            "git clone " .. URL_A .. "test/ " .. tmp
-        )
-        local hash = exec (
-            "git -C " .. tmp .. " rev-list --max-parents=0 HEAD"
-        )
-        exec (
-            "mv " .. tmp .. " " .. ROOT_B .. "/chains/" .. hash
-        )
-        exec (
-            "ln -s " .. hash .. " " .. ROOT_B .. "/chains/test"
-        )
-        git_config(REPO_B)
-        exec (
-            "mkdir -p " .. REPO_B .. ".freechains/local"
-        )
-        do
-            local f = io.open(REPO_B .. ".freechains/local/now.lua", "w")
-            f:write("return 0\n")
-            f:close()
-        end
-        do
-            local f = io.open(REPO_B .. ".git/info/exclude", "a")
-            f:write(".freechains/local/\n")
-            f:close()
-        end
     end
 
     do
@@ -319,7 +292,7 @@ do
     print("==> Unrelated histories rejected")
 
     local h = exec (
-        EXE_C .. " chains add test file " .. GEN_0
+        EXE_C .. " chains add test config " .. GEN_0
     )
     assert(h ~= CHAIN_HASH, "should differ")
 

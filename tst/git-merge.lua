@@ -43,14 +43,12 @@ do
     do
         TEST "A creates repo"
         exec("git init " .. DIR_A)
-        git_config(DIR_A)
         exec("git -C " .. DIR_A .. " commit --allow-empty -m 'genesis'")
     end
 
     do
         TEST "B clones from A"
         exec("git clone " .. DIR_A .. " " .. DIR_B)
-        git_config(DIR_B)
     end
 end
 

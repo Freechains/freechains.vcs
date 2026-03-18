@@ -6,12 +6,12 @@ local DIR = ROOT .. "/chains/cli-chains"
 
 -- ADD
 do
-    print("==> freechains chains add file")
+    print("==> freechains chains add config")
 
     do
         TEST "success"
         local out, code = exec (
-            EXE .. " chains add cli-chains file " .. GEN_0
+            EXE .. " chains add cli-chains config " .. GEN_0
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -55,7 +55,7 @@ do
             f:close()
         end
         local _, code = exec (true,
-            EXE .. " chains add x file " .. bad
+            EXE .. " chains add x config " .. bad
         )
         assert(code ~= 0, "should fail")
     end
@@ -93,7 +93,7 @@ do
     do
         TEST "dir two chains"
         exec (
-            EXE .. " chains add other file " .. GEN_0
+            EXE .. " chains add other config " .. GEN_0
         )
         local out, code = exec(
             EXE .. " chains dir"

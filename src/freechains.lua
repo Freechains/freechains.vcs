@@ -35,7 +35,8 @@ local cmd = {
     chains = {
         _ = parser:command("chains"),
         add = {
-            file = {},
+            config = {},
+            clone  = {},
         },
         rem = {},
         dir = {},
@@ -57,10 +58,11 @@ do
     -- cmd.chains.add
     cmd.chains.add._ = cmd.chains._:command("add")
     do
-        -- cmd.chains.add.lua
         cmd.chains.add._:argument("alias")
-        cmd.chains.add.file._ = cmd.chains.add._:command("file")
-        cmd.chains.add.file._:argument("path")
+        cmd.chains.add.config._ = cmd.chains.add._:command("config")
+        cmd.chains.add.config._:argument("path")
+        cmd.chains.add.clone._ = cmd.chains.add._:command("clone")
+        cmd.chains.add.clone._:argument("url")
     end
 
     -- cmd.chains.rem
