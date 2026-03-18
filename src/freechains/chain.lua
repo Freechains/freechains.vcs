@@ -8,6 +8,8 @@ local G = {
     posts   = dofile(L .. "posts.lua"),
 }
 
+local xas, xps = false, false
+
 local function write (T, file)
     local f = io.open(file, "w")
     f:write(serial(T))
@@ -83,8 +85,6 @@ do
             end
         end
 
-        write(G.authors, L .. "authors.lua")
-        write(G.posts,   L .. "posts.lua")
         write(NOW.s, L .. "now.lua")
     end
 end
@@ -136,7 +136,8 @@ if ARGS.reps then
         ERROR("chain reps : invalid target : " .. ARGS.target)
     end
 elseif ARGS.post or ARGS.like or ARGS.dislike then
-    local kind, file, blob
+    local kind = (ARGS.post and 'post') or 'like'
+    local file
 
     local rand = math.random(0, 9999999999)
 
@@ -166,14 +167,9 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
 
     -- post payload
     if ARGS.post then
-        kind = 'post'
         if ARGS.inline then
             local text = ARGS.text .. (ARGS.text:match("\n$") and "" or "\n")
-            blob = exec (
-                "printf '%s' '" .. text .. "' | git hash-object --stdin"
-            )
-            file = ARGS.file or
-                    "post-" .. NOW.s .. "-" .. blob:sub(1,8) .. "-" .. rand .. ".txt"
+            file = ARGS.file or "post-" .. NOW.s .. "-" .. rand .. ".txt"
             local f = io.open(REPO .. file, (ARGS.file and "a") or "w")
             f:write(text)
             f:close()
@@ -184,15 +180,11 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
                 "cp " .. ARGS.path .. " " .. REPO .. "/"
                 , "chain post : copy failed: " .. ARGS.path
             )
-            blob = exec (
-                "git hash-object " .. REPO .. file
-            )
         end
 
     -- like payload
     else
         assert(ARGS.like or ARGS.dislike)
-        kind = 'like'
         if ARGS.number <= 0 then
             ERROR("chain like : expected positive integer")
         end
@@ -215,10 +207,7 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
                 number = ]]  .. num         .. [[,
             }
         ]]
-        blob = exec (
-            "printf '%s' '" .. payload .. "' | git hash-object --stdin"
-        )
-        file = ".freechains/likes/like-" .. NOW.s .. "-" .. blob:sub(1,8) .. "-" .. rand .. ".lua"
+        file = ".freechains/likes/like-" .. NOW.s .. "-" .. rand .. ".lua"
         local f = io.open(REPO .. file, "w")
         f:write(payload)
         f:close()
@@ -238,52 +227,44 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
     end
 
     -- metadata: post/like: reps
-    if kind == 'post' then
-        local state
-        if ARGS.beg then
-            state = 'blocked'
-        else
-            state = '00-12'
-            G.authors[ARGS.sign].reps = G.authors[ARGS.sign].reps - C.reps.cost
-            if G.authors[ARGS.sign].time == nil then
-                G.authors[ARGS.sign].time = NOW.s
+    do
+        if kind == 'post' then
+            if not ARGS.beg then
+                G.authors[ARGS.sign].reps = G.authors[ARGS.sign].reps - C.reps.cost
+                if G.authors[ARGS.sign].time == nil then
+                    G.authors[ARGS.sign].time = NOW.s
+                end
+            end
+        elseif kind == 'like' then
+            G.authors[ARGS.sign].reps = G.authors[ARGS.sign].reps - math.abs(num)
+            num = num * (100 - C.like.tax) // 100
+            if ARGS.target == "post" then
+                local a = exec (
+                    "git -C " .. REPO .. " log -1 --format='%GK' " .. ARGS.id
+                )
+                G.authors[a] = G.authors[a] or { reps=0 }
+                G.authors[a].reps = G.authors[a].reps + num // C.like.split
+                G.posts[ARGS.id] = G.posts[ARGS.id] or { reps=0, author=a }
+                G.posts[ARGS.id].reps = G.posts[ARGS.id].reps + num // C.like.split
+                xps = true
+            else
+                G.authors[ARGS.id] = G.authors[ARGS.id] or { reps=0 }
+                G.authors[ARGS.id].reps = G.authors[ARGS.id].reps + num
             end
         end
-        G.posts[blob] = {
-            author = ARGS.sign,
-            time   = NOW.s,
-            state  = state,
-            reps   = 0,
-        }
-    elseif kind == 'like' then
-        G.authors[ARGS.sign].reps = G.authors[ARGS.sign].reps - math.abs(num)
-        num = num * (100 - C.like.tax) // 100
-        if ARGS.target == "post" then
-            local a = exec (
-                "git -C " .. REPO .. " log -1 --format='%GK' " .. ARGS.id
-            )
-            G.authors[a] = G.authors[a] or { reps=0 }
-            G.authors[a].reps = G.authors[a].reps + num // C.like.split
-            G.posts[ARGS.id] = G.posts[ARGS.id] or { reps=0, author=a }
-            G.posts[ARGS.id].reps = G.posts[ARGS.id].reps + num // C.like.split
-        else
-            G.authors[ARGS.id] = G.authors[ARGS.id] or { reps=0 }
-            G.authors[ARGS.id].reps = G.authors[ARGS.id].reps + num
-        end
-    end
 
-    -- cap all authors at max
-    for k, v in pairs(G.authors) do
-        if v.reps > C.reps.max then
-            v.reps = C.reps.max
+        -- cap all authors at max
+        for k, v in pairs(G.authors) do
+            if v.reps > C.reps.max then
+                v.reps = C.reps.max
+            end
         end
+
+        xas = true
     end
 
     -- write state + commit
     do
-        write(G.authors, L .. "authors.lua")
-        write(G.posts,   L .. "posts.lua")
-
         exec (
             "git -C " .. REPO .. " add " .. file
         )
@@ -307,13 +288,30 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
 
         if ARGS.beg then
             exec (
-                "git -C " .. REPO .. " update-ref refs/begs/beg-" .. NOW.s .. "-" .. blob:sub(1,8) .. "-" .. rand .. " HEAD"
+                "git -C " .. REPO .. " update-ref refs/begs/beg-" .. NOW.s .. "-" .. hash .. " HEAD"
             )
             exec (
                 "git -C " .. REPO .. " reset --hard HEAD~1"
             )
         end
 
+        if kind == 'post' then
+            G.posts[hash] = {
+                author = ARGS.sign,
+                time   = NOW.s,
+                state  = (ARGS.beg and 'blocked') or '00-12',
+                reps   = 0,
+            }
+            xps = true
+        end
+
         print(hash)
     end
+end
+
+if xas then
+    write(G.authors, L .. "authors.lua")
+end
+if xps then
+    write(G.posts, L .. "posts.lua")
 end

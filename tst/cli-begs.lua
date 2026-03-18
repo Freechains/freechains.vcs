@@ -41,22 +41,8 @@ do
     do
         TEST "beg-blocked-in-posts"
         local posts = dofile(DIR .. ".freechains/local/posts.lua")
-        local file = exec (true,
-            "git -C " .. DIR ..
-                " diff-tree --no-commit-id --name-only -r " ..
-                BEG .. " -- '*.txt'"
-        )
-        assert(file:match("post%-%d+%-.-%.txt"))
-        local txt = exec (true,
-            "git -C " .. DIR .. " show " .. BEG .. ":" .. file
-        )
-        assert(txt == "please help")
-        local hash = exec (true,
-            "echo  " .. txt .. " | git hash-object --stdin"
-        )
-        assert(hash:match("^%x+$"), "hash is hex: " .. hash)
-        assert(posts[hash], "post entry not found for blob: " .. hash)
-        assert(posts[hash].state == "blocked", "state should be blocked")
+        assert(posts[BEG], "post entry not found: " .. BEG)
+        assert(posts[BEG].state == "blocked", "state should be blocked")
     end
 end
 
@@ -173,14 +159,8 @@ do
     do
         TEST "like-beg-unblocks"
         local posts = dofile(DIR .. ".freechains/local/posts.lua")
-        local blob = exec (true,
-            "git -C " .. DIR .. " diff-tree --no-commit-id --name-only -r " .. BEG .. " -- '*.txt'"
-        )
-        local hash = exec (true,
-            "git -C " .. DIR .. " show " .. BEG .. ":" .. blob .. " | git hash-object --stdin"
-        )
-        assert(posts[hash], "post entry not found for blob: " .. hash)
-        assert(posts[hash].state ~= "blocked", "state should no longer be blocked")
+        assert(posts[BEG], "post entry not found: " .. BEG)
+        assert(posts[BEG].state ~= "blocked", "state should no longer be blocked")
     end
 
     do
