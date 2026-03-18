@@ -373,7 +373,7 @@ Fix any failures.
 
 ## Dependencies
 
-- author-hash.md: begs require --sign (Step 4 there)
+- None. Independent of author-hash.md.
 
 ## Done
 

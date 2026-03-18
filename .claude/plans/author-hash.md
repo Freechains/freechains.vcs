@@ -1,9 +1,9 @@
-# Author Hash: Add Author Key to Post Filenames
+# Unique Filenames: Random Suffix
 
 ## Goal
 
-Include author key in filename hashing to make filenames
-unique per author.
+Add a random number to post/like/beg filenames to
+guarantee uniqueness.
 Remove `--allow-empty` from git commit.
 
 ## Current State
@@ -16,103 +16,105 @@ Remove `--allow-empty` from git commit.
 | like    | 219  | `like-<NOW.s>-<blob:sub(1,8)>.lua`        |
 | beg ref | 308  | `refs/begs/<NOW.s>-<blob:sub(1,8)>`       |
 
-Problem: two authors posting identical content at same
+Problem: two posts with identical content at the same
 timestamp produce the same filename.
-The commit has no diff, so `--allow-empty` (line 299) is
-needed as a safety net.
+The commit has no diff, so `--allow-empty` (line 299)
+is needed as a safety net.
 
 ## Proposed Change
 
-Hash `blob .. ARGS.sign` instead of just `blob`:
+Append a random number to the filename:
 
 ```lua
-local id = exec(
-    "printf '%s' '" .. blob .. ARGS.sign
-    .. "' | git hash-object --stdin"
-)
+local rand = math.random(0, 0xFFFFFFFF)
 ```
 
 New naming:
 
-| Place   | Pattern                                      |
-|---------|----------------------------------------------|
-| post    | `post-<NOW.s>-<id:sub(1,8)>.txt`            |
-| like    | `like-<NOW.s>-<id:sub(1,8)>.lua`            |
-| beg ref | `refs/begs/<NOW.s>-<id:sub(1,8)>`           |
+| Place   | Pattern                                            |
+|---------|----------------------------------------------------|
+| post    | `post-<NOW.s>-<blob:sub(1,8)>-<rand>.txt`         |
+| like    | `like-<NOW.s>-<blob:sub(1,8)>-<rand>.lua`         |
+| beg ref | `refs/begs/<NOW.s>-<blob:sub(1,8)>-<rand>`        |
+
+The blob hash stays (content-addressable for lookups).
+The random suffix guarantees uniqueness.
+Determinism in filenames serves no purpose -- the post
+key in `posts.lua` is the full blob hash, already
+deterministic.
 
 Then remove `--allow-empty` from line 299.
 
-## Require --sign for begs
+## Security
 
-Currently `--beg` without `--sign` is allowed
-(chain.lua lines 159-163).
-Change to require both:
-
-- Author identity needed for filename hash
-- Author identity needed for reputation tracking
-  (likes target an author)
-- `cli-begs.lua` already uses `--beg --sign KEY2`
-
-Remove the `else` branch that allows bare `--beg`.
+No attack vector from random filenames:
+- Post identity in `posts.lua` uses the **full blob
+  hash**, not the filename.
+- A crafted collision (same time + blob prefix + rand)
+  would at worst cause: file exists -> `git add` shows
+  no diff -> commit fails -> **error to user**.
+- Removing `--allow-empty` is a bonus defense: turns
+  a silent collision into a visible error.
+- Random range (`0xFFFFFFFF` = 4 billion) makes
+  accidental collisions near-impossible.
 
 ## Files to Modify
 
-| File                      | Place          | Change                        |
-|---------------------------|----------------|-------------------------------|
-| `src/freechains/chain.lua`| line 174       | post filename: hash blob+sign |
-| `src/freechains/chain.lua`| line 219       | like filename: hash blob+sign |
-| `src/freechains/chain.lua`| line 299       | remove `--allow-empty`        |
-| `src/freechains/chain.lua`| line 308       | beg ref: hash blob+sign       |
-| `src/freechains/chain.lua`| lines 159-163  | remove --beg without --sign   |
-| `tst/cli-begs.lua`        | lines 43, 174  | fix path: local/posts.lua     |
-| `tst/cli-sign.lua`        | line 48        | `--beg` needs `--sign` now    |
-| `tst/repl-local-begs.lua` | all --beg      | `--beg` -> `--beg --sign KEY` |
-| `tst/repl-remote-begs.lua`| all --beg      | `--beg` -> `--beg --sign KEY` |
+| File                       | Place         | Change                    |
+|----------------------------|---------------|---------------------------|
+| `src/freechains/chain.lua` | line 174      | append rand to post name  |
+| `src/freechains/chain.lua` | line 219      | append rand to like name  |
+| `src/freechains/chain.lua` | line 299      | remove `--allow-empty`    |
+| `src/freechains/chain.lua` | line 308      | append rand to beg ref    |
+| `tst/cli-begs.lua`         | lines 43, 174 | fix path: local/posts.lua |
 
 ## Implementation Steps
 
-### Step 1: chain.lua -- compute combined hash
+### Step 1: chain.lua -- generate random
 
-After blob is computed (both post and like paths),
-compute combined id:
+Near the top of the post/like block, generate one
+random number for the current operation:
 
 ```lua
-local id = exec(
-    "printf '%s' '" .. blob .. ARGS.sign
-    .. "' | git hash-object --stdin"
-)
+local rand = math.random(0, 0xFFFFFFFF)
 ```
 
-Use `id` instead of `blob` in all three naming sites.
+Note: `math.randomseed()` is called in `chains.lua`.
+Verify it is also seeded before `chain.lua` runs
+(or seed it here).
 
-### Step 2: chain.lua -- update naming
+### Step 2: chain.lua -- update naming (3 sites)
 
-Replace `blob:sub(1,8)` with `id:sub(1,8)` at:
-- line 174 (post filename)
-- line 219 (like filename)
-- line 308 (beg ref name)
+Append `-<rand>` to the name at:
+
+- line 174 (post filename):
+  `"post-" .. NOW.s .. "-" .. blob:sub(1,8)
+  .. "-" .. rand .. ".txt"`
+- line 219 (like filename):
+  `"like-" .. NOW.s .. "-" .. blob:sub(1,8)
+  .. "-" .. rand .. ".lua"`
+- line 308 (beg ref name):
+  `"refs/begs/" .. NOW.s .. "-" .. blob:sub(1,8)
+  .. "-" .. rand`
 
 ### Step 3: chain.lua -- remove --allow-empty
 
 Line 299: remove `--allow-empty` from commit command.
 Keep `--allow-empty-message` (empty messages are valid).
 
-### Step 4: chain.lua -- require --sign for begs
+### Step 4: Fix cli-begs.lua paths
 
-Lines 159-163: remove the `else` branch that allows
-`--beg` without `--sign`.
-Error message: `chain post : --beg requires --sign`
+Lines 43, 174:
+`.freechains/posts.lua` -> `.freechains/local/posts.lua`
 
-### Step 5: Update tests
+### Step 5: Update tests for new filename pattern
 
-- `cli-begs.lua` lines 43, 174:
-  `.freechains/posts.lua` -> `.freechains/local/posts.lua`
-- `cli-sign.lua` line 48:
-  `--beg` -> `--beg --sign KEY2` (needs a non-pioneer key)
-- `repl-local-begs.lua`:
-  all `--beg` -> `--beg --sign KEY`
-- `repl-remote-begs.lua`:
-  all `--beg` -> `--beg --sign KEY`
+Tests that match filenames may need pattern updates
+to account for the extra `-<rand>` segment.
+
+Check:
+- `cli-post.lua` line 89: `post%-(%x+)%.txt` pattern
+- `cli-begs.lua` lines 44-48: diff-tree file pattern
 
 ### Step 6: Run all tests
 
@@ -123,15 +125,15 @@ Error message: `chain post : --beg requires --sign`
 
 ## Dependencies
 
-- `begs.md` depends on this (begs require --sign)
+- None. Independent of begs.md.
 
 ## Done
 
 ## TODO
 
-- [ ] Step 1: Compute combined hash
+- [ ] Step 1: Generate random
 - [ ] Step 2: Update naming (3 sites)
 - [ ] Step 3: Remove --allow-empty
-- [ ] Step 4: Require --sign for begs
-- [ ] Step 5: Update tests
+- [ ] Step 4: Fix cli-begs.lua paths
+- [ ] Step 5: Update test patterns
 - [ ] Step 6: Run all tests
