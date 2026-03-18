@@ -121,6 +121,29 @@ git -C REPO for-each-ref refs/begs/ \
     --format='%(refname:short) %(objectname)'
 ```
 
+### Pruning merged begs
+
+After fetching HEAD from a peer, check each local beg
+ref: if the beg commit is already reachable from HEAD,
+it was merged — delete the ref.
+
+```bash
+for ref in $(git -C REPO for-each-ref refs/begs/ \
+    --format='%(refname)'); do
+    if git -C REPO merge-base --is-ancestor \
+        "$ref" HEAD 2>/dev/null; then
+        git -C REPO update-ref -d "$ref"
+    fi
+done
+```
+
+Why not `--prune`: `git fetch --prune` deletes any
+local ref missing from the remote.
+This would destroy local begs that haven't been synced
+yet.
+Ancestry check is safe — only removes begs that are
+already in HEAD.
+
 ## Resolved Questions
 
 1. **Trailer:** `freechains: post` — a beg is immutable

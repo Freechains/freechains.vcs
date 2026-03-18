@@ -213,6 +213,48 @@ do
         )
         assert(a == b, "beg refs differ")
     end
+
+    -- B pulls HEAD from A, then prunes merged begs
+    do
+        TEST "B fetches HEAD from A"
+        local branch = exec (
+            "git -C " .. REPO_B .. " rev-parse --abbrev-ref HEAD"
+        )
+        local _, code = exec (
+            "git -C " .. REPO_B .. " fetch " .. REPO_A .. " " .. branch
+        )
+        assert(code == 0, "fetch HEAD failed")
+
+        TEST "B merges A's HEAD"
+        exec (
+            "git -C " .. REPO_B .. " merge --no-edit FETCH_HEAD"
+        )
+    end
+
+    do
+        TEST "B prunes merged begs"
+        local refs = exec (
+            "git -C " .. REPO_B .. " for-each-ref refs/begs/ --format='%(refname)'"
+        )
+        for ref in refs:gmatch("[^\n]+") do
+            local _, code = exec (true,
+                "git -C " .. REPO_B .. " merge-base --is-ancestor " .. ref .. " HEAD"
+            )
+            if code == 0 then
+                exec (
+                    "git -C " .. REPO_B .. " update-ref -d " .. ref
+                )
+            end
+        end
+
+        TEST "B has 2 beg refs remaining"
+        local out = exec (
+            "git -C " .. REPO_B .. " for-each-ref refs/begs/ --format='%(refname)'"
+        )
+        local count = 0
+        for _ in out:gmatch("[^\n]+") do count = count + 1 end
+        assert(count == 2, "expected 2 beg refs, got: " .. count)
+    end
 end
 
 -- UNRELATED HISTORIES: independent chain, fetch beg, merge fails
