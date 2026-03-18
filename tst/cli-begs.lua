@@ -43,7 +43,8 @@ do
         local posts = dofile(DIR .. ".freechains/local/posts.lua")
         local file = exec (true,
             "git -C " .. DIR ..
-                " diff-tree --no-commit-id --name-only -r " .. BEG .. " -- '*.txt'"
+                " diff-tree --no-commit-id --name-only -r " ..
+                BEG .. " -- '*.txt'"
         )
         assert(file:match("post%-%d+%-.-%.txt"))
         local txt = exec (true,

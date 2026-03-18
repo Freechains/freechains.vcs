@@ -121,6 +121,35 @@ git -C REPO for-each-ref refs/begs/ \
     --format='%(refname:short) %(objectname)'
 ```
 
+### Registering fetched begs in posts.lua
+
+After fetching `refs/begs/*`, each new beg ref is a
+single blocked post (the like case is resolved
+immediately and the ref is deleted).
+So the fetch code can register them locally:
+
+```lua
+for each new ref in refs/begs/:
+    blob = git diff-tree --no-commit-id --name-only \
+        -r <ref> -- '*.txt'
+    hash = git show <ref>:<blob> | git hash-object --stdin
+    posts[hash] = { state="blocked", reps=0 }
+
+    -- register author if signed
+    author = git log -1 --format='%GK' <ref>
+    if author ~= "" then
+        authors[author] = authors[author] or { reps=0 }
+    end
+
+write(posts, local/posts.lua)
+write(authors, local/authors.lua)
+```
+
+This keeps `local/posts.lua` and `local/authors.lua`
+in sync across hosts.
+Without this, the fetching side has no knowledge of
+the blocked post's state or its author.
+
 ### Pruning merged begs
 
 After fetching HEAD from a peer, check each local beg
@@ -415,6 +444,7 @@ Fix any failures.
 - [x] Step 3: Fix repl-local-begs.lua (exec true flags, clean assert)
 - [x] Step 4: Write repl-remote-begs.lua (refs/begs/* mechanism)
 - [ ] Step 5: Compare against main
-- [x] Step 6: Run tests (all pass)
+- [x] Step 6: Run tests (all pass, including prune)
+- [ ] Impl: register fetched begs in local/posts.lua + authors.lua
 - [ ] Impl: like beg -> append to beg branch + merge
 - [ ] Impl: remove blocked field on unblock
