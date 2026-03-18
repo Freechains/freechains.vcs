@@ -39,7 +39,16 @@ deferred.
 
 ### Chains — [chains.md](chains.md)
 
-Chain = topic in pub-sub. Identified by genesis hash (`HASH(version, type)`). Three types: public (N↔N, reputation-based), private (encrypted, shared key), personal (1→N broadcast). Peers sync by genesis hash, not name. Local index maps human-readable aliases (`#`, `$`, `@`) to hashes.
+Chain = topic in pub-sub. Identified by genesis hash
+(`HASH(version, type)`). Three types: public (N↔N,
+reputation-based), private (encrypted, shared key),
+personal (1→N broadcast). Peers sync by genesis hash,
+not name. Local index maps human-readable aliases
+(`#`, `$`, `@`) to hashes. CLI:
+`chains add <alias> config <genesis.lua>` (create) and
+`chains add <alias> clone <url>` (replicate).
+`common.lua` is minimal (ERROR, exec, serial);
+git_init/git_config logic lives in `chains.lua`.
 
 ### Command Mapping — [commands.md](commands.md)
 

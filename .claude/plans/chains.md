@@ -14,9 +14,9 @@ A chain is univocally identified by its **genesis commit hash**:
 genesis_hash = git_commit_hash(genesis)
 ```
 
-Each `chains add` call creates a unique genesis commit (real
-pubkey + timestamp), so the hash is unique per creation.
-To join an existing chain, use `chains add --clone`.
+Each `chains add config` call creates a unique genesis commit
+(real pubkey + timestamp), so the hash is unique per creation.
+To join an existing chain, use `chains add <alias> clone <url>`.
 
 Names, prefixes, and aliases are conventions of the application
 layer and are not part of the protocol.
@@ -104,7 +104,7 @@ git push <genesis_hash>
 To join an existing chain from a peer:
 
 ```bash
-freechains chains add myalias --clone <hash> --peer <url>
+freechains chains add myalias clone <url>
 ```
 
 ## Index and Aliases
