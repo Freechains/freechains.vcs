@@ -188,34 +188,210 @@ Uses `GEN_1P` (KEY=30 reps, KEY2/KEY3=0 reps).
 - `merge-preserves-sig`: beg commit GPG sig intact
 - `merge-head-advances`: HEAD is merge commit
 
-## TODO
+## repl-begs vs repl-head: What Differs
+
+### Summary
+
+| Aspect      | head                   | begs                            |
+|-------------|------------------------|---------------------------------|
+| Genesis     | `GEN_1`                | `GEN_0`                        |
+| Post flag   | `--sign KEY`           | `--beg --sign KEY`             |
+| Destination | HEAD                   | `refs/begs/<id>`               |
+| Counting    | `rev-list --count HEAD`| `for-each-ref refs/begs/`      |
+| Fetch       | `git fetch <src> <br>` | `git fetch <src> refs/begs/*`  |
+| Merge       | `git merge FETCH_HEAD` | `git merge <ref>` (per beg)    |
+
+### Section-by-section
+
+**1. Host A: create chain + post/beg**
+
+| head                              | begs                            |
+|-----------------------------------|---------------------------------|
+| GEN_1                             | GEN_0                           |
+| `--sign KEY`                      | `--beg --sign KEY`              |
+| post on HEAD, count = 2           | beg on refs/begs/, HEAD = 1     |
+| assert count                      | assert beg ref exists           |
+
+**2. Host B: clone + post/beg**
+
+| head                              | begs                            |
+|-----------------------------------|---------------------------------|
+| clone gets genesis + A's post     | clone gets genesis only         |
+| B has 2 commits                   | B has 1 commit (genesis)        |
+| (no extra fetch needed)           | fetch `refs/begs/*` from A      |
+|                                   | verify A's beg ref arrived      |
+| B posts (--sign KEY), count = 3   | B begs (--beg --sign KEY)       |
+| assert count                      | assert beg ref exists           |
+
+**3. Host A: fetch from B + merge**
+
+| head                              | begs                            |
+|-----------------------------------|---------------------------------|
+| fetch branch from B               | fetch `refs/begs/*` from B      |
+| dry-run merge FETCH_HEAD          | count total beg refs (A's + B's)|
+| merge FETCH_HEAD (fast-forward)   | merge ref1 into HEAD (ff)       |
+| count = 3                         | merge ref2 into HEAD (true)     |
+| both files present, A == B        | both files present              |
+
+**4. Bidirectional sync**
+
+| head                              | begs                            |
+|-----------------------------------|---------------------------------|
+| both post (--sign KEY)            | both beg (--beg --sign KEY)     |
+| A fetches B branch + merge        | A fetches refs/begs/* from B    |
+| B fetches A branch + merge        | B fetches refs/begs/* from A    |
+| both count = 6, A == B            | verify same beg refs both sides |
+
+**5. Unrelated histories**
+
+| head                              | begs                            |
+|-----------------------------------|---------------------------------|
+| C creates chain with GEN_1        | C creates chain with GEN_0      |
+| C fetches A's branch              | C fetches refs/begs/* from A    |
+| dry-run merge fails               | merge beg ref into C fails      |
+
+**6. Conflict**
+
+| head                              | begs                            |
+|-----------------------------------|---------------------------------|
+| A and B post to log.txt           | reset env, re-create chains     |
+| fetch branch, dry-run fails       | A and B beg to log.txt          |
+| merge fails, conflict markers     | fetch refs/begs/* from B        |
+| abort restores clean state        | merge ref1 (ff, ok)             |
+|                                   | merge ref2 -> conflict          |
+|                                   | conflict markers, abort restores|
+
+### Local vs Remote
+
+Only difference is the transport layer:
+
+| Aspect       | local              | remote                    |
+|--------------|--------------------|---------------------------|
+| mkdir        | `ROOT_{A,B,C}`     | `ROOT/chains`             |
+| daemon       | none               | git daemon per host       |
+| fetch source | `REPO_A` (path)    | `URL_A .. "test/"` (git)  |
+| clone source | `REPO_A` (path)    | `URL_A .. "test/"` (git)  |
+
+## cli-post vs cli-begs: What Differs
+
+### cli-post (signed posts on HEAD)
+
+1. POST FILE: copy, content, genesis, update, second
+2. POST INLINE: auto-name, --file creates/appends
+3. POST --why: commit message
+4. POST errors: nonexistent chain
+
+All posts go on HEAD, are signed, advance commit
+history.
+
+### cli-begs (blocked posts on refs/begs/)
+
+1. SIMPLE BEG: refs/begs/ created, HEAD unchanged,
+   blocked in posts.lua
+2. MULTIPLE BEGS: same HEAD, different HEADs, ref count
+3. LIKES ON BEGS: merge into HEAD, unblock, ref removed,
+   insufficient reps rejected, self-like rejected
+4. MERGE STRUCTURE: 2 parents, sig intact, HEAD advances
+
+### Shared between both
+
+- Inline posting (auto-name, content)
+- File posting (--file)
+- --why commit message
+- Same post creation code path; destination differs
+
+### Unique to cli-begs
+
+- `refs/begs/` ref creation and HEAD not advancing
+- `state = "blocked"` in posts.lua
+- Like-triggered merge (beg + HEAD -> merge commit)
+- Ref removed after merge
+- Insufficient reps to like
+- Self-like with 0 reps rejected
+
+### Known bugs in cli-begs.lua
+
+- Lines 43, 174: reads `.freechains/posts.lua` but
+  should be `.freechains/local/posts.lua`
+  (tracked file doesn't exist; local state is in local/)
+
+## Implementation Steps
+
+### Step 1: Read and understand
+
+Read all files side by side:
+- `tst/repl-local-head.lua` vs `tst/repl-local-begs.lua`
+- `tst/repl-remote-head.lua` vs `tst/repl-remote-begs.lua`
+- `tst/cli-post.lua` vs `tst/cli-begs.lua`
+
+For each pair, note what's shared and what differs.
+Compare against the tables above.
+
+### Step 2: Fix cli-begs.lua
+
+- Fix path: `.freechains/posts.lua` ->
+  `.freechains/local/posts.lua` (lines 43, 174)
+- Depends on: author-hash.md (--sign required for begs)
+
+### Step 3: Write repl-local-begs.lua
+
+Start from repl-local-head.lua structure.
+Apply section-by-section adaptations above.
+Key changes:
+- GEN_1 -> GEN_0
+- `--sign KEY` -> `--beg --sign KEY`
+- Branch fetch -> `refs/begs/*` fetch
+- HEAD merge -> per-ref merge
+- Commit counting -> ref counting
+
+### Step 4: Write repl-remote-begs.lua
+
+Same adaptations as Step 3, but with:
+- git daemon setup (ports, PIDs, start/stop)
+- git:// URLs instead of local paths
+- Beg ref fetch over git:// protocol
+
+### Step 5: Compare against main
+
+```
+git diff main -- tst/repl-local-begs.lua
+git diff main -- tst/repl-remote-begs.lua
+git diff main -- tst/cli-begs.lua
+```
+
+Review: are all adaptations correct and minimal?
+
+### Step 6: Run tests
+
+```
+lua5.4 tst/repl-local-begs.lua
+lua5.4 tst/repl-remote-begs.lua
+lua5.4 tst/cli-begs.lua
+```
+
+Fix any failures.
+
+## Dependencies
+
+- author-hash.md: begs require --sign (Step 4 there)
+
+## Done
 
 - [x] Write failing tests (cli-begs.lua)
-- [x] Impl: beg commit → refs/begs/ + reset HEAD
+- [x] Impl: beg commit -> refs/begs/ + reset HEAD
 - [x] Impl: posts.lua state="blocked" field
-- [x] Impl: stage skips blocked entries (free: scans match "00-12"/"12-24" only)
-- [ ] Impl: like beg → append to beg branch + merge
+- [x] Impl: stage skips blocked entries
+- [x] cli-post.lua adapted (GEN_1, --sign KEY)
+- [x] cli-sign.lua beg section (checks by hash)
+- [x] cli-now.lua adapted (--sign KEY)
+- [x] repl-local-begs.lua (refs/begs/* mechanism)
+
+## TODO
+
+- [ ] Step 2: Fix cli-begs.lua (local/posts.lua path)
+- [ ] Step 3: Rewrite repl-local-begs.lua
+- [ ] Step 4: Write repl-remote-begs.lua
+- [ ] Step 5: Compare against main
+- [ ] Step 6: Run tests
+- [ ] Impl: like beg -> append to beg branch + merge
 - [ ] Impl: remove blocked field on unblock
-- [ ] Tests pass
-
-## Done so far
-
-### Implementation (src/freechains/chain.lua)
-- After commit: if `ARGS.beg`, `update-ref refs/begs/<ts>-<blob8> HEAD` + `reset --hard HEAD~1`
-- Metadata: `if ARGS.beg` → `state='blocked'`, no cost deduction; else → `state='00-12'`, normal cost
-- Removed outer `if ARGS.sign` wrapper on metadata block (unsigned begs get `author=nil`)
-- `--beg` only on `post` subcommand (argparse enforces, no runtime check needed)
-
-### Test files adapted for beg behavior
-- `tst/cli-begs.lua` — new, 5 sections (simple beg, multiple, different heads, likes, merge structure)
-- `tst/cli-post.lua` — `GEN` → `GEN_1P`, `--beg` → `--sign KEY`, `EXE` → `ENV_EXE`
-- `tst/cli-sign.lua` — beg section checks commit by hash, not HEAD
-- `tst/cli-now.lua` — `--beg` → `--sign KEY`, `EXE` → `ENV_EXE`
-- `tst/repl-local-begs.lua` — new, beg replication via `refs/begs/*` (fetch, merge, unrelated, conflict)
-- `tst/repl-local-head.lua` — needs `--beg` → `--sign KEY` (not yet done)
-
-### Remaining work
-1. **Step 4**: like beg → checkout beg ref, commit like, update-ref, checkout main, merge, delete ref
-2. **Step 5**: on unblock, change `state='blocked'` → `state='00-12'` + set time + deduct cost
-3. **repl-local-head.lua**: switch to `GEN_1P` + `--sign KEY`
-4. **repl-remote-*.lua**: same split as local (head vs begs)
