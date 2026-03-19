@@ -52,6 +52,10 @@ local cmd = {
         like = {},
         dislike = {},
         reps = {},
+        sync = {
+            recv = {},
+            send = {},
+        },
     },
 }
 
@@ -115,6 +119,15 @@ do
     cmd.chain.reps._ = cmd.chain._:command("reps")
     cmd.chain.reps._:argument("target")
     cmd.chain.reps._:argument("key"):args("?")
+
+    -- cmd.chain.sync
+    cmd.chain.sync._ = cmd.chain._:command("sync")
+    do
+        cmd.chain.sync.recv._ = cmd.chain.sync._:command("recv")
+        cmd.chain.sync.recv._:argument("remote")
+        cmd.chain.sync.send._ = cmd.chain.sync._:command("send")
+        cmd.chain.sync.send._:argument("remote")
+    end
 end
 
 ARGS = parser:parse()
@@ -131,5 +144,9 @@ end
 if ARGS.chains then
     require "freechains.chains"
 elseif ARGS.chain then
-    require "freechains.chain"
+    if ARGS.sync then
+        require "freechains.sync"
+    else
+        require "freechains.chain"
+    end
 end
