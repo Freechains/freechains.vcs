@@ -43,6 +43,8 @@ do
     do
         TEST "A creates repo"
         exec("git init " .. DIR_A)
+        exec("git -C " .. DIR_A .. " config user.name  '-'")
+        exec("git -C " .. DIR_A .. " config user.email '-'")
         exec("git -C " .. DIR_A .. " commit --allow-empty -m 'genesis'")
     end
 
