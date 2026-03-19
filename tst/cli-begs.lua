@@ -7,6 +7,7 @@ local DIR2 = ROOT .. "/chains/cli-begs-2/"
 local DIR3 = ROOT .. "/chains/cli-begs-3/"
 local DIR4 = ROOT .. "/chains/cli-begs-4/"
 local DIR5 = ROOT .. "/chains/cli-begs-5/"
+local DIR6 = ROOT .. "/chains/cli-begs-6/"
 
 -- 1. Simple beg
 do
@@ -195,9 +196,9 @@ do
     end
 end
 
--- 5. Merge structure
+-- 5. Merge structure (fast-forward)
 do
-    print("==> Merge structure")
+    print("==> Merge structure (fast-forward)")
 
     exec(ENV_EXE .. " chains add cli-begs-5 config " .. GEN_1)
 
@@ -205,7 +206,7 @@ do
     local BEG = exec (
         ENV_EXE .. " chain cli-begs-5 post inline 'merge test beg' --beg --sign " .. KEY2
     )
-    local MAIN_BEFORE = exec("git -C " .. DIR5 .. " rev-parse HEAD")
+    local HEAD = exec("git -C " .. DIR5 .. " rev-parse HEAD")
 
     -- KEY likes the beg (triggers merge)
     exec(ENV_EXE .. " chain cli-begs-5 like 1 post " .. BEG .. " --sign " .. KEY)
@@ -213,11 +214,11 @@ do
     local MERGE = exec("git -C " .. DIR5 .. " rev-parse HEAD")
 
     do
-        TEST "merge-has-two-parents"
+        TEST "merge-fast-forward"
         local parents = exec("git -C " .. DIR5 .. " log -1 --format=%P " .. MERGE)
         local count = 0
         for _ in parents:gmatch("%x+") do count = count + 1 end
-        assert(count == 2, "merge should have 2 parents, got: " .. count)
+        assert(count == 1, "fast-forward should have 1 parent, got: " .. count)
     end
 
     do
@@ -230,7 +231,42 @@ do
 
     do
         TEST "merge-head-advances"
-        assert(MERGE ~= MAIN_BEFORE, "HEAD should be merge commit, not old HEAD")
+        assert(MERGE ~= HEAD, "HEAD should be merge commit, not old HEAD")
+    end
+end
+
+-- 6. Merge structure (true merge)
+do
+    print("==> Merge structure (true merge)")
+
+    exec(ENV_EXE .. " chains add cli-begs-6 config " .. GEN_1)
+
+    -- KEY2 begs
+    local BEG = exec (
+        ENV_EXE .. " chain cli-begs-6 post inline 'merge test beg' --beg --sign " .. KEY2
+    )
+
+    -- KEY posts normally (advances HEAD past genesis)
+    exec(ENV_EXE .. " chain cli-begs-6 post inline 'normal post' --sign " .. KEY)
+    local HEAD = exec("git -C " .. DIR6 .. " rev-parse HEAD")
+
+    -- KEY likes the beg (triggers true merge)
+    local LIKE = exec(ENV_EXE .. " chain cli-begs-6 like 1 post " .. BEG .. " --sign " .. KEY)
+
+    local MERGE = exec("git -C " .. DIR6 .. " rev-parse HEAD")
+
+    do
+        TEST "merge-has-two-parents"
+        local parents = exec("git -C " .. DIR6 .. " log -1 --format=%P " .. MERGE)
+        local count = 0
+        for _ in parents:gmatch("%x+") do count = count + 1 end
+        assert(count == 2, "true merge should have 2 parents, got: " .. count)
+    end
+
+    do
+        TEST "merge-parent-includes-like"
+        local parents = exec("git -C " .. DIR6 .. " log -1 --format=%P " .. MERGE)
+        assert(parents:match(LIKE), "like not in merge parents: " .. parents)
     end
 end
 
