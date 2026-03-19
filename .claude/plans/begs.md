@@ -453,8 +453,11 @@ Fix any failures.
 - [x] Step 2: Fix cli-begs.lua (local/posts.lua path)
 - [x] Step 3: Fix repl-local-begs.lua (exec true flags, clean assert)
 - [x] Step 4: Write repl-remote-begs.lua (refs/begs/* mechanism)
-- [ ] Step 5: Compare against main
+- [x] Step 5: Compare against main
 - [x] Step 6: Run tests (all pass, including prune)
 - [ ] Impl: register fetched begs in local/posts.lua + authors.lua
-- [ ] Impl: like beg -> append to beg branch + merge
-- [ ] Impl: remove blocked field on unblock
+- [x] Impl: like beg -> append to beg branch + merge
+- [x] Impl: remove blocked field on unblock (state -> "00-12")
+- [x] Beg ref simplified to refs/begs/beg-<hash>
+- [x] Hardcoded "main" branch, removed rev-parse --abbrev-ref
+- [x] Tests: ff merge (1 parent) + true merge (2 parents)
