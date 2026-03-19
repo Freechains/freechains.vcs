@@ -146,11 +146,8 @@ do
 
     do
         TEST "fetch from B"
-        local branch = exec (
-            "git -C " .. REPO_A .. " rev-parse --abbrev-ref HEAD"
-        )
         local _, code = exec (
-            "git -C " .. REPO_A .. " fetch " .. URL_B .. "test/ " .. branch
+            "git -C " .. REPO_A .. " fetch " .. URL_B .. "test/ main"
         )
         assert(code == 0, "fetch failed")
 
@@ -216,11 +213,8 @@ do
 
     do
         TEST "A fetches from B"
-        local branch = exec (
-            "git -C " .. REPO_A .. " rev-parse --abbrev-ref HEAD"
-        )
         local _, code = exec (
-            "git -C " .. REPO_A .. " fetch " .. URL_B .. "test/ " .. branch
+            "git -C " .. REPO_A .. " fetch " .. URL_B .. "test/ main"
         )
         assert(code == 0, "fetch failed")
 
@@ -248,11 +242,8 @@ do
 
     do
         TEST "B fetches from A"
-        local branch = exec (
-            "git -C " .. REPO_B .. " rev-parse --abbrev-ref HEAD"
-        )
         local _, code = exec (
-            "git -C " .. REPO_B .. " fetch " .. URL_A .. "test/ " .. branch
+            "git -C " .. REPO_B .. " fetch " .. URL_A .. "test/ main"
         )
         assert(code == 0, "fetch failed")
 
@@ -298,11 +289,8 @@ do
 
     do
         TEST "fetch from unrelated chain succeeds"
-        local branch = exec (
-            "git -C " .. REPO_C .. " rev-parse --abbrev-ref HEAD"
-        )
         local _, code = exec (
-            "git -C " .. REPO_C .. " fetch " .. URL_A .. "test/ " .. branch
+            "git -C " .. REPO_C .. " fetch " .. URL_A .. "test/ main"
         )
         assert(code == 0, "fetch should succeed")
 
@@ -336,11 +324,8 @@ do
 
     do
         TEST "fetch succeeds"
-        local branch = exec (
-            "git -C " .. REPO_A .. " rev-parse --abbrev-ref HEAD"
-        )
         local _, code = exec (
-            "git -C " .. REPO_A .. " fetch " .. URL_B .. "test/ " .. branch
+            "git -C " .. REPO_A .. " fetch " .. URL_B .. "test/ main"
         )
         assert(code == 0, "fetch should succeed")
 

@@ -55,7 +55,7 @@ if ARGS.add then
         end
 
         exec (
-            "git init " .. tmp
+            "git init -b main " .. tmp
             , "chains add : git init failed"
         )
         git_config(tmp)

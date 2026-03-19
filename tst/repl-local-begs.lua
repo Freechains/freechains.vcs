@@ -217,11 +217,8 @@ do
     -- B pulls HEAD from A, then prunes merged begs
     do
         TEST "B fetches HEAD from A"
-        local branch = exec (
-            "git -C " .. REPO_B .. " rev-parse --abbrev-ref HEAD"
-        )
         local _, code = exec (
-            "git -C " .. REPO_B .. " fetch " .. REPO_A .. " " .. branch
+            "git -C " .. REPO_B .. " fetch " .. REPO_A .. " main"
         )
         assert(code == 0, "fetch HEAD failed")
 

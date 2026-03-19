@@ -16,8 +16,7 @@ local function post (dir, file, text)
 end
 
 local function fetch (dir, remote)
-    local branch = exec("git -C " .. dir .. " rev-parse --abbrev-ref HEAD")
-    local _, code = exec("git -C " .. dir .. " fetch " .. remote .. " " .. branch)
+    local _, code = exec("git -C " .. dir .. " fetch " .. remote .. " main")
     assert(code == 0, "fetch failed")
 end
 
