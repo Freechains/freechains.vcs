@@ -11,8 +11,8 @@ Approach: inline the time scan at the `chain` command
 level so it runs on **every chain command** (reps,
 post, like).
 Writes directly to tracked files (without committing).
-A `local/now.lua` (untracked) records the last staged
-timestamp for monotonic skip.
+A `local/now.lua` (untracked) records the last local
+time effects timestamp for monotonic skip.
 
 ## Implementation (done)
 
@@ -22,12 +22,12 @@ Creates `.freechains/local/` dir, `local/now.lua`
 (`return 0`), and appends `.freechains/local/` to
 `.git/info/exclude`.
 
-### Stage block (`elseif args.chain`)
+### Local time effects block (`elseif args.chain`)
 
 Inlined at chain command level (no function):
 
 ```lua
--- stage: advance time effects
+-- local time effects: advance discount + consolidation
 local fc_reps_authors, fc_time_posts, fc_time_authors
 do
     ...load files...
@@ -67,37 +67,35 @@ explicitly (future sync command will do the same).
 
 ## Merge Concern: Dirty Working Tree
 
-Stage writes to tracked files without committing.
-Git merge requires a clean working tree.
+Local time effects write to `local/` files (untracked).
+Since `local/` is git-excluded, merge is unaffected.
 
-### Unstage protocol (before fetch/merge)
+### Reset protocol (before fetch/merge)
 
-```bash
-git checkout -- .freechains/reps/ .freechains/time/
-```
+Reset `local/now.lua` to `return 0` so local time
+effects re-process from the merged state after merge.
 
-Reset `local/now.lua` to `return 0` so stage
-re-processes from the merged state after merge.
+Since `local/` files are git-excluded (untracked),
+no `git checkout` cleanup is needed.
 
 ### Why this is safe
 
-- Stage only advances time effects — it doesn't
-  create new posts or likes
-- Restoring tracked files loses no real data — the
-  effects will be re-computed on the next stage
-  call after merge
+- Local time effects only advance discount +
+  consolidation — no new posts or likes
+- `local/` files are derived state, re-computable
+  from the DAG
 - `local/now.lua` reset forces full re-scan from
   the merged state
 
 ### Implementation
 
-The future `chain sync` / `chain merge` command must:
+The `chain sync` command must:
 
-1. Unstage: restore tracked files + reset now.lua
+1. Reset: set local/now.lua to 0
 2. `git fetch`
 3. Validate (consensus pipeline)
 4. `git merge --no-ff`
-5. Next command triggers stage which re-scans
+5. Next command triggers local time effects re-scan
 
 See also: merge.md (clean working tree requirement),
 consensus.md (fetch validation pipeline).
@@ -116,8 +114,8 @@ make test T=repl-remote
 ## Done
 
 - [x] `local/` dir in skel + `.git/info/exclude`
-- [x] Stage logic inlined at chain command level
-- [x] Reps query uses staged `fc_reps_authors`
+- [x] Local time effects inlined at chain command level
+- [x] Reps query uses local time effects data
 - [x] Monotonic guard (skip for cached queries)
 - [x] Cap only for query paths
 - [x] `write()` scoped inside chain block

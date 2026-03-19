@@ -204,7 +204,7 @@ already in HEAD.
 | `src/freechains/chain.lua`    | Like: detect beg target, branch   |
 | `src/freechains/chain.lua`    | Merge beg into main after like    |
 | `src/freechains/chain.lua`    | posts.lua: blocked field          |
-| `src/freechains/chain.lua`    | Stage: skip blocked entries       |
+| `src/freechains/chain.lua`    | Time effects: skip blocked entries|
 | `src/freechains.lua`          | (--beg flag already added)        |
 | `tst/cli-begs.lua`            | New test file                     |
 
@@ -442,7 +442,7 @@ Fix any failures.
 - [x] Write failing tests (cli-begs.lua)
 - [x] Impl: beg commit -> refs/begs/ + reset HEAD
 - [x] Impl: posts.lua state="blocked" field
-- [x] Impl: stage skips blocked entries
+- [x] Impl: local time effects skip blocked entries
 - [x] cli-post.lua adapted (GEN_1, --sign KEY)
 - [x] cli-sign.lua beg section (checks by hash)
 - [x] cli-now.lua adapted (--sign KEY)

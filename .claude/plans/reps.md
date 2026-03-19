@@ -294,7 +294,7 @@ Reputation state lives inside each chain repo under
       posts.lua            -- posts in discount or consolidation
       authors.lua          -- last grant-slot timestamp per author
     local/                 -- untracked local state
-      now.lua              -- last staged timestamp
+      now.lua              -- last local time effects timestamp
 ```
 
 The `chains add` command calls `skel()` to create all
@@ -306,13 +306,13 @@ Genesis input's `reps/authors.lua` overwrites the default
 All files are tracked by git (committed), except
 `local/` which is excluded via `.git/info/exclude`.
 
-`stage()` (local-staging.md) writes to tracked `reps/`
-and `time/` files on every command (including queries)
-to reflect time effects up to NOW.
-These writes are uncommitted — the next post/like
-commit picks them up naturally.
-Before merge, tracked files must be restored to their
-committed state (see local-staging.md, merge.md).
+Local time effects (local-staging.md) write to `local/`
+files on every command (including queries) to reflect
+time effects up to NOW.
+These files are git-excluded (untracked) — no cleanup
+needed before merge.
+After merge, reset `local/now.lua` to 0 so time effects
+re-scan from merged state (see local-staging.md, merge.md).
 
 ### reps/authors.lua
 

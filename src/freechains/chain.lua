@@ -24,7 +24,7 @@ do
     f:close()
 end
 
--- stage: advance time effects
+-- local time effects: advance discount + consolidation
 do
     local stored = dofile(L .. "now.lua")
 

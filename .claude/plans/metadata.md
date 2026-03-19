@@ -30,7 +30,7 @@ their content changes from one commit to the next).
 | user content (posts, PDFs, etc.)  | repo/                | shared  | mutable | Application data, changes across commits      |
 | `authors.lua`                     | repo/.freechains/local/ | local   | mutable | Author → reputation mapping (from DAG)        |
 | `posts.lua`                       | repo/.freechains/local/ | local   | mutable | Post → like/dislike counts (from DAG)         |
-| `local/now.lua`                   | repo/.freechains/    | local   | mutable | Last staged timestamp (untracked)             |
+| `local/now.lua`                   | repo/.freechains/    | local   | mutable | Last local time effects timestamp (untracked)             |
 
 ## Scope: Shared vs Genesis vs Local
 
