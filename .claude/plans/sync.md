@@ -90,28 +90,31 @@ committed) until sync.
 1. Commit state ("freechains: state") if dirty
 2. `git push <remote> main`
 
-### On recv — consensus + validation + merge
+### On recv — verify + consensus + merge
 
-1. `git fetch <remote> main`
-2. `merge-base HEAD FETCH_HEAD` -> base
-3. **Consensus**: compare first commit after base on
-   each side. The side with the earlier date wins.
-   Winner's state (authors.lua/posts.lua) is truth.
-4. **Load winner state**: if winner is local, use
-   on-disk state. If winner is remote, load from
-   remote HEAD tree (`git show FETCH_HEAD:...`).
-5. **Validate loser branch**: replay loser's commits
-   one by one (oldest first) against winner's state:
-   - Validate: author has enough reps, file-op costs
-   - Dry-merge: would this commit merge cleanly with
-     winner's tree?
-   - On first fail: discard it + all remaining loser
-     commits. Pointer = last valid loser commit.
-6. **Merge**: combine winner HEAD + validated loser
-   pointer. Use git plumbing (`commit-tree` with two
-   parents). No `git merge` call.
-7. Write state to disk.
-8. Commit state ("freechains: state").
+#### Phase 1: Verify remote (trust)
+
+1. Commit state if dirty (clean working tree)
+2. `git fetch <remote> main`
+3. `merge-base HEAD FETCH_HEAD` -> com
+4. Load state from com tree
+   (`git show com:.freechains/authors.lua`)
+5. Replay all remote commits (`com..rem`) one by one
+6. Compare computed state with remote's last
+   `freechains: state` commit
+7. If different -> abort (remote is dishonest)
+
+#### Phase 2: Consensus + merge
+
+8. Determine winner/loser (earlier first-commit)
+9. **If winner is remote**: use already-computed state
+   from step 5 (no re-replay). Replay local (loser)
+   commits on top.
+10. **If winner is local**: use local state from disk.
+    Replay remote (loser) commits on top of local
+    state.
+11. Merge (git merge or plumbing)
+12. Write state to disk.
 
 ### On query
 
@@ -136,7 +139,17 @@ branch is validated commit-by-commit.
 Both peers arrive at the same decision because the
 dates are embedded in the commits.
 
-### Loser validation
+### Remote verification (Phase 1)
+
+Replay remote commits from com..rem against com state.
+After replay, compare computed authors/posts with
+remote's last "freechains: state" commit tree.
+If mismatch -> ERROR (dishonest remote).
+
+This replay also serves as winner state if remote wins
+(reused in Phase 2, no re-replay).
+
+### Loser replay (Phase 2)
 
 For each loser commit (oldest first):
     1. Parse trailer (post/like/state/none)
@@ -370,3 +383,6 @@ Change line 458 in `.claude/plans/begs.md`:
 - [ ] Step 8: recv beg pruning
 - [ ] Step 9: send basic
 - [ ] Step 10: send begs
+- [ ] Refactor: create `freechains/chain/` dir with
+  shared common.lua (write, authors/posts registration
+  duplicated in sync.lua and chain.lua)
