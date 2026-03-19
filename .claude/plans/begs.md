@@ -152,19 +152,29 @@ the blocked post's state or its author.
 
 ### Pruning merged begs
 
-After fetching HEAD from a peer, check each local beg
-ref: if the beg commit is already reachable from HEAD,
-it was merged — delete the ref.
+After fetching HEAD from a peer, scan `git log` for
+beg ref decorations. Any `refs/begs/` ref that appears
+in the log is reachable from HEAD — it was merged,
+delete it.
 
-```bash
-for ref in $(git -C REPO for-each-ref refs/begs/ \
-    --format='%(refname)'); do
-    if git -C REPO merge-base --is-ancestor \
-        "$ref" HEAD 2>/dev/null; then
-        git -C REPO update-ref -d "$ref"
-    fi
-done
+Use `FETCH_HEAD..HEAD` to limit the walk to new commits
+(stops at common ancestor, skips shared history):
+
+```lua
+local log = exec(
+    "git -C " .. REPO
+    .. " log FETCH_HEAD..HEAD --format='%D'"
+)
+for ref in log:gmatch("refs/begs/[%w%-]+") do
+    exec(
+        "git -C " .. REPO
+        .. " update-ref -d " .. ref
+    )
+end
 ```
+
+One command, directly gives ref names to delete.
+No per-ref ancestry checks needed.
 
 Why not `--prune`: `git fetch --prune` deletes any
 local ref missing from the remote.
