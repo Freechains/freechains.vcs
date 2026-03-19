@@ -134,9 +134,10 @@ After basic sync works:
 
 ## Done
 
+- [x] Step 1: recv basic
+
 ## TODO
 
-- [ ] Step 1: recv basic
 - [ ] Step 2: recv bidirectional
 - [ ] Step 3: recv already up to date
 - [ ] Step 4: recv unrelated histories
