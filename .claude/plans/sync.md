@@ -16,11 +16,13 @@ All tests in `tst/cli-sync.lua`. Uses local paths
 
 ## Files
 
-| File                      | Role                              |
-|---------------------------|-----------------------------------|
-| `src/freechains.lua`      | add sync subcommand + dispatch    |
-| `src/freechains/sync.lua` | new: recv + send implementation   |
-| `tst/cli-sync.lua`        | tests (grows incrementally)       |
+| File                        | Role                            |
+|-----------------------------|---------------------------------|
+| `src/freechains.lua`        | sync subcommand + dispatch      |
+| `src/freechains/sync.lua`   | recv + send implementation      |
+| `src/freechains/replay.lua` | new: replay incoming commits    |
+| `src/freechains/chain.lua`  | refactor: extract time effects  |
+| `tst/cli-sync.lua`          | tests (grows incrementally)     |
 
 ## Steps
 
@@ -37,12 +39,54 @@ Create sync.lua with minimal recv:
 - `git fetch <remote> main`
 - `git merge --no-ff --no-edit FETCH_HEAD`
 
-### 2. Test: recv bidirectional
+### 2. Test: recv bidirectional + replay
 
 Test: A posts, B recvs. B posts, A recvs.
-Assert both have all posts.
+Assert both have all posts (diff excluding local/).
+Assert local/posts.lua has entries for remote posts.
 
-Fail/pass: should pass with step 1 implementation.
+Fail: local/posts.lua not updated after recv.
+
+#### 2a. Extract time effects from chain.lua
+
+chain.lua:27-90 is inline. Extract into a shared
+function (e.g. in common.lua or a new replay.lua):
+
+    time_effects(G, NOW_s, sign)
+        -- discount scan (lines 33-61)
+        -- consolidation scan (lines 65-77)
+        -- cap (lines 80-86)
+
+chain.lua calls time_effects(G, NOW.s, ARGS.sign).
+
+#### 2b. Replay in sync.lua
+
+After merge, walk new commits in date order:
+
+    old_HEAD = HEAD before merge
+    new_HEAD = HEAD after merge
+
+    commits = git log --reverse --date-order
+        --format='%H %at %GK' old_HEAD..new_HEAD
+
+For each commit (skip genesis, skip merges):
+    1. Parse trailer:
+       git log -1 --format='%(trailers:key=freechains,valueonly)' <hash>
+    2. Classify:
+       - "like" trailer  -> like/dislike replay
+       - "post" trailer or no trailer -> post replay
+       - merge (2+ parents) -> skip
+       - genesis (0 parents) -> skip
+    3. Run time_effects(G, commit_time, sign)
+    4. Apply immediate effects:
+       - post: register in G.posts, deduct G.authors
+       - like: parse target, apply cost + tax + split
+    5. Cap all authors at max
+
+After all commits replayed:
+    write G.posts -> local/posts.lua
+    write G.authors -> local/authors.lua
+    write new_HEAD_time -> local/now.lua
 
 ### 3. Test: recv already up to date
 
@@ -128,9 +172,8 @@ to send.
 
 After basic sync works:
 - B1: signature verification per fetched commit
-- B2: reputation replay at DAG position
-- B3: hard fork detection (7d / 100 posts)
-- B4: conflict resolution by reputation
+- B2: hard fork detection (7d / 100 posts)
+- B3: conflict resolution by reputation
 
 ## Current state
 
@@ -139,17 +182,17 @@ After basic sync works:
   + dispatch to `freechains.sync`)
 - `src/freechains/sync.lua`: recv does fetch + merge,
   send does push (minimal)
-- `tst/cli-sync.lua`: step 1 test only
+- `tst/cli-sync.lua`: step 1 + step 2 tests
 
-### Next: Step 2 — recv bidirectional
+### Next: Step 2 — recv replay
 
-Add test to `tst/cli-sync.lua`:
-- A posts, B recvs from A
-- B posts, A recvs from B
-- Assert both have all posts (diff repos)
+Step 2 test exists but fails: local/posts.lua not
+updated after recv.
 
-Should pass without code changes (step 1 recv
-already handles this). If it passes, move to step 3.
+Implementation order:
+1. Extract time_effects() from chain.lua (2a)
+2. Add replay logic to sync.lua (2b)
+3. Run step 2 test — should pass
 
 ### Pending: begs.md TODO update
 
