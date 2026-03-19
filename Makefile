@@ -1,25 +1,27 @@
+L = cd tst && LUA_PATH="../src/?.lua;../src/?/init.lua;;" lua5.4
+
 tests: src/freechains/argparse.lua
 	@rm -Rf /tmp/freechains/
 	@mkdir -p /tmp/freechains/
-	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 git-merge.lua
-	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 cli-chains.lua
-	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 cli-post.lua
-	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 cli-sign.lua
-	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 cli-like.lua
-	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 cli-reps.lua
-	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 cli-now.lua
-	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 cli-time.lua
-	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 cli-begs.lua
-	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 repl-local-head.lua
-	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 repl-remote-head.lua
-	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 repl-local-begs.lua
-	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 repl-remote-begs.lua
+	$(L) git-merge.lua
+	$(L) cli-chains.lua
+	$(L) cli-post.lua
+	$(L) cli-sign.lua
+	$(L) cli-like.lua
+	$(L) cli-reps.lua
+	$(L) cli-now.lua
+	$(L) cli-time.lua
+	$(L) cli-begs.lua
+	$(L) repl-local-head.lua
+	$(L) repl-remote-head.lua
+	$(L) repl-local-begs.lua
+	$(L) repl-remote-begs.lua
 	@rm -Rf /tmp/freechains/
 
 test: src/freechains/argparse.lua
 	@rm -Rf /tmp/freechains/
 	@mkdir -p /tmp/freechains/
-	cd tst && LUA_PATH="../src/?.lua;;" lua5.4 $(T).lua
+	$(L) $(T).lua
 	@rm -Rf /tmp/freechains/
 
 src/freechains/argparse.lua:
