@@ -51,6 +51,8 @@ do
     do
         TEST "B clones from A"
         exec("git clone " .. DIR_A .. " " .. DIR_B)
+        exec("git -C " .. DIR_B .. " config user.name  '-'")
+        exec("git -C " .. DIR_B .. " config user.email '-'")
     end
 end
 
