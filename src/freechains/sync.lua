@@ -16,6 +16,11 @@ if ARGS.recv then
         )
     end
 elseif ARGS.send then
+    exec("git -C " .. REPO .. " add .freechains/authors.lua .freechains/posts.lua")
+    local _, code = exec(true, "git -C " .. REPO .. " diff --cached --quiet")
+    if code ~= 0 then
+        exec(NOW.git .. "git -C " .. REPO .. " commit --allow-empty-message --trailer 'freechains: state' -m ''")
+    end
     exec (
         "git -C " .. REPO .. " push " .. ARGS.remote .. " main"
         , "chain sync : push failed"
