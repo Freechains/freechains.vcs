@@ -132,9 +132,35 @@ After basic sync works:
 - B3: hard fork detection (7d / 100 posts)
 - B4: conflict resolution by reputation
 
+## Current state
+
+- Step 1 test passes (`make test T=cli-sync`)
+- `src/freechains.lua`: sync subcommand added (argparse
+  + dispatch to `freechains.sync`)
+- `src/freechains/sync.lua`: recv does fetch + merge,
+  send does push (minimal)
+- `tst/cli-sync.lua`: step 1 test only
+
+### Next: Step 2 — recv bidirectional
+
+Add test to `tst/cli-sync.lua`:
+- A posts, B recvs from A
+- B posts, A recvs from B
+- Assert both have all posts (diff repos)
+
+Should pass without code changes (step 1 recv
+already handles this). If it passes, move to step 3.
+
+### Pending: begs.md TODO update
+
+Change line 458 in `.claude/plans/begs.md`:
+`"Impl: register fetched begs"` -> `"see sync.md step 6"`
+
 ## Done
 
 - [x] Step 1: recv basic
+- [x] Rename "stage/unstage" -> "local time effects"
+  across code + 8 plan files
 
 ## TODO
 
