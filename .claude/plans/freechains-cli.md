@@ -94,7 +94,7 @@ freechains chains add mytopic args --type '#'
 
 For `$`/`@`/`@!` chains, a key flag is required.
 For `#` public chains, the user edits `genesis.lua` and
-`reps/authors.lua` by hand before the genesis commit.
+`genesis.lua` pioneers list before chain creation.
 A future interactive builder will assist with chain
 creation.
 
@@ -103,7 +103,7 @@ creation.
 Create a new chain from a directory containing genesis
 files.
 The directory must contain `genesis.lua` (returning a
-genesis table) and optionally `reps/authors.lua`.
+genesis table) with optional `pioneers` list.
 All `.lua` files are copied into `.freechains/`.
 
 ```lua

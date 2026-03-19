@@ -16,9 +16,12 @@ A Freechains host is a directory with two top-level subdirectories, each backed 
     <chain-hash>/                   <- git working tree (DAG + blocks)
       .freechains/
         genesis.lua                <- genesis block definition
-        reps/
-          authors.lua              <- author → reputation (Lua table)
-          posts.lua                <- post → like/dislike counts (Lua table)
+        random                     <- uniqueness seed
+        likes/                     <- like commits
+        local/                     <- UNTRACKED (per-node state)
+          now.lua                  <- last time effects timestamp
+          authors.lua              <- author → {reps, time}
+          posts.lua                <- post → {author, time, state, reps}
     @francisco -> <chain-hash>/     <- symlink alias (human-readable name)
     #sports    -> <chain-hash>/     <- symlink alias
     $friends   -> <chain-hash>/     <- symlink alias
