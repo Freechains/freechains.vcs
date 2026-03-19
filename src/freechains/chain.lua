@@ -1,11 +1,11 @@
 local C = require "freechains.constants"
 
 local REPO = ARGS.root .. "/chains/" .. ARGS.alias .. "/"
-local L    = REPO .. ".freechains/local/"
+local FC   = REPO .. ".freechains/"
 
 local G = {
-    authors = dofile(L .. "authors.lua"),
-    posts   = dofile(L .. "posts.lua"),
+    authors = dofile(FC .. "/authors.lua"),
+    posts   = dofile(FC .. "/posts.lua"),
 }
 
 local xas, xps = false, false
@@ -17,7 +17,7 @@ local function write (T, file)
 end
 
 do
-    local f = io.open(REPO .. ".freechains/genesis.lua")
+    local f = io.open(FC .. "/genesis.lua")
     if not f then
         ERROR("chain " .. ARGS.alias .. " : not found")
     end
@@ -26,7 +26,7 @@ end
 
 -- local time effects: advance discount + consolidation
 do
-    local stored = dofile(L .. "now.lua")
+    local stored = dofile(FC .. "/now.lua")
 
     if ARGS.sign~=nil or NOW.s>stored then
         -- discount scan
@@ -85,7 +85,7 @@ do
             end
         end
 
-        write(NOW.s, L .. "now.lua")
+        write(NOW.s, FC .. "/now.lua")
     end
 end
 
@@ -170,7 +170,7 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
         if ARGS.inline then
             local text = ARGS.text .. (ARGS.text:match("\n$") and "" or "\n")
             file = ARGS.file or "post-" .. NOW.s .. "-" .. rand .. ".txt"
-            local f = io.open(REPO .. file, (ARGS.file and "a") or "w")
+            local f = io.open(REPO.."/"..file, (ARGS.file and "a") or "w")
             f:write(text)
             f:close()
         else
@@ -339,8 +339,8 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
 end
 
 if xas then
-    write(G.authors, L .. "authors.lua")
+    write(G.authors, FC .. "/authors.lua")
 end
 if xps then
-    write(G.posts, L .. "posts.lua")
+    write(G.posts, FC .. "/posts.lua")
 end
