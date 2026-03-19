@@ -144,9 +144,5 @@ end
 if ARGS.chains then
     require "freechains.chains"
 elseif ARGS.chain then
-    if ARGS.sync then
-        require "freechains.sync"
-    else
-        require "freechains.chain"
-    end
+    require "freechains.chain"
 end
