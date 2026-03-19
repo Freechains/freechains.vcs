@@ -170,21 +170,17 @@ do
 
     do
         TEST "like-beg-insufficient-reps"
-        -- fresh beg for this test
-        exec(ENV_EXE .. " chains add cli-begs-4x config " .. GEN_1)
 
         local beg = exec (
-            ENV_EXE .. " chain cli-begs-4x post inline 'another beg' --beg --sign " .. KEY2
+            ENV_EXE .. " chain cli-begs-4 post inline 'another beg' --beg --sign " .. KEY2
         )
 
         -- KEY3 has 0 reps, should fail to like
         local ok, code, out = exec (true, 'stderr',
-            ENV_EXE .. " chain cli-begs-4x like 1 post " .. beg .. " --sign " .. KEY3
+            ENV_EXE .. " chain cli-begs-4 like 1 post " .. beg .. " --sign " .. KEY3
         )
         assert(code ~= 0, "should fail: KEY3 has no reps")
-    end
 
-    do
         TEST "like-beg-self-like-no-reps"
         -- KEY2 begged (0 reps), tries to like own beg
         local refs = exec (

@@ -263,8 +263,20 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
         xas = true
     end
 
+    -- detect if like targets a blocked beg
+    local is_beg = (
+        kind == 'like' and ARGS.target == "post" and
+        G.posts[ARGS.id] and G.posts[ARGS.id].state == "blocked"
+    )
+
     -- write state + commit
     do
+        if is_beg then
+            exec (
+                "git -C " .. REPO .. " checkout " .. ARGS.id
+            )
+        end
+
         exec (
             "git -C " .. REPO .. " add " .. file
         )
@@ -286,9 +298,26 @@ elseif ARGS.post or ARGS.like or ARGS.dislike then
             "git -C " .. REPO .. " rev-parse HEAD"
         )
 
-        if ARGS.beg then
+        if is_beg then
+            local ref = "refs/begs/beg-" .. ARGS.id
             exec (
-                "git -C " .. REPO .. " update-ref refs/begs/beg-" .. NOW.s .. "-" .. hash .. " HEAD"
+                "git -C " .. REPO .. " update-ref " .. ref .. " " .. hash
+            )
+            exec (
+                "git -C " .. REPO .. " checkout main"
+            )
+            exec (
+                "git -C " .. REPO .. " merge --no-edit " .. ref
+            )
+            exec (
+                "git -C " .. REPO .. " update-ref -d " .. ref
+            )
+            G.posts[ARGS.id].state = "00-12"
+            G.posts[ARGS.id].time = NOW.s
+            xps = true
+        elseif ARGS.beg then
+            exec (
+                "git -C " .. REPO .. " update-ref refs/begs/beg-" .. hash .. " HEAD"
             )
             exec (
                 "git -C " .. REPO .. " reset --hard HEAD~1"
