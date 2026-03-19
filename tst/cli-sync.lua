@@ -25,9 +25,7 @@ do
             EXE_A .. " chain test post inline 'post from A' --sign " .. KEY
         )
         assert(#out == 40, "hash: " .. out)
-    end
 
-    do
         TEST "B clones"
         exec(EXE_B .. " chains add test clone " .. REPO_A)
     end
@@ -38,9 +36,7 @@ do
             EXE_A .. " chain test post inline 'second from A' --sign " .. KEY
         )
         assert(#out == 40, "hash: " .. out)
-    end
 
-    do
         TEST "B recvs from A"
         exec(EXE_B .. " chain test sync recv " .. REPO_A)
     end
