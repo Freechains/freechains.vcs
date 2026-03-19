@@ -12,54 +12,47 @@ On `git fetch`, git validates automatically:
 
 These guarantees are free — no freechains code needed.
 
-## Freechains Validation (between fetch and merge)
+## Consensus Rule
 
-After fetch, before merge, freechains must validate
-consensus-level rules that git doesn't know about:
+The side whose first divergent commit (immediately
+after common ancestor) has the **earlier author date**
+wins. Winner's branch is accepted as-is. Loser's
+branch is validated commit-by-commit.
 
-- **Signature verification** — GPG signatures on commits
-- **Reputation thresholds** — author has enough reputation
-- **DAG rules** — block acceptance per chain type
-- **Genesis immutability** — genesis.lua must never change
-  after chain creation
+Both peers arrive at the same decision because the
+dates are embedded in the commits.
+
+## Validation (loser branch)
+
+After fetch, the loser's commits are validated one by
+one (oldest first) against the winner's state:
+
+- **Reputation thresholds** — author has enough reps
+- **File-op costs** — author can afford the operations
+- **Merge compatibility** — commit merges cleanly with
+  winner's tree (dry-merge per commit)
+- **Genesis immutability** — genesis.lua never changes
+
+On first validation failure: discard that commit and
+all subsequent loser commits.
 
 ## Merge (after validation)
 
-`git merge` integrates validated commits.
-The `pre-merge-commit` hook (see [merge.md](merge.md) §3)
-runs as a final safety net before creating the merge commit.
+No `git merge` call. Merge commit is built via git
+plumbing (`commit-tree` with two parents: winner HEAD
++ validated loser pointer). This avoids working tree
+conflicts entirely.
+
+State commits ("freechains: state") are created:
+- Before send (so receiver gets our state)
+- After recv (to persist replayed state)
 
 ## Trust Levels
 
 See [replication.md](replication.md) for the full
 owner/non-owner trust table. Owner-to-owner replication
-skips freechains validation entirely. Non-owner validation
-is future scope.
-
-## Dry-run Merge Check
-
-Before the real merge, a dry-run verifies mergeability:
-
-```
-git merge --no-commit --no-ff FETCH_HEAD
-```
-
-- Exit code 0 → merge would succeed (clean)
-- Exit code != 0 → merge would fail (conflict or
-  unrelated histories)
-
-After checking: `git merge --abort` to clean up.
-Only proceed to real merge if dry-run passes.
-
-Note: `--abort` is only needed when `MERGE_HEAD` exists
-(success or conflict). Unrelated histories rejection
-leaves no merge state — no abort needed.
-
-| Dry-run result       | MERGE_HEAD | Abort needed |
-|----------------------|------------|--------------|
-| Success (code 0)     | yes        | yes          |
-| Conflict (code 1)    | yes        | yes          |
-| Unrelated (code 128) | no         | no           |
+skips freechains validation entirely. Non-owner
+validation is future scope.
 
 ## Hard Fork Rule
 
@@ -122,21 +115,20 @@ the full comparison.
 ## Pipeline Summary
 
 ```
-reset local time effects       — reset local/now.lua
-                                 (see local-staging.md)
-    |
 git fetch                      — git validates objects
     |
-freechains                     — validate signatures,
-                                 reputation, DAG
+merge-base                     — find common ancestor
     |
-git merge --no-commit --no-ff  — dry-run merge check
-git merge --abort              — clean up dry-run
+consensus                      — earlier first-commit
+                                 wins
     |
-git merge                      — real merge
+load winner state              — from tree or disk
+    |
+validate loser commits         — replay + dry-merge
+    (on fail: discard rest)      per commit
+    |
+build merge commit             — git commit-tree
+                                 (plumbing, no git merge)
+    |
+commit state                   — "freechains: state"
 ```
-
-Note: local time effects write to `local/` files
-(untracked) on every chain command (local-staging.md).
-Since `local/` is git-excluded, no cleanup is needed
-before merge.

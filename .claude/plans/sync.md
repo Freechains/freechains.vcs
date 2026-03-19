@@ -67,12 +67,10 @@ records it.
 
 ### When to create state commits
 
-Only before sync — minimal frequency:
-
-- **Before send**: so the receiver gets a valid
-  checkpoint at merge-base
-- **Before recv**: so merge-base has correct state
-  for replay after merge
+- **Before send**: so the receiver can load our state
+  from our tree (winner side needs committed state)
+- **After recv**: to persist replayed state
+- **NOT before recv**: we have state on disk already
 
 Multiple posts/likes without sync produce zero state
 commits. State is kept on disk (modified but not
@@ -87,23 +85,33 @@ committed) until sync.
 5. `git commit` with post/like trailer
 6. State files stay dirty in working tree — that's OK
 
-### On recv
-
-1. Commit state ("freechains: state") if dirty
-2. `git fetch <remote> main`
-3. `merge-base HEAD FETCH_HEAD` -> base
-4. Load state from base tree
-   (`git show base:.freechains/authors.lua`)
-5. `git merge --no-edit FETCH_HEAD`
-6. Replay commits from `base..HEAD` in `--date-order`
-   (skip merges, genesis, state commits)
-7. Write authors.lua/posts.lua to disk
-8. Commit state ("freechains: state")
-
 ### On send
 
 1. Commit state ("freechains: state") if dirty
 2. `git push <remote> main`
+
+### On recv — consensus + validation + merge
+
+1. `git fetch <remote> main`
+2. `merge-base HEAD FETCH_HEAD` -> base
+3. **Consensus**: compare first commit after base on
+   each side. The side with the earlier date wins.
+   Winner's state (authors.lua/posts.lua) is truth.
+4. **Load winner state**: if winner is local, use
+   on-disk state. If winner is remote, load from
+   remote HEAD tree (`git show FETCH_HEAD:...`).
+5. **Validate loser branch**: replay loser's commits
+   one by one (oldest first) against winner's state:
+   - Validate: author has enough reps, file-op costs
+   - Dry-merge: would this commit merge cleanly with
+     winner's tree?
+   - On first fail: discard it + all remaining loser
+     commits. Pointer = last valid loser commit.
+6. **Merge**: combine winner HEAD + validated loser
+   pointer. Use git plumbing (`commit-tree` with two
+   parents). No `git merge` call.
+7. Write state to disk.
+8. Commit state ("freechains: state").
 
 ### On query
 
@@ -116,24 +124,43 @@ processed wall-clock time.
 No state commits exist yet. Initialize authors.lua/
 posts.lua from genesis pioneers (same as current
 `pioneers()`). Write to disk. First state commit
-happens at first sync.
+happens at first send.
 
-### Replay logic
+### Consensus rule
 
-Walk `base..HEAD` in `--date-order --no-merges`:
+The side whose first divergent commit (immediately
+after common ancestor) has the **earlier author date**
+wins. Winner's branch is accepted as-is. Loser's
+branch is validated commit-by-commit.
 
-    git log --reverse --date-order --no-merges
-        --format='%H %at %GK' base..HEAD
+Both peers arrive at the same decision because the
+dates are embedded in the commits.
 
-For each commit:
-    1. Parse trailer (freechains: post/like/state/none)
-    2. Skip state commits
+### Loser validation
+
+For each loser commit (oldest first):
+    1. Parse trailer (post/like/state/none)
+    2. Skip state commits and merges
     3. Run time_effects(G, commit_time, sign)
-    4. Apply immediate effects:
-       - post (or no trailer): register in G.posts,
-         deduct from G.authors
-       - like: parse target, cost + tax + split
-    5. Cap all authors at max
+    4. Validate immediate effects:
+       - post: author has >= 1 rep? file-op cost?
+       - like: liker has enough reps?
+    5. Dry-merge: would commit apply cleanly to
+       winner's tree?
+    6. On pass: apply effects to G, advance pointer
+    7. On fail: stop. Discard this + all remaining.
+
+### Merge construction
+
+After validation, build merge commit via plumbing:
+
+    # combine winner tree + validated loser changes
+    tree = <merged tree of winner + valid loser>
+    git commit-tree $tree \
+        -p <winner HEAD> \
+        -p <loser validated pointer> \
+        -m ''
+    git update-ref refs/heads/main <new merge commit>
 
 ### Migration (DONE)
 
@@ -174,16 +201,15 @@ to `.freechains/` (tracked). See "Migration" section.
 - chains.lua: now.lua -> `.freechains/now.lua` (excluded)
 - Remove `local/` dir, update skel
 
-#### 2b. State commit function
+#### 2b. State commit (inline in sync.lua)
 
-New function (common.lua or sync.lua):
+Before send (and after recv), commit state if dirty:
 
-    commit_state(REPO)
-        git add .freechains/authors.lua .freechains/posts.lua
-        git commit --trailer 'freechains: state'
-            --allow-empty-message -m ''
-
-Called before send/recv if working tree is dirty.
+    git add .freechains/authors.lua .freechains/posts.lua
+    git diff --cached --quiet  (exit 1 = dirty)
+    if dirty:
+        git commit --allow-empty-message
+            --trailer 'freechains: state' -m ''
 
 #### 2c. Extract time effects from chain.lua
 
@@ -197,29 +223,18 @@ function:
 
 chain.lua calls time_effects(G, NOW.s, ARGS.sign).
 
-#### 2d. Replay in sync.lua
+#### 2d. Recv: consensus + validation + merge
 
-After fetch + merge, replay incoming commits:
+1. Fetch
+2. Find merge-base
+3. Consensus: earlier first-commit wins
+4. Load winner state
+5. Validate loser commits (replay + dry-merge)
+6. Build merge commit (plumbing)
+7. Write state to disk
+8. Commit state
 
-    base = git merge-base old_HEAD FETCH_HEAD
-    Load G from base tree:
-        git show base:.freechains/authors.lua
-        git show base:.freechains/posts.lua
-
-    git log --reverse --date-order --no-merges
-        --format='%H %at %GK' base..HEAD
-
-For each commit:
-    1. Parse trailer
-    2. Skip state commits
-    3. Run time_effects(G, commit_time, sign)
-    4. Apply immediate effects:
-       - post (or no trailer): register in G.posts,
-         deduct from G.authors
-       - like: parse target, cost + tax + split
-    5. Cap all authors at max
-
-Write G to disk, commit state.
+See "On recv" section above for full details.
 
 #### 2e. Test: recv bidirectional
 
@@ -250,12 +265,14 @@ differs -> `ERROR : chain sync : unrelated histories`.
 ### 5. Test: recv conflict
 
 Test: A and B both post to log.txt, A recvs from B.
-Assert ERROR about conflict.
+Assert: loser's conflicting commit (and subsequent)
+are discarded. Winner's content preserved.
 
-Fail: merge fails but no proper error.
+Fail: no validation/discard logic.
 
-Fix: dry-run merge (--no-commit --no-ff), if fails ->
-abort + `ERROR : chain sync : merge conflict`.
+Fix: during loser validation, dry-merge each commit.
+On conflict, discard from that point. Merge only
+the valid prefix.
 
 ### 6. Test: recv begs + registration
 
@@ -307,12 +324,10 @@ Fail: no beg push.
 Fix: add `git push <remote> refs/begs/*:refs/begs/*`
 to send.
 
-## Future steps (Phase B -- validation)
+## Future steps
 
-After basic sync works:
-- B1: signature verification per fetched commit
-- B2: hard fork detection (7d / 100 posts)
-- B3: conflict resolution by reputation
+- Hard fork detection (7d / 100 posts)
+- Signature verification per fetched commit
 
 ## Current state
 
@@ -323,15 +338,15 @@ After basic sync works:
   send does push (minimal)
 - `tst/cli-sync.lua`: step 1 + step 2 tests
 
-### Next: Step 2 — migration + recv replay
+### Next: Step 2 — consensus + validation + merge
 
 Implementation order:
-1. Migrate local/ to committed state (2a)
-2. Add commit_state() function (2b)
+1. ~~Migrate local/ to committed state (2a)~~ DONE
+2. State commit inline in sync.lua (2b)
 3. Extract time_effects() from chain.lua (2c)
-4. Add replay logic to sync.lua (2d)
+4. Recv: consensus + validation + merge (2d)
 5. Update step 2 test (2e)
-6. Run all tests — existing + step 2 should pass
+6. Run all tests
 
 ### Pending: begs.md TODO update
 
