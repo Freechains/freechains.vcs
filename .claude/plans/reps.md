@@ -285,25 +285,27 @@ Reputation state lives inside each chain repo under
 ```
 <chain-repo>/
   .freechains/
-    genesis.lua            -- committed
-    random                 -- committed
-    likes/                 -- committed
-    local/                 -- UNTRACKED (.git/info/exclude)
-      now.lua              -- last local time effects timestamp
-      authors.lua          -- author -> {reps, time}
-      posts.lua            -- post -> {author, time, state, reps}
+    genesis.lua        -- tracked
+    random             -- tracked
+    likes/             -- tracked
+    authors.lua        -- tracked (committed in state commits)
+    posts.lua          -- tracked (committed in state commits)
+    now.lua            -- UNTRACKED (.git/info/exclude)
 ```
 
-The `chains add` command creates `local/` and initializes
-default files. `pioneers()` writes `local/authors.lua`
-from genesis pioneers (splitting 30 reps equally).
+The `chains add` command initializes default files.
+`pioneers()` writes `.freechains/authors.lua` from
+genesis pioneers (splitting 30 reps equally).
 
-All files in `local/` are untracked (excluded via
-`.git/info/exclude`). They are rebuilt per-node.
+`authors.lua` and `posts.lua` are tracked by git but
+only committed in "freechains: state" commits (before
+send/recv). Post/like commits do not stage them.
 
-Local time effects write to `local/` files on every
-command (including queries) to reflect time effects
-up to NOW.
+`now.lua` is untracked (wall-clock dependent, per-node).
+
+Local time effects update `authors.lua`/`posts.lua`
+on disk on every command (including queries) but only
+commit them via state commits.
 
 ### local/authors.lua
 

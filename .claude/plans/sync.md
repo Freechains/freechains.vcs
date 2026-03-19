@@ -46,12 +46,12 @@ records it.
 ```
 <chain-repo>/
   .freechains/
-    genesis.lua        -- committed
-    random             -- committed
-    likes/             -- committed
-    authors.lua        -- committed (in state commits)
-    posts.lua          -- committed (in state commits)
-    now.lua            -- UNTRACKED (wall-clock, per-node)
+    genesis.lua        -- tracked
+    random             -- tracked
+    likes/             -- tracked
+    authors.lua        -- tracked (committed in state commits)
+    posts.lua          -- tracked (committed in state commits)
+    now.lua            -- UNTRACKED (.git/info/exclude)
 ```
 
 ### Commit types
@@ -135,16 +135,15 @@ For each commit:
        - like: parse target, cost + tax + split
     5. Cap all authors at max
 
-### Migration
+### Migration (DONE)
 
-- chain.lua: `git add` selective (not `.freechains/`)
-- chain.lua: remove `local/` from all paths
+- chain.lua: `git add` only the post/like file (already
+  selective at line 281)
+- chain.lua: `L` path changed to `.freechains/`
 - chains.lua: pioneers() writes `.freechains/authors.lua`
-  (not `local/authors.lua`)
-- chains.lua: remove `mkdir -p local/`, remove
-  `.git/info/exclude` entry for `local/`
-- chains.lua: `now.lua` -> `.freechains/now.lua`,
-  exclude via `.git/info/exclude .freechains/now.lua`
+- chains.lua: removed `mkdir -p local/`
+- chains.lua: only `now.lua` in `.git/info/exclude`
+  (authors.lua and posts.lua are tracked)
 
 ## Steps
 
