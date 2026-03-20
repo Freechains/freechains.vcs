@@ -43,10 +43,10 @@ do
 
     do
         TEST "B has A's latest post"
-        local head_a = exec("git -C " .. REPO_A .. " rev-parse HEAD")
-        local head_b = exec("git -C " .. REPO_B .. " rev-parse HEAD")
-        assert (head_a == head_b,
-            "heads should be equal: " .. head_a .. " vs " .. head_b
+        local A = exec("git -C " .. REPO_A .. " rev-parse HEAD")
+        local B = exec("git -C " .. REPO_B .. " rev-parse HEAD")
+        assert (A == B,
+            "heads should be equal: " .. A .. " vs " .. B
         )
     end
 end

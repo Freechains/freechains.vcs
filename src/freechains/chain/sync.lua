@@ -1,22 +1,22 @@
 require "freechains.chain.common"
 
--- commit state if dirty
-do
-    exec (
-        "git -C " .. REPO .. " add .freechains/authors.lua .freechains/posts.lua"
-    )
-    local _, code = exec (true,
-        "git -C " .. REPO .. " diff --cached --quiet"
-    )
-    if code ~= 0 then
-        exec (
-            NOW.git .. "git -C " .. REPO .. " commit --allow-empty-message"
-                .. " --trailer 'freechains: state' -m ''"
-        )
-    end
-end
-
 if ARGS.send then
+    -- commit state if dirty
+    do
+        exec (
+            "git -C " .. REPO .. " add .freechains/authors.lua .freechains/posts.lua"
+        )
+        local _, code = exec (true,
+            "git -C " .. REPO .. " diff --cached --quiet"
+        )
+        if code ~= 0 then
+            exec (
+                NOW.git .. "git -C " .. REPO .. " commit --allow-empty-message"
+                    .. " --trailer 'freechains: state' -m ''"
+            )
+        end
+    end
+
     exec (
         "git -C " .. REPO .. " push " .. ARGS.remote .. " main"
         , "chain sync : push failed"
