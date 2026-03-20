@@ -47,12 +47,15 @@ collect(list, old, new):
 
     p1, p2 = parents of merge
     base = merge-base(p1, p2)
+    eff = base
+    if base is ancestor of old:
+        eff = old               -- skip prefix
 
-    collect(list, old, base)          -- shared prefix
+    collect(list, old, eff)           -- shared prefix
 
-    fst, snd = consensus(base, p1, p2)  -- winner/loser
-    collect(list, base, fst)          -- winner branch
-    collect(list, base, snd)          -- loser branch
+    fst, snd = consensus(base, p1, p2)
+    collect(list, eff, fst)           -- winner branch
+    collect(list, eff, snd)           -- loser branch
 
     collect_linear(list, merge, new)  -- linear tail
                                       -- (skips state)
@@ -62,9 +65,8 @@ collect_linear(list, old, new):
     skip trailer == "state"
     append post/like entries to list
 
-consensus(base, p1, p2):
-    first commit timestamp comparison
-    hash tie-breaker if equal
+consensus(com, a, b):
+    tip hash comparison (smaller wins)
 ```
 
 ### Checkpoint walk (chk..com)
@@ -130,12 +132,13 @@ A syncs with B) to exercise nested merge replay.
 
 ## Done
 
-- [x] `consensus(base, p1, p2)` helper (first-commit
-  timestamp + hash tie-breaker)
+- [x] `consensus(com, a, b)` — tip hash comparison
 - [x] `collect_linear(list, old, new)` — linear segment
   walk (post + like entries, skips state)
 - [x] `collect(list, old, new)` — recursive DAG
   decomposition at merge points
+- [x] `eff` cutoff in `collect` — when merge-base is
+  ancestor of `old`, use `old` as branch cutoff
 - [x] `replay(G, old, new)` — collect then apply (with
   beg detection for likes)
 - [x] Top-level consensus replaced with `consensus()` call
