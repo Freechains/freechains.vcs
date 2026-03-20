@@ -135,11 +135,9 @@ elseif ARGS.recv then
     -- load winner state + replay loser
     local G
     if fst == loc then
-        -- winner is local: use disk state, replay remote
-        G = {
-            authors = dofile(FC .. "/authors.lua"),
-            posts   = dofile(FC .. "/posts.lua"),
-        }
+        -- winner is local: replay both
+        G = G_com
+        replay(G, com, loc)
         replay(G, com, rem)
     else
         -- winner is remote: reuse verified state, replay local
