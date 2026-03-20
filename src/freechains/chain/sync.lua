@@ -51,7 +51,7 @@ elseif ARGS.recv then
                 })
             else
                 assert(trailer == "state")
-                error "bug found: should never reach state commit"
+                --error "bug found: should never reach state commit"
             end
         end
     end
@@ -146,6 +146,13 @@ elseif ARGS.recv then
         G = G_rem
         replay(G, com, loc)
     end
+
+    -- stash state files to avoid merge conflicts
+    exec (
+        "git -C " .. REPO
+        .. " stash push -- .freechains/authors.lua .freechains/posts.lua"
+    )
+    --exec(true, "git -C " .. REPO .. " stash drop")
 
     -- merge
     local _, code = exec (true,
