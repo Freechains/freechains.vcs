@@ -113,11 +113,10 @@ do
         s2 = " -S"
     end
 
-    local msg = ARGS.why or ""
+    local msg = ARGS.why or "(empty message)"
     exec (
-        NOW.git .. "git -C " .. REPO .. s1 .. " commit" .. s2 ..
-            " --trailer 'freechains: " .. kind .. "'" ..
-            " --allow-empty-message" .. " -m '" .. msg .. "'"
+        NOW.git .. "git -C " .. REPO .. s1 .. " commit" .. s2 .. " -m '" .. msg
+        .. "' --trailer 'Freechains: " .. kind .. "'"
     )
 
     local hash = exec (

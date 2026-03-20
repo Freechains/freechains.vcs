@@ -146,7 +146,7 @@ do
         TEST "post without --why has empty message"
         exec(ENV_EXE .. " chain cli-post post inline 'no reason' --sign " .. KEY)
         local msg = exec("git -C " .. DIR .. " log -1 --format=%s")
-        assert(msg == "freechains: post", "commit message should be empty: " .. msg)
+        assert(msg == "(empty message)", "commit message should be empty: " .. msg)
     end
 end
 

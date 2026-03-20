@@ -37,9 +37,9 @@ do
         local committer = exec("git -C " .. DIR .. " log --format=%cn HEAD")
         assert(committer == "-", "committer: " .. committer)
 
-        TEST "empty commit message"
-        local msg = exec("git -C " .. DIR .. " log --format=%B HEAD")
-        assert(msg == "", "message: " .. msg)
+        TEST "state trailer"
+        local trailer = exec("git -C " .. DIR .. " log -1 --format='%(trailers:key=Freechains,valueonly)' HEAD")
+        assert(trailer == "state\n\n", "trailer: " .. trailer)
 
         TEST "no parent"
         local parent = exec("git -C " .. DIR .. " log --format=%P HEAD")

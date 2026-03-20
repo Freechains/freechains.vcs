@@ -35,7 +35,7 @@ elseif ARGS.recv then
             local hash, time, key = line:match("^(%S+) (%S+) ?(.*)")
             if key == "" then key = nil end
 
-            local trailer = exec("git -C " .. REPO .. " log -1 --format='%(trailers:key=freechains,valueonly)' " .. hash)
+            local trailer = exec("git -C " .. REPO .. " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash)
             if trailer == "like" then
                 error "TODO: replay likes via apply"
             elseif trailer == "post" then
@@ -63,7 +63,7 @@ elseif ARGS.recv then
         do
             local out = exec (
                 "git -C " .. REPO
-                .. " log --format='%H %(trailers:key=freechains,valueonly)' "
+                .. " log --format='%H %(trailers:key=Freechains,valueonly)' "
                 .. com
             )
             for line in out:gmatch("[^\n]+") do
@@ -73,11 +73,7 @@ elseif ARGS.recv then
                     break
                 end
             end
-            if not chk then
-                chk = exec (
-                    "git -C " .. REPO .. " rev-list --max-parents=0 " .. com
-                )
-            end
+            assert(chk, "bug found: no state commit in history")
         end
 
         local function F (path)
@@ -169,8 +165,8 @@ elseif ARGS.recv then
             .. " add .freechains/authors.lua .freechains/posts.lua"
         )
         exec (
-            NOW.git .. "git -C " .. REPO .. " commit --allow-empty-message"
-            .. " --trailer 'freechains: state' -m ''"
+            NOW.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
+            .. " --trailer 'Freechains: state'"
         )
     end
 

@@ -79,7 +79,8 @@ if ARGS.add then
             "git -C " .. tmp .. " add .freechains/"
         )
         exec (
-            NOW.git .. "git -C " .. tmp .. ' commit --allow-empty-message -m ""'
+            NOW.git .. "git -C " .. tmp .. " commit -m '(empty message)'"
+            .. " --trailer 'Freechains: state'"
         )
 
         local hash = exec (

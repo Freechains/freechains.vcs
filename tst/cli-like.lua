@@ -19,7 +19,7 @@ do
     do
         TEST "post-has-trailer"
         local out = exec("git -C " .. DIR .. " cat-file commit HEAD")
-        assert(out:match("freechains: post"), "missing freechains: post trailer")
+        assert(out:match("Freechains: post"), "missing freechains: post trailer")
     end
 end
 
@@ -42,7 +42,7 @@ do
     do
         TEST "like-has-trailer"
         local out = exec("git -C " .. DIR .. " cat-file commit HEAD")
-        assert(out:match("freechains: like"), "missing freechains: like trailer")
+        assert(out:match("Freechains: like"), "missing freechains: like trailer")
     end
 
     do
@@ -96,7 +96,7 @@ do
     do
         TEST "dislike-payload"
         local out = exec("git -C " .. DIR .. " cat-file commit HEAD")
-        assert(out:match("freechains: like"), "missing freechains: like trailer")
+        assert(out:match("Freechains: like"), "missing freechains: like trailer")
     end
 
     do
