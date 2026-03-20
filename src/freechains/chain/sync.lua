@@ -73,14 +73,16 @@ elseif ARGS.recv then
     end
 
     -- Phase 1: verify remote
-    local G_rem = {
-        authors = git_load(com, ".freechains/authors.lua"),
-        posts   = git_load(com, ".freechains/posts.lua"),
-    }
-    replay(G_rem, com, rem)
-
-    -- TODO: compare G_rem with remote's last state commit
-    -- if mismatch -> ERROR("chain sync : dishonest remote")
+    local G_rem     -- reused if remote wins
+    do
+        G_rem = {
+            authors = git_load(com, ".freechains/authors.lua"),
+            posts   = git_load(com, ".freechains/posts.lua"),
+        }
+        replay(G_rem, com, rem)
+        -- TODO: compare G_rem with remote's last state commit
+        -- if mismatch -> ERROR("chain sync : dishonest remote")
+    end
 
     -- Phase 2: consensus
     local fst, snd = loc, rem
