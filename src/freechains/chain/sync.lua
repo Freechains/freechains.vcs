@@ -35,7 +35,10 @@ elseif ARGS.recv then
             local hash, time, key = line:match("^(%S+) (%S+) ?(.*)")
             if key == "" then key = nil end
 
-            local trailer = exec("git -C " .. REPO .. " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash)
+            local trailer = exec (
+                "git -C " .. REPO .. " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash
+            )
+            trailer = trailer:match("(%S+)") or ""
             if trailer == "like" then
                 error "TODO: replay likes via apply"
             elseif trailer == "post" then
@@ -67,7 +70,7 @@ elseif ARGS.recv then
                 .. com
             )
             for line in out:gmatch("[^\n]+") do
-                local hash, trailer = line:match("^(%S+) ?(.*)")
+                local hash, trailer = line:match("^(%S+) ?(%S*)")
                 if trailer == "state" then
                     chk = hash
                     break
