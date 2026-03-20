@@ -79,7 +79,7 @@ do
 
     do
         TEST "A and B are equal"
-        local _, ok = exec (true, 'stderr',
+        local _, ok = exec (true,
             "diff -r --exclude=.git --exclude=now.lua --exclude=authors.lua --exclude=posts.lua " .. REPO_A .. " " .. REPO_B
         )
         assert(ok == 0, "A and B should not differ")

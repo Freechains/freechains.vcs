@@ -171,7 +171,7 @@ do
 
     do
         TEST "beg-sufficient-reps"
-        local _,code,err = exec (true, 'stderr',
+        local _,code,err = exec (true,
             ENV_EXE .. " chain cli-begs-4 post inline 'another beg' --beg --sign " .. KEY2
         )
         assert (code~=0 and
@@ -188,7 +188,7 @@ do
         )
 
         -- KEY3 has 0 reps, should fail to like
-        local ok, code, out = exec (true, 'stderr',
+        local ok, code, out = exec (true,
             ENV_EXE .. " chain cli-begs-4 like 1 post " .. beg .. " --sign " .. KEY3
         )
         assert(code ~= 0, "should fail: KEY3 has no reps")
@@ -200,7 +200,7 @@ do
         )
         local beg = refs:match("%x+")
 
-        local ok, code, out = exec (true, 'stderr',
+        local ok, code, out = exec (true,
             ENV_EXE .. " chain cli-begs-4 like 1 post " .. beg .. " --sign " .. KEY3
         )
         assert(code ~= 0, "should fail: KEY3 has 0 reps, cannot like own beg")

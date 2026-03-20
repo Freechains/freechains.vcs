@@ -7,23 +7,23 @@ function ERROR (msg, out)
 end
 
 function exec (a, b, c)
-    local stderr, cmd, err
+    local stdout, cmd, err
     if a == true then
         err = true
-        if b == 'stderr' then
-            stderr = true
+        if b == 'stdout' then
+            stdout = true
             cmd = c
         else
             cmd = b
         end
-    elseif a == 'stderr' then
-        stderr = true
+    elseif a == 'stdout' then
+        stdout = true
         cmd, err = b, c
     else
         cmd, err = a, b
     end
 
-    local redir = stderr and "&1" or "/dev/null"
+    local redir = stdout and "/dev/null" or "&1"
     local h = io.popen(cmd .. " 2>" .. redir)
     local raw = h:read("a")
     local out = raw:match("^([^\n]*)\n$") or raw

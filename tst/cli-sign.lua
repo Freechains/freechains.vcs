@@ -22,7 +22,7 @@ do
 
     do
         TEST "git verify-commit passes"
-        local out, code = exec ('stderr',
+        local out, code = exec (
             ENV .. " git -C " .. DIR .. " verify-commit HEAD"
         )
         assert(code == 0, "verify-commit failed")
@@ -65,7 +65,7 @@ do
 
     do
         TEST "post without --sign or --beg fails"
-        local ok, code, out = exec (true, 'stderr',
+        local ok, code, out = exec (true,
             ENV_EXE .. " chain cli-sign post inline 'no auth'"
         )
         assert(code ~= 0, "should fail without --sign or --beg")

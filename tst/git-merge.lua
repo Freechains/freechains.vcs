@@ -91,7 +91,7 @@ do
 
     do
         TEST "A and B are equal after scenario 1"
-        local _, ok = exec('stderr', "diff -r --exclude=.git " .. DIR_A .. " " .. DIR_B)
+        local _, ok = exec("diff -r --exclude=.git " .. DIR_A .. " " .. DIR_B)
         assert(ok == 0, "A and B differ")
     end
 end
@@ -142,7 +142,7 @@ do
 
     do
         TEST "A and B are equal after scenario 2"
-        local _, ok = exec('stderr', "diff -r --exclude=.git " .. DIR_A .. " " .. DIR_B)
+        local _, ok = exec("diff -r --exclude=.git " .. DIR_A .. " " .. DIR_B)
         assert(ok == 0, "A and B differ")
     end
 end
@@ -192,7 +192,7 @@ do
 
     do
         TEST "A and B are equal after scenario 3"
-        local _, ok = exec('stderr', "diff -r --exclude=.git " .. DIR_A .. " " .. DIR_B)
+        local _, ok = exec("diff -r --exclude=.git " .. DIR_A .. " " .. DIR_B)
         assert(ok == 0, "A and B differ")
     end
 end

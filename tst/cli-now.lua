@@ -108,7 +108,7 @@ do
         exec (
             ENV_EXE .. " --now=10000 chain cli-now post inline 'base2' --sign " .. KEY
         )
-        local ok, code, msg = exec (true, 'stderr',
+        local ok, code, msg = exec (true,
             ENV_EXE .. " --now=5000 chain cli-now post inline 'too far back' --sign " .. KEY
         )
         local err = "ERROR : chain post : cannot be older than parent"
