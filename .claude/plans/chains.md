@@ -39,9 +39,9 @@ return {
 ```
 
 Pioneers are defined by their non-zero entries in
-`reps/authors.lua`, created alongside `genesis.lua` in
-the genesis commit.
-A chain with no pioneers (empty `reps/authors.lua`) is
+`local/authors.lua`, initialized from `genesis.lua`
+pioneers at chain creation/clone.
+A chain with no pioneers (empty `local/authors.lua`) is
 fully open — anyone can post from the start.
 
 ### Private Group (`'$'`)

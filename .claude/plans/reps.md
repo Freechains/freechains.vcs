@@ -33,15 +33,15 @@ equally among its pioneers:
 | 3        | 10              | 10000     |
 | N        | 30 / N          | 30000 / N |
 
-Pioneers are defined by their entries in
-`reps/authors.lua`, which is created in the genesis
-commit alongside `genesis.lua`.
-There is no separate `pioneers` field in genesis —
-the initial non-zero entries *are* the pioneers.
+Pioneers are defined by the `pioneers` list in
+`genesis.lua`. At chain creation/clone, `pioneers()`
+writes `local/authors.lua` with initial reps split
+equally among pioneers.
 Non-pioneer authors start with **0 reputation**.
 
-Chains without pioneers have an empty
-`reps/authors.lua` — no reputation gate at all.
+Chains without pioneers (no `pioneers` field in
+genesis) have an empty `local/authors.lua` — no
+reputation gate at all.
 
 ### Special chain types
 
@@ -81,7 +81,7 @@ post block:
     else:
         state = ACCEPTED
     author.reps -= N * 1000
-    add to time/posts.lua with state "00-12"
+    add to local/posts.lua with state "00-12"
         and cost = N * 1000
 ```
 
@@ -106,7 +106,7 @@ post:
     N = count file ops outside .freechains/
         (via git diff-tree --no-commit-id -r )
     author.reps -= N * 1000
-    add entry to time/posts.lua ("00-12")
+    add entry to local/posts.lua ("00-12")
         with cost = N * 1000
 ```
 
@@ -157,7 +157,7 @@ every commit because new activity shortens it.
 When discount ends:
 - Refund: `author.reps += 1000`
 - Transition: entry moves from state `"00-12"` to
-  `"12-24"` in `time/posts.lua`
+  `"12-24"` in `local/posts.lua`
 
 ### Consolidation (Rule 1.b — Emission)
 
@@ -169,9 +169,9 @@ last = time_authors[author]
 if NOW - last >= 86400:
     author.reps += 1000
     time_authors[author] = last + 86400
-    remove from time/posts.lua
+    remove from local/posts.lua
 else:
-    keep in time/posts.lua (retry next commit)
+    keep in local/posts.lua (retry next commit)
 ```
 
 Grant slots advance by fixed 24h from last grant,
@@ -180,7 +180,7 @@ This prevents "wasting" time if commits are
 infrequent — multiple entries can consolidate in
 one commit if enough 24h slots have elapsed.
 
-The author enters `time/authors.lua` at first signed
+The author enters `local/authors.lua` at first signed
 post (`time_authors[author] = NOW`), so `last` is
 never nil during consolidation.
 
@@ -285,67 +285,53 @@ Reputation state lives inside each chain repo under
 ```
 <chain-repo>/
   .freechains/
-    genesis.lua
-    likes/
-    reps/
-      authors.lua          -- author -> internal reputation
-      posts.lua            -- post -> internal reputation
-    time/
-      posts.lua            -- posts in discount or consolidation
-      authors.lua          -- last grant-slot timestamp per author
-    local/                 -- untracked local state
-      now.lua              -- last staged timestamp
+    genesis.lua        -- tracked
+    random             -- tracked
+    likes/             -- tracked
+    authors.lua        -- tracked (committed in state commits)
+    posts.lua          -- tracked (committed in state commits)
+    now.lua            -- UNTRACKED (.git/info/exclude)
 ```
 
-The `chains add` command calls `skel()` to create all
-directories and default files before copying genesis input.
-All files in `reps/` and `time/` default to `return {}`.
-Genesis input's `reps/authors.lua` overwrites the default
-(pioneers get initial reps).
+The `chains add` command initializes default files.
+`pioneers()` writes `.freechains/authors.lua` from
+genesis pioneers (splitting 30 reps equally).
 
-All files are tracked by git (committed), except
-`local/` which is excluded via `.git/info/exclude`.
+`authors.lua` and `posts.lua` are tracked by git but
+only committed in "freechains: state" commits (before
+send/recv). Post/like commits do not stage them.
 
-`stage()` (local-staging.md) writes to tracked `reps/`
-and `time/` files on every command (including queries)
-to reflect time effects up to NOW.
-These writes are uncommitted — the next post/like
-commit picks them up naturally.
-Before merge, tracked files must be restored to their
-committed state (see local-staging.md, merge.md).
+`now.lua` is untracked (wall-clock dependent, per-node).
 
-### reps/authors.lua
+Local time effects update `authors.lua`/`posts.lua`
+on disk on every command (including queries) but only
+commit them via state commits.
 
-Maps each author's public key to their internal
-reputation:
+### local/authors.lua
+
+Maps each author's public key to their reputation
+and grant-slot timestamp:
 
 ```lua
 return {
-    ["CA6391CE..."] = 29000,
-    ["78397501..."] = 1350,
+    ["CA6391CE..."] = { reps=29000, time=1710374400 },
+    ["78397501..."] = { reps=1350 },
 }
 ```
 
-### reps/posts.lua
+- `reps`: internal reputation (1000x)
+- `time`: last grant-slot timestamp (initialized on
+  first signed post, advanced +24h on consolidation)
 
-Maps posts to their internal reputation sum:
-
-```lua
-return {
-    ["a1b2c3d4..."] = 1350,
-    ["e5f6g7h8..."] = -1350,
-}
-```
-
-### time/posts.lua
+### local/posts.lua
 
 Tracks posts in discount period (`"00-12"`) or
 awaiting consolidation (`"12-24"`):
 
 ```lua
 return {
-    ["a1b2c3d4..."] = { author="CA6391CE...", time=1710288000, state="00-12" },
-    ["e5f6g7h8..."] = { author="CA6391CE...", time=1710201600, state="12-24" },
+    ["a1b2c3d4..."] = { author="CA6391CE...", time=1710288000, state="00-12", reps=0 },
+    ["e5f6g7h8..."] = { author="CA6391CE...", time=1710201600, state="12-24", reps=450 },
 }
 ```
 
@@ -357,18 +343,7 @@ return {
   When 24h passed AND author's grant slot is open:
   grant +1, remove entry.
   Otherwise keep entry for retry on next commit.
-
-### time/authors.lua
-
-Last grant-slot timestamp per author.
-Initialized to NOW on first signed post.
-Advanced by +24h on each consolidation grant:
-
-```lua
-return {
-    ["CA6391CE..."] = 1710374400,
-}
-```
+- `reps`: accumulated likes/dislikes on this post
 
 ### Update frequency
 
@@ -379,7 +354,7 @@ like).
 
 ```
 on every commit (post, like, or dislike):
-    1. scan time/posts.lua:
+    1. scan local/posts.lua:
        for each "00-12" entry:
            recompute discount:
                subsequent_reps = sum of reps of authors
@@ -396,17 +371,17 @@ on every commit (post, like, or dislike):
                if NOW - last >= 86400:
                    authors[entry.author] += 1000
                    time_authors[entry.author] = last + 86400
-                   remove entry from time/posts.lua
+                   remove entry from local/posts.lua
                else:
                    keep entry (retry next commit)
-       remove processed entries from time/posts.lua
+       remove processed entries from local/posts.lua
     2. apply this commit's immediate effects:
        post:    N = count file ops outside .freechains/
                 author.reps -= N * 1000
-                add entry to time/posts.lua ("00-12")
+                add entry to local/posts.lua ("00-12")
                     with cost = N * 1000
-                if time_authors[author] is nil:
-                    time_authors[author] = NOW
+                if authors[author].time is nil:
+                    authors[author].time = NOW
        like:    liker.reps -= 1000
                 tax + split to target
        dislike: liker.reps -= 1000
@@ -425,7 +400,7 @@ Reputation can be recomputed from scratch by walking
 the DAG in `--date-order`:
 
 ```
-load reps/authors.lua from genesis commit
+load local/authors.lua (pioneers)
 for each commit after genesis in git log --date-order:
     process time effects (discount, consolidation)
     if commit has freechains-like header:
@@ -484,7 +459,7 @@ truncated toward zero).
 ```
 t=0:    KEY posts P1 (signed)
         authors:     KEY=29000 (-1000)
-        time/posts:  P1={author=KEY, time=0, state="00-12"}
+        local/posts:  P1={author=KEY, time=0, state="00-12"}
 
 t=0:    KEY posts P2 (signed)
         -- scan "00-12": P1 discount recomputed
@@ -494,14 +469,14 @@ t=0:    KEY posts P2 (signed)
         --   discount = 0
         --   NOW(0) >= 0+0 -> refund P1
         authors:     KEY=29000 (29000+1000-1000)
-        time/posts:  P1={..., state="12-24"}
+        local/posts:  P1={..., state="12-24"}
                      P2={author=KEY, time=0, state="00-12"}
 
 t=0:    KEY posts P3 (signed)
         -- scan "00-12": P2 discount = 0 (ratio=1.0) -> refund
         -- scan "12-24": P1 time=0, NOW=0 < 0+86400 -> wait
         authors:     KEY=29000 (29000+1000-1000)
-        time/posts:  P1={..., state="12-24"}
+        local/posts:  P1={..., state="12-24"}
                      P2={..., state="12-24"}
                      P3={author=KEY, time=0, state="00-12"}
 
@@ -515,9 +490,9 @@ t=24h:  KEY posts P4 (signed)
         --   time_authors[KEY] = 0, 0-0 = 0 < 86400
         --   -> no grant (1/day limit), discard
         authors:     KEY=30000 (29000+1000+1000-1000, capped)
-        time/posts:  P3={..., state="12-24"}
+        local/posts:  P3={..., state="12-24"}
                      P4={author=KEY, time=86400, state="00-12"}
-        time/authors: KEY=0
+        local/authors: KEY=0
 
 t=48h:  KEY posts P5 (signed)
         -- scan "00-12": P4 discount = 0 -> refund
@@ -525,8 +500,8 @@ t=48h:  KEY posts P5 (signed)
         --   time_authors[KEY]=0, 0-0=0 < 86400 -> no grant
         --   discard P3
         authors:     KEY=30000 (capped)
-        time/posts:  P5={author=KEY, time=172800, state="00-12"}
-        time/authors: KEY=0
+        local/posts:  P5={author=KEY, time=172800, state="00-12"}
+        local/authors: KEY=0
 ```
 
 Observations:

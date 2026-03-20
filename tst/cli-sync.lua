@@ -1,0 +1,129 @@
+#!/usr/bin/env lua5.4
+
+require "tests"
+
+local ROOT_A = ROOT .. "/cli-sync/A/"
+local ROOT_B = ROOT .. "/cli-sync/B/"
+
+local EXE_A  = ENV .. " ../src/freechains.lua --root " .. ROOT_A
+local EXE_B  = ENV .. " ../src/freechains.lua --root " .. ROOT_B
+
+local REPO_A = ROOT_A .. "/chains/test/"
+local REPO_B = ROOT_B .. "/chains/test/"
+
+exec("mkdir -p " .. ROOT_A)
+exec("mkdir -p " .. ROOT_B)
+
+-- 1. recv basic (fetch + merge)
+do
+    print("==> Step 1: recv basic")
+
+    do
+        TEST "A creates chain + posts"
+        exec(EXE_A .. " chains add test config " .. GEN_1)
+        local out = exec (
+            EXE_A .. " chain test post inline 'post from A' --sign " .. KEY
+        )
+        assert(#out == 40, "hash: " .. out)
+
+        TEST "B clones"
+        exec(EXE_B .. " chains add test clone " .. REPO_A)
+    end
+
+    do
+        TEST "A posts again"
+        local out = exec (
+            EXE_A .. " chain test post inline 'second from A' --sign " .. KEY
+        )
+        assert(#out == 40, "hash: " .. out)
+
+        TEST "B recvs from A"
+        exec(EXE_B .. " chain test sync recv " .. REPO_A)
+    end
+
+    do
+        TEST "B has A's latest post"
+        local head_a = exec("git -C " .. REPO_A .. " rev-parse HEAD")
+        local head_b = exec("git -C " .. REPO_B .. " rev-parse HEAD")
+        assert (head_a == head_b,
+            "heads should be equal: " .. head_a .. " vs " .. head_b
+        )
+    end
+end
+
+-- 2. recv bidirectional
+do
+    print("==> Step 2: recv bidirectional")
+
+    do
+        TEST "A posts"
+        local out = exec (
+            EXE_A .. " chain test post inline 'third from A' --sign " .. KEY
+        )
+        assert(#out == 40, "hash: " .. out)
+
+        TEST "B recvs from A"
+        exec(EXE_B .. " chain test sync recv " .. REPO_A)
+    end
+
+    do
+        TEST "B posts"
+        local out = exec (
+            EXE_B .. " chain test post inline 'first from B' --sign " .. KEY
+        )
+        assert(#out == 40, "hash: " .. out)
+
+        TEST "A recvs from B"
+        exec(EXE_A .. " chain test sync recv " .. REPO_B)
+    end
+
+    do
+        TEST "A and B are equal"
+        local _, ok = exec (true, 'stderr',
+            "diff -r --exclude=.git --exclude=now.lua --exclude=authors.lua --exclude=posts.lua " .. REPO_A .. " " .. REPO_B
+        )
+        assert(ok == 0, "A and B should not differ")
+    end
+end
+
+-- 3. recv divergent + consensus
+do
+    print("==> Step 3: recv divergent")
+
+    local A, B
+
+    do
+        TEST "A posts (diverge)"
+        A = exec (
+            EXE_A .. " chain test post inline 'fourth from A' --sign " .. KEY
+        )
+        assert(#A == 40, "hash: " .. A)
+
+        TEST "B posts (diverge)"
+        B = exec (
+            EXE_B .. " chain test post inline 'second from B' --sign " .. KEY
+        )
+        assert(#B == 40, "hash: " .. B)
+    end
+
+    do
+        TEST "A recvs from B"
+        exec(EXE_A .. " chain test sync recv " .. REPO_B)
+
+        TEST "A has both post files"
+        local h = io.popen("cat " .. REPO_A .. "*.txt")
+        local all = h:read("a")
+        h:close()
+        assert(all:match("fourth from A"), "A's post missing")
+        assert(all:match("second from B"), "B's post missing")
+    end
+
+    do
+        TEST "A's posts.lua has both entries"
+        local posts = dofile(REPO_A .. ".freechains/posts.lua")
+        assert(posts[A], "A's should be in posts.lua")
+        assert(posts[B], "B's should be in posts.lua")
+    end
+end
+
+print("<== ALL PASSED")

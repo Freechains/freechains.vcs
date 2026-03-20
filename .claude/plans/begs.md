@@ -204,7 +204,7 @@ already in HEAD.
 | `src/freechains/chain.lua`    | Like: detect beg target, branch   |
 | `src/freechains/chain.lua`    | Merge beg into main after like    |
 | `src/freechains/chain.lua`    | posts.lua: blocked field          |
-| `src/freechains/chain.lua`    | Stage: skip blocked entries       |
+| `src/freechains/chain.lua`    | Time effects: skip blocked entries|
 | `src/freechains.lua`          | (--beg flag already added)        |
 | `tst/cli-begs.lua`            | New test file                     |
 
@@ -442,7 +442,7 @@ Fix any failures.
 - [x] Write failing tests (cli-begs.lua)
 - [x] Impl: beg commit -> refs/begs/ + reset HEAD
 - [x] Impl: posts.lua state="blocked" field
-- [x] Impl: stage skips blocked entries
+- [x] Impl: local time effects skip blocked entries
 - [x] cli-post.lua adapted (GEN_1, --sign KEY)
 - [x] cli-sign.lua beg section (checks by hash)
 - [x] cli-now.lua adapted (--sign KEY)
@@ -453,8 +453,11 @@ Fix any failures.
 - [x] Step 2: Fix cli-begs.lua (local/posts.lua path)
 - [x] Step 3: Fix repl-local-begs.lua (exec true flags, clean assert)
 - [x] Step 4: Write repl-remote-begs.lua (refs/begs/* mechanism)
-- [ ] Step 5: Compare against main
+- [x] Step 5: Compare against main
 - [x] Step 6: Run tests (all pass, including prune)
 - [ ] Impl: register fetched begs in local/posts.lua + authors.lua
-- [ ] Impl: like beg -> append to beg branch + merge
-- [ ] Impl: remove blocked field on unblock
+- [x] Impl: like beg -> append to beg branch + merge
+- [x] Impl: remove blocked field on unblock (state -> "00-12")
+- [x] Beg ref simplified to refs/begs/beg-<hash>
+- [x] Hardcoded "main" branch, removed rev-parse --abbrev-ref
+- [x] Tests: ff merge (1 parent) + true merge (2 parents)

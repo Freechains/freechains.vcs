@@ -26,7 +26,7 @@ All return `return {...}` format, suitable for
 ### query authors
 
 Returns the full `authors.lua` content after time
-effects (stage scan).
+effects (local time effects).
 Includes all pioneers and all signing authors.
 
 ```lua
@@ -39,7 +39,7 @@ return {
 ### query posts
 
 Returns the full `posts.lua` content after time
-effects (stage scan).
+effects (local time effects).
 Includes all created posts.
 
 ```lua
@@ -93,7 +93,7 @@ will be removed in favor of `query`.
 
 1. Should `query likes` return an array or a map keyed
    by filename?
-2. Should `query` run the stage scan (time effects)
+2. Should `query` run local time effects
    before returning, or return committed state only?
 
 ## Files to Modify

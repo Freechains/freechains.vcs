@@ -44,7 +44,7 @@ do
 
     do
         TEST "beg-blocked-in-posts"
-        local posts = dofile(DIR1 .. ".freechains/local/posts.lua")
+        local posts = dofile(DIR1 .. ".freechains/posts.lua")
         assert(posts[BEG], "post entry not found: " .. BEG)
         assert(posts[BEG].state == "blocked", "state should be blocked")
     end
@@ -156,7 +156,7 @@ do
 
     do
         TEST "like-beg-unblocks"
-        local posts = dofile(DIR4 .. ".freechains/local/posts.lua")
+        local posts = dofile(DIR4 .. ".freechains/posts.lua")
         assert(posts[BEG], "post entry not found: " .. BEG)
         assert(posts[BEG].state ~= "blocked", "state should no longer be blocked")
     end
@@ -170,10 +170,21 @@ do
     end
 
     do
+        TEST "beg-sufficient-reps"
+        local _,code,err = exec (true, 'stderr',
+            ENV_EXE .. " chain cli-begs-4 post inline 'another beg' --beg --sign " .. KEY2
+        )
+        assert (code~=0 and
+            err=="ERROR : chain post : --beg error : author has sufficient reputation"
+            , err
+        )
+    end
+
+    do
         TEST "like-beg-insufficient-reps"
 
         local beg = exec (
-            ENV_EXE .. " chain cli-begs-4 post inline 'another beg' --beg --sign " .. KEY2
+            ENV_EXE .. " chain cli-begs-4 post inline 'another beg' --beg --sign " .. KEY3
         )
 
         -- KEY3 has 0 reps, should fail to like
@@ -183,16 +194,16 @@ do
         assert(code ~= 0, "should fail: KEY3 has no reps")
 
         TEST "like-beg-self-like-no-reps"
-        -- KEY2 begged (0 reps), tries to like own beg
+        -- KEY3 begged (0 reps), tries to like own beg
         local refs = exec (
             "git -C " .. DIR4 .. " for-each-ref refs/begs/ --format='%(objectname)'"
         )
         local beg = refs:match("%x+")
 
         local ok, code, out = exec (true, 'stderr',
-            ENV_EXE .. " chain cli-begs-4 like 1 post " .. beg .. " --sign " .. KEY2
+            ENV_EXE .. " chain cli-begs-4 like 1 post " .. beg .. " --sign " .. KEY3
         )
-        assert(code ~= 0, "should fail: KEY2 has 0 reps, cannot like own beg")
+        assert(code ~= 0, "should fail: KEY3 has 0 reps, cannot like own beg")
     end
 end
 

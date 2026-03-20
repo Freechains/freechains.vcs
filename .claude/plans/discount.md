@@ -90,7 +90,7 @@ end
 Inside the "update reps on post/like" `do` block
 (lines 365–407), restructure to:
 
-1. Load `time/posts.lua` alongside `reps/authors.lua`
+1. Load `local/posts.lua` alongside `local/authors.lua`
 2. **Before** post/like effects: scan discount
 3. **After** post/like effects: add entry if signed post
 4. Write both files
@@ -144,11 +144,10 @@ tposts[#tposts+1] = {
 }
 ```
 
-### Write time/posts.lua
+### Write local/posts.lua
 
 ```lua
-files = files .. " .freechains/time/posts.lua"
-write(tposts, REPO .. "/.freechains/time/posts.lua")
+write(tposts, REPO .. "/.freechains/local/posts.lua")
 ```
 
 ## Step 4: Update `tst/cli-reps.lua` line 67
