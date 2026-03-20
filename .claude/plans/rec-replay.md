@@ -127,3 +127,21 @@ sides converge to identical state (bit-equal diff).
 
 Future: add a test with 3 peers (A syncs with C, then
 A syncs with B) to exercise nested merge replay.
+
+## Done
+
+- [x] `consensus(base, p1, p2)` helper (first-commit
+  timestamp + hash tie-breaker)
+- [x] `collect_linear(list, old, new)` — linear segment
+  walk (post + like entries, skips state)
+- [x] `collect(list, old, new)` — recursive DAG
+  decomposition at merge points
+- [x] `replay(G, old, new)` — collect then apply (with
+  beg detection for likes)
+- [x] Top-level consensus replaced with `consensus()` call
+- [x] Like replay via `diff-tree` + `git show` payload
+
+## TODO
+
+- [ ] Verify: `make test T=cli-sync`
+- [ ] Test: 3-peer nested merge replay

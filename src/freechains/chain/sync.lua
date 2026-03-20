@@ -24,35 +24,112 @@ elseif ARGS.recv then
         "git -C " .. REPO .. " merge-base " .. loc .. " " .. rem
     )
 
-    -- replay commits from range onto state G
-    local function replay (G, old, new)
+    -- Consensus (common, left, right)
+    --  - tip hash as simplest criteria
+    local function consensus (com, a, b)
+        if a < b then
+            return a, b
+        elseif b < a then
+            return b, a
+        else
+            error "bug found"
+        end
+    end
+
+    -- collect_linear: append post/like entries from a linear (no-merge) segment
+    local function collect_linear (list, old, new)
+        if old == new then return end
         local out = exec (
-            "git -C " .. REPO ..
-                " log --reverse --no-merges --format='%H %at %GK' " ..
-                (old .. ".." .. new)
+            "git -C " .. REPO .. " log --reverse --no-merges --format='%H %at %GK' " .. old .. ".." .. new
         )
         for line in out:gmatch("[^\n]+") do
             local hash, time, key = line:match("^(%S+) (%S+) ?(.*)")
             if key == "" then key = nil end
-
             local trailer = exec (
                 "git -C " .. REPO .. " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash
             )
             trailer = trailer:match("(%S+)") or ""
             if trailer == "like" then
-                error "TODO: replay likes via apply"
+                local files = exec (
+                    "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash
+                )
+                local like_file
+                for f in files:gmatch("[^\n]+") do
+                    if f:match("^%.freechains/likes/") then
+                        like_file = f
+                        break
+                    end
+                end
+                assert(like_file, "bug found: like commit without like file")
+                local src = exec (
+                    "git -C " .. REPO .. " show " .. hash .. ":" .. like_file
+                )
+                local payload = load(src)()
+                list[#list + 1] = {
+                    kind   = 'like',
+                    sign   = key,
+                    num    = payload.number,
+                    target = payload.target,
+                    id     = payload.id,
+                    time   = tonumber(time),
+                }
             elseif trailer == "post" then
-                apply(G, {
+                list[#list + 1] = {
                     kind = 'post',
                     hash = hash,
                     sign = key,
                     time = tonumber(time),
                     beg  = (key == nil),
-                })
+                }
             else
                 assert(trailer == "state")
-                --error "bug found: should never reach state commit"
             end
+        end
+    end
+
+    -- collect: recursive DAG decomposition respecting consensus order at merges
+    local function collect (list, old, new)
+        if old == new then return end
+        local merge = exec (
+            "git -C " .. REPO .. " rev-list --topo-order --merges --max-count=1 " .. old .. ".." .. new
+        )
+        if merge == "" then
+            collect_linear(list, old, new)
+            return
+        end
+        local parents = exec (
+            "git -C " .. REPO .. " rev-parse " .. merge .. "^1 " .. merge .. "^2"
+        )
+        local p1, p2 = parents:match("^(%S+)\n(%S+)")
+        local base = exec (
+            "git -C " .. REPO .. " merge-base " .. p1 .. " " .. p2
+        )
+        -- if base is ancestor of old, skip prefix and use old as cutoff
+        local eff = base
+        if base ~= old then
+            local mb = exec (
+                "git -C " .. REPO .. " merge-base " .. base .. " " .. old
+            )
+            if mb == base then
+                eff = old
+            end
+        end
+        collect(list, old, eff)
+        local fst, snd = consensus(base, p1, p2)
+        collect(list, eff, fst)
+        collect(list, eff, snd)
+        collect_linear(list, merge, new)
+    end
+
+    -- replay: collect entries in consensus order, then apply
+    local function replay (G, old, new)
+        local list = {}
+        collect(list, old, new)
+        for _, entry in ipairs(list) do
+            if entry.kind == 'like' and entry.target == "post" and G.posts[entry.id] and G.posts[entry.id].state == "blocked" then
+                entry.beg = true
+            end
+            apply(G, entry)
         end
     end
 
@@ -108,35 +185,10 @@ elseif ARGS.recv then
 
     -- consensus
     local fst, snd
-    do
-        -- fast forward
-        if com == loc then
-            fst, snd = loc, rem
-
-        -- merge
-        else
-            local function first (old, new)
-                return exec (
-                    "git -C " .. REPO .. " rev-list --reverse --max-count=1 "
-                        .. old .. ".." .. new
-                )
-            end
-            local l = tonumber((exec(
-                "git -C " .. REPO .. " log -1 --format=%at " .. first(com,loc)
-            )))
-            local r = tonumber((exec(
-                "git -C " .. REPO .. " log -1 --format=%at " .. first(com,rem)
-            )))
-            if l < r then
-                fst, snd = loc, rem
-            elseif l > r then
-                fst, snd = rem, loc
-            elseif loc < rem then
-                fst, snd = loc, rem
-            else
-                fst, snd = rem, loc
-            end
-        end
+    if com == loc then
+        fst, snd = loc, rem
+    else
+        fst, snd = consensus(com, loc, rem)
     end
 
     -- load winner state + replay loser
