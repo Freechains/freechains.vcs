@@ -44,8 +44,70 @@ plumbing (`commit-tree` with two parents: winner HEAD
 conflicts entirely.
 
 State commits ("freechains: state") are created:
-- Before send (so receiver gets our state)
-- After recv (to persist replayed state)
+- After merge in recv (to persist replayed state)
+- At genesis (initial pioneer state)
+
+State files (`authors.lua`, `posts.lua`) are written to
+disk on every command but only committed to git after
+merges and at genesis. Post/like commits do NOT include
+state files.
+
+### State Commits as Checkpoints
+
+State commits serve as **replay checkpoints**. During
+recv, the merge-base may not itself be a state commit
+(it could be a post commit). To find accurate state:
+
+1. Walk backwards from merge-base (linear)
+2. Find the last commit with trailer `freechains: state`
+   (or genesis)
+3. Load state from that checkpoint
+4. Replay all commits from checkpoint to merge-base
+5. Then replay the divergent branch
+
+### Linearity Guarantee
+
+Walking backwards from the merge-base is guaranteed to
+be **linear** (no forks) because every merge is followed
+by a state commit. This means a state commit always
+appears between the merge-base and any merge point in
+the shared history:
+
+```
+... → merge → state_commit → P1 → P2 → P3 (merge-base)
+      ↑                                ↑
+      never reached                     start walk back
+```
+
+The state commit acts as a **barrier** — it stops the
+backward walk before encountering any non-linear
+history (merge commits). Without this guarantee, the
+backward walk could hit a merge commit with two parents,
+making traversal order non-deterministic.
+
+This is why "only after merge" is sufficient and
+critical: it guarantees a checkpoint between the
+merge-base and any fork in the DAG.
+
+### Tie-Breaker
+
+When two divergent branches have the same first-commit
+author timestamp, the consensus winner is determined by
+**commit hash** (lexicographic comparison). This ensures
+both sides pick the same winner regardless of which is
+local vs remote:
+
+```
+if l < r then
+    fst, snd = loc, rem
+elseif l > r then
+    fst, snd = rem, loc
+elseif loc < rem then       -- hash tie-breaker
+    fst, snd = loc, rem
+else
+    fst, snd = rem, loc
+end
+```
 
 ## Trust Levels
 
@@ -122,7 +184,17 @@ merge-base                     — find common ancestor
 consensus                      — earlier first-commit
                                  wins
     |
-load winner state              — from tree or disk
+find last state checkpoint      — walk back from
+                                 merge-base to nearest
+                                 state commit or genesis
+    |
+load checkpoint state           — git_load from
+                                 checkpoint ref
+    |
+replay checkpoint..merge-base   — bring state up to
+                                 merge-base
+    |
+load winner state               — checkpoint + replay
     |
 validate loser commits         — replay + dry-merge
     (on fail: discard rest)      per commit

@@ -556,6 +556,12 @@ Observations:
 - [x] Tests: 30-rep cap
 - [x] Tests: gate check (blocked, accepted, unblocked, beg-with-reps)
 - [x] Tests: author-targeted likes (cost, gains, like 2, dislike)
+- [x] Impl: consensus tie-breaker (hash comparison)
+- [ ] Impl: state checkpoint walk (find last state commit before merge-base)
+- [ ] Impl: state commit after merge in recv
+- [ ] Impl: remove state commit from send
+- [ ] Tests: bilateral sync (B recv A + bit-equality)
+- [ ] Tests: tie-breaker (same-timestamp divergence)
 - [ ] Plan: file-op cost model (Rule 5)
 - [ ] Impl: file-op count via git diff-tree (Rule 5)
 - [ ] Impl: N * 1000 post cost (Rule 5)

@@ -124,6 +124,44 @@ do
         assert(posts[A], "A's should be in posts.lua")
         assert(posts[B], "B's should be in posts.lua")
     end
+
+    -- B <-- A
+    do
+        TEST "B recvs from A"
+        exec(EXE_B .. " chain test sync recv " .. REPO_A)
+
+        TEST "B has both post files"
+        local h = io.popen("cat " .. REPO_B .. "*.txt")
+        local all = h:read("a")
+        h:close()
+        assert(all:match("fourth from A"), "A's post missing in B")
+        assert(all:match("second from B"), "B's post missing in B")
+
+        TEST "A and B have same authors.lua"
+        local aa = dofile(REPO_A .. ".freechains/authors.lua")
+        local ab = dofile(REPO_B .. ".freechains/authors.lua")
+        for k, v in pairs(aa) do
+            assert(ab[k], "author missing in B: " .. k)
+            assert(ab[k].reps == v.reps, "reps mismatch for " .. k)
+        end
+
+        TEST "A and B have same posts.lua"
+        local pa = dofile(REPO_A .. ".freechains/posts.lua")
+        local pb = dofile(REPO_B .. ".freechains/posts.lua")
+        for k, v in pairs(pa) do
+            assert(pb[k], "post missing in B: " .. k)
+            assert(pb[k].state == v.state, "state mismatch for " .. k)
+        end
+        for k, v in pairs(pb) do
+            assert(pa[k], "post missing in A: " .. k)
+        end
+
+        TEST "A and B are bit-equal"
+        local _, ok = exec(true,
+            "diff -r --exclude=.git --exclude=now.lua " .. REPO_A .. " " .. REPO_B
+        )
+        assert(ok == 0, "A and B should not differ")
+    end
 end
 
 print("<== ALL PASSED")
