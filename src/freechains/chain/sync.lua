@@ -1,23 +1,6 @@
 require "freechains.chain.common"
 
 if ARGS.send then
-    -- TODO(b): this should move away from here
-    -- commit state if dirty
-    do
-        exec (
-            "git -C " .. REPO .. " add .freechains/authors.lua .freechains/posts.lua"
-        )
-        local _, code = exec (true,
-            "git -C " .. REPO .. " diff --cached --quiet"
-        )
-        if code ~= 0 then
-            exec (
-                NOW.git .. "git -C " .. REPO .. " commit --allow-empty-message"
-                    .. " --trailer 'freechains: state' -m ''"
-            )
-        end
-    end
-
     error "TODO: not implemented"
     exec (
         "git -C " .. REPO .. " push " .. ARGS.remote .. " main"
@@ -41,11 +24,6 @@ elseif ARGS.recv then
         "git -C " .. REPO .. " merge-base " .. loc .. " " .. rem
     )
 
-    local function git_load (ref, path)
-        local src = exec("git -C " .. REPO .. " show " .. ref .. ":" .. path)
-        return load(src)()
-    end
-
     -- replay commits from range onto state G
     local function replay (G, old, new)
         local out = exec (
@@ -58,11 +36,9 @@ elseif ARGS.recv then
             if key == "" then key = nil end
 
             local trailer = exec("git -C " .. REPO .. " log -1 --format='%(trailers:key=freechains,valueonly)' " .. hash)
-            if trailer == "state" then
-                -- skip
-            elseif trailer == "like" then
-                -- TODO: replay likes via apply
-            else
+            if trailer == "like" then
+                error "TODO: replay likes via apply"
+            elseif trailer == "post" then
                 apply(G, {
                     kind = 'post',
                     hash = hash,
@@ -70,48 +46,90 @@ elseif ARGS.recv then
                     time = tonumber(time),
                     beg  = (key == nil),
                 })
+            else
+                assert(trailer == "state")
+                error "bug found: should never reach state commit"
             end
         end
     end
 
-    -- Phase 1: verify remote
-    local G_rem     -- reused if remote wins
+    -- Find checkpoint (chk) and `apply` up to merge-base (com):
+    --  - load state at merge-base
+    --  - walk back to last state commit (or genesis)
+    --  - load from there, replay forward to merge-base
+    local G_com
     do
-        G_rem = {
-            authors = git_load(com, ".freechains/authors.lua"),
-            posts   = git_load(com, ".freechains/posts.lua"),
+        local chk   -- state commit
+        do
+            local out = exec (
+                "git -C " .. REPO
+                .. " log --format='%H %(trailers:key=freechains,valueonly)' "
+                .. com
+            )
+            for line in out:gmatch("[^\n]+") do
+                local hash, trailer = line:match("^(%S+) ?(.*)")
+                if trailer == "state" then
+                    chk = hash
+                    break
+                end
+            end
+            if not chk then
+                chk = exec (
+                    "git -C " .. REPO .. " rev-list --max-parents=0 " .. com
+                )
+            end
+        end
+
+        local function F (path)
+            local src = exec (
+                "git -C " .. REPO .. " show " .. chk .. ":" .. path
+            )
+            return load(src)()
+        end
+
+        G_com = {
+            authors = F(".freechains/authors.lua"),
+            posts   = F(".freechains/posts.lua"),
         }
-        replay(G_rem, com, rem)
-        -- TODO: compare G_rem with remote's last state commit
-        -- if mismatch -> ERROR("chain sync : dishonest remote")
+        if chk ~= com then
+            replay(G_com, chk, com)
+        end
     end
 
-    -- Phase 2: consensus
-    local fst, snd = loc, rem
+    -- verify remote: replay remote branch from G_com
+    local G_rem = G_com
+    replay(G_com, com, rem)
 
-    if com == loc then
+    -- consensus
+    local fst, snd
+    do
         -- fast forward
-    else
-        local function first (old, new)
-            return exec (
-                "git -C " .. REPO .. " rev-list --reverse --max-count=1 "
-                    .. old .. ".." .. new
-            )
-        end
-        local l = tonumber((exec(
-            "git -C " .. REPO .. " log -1 --format=%at " .. first(com,loc)
-        )))
-        local r = tonumber((exec(
-            "git -C " .. REPO .. " log -1 --format=%at " .. first(com,rem)
-        )))
-        if l < r then
+        if com == loc then
             fst, snd = loc, rem
-        elseif l > r then
-            fst, snd = rem, loc
-        elseif loc < rem then
-            fst, snd = loc, rem
+
+        -- merge
         else
-            fst, snd = rem, loc
+            local function first (old, new)
+                return exec (
+                    "git -C " .. REPO .. " rev-list --reverse --max-count=1 "
+                        .. old .. ".." .. new
+                )
+            end
+            local l = tonumber((exec(
+                "git -C " .. REPO .. " log -1 --format=%at " .. first(com,loc)
+            )))
+            local r = tonumber((exec(
+                "git -C " .. REPO .. " log -1 --format=%at " .. first(com,rem)
+            )))
+            if l < r then
+                fst, snd = loc, rem
+            elseif l > r then
+                fst, snd = rem, loc
+            elseif loc < rem then
+                fst, snd = loc, rem
+            else
+                fst, snd = rem, loc
+            end
         end
     end
 
@@ -140,9 +158,21 @@ elseif ARGS.recv then
         -- TODO(a): conflict is not error, just one of the sides is lost
     end
 
-    -- write replayed state
+    -- write replayed state to disk
     write(G.authors, FC .. "/authors.lua")
     write(G.posts,   FC .. "/posts.lua")
+
+    -- commit state if non-ff merge
+    if com ~= loc then
+        exec (
+            "git -C " .. REPO
+            .. " add .freechains/authors.lua .freechains/posts.lua"
+        )
+        exec (
+            NOW.git .. "git -C " .. REPO .. " commit --allow-empty-message"
+            .. " --trailer 'freechains: state' -m ''"
+        )
+    end
 
     ::RECV::
 end
