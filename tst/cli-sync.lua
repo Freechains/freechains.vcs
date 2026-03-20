@@ -92,6 +92,7 @@ do
 
     local A, B
 
+    -- A,B posts independently
     do
         TEST "A posts (diverge)"
         A = exec (
@@ -106,6 +107,7 @@ do
         assert(#B == 40, "hash: " .. B)
     end
 
+    -- A <-- B
     do
         TEST "A recvs from B"
         exec(EXE_A .. " chain test sync recv " .. REPO_B)
@@ -116,9 +118,7 @@ do
         h:close()
         assert(all:match("fourth from A"), "A's post missing")
         assert(all:match("second from B"), "B's post missing")
-    end
 
-    do
         TEST "A's posts.lua has both entries"
         local posts = dofile(REPO_A .. ".freechains/posts.lua")
         assert(posts[A], "A's should be in posts.lua")
