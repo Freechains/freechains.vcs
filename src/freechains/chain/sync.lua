@@ -40,16 +40,18 @@ elseif ARGS.recv then
     )
 
     local function git_load (ref, path)
-        local h = io.popen("git -C " .. REPO .. " show " .. ref .. ":" .. path)
-        local src = h:read("a")
-        h:close()
+        local src = exec("git -C " .. REPO .. " show " .. ref .. ":" .. path)
         return load(src)()
     end
 
     -- replay commits from range onto state G
-    local function replay (G, range)
-        local h = io.popen("git -C " .. REPO .. " log --reverse --no-merges --format='%H %at %GK' " .. range)
-        for line in h:lines() do
+    local function replay (G, old, new)
+        local out = exec (
+            "git -C " .. REPO ..
+                " log --reverse --no-merges --format='%H %at %GK' " ..
+                (old .. ".." .. new)
+        )
+        for line in out:gmatch("[^\n]+") do
             local hash, time, key = line:match("^(%S+) (%S+) ?(.*)")
             if key == "" then key = nil end
 
@@ -68,7 +70,6 @@ elseif ARGS.recv then
                 })
             end
         end
-        h:close()
     end
 
     -- Phase 1: verify remote
@@ -76,7 +77,7 @@ elseif ARGS.recv then
         authors = git_load(com, ".freechains/authors.lua"),
         posts   = git_load(com, ".freechains/posts.lua"),
     }
-    replay(G_rem, com .. ".." .. rem)
+    replay(G_rem, com, rem)
 
     -- TODO: compare G_rem with remote's last state commit
     -- if mismatch -> ERROR("chain sync : dishonest remote")
@@ -114,11 +115,11 @@ elseif ARGS.recv then
             authors = dofile(FC .. "/authors.lua"),
             posts   = dofile(FC .. "/posts.lua"),
         }
-        replay(G, com .. ".." .. rem)
+        replay(G, com, rem)
     else
         -- winner is remote: reuse verified state, replay local
         G = G_rem
-        replay(G, com .. ".." .. loc)
+        replay(G, com, loc)
     end
 
     -- merge
