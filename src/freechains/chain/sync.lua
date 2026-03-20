@@ -60,6 +60,7 @@ elseif ARGS.recv then
     --  - load state at merge-base
     --  - walk back to last state commit (or genesis)
     --  - load from there, replay forward to merge-base
+    --  - guaranteed that no merges appear betwen chk <- com
     local G_com
     do
         local chk   -- state commit
