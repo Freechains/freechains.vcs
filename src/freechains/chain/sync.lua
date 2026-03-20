@@ -93,12 +93,12 @@ elseif ARGS.recv then
                     .. old .. ".." .. new
             )
         end
-        local l = tonumber(exec(
+        local l = tonumber((exec(
             "git -C " .. REPO .. " log -1 --format=%at " .. first(com,loc)
-        ))
-        local r = tonumber(exec(
+        )))
+        local r = tonumber((exec(
             "git -C " .. REPO .. " log -1 --format=%at " .. first(com,rem)
-        ))
+        )))
         if l <= r then
             fst, snd = loc, rem
         else
