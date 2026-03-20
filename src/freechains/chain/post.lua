@@ -11,6 +11,7 @@ end
 -- signing gate
 if ARGS.sign then
     G.authors[ARGS.sign] = G.authors[ARGS.sign] or { reps=0 }
+    G.xas = true
 
     if G.authors[ARGS.sign].reps <= 0 then
         if not ARGS.beg then
