@@ -1,6 +1,7 @@
 require "freechains.chain.common"
 
 if ARGS.send then
+    -- TODO(b): this should move away from here
     -- commit state if dirty
     do
         exec (
@@ -17,6 +18,7 @@ if ARGS.send then
         end
     end
 
+    error "TODO: not implemented"
     exec (
         "git -C " .. REPO .. " push " .. ARGS.remote .. " main"
         , "chain sync : push failed"
@@ -129,10 +131,13 @@ elseif ARGS.recv then
     end
 
     -- merge
-    local _, code = exec(true, "git -C " .. REPO .. " merge --no-edit FETCH_HEAD")
+    local _, code = exec (true,
+        "git -C " .. REPO .. " merge --no-edit FETCH_HEAD"
+    )
     if code ~= 0 then
         exec(true, "git -C " .. REPO .. " merge --abort")
         ERROR("chain sync : merge conflict")
+        -- TODO(a): conflict is not error, just one of the sides is lost
     end
 
     -- write replayed state
