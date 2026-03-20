@@ -9,22 +9,22 @@ if ARGS.dislike then
 end
 
 -- signing gate
-if ARGS.sign then
-    G.authors[ARGS.sign] = G.authors[ARGS.sign] or { reps=0 }
-    G.xas = true
-
-    if G.authors[ARGS.sign].reps <= 0 then
-        if not ARGS.beg then
-            ERROR("chain post : insufficient reputation")
+do
+    local reps = G.authors[ARGS.sign] and G.authors[ARGS.sign].reps or 0
+    if ARGS.sign then
+        if reps <= 0 then
+            if not ARGS.beg then
+                ERROR("chain post : insufficient reputation")
+            end
+        else
+            if ARGS.beg then
+                ERROR("chain post : --beg error : author has sufficient reputation")
+            end
         end
     else
-        if ARGS.beg then
-            ERROR("chain post : --beg error : author has sufficient reputation")
+        if not ARGS.beg then
+            ERROR("chain post : requires --sign or --beg")
         end
-    end
-else
-    if not ARGS.beg then
-        ERROR("chain post : requires --sign or --beg")
     end
 end
 
@@ -89,33 +89,15 @@ do
     end
 end
 
--- metadata: apply immediate effects
-if ARGS.post then
-    apply(G, {
-        kind = 'post',
-        sign = ARGS.sign,
-        beg  = ARGS.beg,
-        time = NOW.s,
-    })
-else
-    apply(G, {
-        kind   = 'like',
-        sign   = ARGS.sign,
-        num    = num,
-        target = ARGS.target,
-        id     = ARGS.id,
-    })
-end
-
 -- write state + commit
 do
     -- detect if like targets a blocked beg
-    local is_beg = (
+    local to_beg = (
         kind == 'like' and ARGS.target == "post" and
         G.posts[ARGS.id] and G.posts[ARGS.id].state == "blocked"
     )
 
-    if is_beg then
+    if to_beg then
         exec (
             "git -C " .. REPO .. " checkout " .. ARGS.id
         )
@@ -142,7 +124,28 @@ do
         "git -C " .. REPO .. " rev-parse HEAD"
     )
 
-    if is_beg then
+    -- apply immediate effects (after commit, with hash)
+    if ARGS.post then
+        apply(G, {
+            kind = 'post',
+            hash = hash,
+            sign = ARGS.sign,
+            beg  = ARGS.beg,
+            time = NOW.s,
+        })
+    else
+        apply(G, {
+            kind   = 'like',
+            sign   = ARGS.sign,
+            num    = num,
+            target = ARGS.target,
+            id     = ARGS.id,
+            beg    = to_beg,
+            time   = NOW.s,
+        })
+    end
+
+    if to_beg then
         local ref = "refs/begs/beg-" .. ARGS.id
         exec (
             "git -C " .. REPO .. " update-ref " .. ref .. " " .. hash
@@ -156,9 +159,6 @@ do
         exec (
             "git -C " .. REPO .. " update-ref -d " .. ref
         )
-        G.posts[ARGS.id].state = "00-12"
-        G.posts[ARGS.id].time = NOW.s
-        G.xps = true
     elseif ARGS.beg then
         exec (
             "git -C " .. REPO .. " update-ref refs/begs/beg-" .. hash .. " HEAD"
@@ -166,17 +166,6 @@ do
         exec (
             "git -C " .. REPO .. " reset --hard HEAD~1"
         )
-    end
-
-    -- register post with actual commit hash
-    if kind == 'post' then
-        G.posts[hash] = {
-            author = ARGS.sign,
-            time   = NOW.s,
-            state  = (ARGS.beg and 'blocked') or '00-12',
-            reps   = 0,
-        }
-        G.xps = true
     end
 
     print(hash)
