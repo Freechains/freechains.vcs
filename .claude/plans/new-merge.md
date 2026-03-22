@@ -69,7 +69,63 @@ Skel exclude: remove `now.lua` line.
   branch), and after non-ff merge
 - `now.lua` value at genesis: `NOW.s` (not 0)
 
-## 3. Commit Types
+## 3. apply: validation + state mutation
+
+Unified function for processing one entry (post or
+like). Used by both local commands and sync replay.
+
+```lua
+-- Returns true on success, false+err on failure
+function apply (G, entry)
+    time_effects(G, entry.time)
+    -- validate
+    -- if invalid: return false, "error message"
+    -- mutate G
+    -- return true
+end
+```
+
+### Time effects (inside apply)
+
+Before processing each entry, apply runs discount
+and consolidation scans at `entry.time`:
+- **Discount scan**: posts in "00-12" state, refund
+  if discount period elapsed
+- **Consolidation scan**: posts in "12-24" state,
+  grant +1 rep if 24h slot open
+- **Cap**: clamp all authors at max
+
+`entry.time` is `NOW.s` for local commands and the
+commit's author timestamp during replay.
+
+### Validation checks
+
+- **Post (signed)**: author has enough reps (rule 4.a),
+  file-op cost affordable (rule 5)
+- **Like**: liker has enough reps, target post exists
+- **Beg**: does not go through apply. Handled
+  separately by local code only. Never appears in
+  replay.
+
+### On failure
+
+Returns `false, "error message"`. Caller decides
+the consequence:
+- **Local command**: report error to user
+- **Sync (remote validation)**: ignore remote,
+  blacklist
+- **Sync (loser replay)**: discard this commit and
+  all subsequent
+
+### State mutation (on success)
+
+Same as current apply logic:
+- **Post**: set G.posts[hash], deduct reps from author
+- **Like**: deduct from liker, tax, split to target
+- **Cap**: clamp all authors at max
+- **Order**: append commit hash to G.order
+
+## 4. Commit Types
 
 Trailers used with `Freechains:` key:
 
@@ -123,7 +179,7 @@ No merge, no state commit -- local just advances.
   forks) -- linearity guarantee
 - `[post]` and `[like]` never include state files
 
-## 4. Commit Types (with state branch)
+## 5. Commit Types (with state branch)
 
 ### Non-ff merge (state branches)
 
@@ -175,7 +231,7 @@ state:  [state]gen -- [post]A -- [post]B -- [state]R
 | FF sync   | last post commit | remote state tip |
 | Non-ff    | new state commit | same as main     |
 
-## 5. State Branch
+## 6. State Branch
 
 Sync operates on a `state` branch, not `main`.
 
@@ -233,11 +289,11 @@ main:   advanced to match state
 `G_com` is needed for `branch_compare` — it provides
 the prefix reputation used to determine the winner.
 
-## 6. Consensus
+## 7. Consensus
 
-### 6.1. Validation & Consensus
+### 7.1. Validation & Consensus
 
-#### 6.1.1. Validation
+#### 7.1.1. Validation
 
 Validation checks that each commit in a branch is
 "legal" against the ongoing state:
@@ -262,7 +318,7 @@ and `branch_compare` depends on `G`. A discarded
 commit changes the ongoing state, which can affect
 nested `branch_compare` results.
 
-#### 6.1.2. branch_compare
+#### 7.1.2. branch_compare
 
 ```lua
 -- Returns winner_hash, loser_hash
@@ -288,7 +344,7 @@ local function branch_compare (G, left, right)
 - **State commits**: skipped (both common and tips)
 - An author in **both** branches counts for both sums
 
-### 6.2. Nested merge scenario
+### 7.2. Nested merge scenario
 
 When local history already contains a previous merge,
 `branch_compare` must handle the full DAG reachable
@@ -339,7 +395,7 @@ skipped when collecting authors. The full DAG between
 merge-base and each tip is walked, including content
 merged in by previous merges.
 
-### 6.3. Recursive replay
+### 7.3. Recursive replay
 
 #### Updated signature
 
@@ -358,7 +414,7 @@ the original merge-base commit.
 
 #### Why nested consensus can change
 
-In the 6.2 scenario, suppose Dave's branch (remote)
+In the 7.2 scenario, suppose Dave's branch (remote)
 wins at M2 level. The loser (local, G..S4) is replayed
 on top of Dave's state. When the replay reaches M1's
 fork point, the ongoing `G` includes Dave's effects.
@@ -402,7 +458,7 @@ reliable.
 | Checkpoint reuse    | yes (state commits)    | only for top-level winner |
 | collect/replay      | needed for loser       | still needed, recursive |
 
-### 6.4. Validation failure propagation
+### 7.4. Validation failure propagation
 
 #### Remote validation fails
 
