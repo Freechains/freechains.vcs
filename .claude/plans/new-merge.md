@@ -211,26 +211,52 @@ the prefix reputation used to determine the winner.
 
 ## 6. Consensus
 
-### 6.1. branch_compare
+### 6.1. Validation & Consensus
+
+#### 6.1.1. Validation
+
+Validation checks that each commit in a branch is
+"legal" against the ongoing state:
+- **Reputation thresholds**: author has enough reps
+- **File-op costs**: author can afford the operations
+- **Merge compatibility**: commit merges cleanly with
+  winner's tree (dry-merge per commit)
+- **Genesis immutability**: genesis.lua never changes
+
+On first validation failure: discard that commit and
+all subsequent commits in the branch.
+
+**When validation runs:**
+- **Remote branch**: validated first, before consensus.
+  Uses `G_com` + replay remote commits one by one.
+- **Loser branch**: validated during replay on top of
+  winner's state.
+
+Validation and consensus cannot be separated — they
+are interleaved. Validation mutates `G` during replay,
+and `branch_compare` depends on `G`. A discarded
+commit changes the ongoing state, which can affect
+nested `branch_compare` results.
+
+#### 6.1.2. branch_compare
 
 ```lua
 -- Returns winner_hash, loser_hash
--- com:   merge-base state commit hash
+-- G:     ongoing state at the fork point (live table)
 -- left:  left tip state commit hash
 -- right: right tip state commit hash
-local function branch_compare (com, left, right)
+local function branch_compare (G, left, right)
 ```
 
-#### Algorithm
+##### Algorithm
 
-1. Load `G_com` from `com` state files (prefix state)
-2. Git log `com..left` and `com..right` to collect
-   author sets (signing keys)
-3. Sum prefix reps from `G_com` for each author set
-4. Higher sum wins -> return that hash first
-5. Tie -> hash tiebreaker (lexicographic)
+1. Collect author sets from git log of each branch
+   (signing keys)
+2. Sum prefix reps from `G` for each author set
+3. Higher sum wins -> return that hash first
+4. Tie -> hash tiebreaker (lexicographic)
 
-#### Author collection rules
+##### Author collection rules
 
 - **Posts (signed)**: signer key counts
 - **Posts (unsigned/beg)**: skipped (no key)
