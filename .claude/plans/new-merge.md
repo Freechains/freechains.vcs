@@ -22,6 +22,25 @@ Key changes:
   of commits as computed by consensus/replay
 - `G` table gains `G.order` field
 
+#### order.lua format
+
+Flat list of commit hashes in consensus order:
+
+```lua
+return {
+    "abc123",  -- genesis (state)
+    "def456",  -- post
+    "ghi789",  -- like
+    "jkl012",  -- merge
+    "mno345",  -- state
+}
+```
+
+- Includes all commit types: genesis, posts, likes,
+  merges, state commits
+- Discarded commits (validation failure) are absent
+- Recomputed on every state change (like authors/posts)
+
 ### Skeleton
 
 Skel updated to match:
