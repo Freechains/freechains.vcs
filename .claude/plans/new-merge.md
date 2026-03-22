@@ -531,3 +531,52 @@ validation.
 Remote's `order.lua` is adopted directly in FF
 (no outer context to invalidate it, no recomputation
 needed).
+
+## 8. Unified Merge Pipeline
+
+### Recv (non-FF)
+
+1. Commit local state to `state` branch
+   (reset to main, write state files, amend)
+2. `git fetch` remote `state`
+3. Merge-base between local state and remote state
+4. Detect FF or non-FF
+
+5. Load G_com from merge-base state files
+6. Save prefix_authors from G_com.authors
+7. Validate remote: replay remote commits on G_com
+   via apply. Any failure -> blacklist, stop.
+8. `branch_compare(prefix_authors, local_tip,
+   remote_tip)` -> winner, loser
+9. Load G_winner from winner's state commit
+10. Replay loser commits on G_winner via apply
+    (recursive for nested merges, using
+    G_winner.authors for nested branch_compare)
+    Failures -> discard commit + subsequent
+11. `git merge`
+12. Append merge + state commit hashes to G.order
+13. Write state files (authors, posts, now, order)
+14. Commit state (trailer: Freechains: state)
+15. Advance `main` to match `state`
+
+### Recv (FF)
+
+1. Commit local state to `state` branch
+2. `git fetch` remote `state`
+3. Detect FF (local is ancestor of remote)
+
+4. Load G_loc from local state files
+5. Validate remote commits (local_tip..remote_tip)
+   via apply on G_loc.
+   Any failure -> blacklist, stop.
+6. Assert replayed state matches remote's committed
+   state files
+7. Advance `main` to last post commit
+8. Advance `state` to remote tip
+9. Write replayed state to disk
+
+### Send
+
+1. Commit local state to `state` branch
+   (reset to main, write state files, amend)
+2. `git push` remote `state`
