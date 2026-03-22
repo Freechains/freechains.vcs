@@ -455,3 +455,23 @@ It uses `G` and author sets from the DAG (immutable).
 The winner/loser decision is locked in before
 validation begins. Validation only affects nested
 consensus within the loser's replay.
+
+#### Fast-forward validation
+
+FF is not a shortcut — remote commits are validated
+even when no divergence exists.
+
+1. Detect FF (local is ancestor of remote)
+2. Validate remote commits (local state + replay,
+   one by one)
+3. If any fails -> ignore remote, blacklist
+4. If all pass -> advance `main` to last post,
+   `state` to remote tip
+
+FF and non-FF both validate the remote first. The
+difference: FF has no merge/consensus step after
+validation.
+
+Remote's `order.lua` is adopted directly in FF
+(no outer context to invalidate it, no recomputation
+needed).
