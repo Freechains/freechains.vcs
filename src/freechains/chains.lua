@@ -17,13 +17,13 @@ local function pioneers (dir)
             A[key] = { reps = n }
         end
         local f = io.open(
-            dir .. ".freechains/authors.lua", "w"
+            dir .. ".freechains/state/authors.lua", "w"
         )
         f:write(serial(A))
         f:close()
     else
         local f = io.open(
-            dir .. ".freechains/authors.lua", "w"
+            dir .. ".freechains/state/authors.lua", "w"
         )
         f:write("return {\n}\n")
         f:close()
@@ -60,11 +60,6 @@ if ARGS.add then
         )
         git_config(tmp)
         exec ("cp -r " .. SKEL .. ". " .. tmp .. "/")
-        do
-            local f = io.open(tmp .. "/.git/info/exclude", "a")
-            f:write(".freechains/now.lua\n")
-            f:close()
-        end
         do
             local f = io.open(tmp .. "/.freechains/random", "w")
             f:write(tostring(rand) .. "\n")
@@ -110,18 +105,19 @@ if ARGS.add then
         local dir = DIR .. "/" .. hash .. "/"
         exec("mv " .. tmp .. " " .. dir)
         exec("ln -s " .. hash .. " " .. DIR .. "/" .. ARGS.alias)
+        exec("mkdir -p " .. dir .. ".freechains/state/")
         do
-            local f = io.open(dir .. ".git/info/exclude", "a")
-            f:write(".freechains/now.lua\n")
-            f:close()
-        end
-        do
-            local f = io.open(dir .. ".freechains/now.lua" , "w")
+            local f = io.open(dir .. ".freechains/state/now.lua" , "w")
             f:write("return 0\n")
             f:close()
         end
         do
-            local f = io.open(dir .. ".freechains/posts.lua", "w")
+            local f = io.open(dir .. ".freechains/state/posts.lua", "w")
+            f:write("return {\n}\n")
+            f:close()
+        end
+        do
+            local f = io.open(dir .. ".freechains/state/order.lua", "w")
             f:write("return {\n}\n")
             f:close()
         end

@@ -12,15 +12,15 @@ if ARGS.sync then
     require "freechains.chain.sync"
 else
     G = {
-        authors = dofile(FC .. "/authors.lua"),
-        posts   = dofile(FC .. "/posts.lua"),
+        authors = dofile(FC .. "state/authors.lua"),
+        posts   = dofile(FC .. "state/posts.lua"),
         xas     = false,
         xps     = false,
     }
 
     -- local time effects: advance discount + consolidation
     do
-        local stored = dofile(FC .. "/now.lua")
+        local stored = dofile(FC .. "state/now.lua")
 
         if ARGS.sign~=nil or NOW.s>stored then
             -- discount scan
@@ -79,7 +79,7 @@ else
                 end
             end
 
-            write(NOW.s, FC .. "/now.lua")
+            write(NOW.s, FC .. "state/now.lua")
         end
     end
 
@@ -90,9 +90,9 @@ else
     end
 
     if G.xas then
-        write(G.authors, FC .. "/authors.lua")
+        write(G.authors, FC .. "state/authors.lua")
     end
     if G.xps then
-        write(G.posts, FC .. "/posts.lua")
+        write(G.posts, FC .. "state/posts.lua")
     end
 end

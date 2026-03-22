@@ -100,8 +100,8 @@ elseif ARGS.recv then
         end
 
         G_com = {
-            authors = F(".freechains/authors.lua"),
-            posts   = F(".freechains/posts.lua"),
+            authors = F(".freechains/state/authors.lua"),
+            posts   = F(".freechains/state/posts.lua"),
         }
         if chk ~= com then
             replay(G_com, chk, com)
@@ -142,7 +142,7 @@ elseif ARGS.recv then
     -- stash state files to avoid merge conflicts
     exec (
         "git -C " .. REPO
-        .. " stash push -- .freechains/authors.lua .freechains/posts.lua"
+        .. " stash push -- .freechains/state/authors.lua .freechains/state/posts.lua"
     )
     --exec(true, "git -C " .. REPO .. " stash drop")
 
@@ -157,14 +157,14 @@ elseif ARGS.recv then
     end
 
     -- write replayed state to disk
-    write(G.authors, FC .. "/authors.lua")
-    write(G.posts,   FC .. "/posts.lua")
+    write(G.authors, FC .. "state/authors.lua")
+    write(G.posts,   FC .. "state/posts.lua")
 
     -- commit state if non-ff merge
     if com ~= loc then
         exec (
             "git -C " .. REPO
-            .. " add .freechains/authors.lua .freechains/posts.lua"
+            .. " add .freechains/state/authors.lua .freechains/state/posts.lua"
         )
         exec (
             NOW.git .. "git -C " .. REPO .. " commit -m '(empty message)'"

@@ -44,7 +44,7 @@ do
 
     do
         TEST "beg-blocked-in-posts"
-        local posts = dofile(DIR1 .. ".freechains/posts.lua")
+        local posts = dofile(DIR1 .. ".freechains/state/posts.lua")
         assert(posts[BEG], "post entry not found: " .. BEG)
         assert(posts[BEG].state == "blocked", "state should be blocked")
     end
@@ -156,7 +156,7 @@ do
 
     do
         TEST "like-beg-unblocks"
-        local posts = dofile(DIR4 .. ".freechains/posts.lua")
+        local posts = dofile(DIR4 .. ".freechains/state/posts.lua")
         assert(posts[BEG], "post entry not found: " .. BEG)
         assert(posts[BEG].state ~= "blocked", "state should no longer be blocked")
     end
