@@ -288,3 +288,57 @@ State commits (S1-S5) and merge commit (M1) are
 skipped when collecting authors. The full DAG between
 merge-base and each tip is walked, including content
 merged in by previous merges.
+
+### 6.3. Recursive replay
+
+#### Updated signature
+
+```lua
+-- G:     ongoing state at the fork point (live table,
+--        not loaded from a commit)
+-- left:  left tip state commit hash
+-- right: right tip state commit hash
+local function branch_compare (G, left, right)
+```
+
+The first argument is the ongoing `G` table, not a
+commit hash. This is because during replay, the state
+at a fork point may differ from what was stored at
+the original merge-base commit.
+
+#### Why nested consensus can change
+
+In the 6.2 scenario, suppose Dave's branch (remote)
+wins at M2 level. The loser (local, G..S4) is replayed
+on top of Dave's state. When the replay reaches M1's
+fork point, the ongoing `G` includes Dave's effects.
+Prefix reps are different from when M1 was originally
+created -> `branch_compare` may pick a different
+winner for M1's sub-branches.
+
+Therefore S3 (the stored state after M1) cannot be
+reused as a checkpoint. The nested merge must be
+fully re-evaluated.
+
+#### Replay algorithm (recursive)
+
+1. Replay loser branch from merge-base to loser tip
+2. When a merge commit (M1) is encountered:
+   a. Find M1's two parents and their merge-base
+   b. Run `branch_compare(G_ongoing, parent1, parent2)`
+      with the current live state
+   c. Replay M1's loser on M1's winner (recurse —
+      deeper merges may exist)
+   d. Continue replay after M1
+3. Only the **top-level winner** state is loaded
+   directly (no replay needed). All loser branches
+   require full recursive replay.
+
+#### What changed vs old design
+
+| Aspect              | Old                    | New                    |
+|---------------------|------------------------|------------------------|
+| branch_compare arg  | commit hash (G_com)    | live G table           |
+| Nested consensus    | immutable (reuse S3)   | re-evaluated (may change) |
+| Checkpoint reuse    | yes (state commits)    | only for top-level winner |
+| collect/replay      | needed for loser       | still needed, recursive |
