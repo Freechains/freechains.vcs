@@ -382,3 +382,57 @@ reliable.
 | Nested consensus    | immutable (reuse S3)   | re-evaluated (may change) |
 | Checkpoint reuse    | yes (state commits)    | only for top-level winner |
 | collect/replay      | needed for loser       | still needed, recursive |
+
+### 6.4. Validation failure propagation
+
+#### Remote validation fails
+
+If the remote branch fails validation (using G_com +
+replay), the remote is ignored entirely and added to
+a blacklist. No merge happens.
+
+#### Loser replay failure
+
+During loser replay on top of winner's state, if a
+commit fails validation, that commit and all subsequent
+commits in the branch are discarded.
+
+Example:
+
+```
+Common state: Bob has 1 rep, Alice has 10 rep
+
+Winner branch: Alice dislikes Bob -> Bob has 0 rep
+
+Loser branch:  L1 (Bob posts, costs 1 rep)
+               L2 (Bob posts)
+               L3 (Carol posts)
+
+Original context: Bob had 1 rep -> L1 valid
+Winner's state:   Bob has 0 rep -> L1 fails
+
+L1 fails -> L1, L2, L3 all discarded.
+Carol's L3 is collateral damage.
+```
+
+The loser branch was valid in its original context.
+Failure happens because the winner's state changed
+the reps (e.g., a dislike reduced Bob's reps).
+
+#### Nested failure
+
+In recursive replay, a validation failure inside a
+nested merge (M1) changes G_ongoing. This can affect
+`branch_compare` for subsequent merges in the same
+branch, altering nested consensus ordering. But it
+cannot change the top-level winner/loser decision —
+`branch_compare` at the outer level runs before any
+replay/validation.
+
+#### Validation cannot change the winner
+
+`branch_compare(G, left, right)` runs before replay.
+It uses `G` and author sets from the DAG (immutable).
+The winner/loser decision is locked in before
+validation begins. Validation only affects nested
+consensus within the loser's replay.
