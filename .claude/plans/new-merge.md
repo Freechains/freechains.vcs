@@ -204,8 +204,87 @@ main:   advanced to match state
 4. Commit merged state as new state commit
 5. Advance `main` to match `state`
 
-### Open question
+### Open question (answered: yes, G_com is needed)
 
-Is `G_com` (state at merge-base) needed at all? E.g.
-for consensus decision (reputation comparison), or can
-we work with only `G_winner` + loser commit list?
+`G_com` is needed for `branch_compare` — it provides
+the prefix reputation used to determine the winner.
+
+## 6. Consensus
+
+### 6.1. branch_compare
+
+```lua
+-- Returns winner_hash, loser_hash
+-- com:   merge-base state commit hash
+-- left:  left tip state commit hash
+-- right: right tip state commit hash
+local function branch_compare (com, left, right)
+```
+
+#### Algorithm
+
+1. Load `G_com` from `com` state files (prefix state)
+2. Git log `com..left` and `com..right` to collect
+   author sets (signing keys)
+3. Sum prefix reps from `G_com` for each author set
+4. Higher sum wins -> return that hash first
+5. Tie -> hash tiebreaker (lexicographic)
+
+#### Author collection rules
+
+- **Posts (signed)**: signer key counts
+- **Posts (unsigned/beg)**: skipped (no key)
+- **Likes**: signer key counts (not the target)
+- **State commits**: skipped (both common and tips)
+- An author in **both** branches counts for both sums
+
+### 6.2. Nested merge scenario
+
+When local history already contains a previous merge,
+`branch_compare` must handle the full DAG reachable
+from each tip.
+
+```
+[state]  genesis (G)
+   |
+[post]   P1 by Alice
+   |
+[state]  S1
+   |
+   |        [post]   P2 by Bob
+   |        |
+   |        [state]  S2
+   |        /
+   |       /
+[merge]   M1 (first merge, local history)
+   |
+[state]   S3
+   |
+[post]    P3 by Carol
+   |
+[state]   S4 (local tip)
+   |
+   |        [post]   P4 by Dave
+   |        |
+   |        [state]  S5 (remote tip)
+   |        /
+   |       /
+[merge]   M2 (new merge)
+   |
+[state]   S6
+```
+
+Merge-base of S4 and S5 is G (genesis).
+
+Range `G..S4` includes: P1, S1, P2, S2, M1, S3, P3,
+S4. Git log walks into M1's second parent, so P2 and
+S2 are reachable.
+
+Author sets for `branch_compare(G, S4, S5)`:
+- Local (G..S4): Alice (P1), Bob (P2), Carol (P3)
+- Remote (G..S5): Dave (P4)
+
+State commits (S1-S5) and merge commit (M1) are
+skipped when collecting authors. The full DAG between
+merge-base and each tip is walked, including content
+merged in by previous merges.
