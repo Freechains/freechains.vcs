@@ -9,6 +9,7 @@ State files move from `.freechains/` to `.freechains/state/`:
 | authors.lua | `.freechains/authors.lua`   | `.freechains/state/authors.lua`   |
 | posts.lua   | `.freechains/posts.lua`     | `.freechains/state/posts.lua`     |
 | now.lua     | `.freechains/now.lua`       | `.freechains/state/now.lua`       |
+| order.lua   | (new)                       | `.freechains/state/order.lua`     |
 
 Key changes:
 - `now.lua` is now **committed** to git (was excluded before)
@@ -17,6 +18,9 @@ Key changes:
 - `now.lua` is always written (no dirty flag needed, time
   always advances)
 - Remove `now.lua` from `.git/info/exclude`
+- `order.lua` is new: stores the deterministic total order
+  of commits as computed by consensus/replay
+- `G` table gains `G.order` field
 
 ### Skeleton
 
@@ -27,17 +31,18 @@ Skel updated to match:
 | `skel/.freechains/authors.lua` | `skel/.freechains/state/authors.lua` |
 | `skel/.freechains/posts.lua`   | `skel/.freechains/state/posts.lua`   |
 | `skel/.freechains/now.lua`     | `skel/.freechains/state/now.lua`     |
+| (new)                          | `skel/.freechains/state/order.lua`   |
 
 Skel exclude: remove `now.lua` line.
 
 ## 2. When State Files Change vs Commit
 
-| Event              | Disk write         | Git commit         |
-|--------------------|--------------------|--------------------|
-| Genesis (config)   | authors, posts, now | authors, posts, now (state commit) |
-| Clone              | authors, posts, now | none               |
-| Post/like          | authors, posts, now | never              |
-| Sync recv (non-ff) | authors, posts, now | authors, posts, now (state commit) |
+| Event              | Disk write                | Git commit                         |
+|--------------------|---------------------------|------------------------------------|
+| Genesis (config)   | authors, posts, now, order | authors, posts, now, order (state) |
+| Clone              | authors, posts, now, order | none                               |
+| Post/like          | authors, posts, now, order | never                              |
+| Sync recv (non-ff) | authors, posts, now, order | authors, posts, now, order (state) |
 
 - Post/like commits contain only content + trailer, never
   state files
@@ -359,6 +364,15 @@ fully re-evaluated.
 3. Only the **top-level winner** state is loaded
    directly (no replay needed). All loser branches
    require full recursive replay.
+
+#### order.lua reliability
+
+`order.lua` in a nested state commit (e.g. S3 after
+M1) is only reliable without an outer branch/consensus.
+When replayed as a loser, the outer context changes
+`G`, so `branch_compare` may produce a different order.
+Only the **top-level winner's** `order.lua` is
+reliable.
 
 #### What changed vs old design
 
