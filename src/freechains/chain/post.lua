@@ -62,11 +62,6 @@ do
     end
 end
 
--- monotonic timestamp validation
-if NOW.s < G.now-C.time.future then
-    ERROR("chain " .. kind .. " : cannot be older than parent")
-end
-
 -- write state + commit
 do
     -- detect if like targets a blocked beg

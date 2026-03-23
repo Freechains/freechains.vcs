@@ -67,6 +67,11 @@ function apply (G, T)
     end
 
     if T then
+        -- monotonic timestamp
+        if T.time < G.now - C.time.future then
+            return false, "cannot be older than parent"
+        end
+
         -- validation
         if T.kind == 'post' then
             if T.sign and not T.beg then
