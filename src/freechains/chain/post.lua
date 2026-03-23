@@ -8,6 +8,22 @@ if ARGS.dislike then
     num = -num
 end
 
+-- signing gate (beg + auth checks; reps checked by apply)
+do
+    if ARGS.sign then
+        local reps = G.authors[ARGS.sign] and G.authors[ARGS.sign].reps or 0
+        if reps > 0 and ARGS.beg then
+            ERROR("chain post : --beg error : author has sufficient reputation")
+        end
+    else
+        if kind == 'like' then
+            ERROR("chain like : requires --sign")
+        elseif not ARGS.beg then
+            ERROR("chain post : requires --sign or --beg")
+        end
+    end
+end
+
 -- post payload
 if ARGS.post then
     if ARGS.inline then
