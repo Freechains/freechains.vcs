@@ -1,5 +1,67 @@
 # New Merge Design
 
+## Implementation Progress
+
+| Step | Section | Status |
+|------|---------|--------|
+| 1 | State directory | [x] done |
+| 2 | apply + time_effects | [x] done |
+| 3 | Validation inside apply | [x] done (partial) |
+| 4 | Consensus / branch_compare | [ ] pending |
+| 5 | State branch | [ ] pending |
+| 6 | Unified merge pipeline | [ ] pending |
+
+### Step 1: State directory (done)
+- [x] Moved skel files to `state/` subdir
+- [x] Added `order.lua` to skel
+- [x] Removed `now.lua` from `.git/info/exclude`
+- [x] Updated all paths in src/ and tst/
+- [x] Removed redundant clone writes (git clone
+  already has genesis files)
+
+### Step 2: apply + time_effects (done)
+- [x] Moved time_effects from `init.lua` into `apply`
+- [x] `apply(G, nil)` for time_effects only (reps path)
+- [x] `G.now` field loaded/written
+- [x] Sync loads `now` from state commit (not hardcoded)
+
+### Step 3: Validation inside apply (done, partial)
+- [x] Post: `reps <= 0` → "insufficient reputation"
+- [x] Like: `reps <= 0` → "insufficient reputation"
+- [x] Like: `not sign` → "unsigned"
+- [x] Like: `num == 0` → "expected positive integer"
+- [x] Like: invalid target → "target must be..."
+- [x] Like: post not found in G.posts
+- [x] post.lua: revert commit on apply failure
+- [x] post.lua: restore state files after revert
+- [x] post.lua: beg + auth gate stays (pre-commit)
+- [x] post.lua: like `--sign` gate stays (pre-commit)
+- [x] Tests refactored to `_, Q, err` format
+- [x] Added missing `like-zero-number` test
+
+### Pending issues
+- [ ] **Sync test Step 3 failure**: `cli-sync.lua`
+  divergent merge produces empty `posts.lua`.
+  Root cause unknown — needs debug.
+  Time_effects during replay is the suspected cause.
+- [ ] Like replay not implemented in sync.lua
+  (`error "TODO: replay likes via apply"`)
+
+### Step 4: Consensus / branch_compare (pending)
+- [ ] Replace hash comparison with prefix reps
+- [ ] Collect author sets from git log
+- [ ] Sum prefix reps, higher wins, hash tiebreaker
+
+### Step 5: State branch (pending)
+- [ ] Create `state` branch at genesis
+- [ ] Pre-sync: commit state to `state` branch
+- [ ] Sync operates on `state` branch
+
+### Step 6: Unified merge pipeline (pending)
+- [ ] Rewrite sync recv (FF + non-FF)
+- [ ] Recursive replay for nested merges
+- [ ] State loading from state commits (no walk+replay)
+
 ## 1. State Directory
 
 State files move from `.freechains/` to `.freechains/state/`:
