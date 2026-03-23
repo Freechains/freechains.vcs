@@ -54,16 +54,19 @@ elseif ARGS.recv then
             if trailer == "like" then
                 error "TODO: replay likes via apply"
             elseif trailer == "post" then
-                apply(G, 'post', tonumber(time), {
+                local ok, err = apply(G, 'post', tonumber(time), {
                     hash = hash,
                     sign = key,
                     beg  = (key == nil),
                 })
+                if not ok then
+                    return false, err .. " : " .. hash
+                end
             else
                 assert(trailer == "state")
-                --error "bug found: should never reach state commit"
             end
         end
+        return true
     end
 
     -- Find checkpoint (chk) and `apply` up to merge-base (com):
@@ -103,7 +106,8 @@ elseif ARGS.recv then
             now     = F(".freechains/state/now.lua"),
         }
         if chk ~= com then
-            replay(G_com, chk, com)
+            local ok, err = replay(G_com, chk, com)
+            if not ok then ERROR("chain sync : replay : " .. err) end
         end
     end
 
@@ -120,7 +124,10 @@ elseif ARGS.recv then
             reps   = v.reps,
         }
     end
-    replay(G_rem, com, rem)
+    do
+        local ok, err = replay(G_rem, com, rem)
+        if not ok then ERROR("chain sync : replay : " .. err) end
+    end
 
     -- consensus
     local fst, snd
@@ -135,12 +142,21 @@ elseif ARGS.recv then
     if fst == loc then
         -- winner is local: replay both
         G = G_com
-        replay(G, com, loc)
-        replay(G, com, rem)
+        local ok, err = replay(G, com, loc)
+        if not ok then ERROR("chain sync : replay : " .. err) end
+        local fst_now = G.now
+        G.now = G_com.now
+        ok, err = replay(G, com, rem)
+        if not ok then ERROR("chain sync : replay : " .. err) end
+        G.now = math.max(G.now, fst_now)
     else
         -- winner is remote: reuse verified state, replay local
         G = G_rem
-        replay(G, com, loc)
+        local fst_now = G.now
+        G.now = G_com.now
+        local ok, err = replay(G, com, loc)
+        if not ok then ERROR("chain sync : replay : " .. err) end
+        G.now = math.max(G.now, fst_now)
     end
 
     -- stash state files to avoid merge conflicts
