@@ -13,13 +13,13 @@ function apply (G, T)
     local sign = T and T.sign
 
     -- time effects: discount + consolidation
-    if sign or time > G.now then
+    if sign or time>G.now then
         -- discount scan
         for hash, entry in pairs(G.posts) do
             if entry.state == "00-12" then
                 local subs = {}
                 for h2, other in pairs(G.posts) do
-                    if other.time and other.time > entry.time then
+                    if other.time and other.time>entry.time then
                         subs[other.author] = true
                     end
                 end
@@ -49,9 +49,9 @@ function apply (G, T)
         -- consolidation scan
         for hash, entry in pairs(G.posts) do
             if entry.state == "12-24" then
-                if time >= entry.time + C.time.full then
+                if time >= entry.time+C.time.full then
                     local last = G.authors[entry.author].time
-                    if time - last >= C.time.full then
+                    if time-last >= C.time.full then
                         G.authors[entry.author].reps = G.authors[entry.author].reps + C.reps.cost
                         G.authors[entry.author].time = last + C.time.full
                         entry.state = nil
@@ -101,8 +101,8 @@ function apply (G, T)
         if T.target == "post" then
             local a = G.posts[T.id].author
             G.authors[a] = G.authors[a] or { reps=0 }
-            G.authors[a].reps = G.authors[a].reps + num // C.like.split
-            G.posts[T.id].reps = G.posts[T.id].reps + num // C.like.split
+            G.authors[a].reps = G.authors[a].reps + num//C.like.split
+            G.posts[T.id].reps = G.posts[T.id].reps + num//C.like.split
             if T.beg then
                 G.posts[T.id].state = "00-12"
                 G.posts[T.id].time = T.time

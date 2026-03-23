@@ -110,12 +110,17 @@ elseif ARGS.recv then
     end
 
     -- verify remote: replay remote branch from copy of G_com
-    local G_rem = { authors = {}, posts = {}, now = G_com.now }
+    local G_rem = { authors={}, posts={}, now=G_com.now }
     for k, v in pairs(G_com.authors) do
-        G_rem.authors[k] = { reps = v.reps, time = v.time }
+        G_rem.authors[k] = { reps=v.reps, time=v.time }
     end
     for k, v in pairs(G_com.posts) do
-        G_rem.posts[k] = { author = v.author, time = v.time, state = v.state, reps = v.reps }
+        G_rem.posts[k] = {
+            author = v.author,
+            time   = v.time,
+            state  = v.state,
+            reps   = v.reps,
+        }
     end
     replay(G_rem, com, rem)
 
