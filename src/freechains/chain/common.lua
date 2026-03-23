@@ -8,8 +8,7 @@ function write (T, file)
     f:close()
 end
 
-function apply (G, T)
-    local time = (T and T.time) or NOW.s
+function apply (G, kind, time, T)
     local sign = T and T.sign
 
     -- TIME: monotonicity, discount, consolidation
@@ -77,14 +76,14 @@ function apply (G, T)
 
     if T then
         -- validation
-        if T.kind == 'post' then
+        if kind == 'post' then
             if T.sign and not T.beg then
                 local reps = G.authors[T.sign] and G.authors[T.sign].reps or 0
                 if reps <= 0 then
                     return false, "insufficient reputation"
                 end
             end
-        elseif T.kind == 'like' then
+        elseif kind == 'like' then
             if not T.sign then
                 return false, "unsigned"
             end
@@ -101,11 +100,11 @@ function apply (G, T)
         end
 
         -- state mutation
-        if T.kind == 'post' then
+        if kind == 'post' then
             G.xps = true
             G.posts[T.hash] = {
                 author = T.sign,
-                time   = T.time,
+                time   = time,
                 state  = (T.beg and 'blocked') or (T.sign and '00-12') or 'blocked',
                 reps   = 0,
             }
@@ -116,12 +115,12 @@ function apply (G, T)
                     G.authors[T.sign].reps = G.authors[T.sign].reps - C.reps.cost
                     if G.authors[T.sign].time == nil then
                         -- do not set for beg, bc not available to others
-                        G.authors[T.sign].time = T.time
+                        G.authors[T.sign].time = time
                     end
                 end
             end
 
-        elseif T.kind == 'like' then
+        elseif kind == 'like' then
             G.xas = true
             G.authors[T.sign].reps = G.authors[T.sign].reps - math.abs(T.num)
             local num = T.num * (100 - C.like.tax) // 100
@@ -132,7 +131,7 @@ function apply (G, T)
                 G.posts[T.id].reps = G.posts[T.id].reps + num//C.like.split
                 if T.beg then
                     G.posts[T.id].state = "00-12"
-                    G.posts[T.id].time = T.time
+                    G.posts[T.id].time = time
                 end
                 G.xps = true
             else

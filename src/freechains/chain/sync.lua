@@ -54,11 +54,9 @@ elseif ARGS.recv then
             if trailer == "like" then
                 error "TODO: replay likes via apply"
             elseif trailer == "post" then
-                apply(G, {
-                    kind = 'post',
+                apply(G, 'post', tonumber(time), {
                     hash = hash,
                     sign = key,
-                    time = tonumber(time),
                     beg  = (key == nil),
                 })
             else

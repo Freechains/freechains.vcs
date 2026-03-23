@@ -20,7 +20,7 @@ else
     }
 
     if ARGS.reps then
-        apply(G, nil)
+        apply(G, 'reps', NOW.s, nil)
         require "freechains.chain.reps"
     elseif ARGS.post then
         require "freechains.chain.post"

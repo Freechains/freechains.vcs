@@ -57,13 +57,11 @@ end
 -- apply
 do
     local T = {
-        kind = 'post',
         hash = hash,
         sign = ARGS.sign,
         beg  = ARGS.beg,
-        time = NOW.s,
     }
-    local ok, err = apply(G, T)
+    local ok, err = apply(G, 'post', NOW.s, T)
     if not ok then
         exec("git -C " .. REPO .. " reset --hard HEAD~1")
         write(G.now,     FC .. "state/now.lua")
