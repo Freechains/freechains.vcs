@@ -8,26 +8,6 @@ if ARGS.dislike then
     num = -num
 end
 
--- signing gate
-do
-    local reps = G.authors[ARGS.sign] and G.authors[ARGS.sign].reps or 0
-    if ARGS.sign then
-        if reps <= 0 then
-            if not ARGS.beg then
-                ERROR("chain post : insufficient reputation")
-            end
-        else
-            if ARGS.beg then
-                ERROR("chain post : --beg error : author has sufficient reputation")
-            end
-        end
-    else
-        if not ARGS.beg then
-            ERROR("chain post : requires --sign or --beg")
-        end
-    end
-end
-
 -- post payload
 if ARGS.post then
     if ARGS.inline then
@@ -48,20 +28,6 @@ if ARGS.post then
 -- like payload
 else
     assert(ARGS.like or ARGS.dislike)
-    if ARGS.number <= 0 then
-        ERROR("chain like : expected positive integer")
-    end
-    if ARGS.target ~= "post" and ARGS.target ~= "author" then
-        ERROR("chain like : target must be 'post' or 'author'")
-    end
-    if ARGS.target == "post" then
-        local tp = exec (true,
-            "git -C " .. REPO .. " cat-file -t " .. ARGS.id
-        )
-        if tp ~= "commit" then
-            ERROR("chain like : post not found : " .. ARGS.id)
-        end
-    end
 
     local payload = [[
         return {
@@ -124,8 +90,9 @@ do
     )
 
     -- apply immediate effects (after commit, with hash)
+    local ok, err
     if ARGS.post then
-        apply(G, {
+        ok, err = apply(G, {
             kind = 'post',
             hash = hash,
             sign = ARGS.sign,
@@ -133,7 +100,7 @@ do
             time = NOW.s,
         })
     else
-        apply(G, {
+        ok, err = apply(G, {
             kind   = 'like',
             sign   = ARGS.sign,
             num    = num,
@@ -142,6 +109,13 @@ do
             beg    = to_beg,
             time   = NOW.s,
         })
+    end
+    if not ok then
+        exec("git -C " .. REPO .. " reset --hard HEAD~1")
+        write(G.now,     FC .. "state/now.lua")
+        write(G.authors, FC .. "state/authors.lua")
+        write(G.posts,   FC .. "state/posts.lua")
+        ERROR("chain " .. kind .. " : " .. err)
     end
 
     if to_beg then

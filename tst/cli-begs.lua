@@ -192,7 +192,7 @@ do
             ENV_EXE .. " chain cli-begs-4 like 1 post " .. beg .. " --sign " .. KEY3
         )
         assert (
-            Q~=0 and err=="ERROR : chain post : insufficient reputation"
+            Q~=0 and err=="ERROR : chain like : insufficient reputation"
             , "should fail: " .. tostring(err)
         )
 
@@ -207,7 +207,7 @@ do
             ENV_EXE .. " chain cli-begs-4 like 1 post " .. beg .. " --sign " .. KEY3
         )
         assert (
-            Q~=0 and err=="ERROR : chain post : insufficient reputation"
+            Q~=0 and err=="ERROR : chain like : insufficient reputation"
             , "should fail: " .. tostring(err)
         )
     end
