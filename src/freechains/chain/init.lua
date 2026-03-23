@@ -22,8 +22,10 @@ else
     if ARGS.reps then
         apply(G, nil)
         require "freechains.chain.reps"
-    elseif ARGS.post or ARGS.like or ARGS.dislike then
+    elseif ARGS.post then
         require "freechains.chain.post"
+    elseif ARGS.like or ARGS.dislike then
+        require "freechains.chain.like"
     end
 
     write(G.now, FC .. "state/now.lua")

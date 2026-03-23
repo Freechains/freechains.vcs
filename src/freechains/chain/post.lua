@@ -1,153 +1,85 @@
-local kind = (ARGS.post and 'post') or 'like'
-local file
-
-local rand = math.random(0, 9999999999)
-
--- signing gate (beg + auth checks; reps checked by apply)
+-- check sign/beg
 do
-    if ARGS.sign then
+    if ARGS.sign and ARGS.beg then
         local reps = G.authors[ARGS.sign] and G.authors[ARGS.sign].reps or 0
-        if reps > 0 and ARGS.beg then
-            ERROR("chain post : --beg error : author has sufficient reputation")
-        end
-    else
-        if kind == 'like' then
-            ERROR("chain like : requires --sign")
-        elseif not ARGS.beg then
-            ERROR("chain post : requires --sign or --beg")
+        if reps > 0 then
+            ERROR (
+                "chain post : --beg error : author has sufficient reputation"
+            )
         end
     end
-end
-
--- num is used in payload and apply
-local num = (ARGS.number or 0) * C.reps.unit
-if ARGS.dislike then
-    num = -num
+    if not (ARGS.sign or ARGS.beg) then
+        ERROR("chain post : requires --sign or --beg")
+    end
 end
 
 -- payload
 do
-    -- post payload
-    if ARGS.post then
-        if ARGS.inline then
-            local text = ARGS.text .. (ARGS.text:match("\n$") and "" or "\n")
-            file = ARGS.file or "post-" .. NOW.s .. "-" .. rand .. ".txt"
-            local f = io.open(REPO.."/"..file, (ARGS.file and "a") or "w")
-            f:write(text)
-            f:close()
-        else
-            assert(ARGS.file)
-            file = ARGS.path:match("[^/]+$")
-            exec (
-                "cp " .. ARGS.path .. " " .. REPO .. "/"
-                , "chain post : copy failed: " .. ARGS.path
-            )
-        end
-
-    -- like payload
-    else
-        assert(ARGS.like or ARGS.dislike)
-
-        local payload = [[
-            return {
-                target = "]] .. ARGS.target .. [[",
-                id     = "]] .. ARGS.id     .. [[",
-                number = ]]  .. num         .. [[,
-            }
-        ]]
-        file = ".freechains/likes/like-" .. NOW.s .. "-" .. rand .. ".lua"
-        local f = io.open(REPO .. file, "w")
-        f:write(payload)
+    local file
+    if ARGS.inline then
+        local text = ARGS.text .. (ARGS.text:match("\n$") and "" or "\n")
+        local rand = math.random(0, 9999999999)
+        file = ARGS.file or "post-" .. NOW.s .. "-" .. rand .. ".txt"
+        local f = io.open(REPO.."/"..file, (ARGS.file and "a") or "w")
+        f:write(text)
         f:close()
-    end
-end
-
--- write state + commit
-do
-    -- detect if like targets a blocked beg
-    local to_beg = (
-        kind == 'like' and ARGS.target == "post" and
-        G.posts[ARGS.id] and G.posts[ARGS.id].state == "blocked"
-    )
-
-    if to_beg then
+    else
+        assert(ARGS.file)
+        file = ARGS.path:match("[^/]+$")
         exec (
-            "git -C " .. REPO .. " checkout " .. ARGS.id
+            "cp " .. ARGS.path .. " " .. REPO .. "/"
+            , "chain post : copy failed: " .. ARGS.path
         )
     end
-
     exec (
         "git -C " .. REPO .. " add " .. file
     )
+end
 
+-- commit
+local hash
+do
     local s1, s2 = "", ""
     if ARGS.sign then
         s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=openpgp"
         s2 = " -S"
     end
-
     local msg = ARGS.why or "(empty message)"
     exec (
         NOW.git .. "git -C " .. REPO .. s1 .. " commit" .. s2 .. " -m '" .. msg
-        .. "' --trailer 'Freechains: " .. kind .. "'"
+        .. "' --trailer 'Freechains: post'"
     )
-
-    local hash = exec (
+    hash = exec (
         "git -C " .. REPO .. " rev-parse HEAD"
     )
+end
 
-    -- apply immediate effects (after commit, with hash)
-    local T
-    if ARGS.post then
-        T = {
-            kind = 'post',
-            hash = hash,
-            sign = ARGS.sign,
-            beg  = ARGS.beg,
-            time = NOW.s,
-        }
-    else
-        T = {
-            kind   = 'like',
-            sign   = ARGS.sign,
-            num    = num,
-            target = ARGS.target,
-            id     = ARGS.id,
-            beg    = to_beg,
-            time   = NOW.s,
-        }
-    end
+-- apply
+do
+    local T = {
+        kind = 'post',
+        hash = hash,
+        sign = ARGS.sign,
+        beg  = ARGS.beg,
+        time = NOW.s,
+    }
     local ok, err = apply(G, T)
     if not ok then
         exec("git -C " .. REPO .. " reset --hard HEAD~1")
         write(G.now,     FC .. "state/now.lua")
         write(G.authors, FC .. "state/authors.lua")
         write(G.posts,   FC .. "state/posts.lua")
-        ERROR("chain " .. kind .. " : " .. err)
+        ERROR("chain post : " .. err)
     end
-
-    if to_beg then
-        local ref = "refs/begs/beg-" .. ARGS.id
-        exec (
-            "git -C " .. REPO .. " update-ref " .. ref .. " " .. hash
-        )
-        exec (
-            "git -C " .. REPO .. " checkout main"
-        )
-        exec (
-            "git -C " .. REPO .. " merge --no-edit " .. ref
-        )
-        exec (
-            "git -C " .. REPO .. " update-ref -d " .. ref
-        )
-    elseif ARGS.beg then
-        exec (
-            "git -C " .. REPO .. " update-ref refs/begs/beg-" .. hash .. " HEAD"
-        )
-        exec (
-            "git -C " .. REPO .. " reset --hard HEAD~1"
-        )
-    end
-
-    print(hash)
 end
+
+if ARGS.beg then
+    exec (
+        "git -C " .. REPO .. " update-ref refs/begs/beg-" .. hash .. " HEAD"
+    )
+    exec (
+        "git -C " .. REPO .. " reset --hard HEAD~1"
+    )
+end
+
+print(hash)
