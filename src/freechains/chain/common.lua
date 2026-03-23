@@ -61,7 +61,9 @@ function apply (G, T)
             end
         end
 
-        G.now = time
+        if time > G.now then
+            G.now = time
+        end
     end
 
     if T then

@@ -138,6 +138,8 @@ Begs are never replayed.
 
 ```
 T.time:   type(T.time) == "number" and T.time >= 0
+          monotonic: T.time >= parent's timestamp
+          (move check from post.lua:66-76 into apply)
 T.sign:   %G? must be G or U (signature valid)
           format: 40 hex chars (GPG fingerprint)
 T.num:    type == "number" and num ~= 0
@@ -150,7 +152,7 @@ T.hash:   #T.hash == 40 (defensive, low priority)
 ## Status
 
 - [ ] Decide which checks go in apply vs caller
-- [ ] Implement T.time validation
+- [ ] Implement T.time validation (incl. monotonic check moved from post.lua)
 - [ ] Implement T.sign: check %G? in replay
 - [ ] Implement T.num negative/fractional check
 - [ ] Implement T.id author-existence check

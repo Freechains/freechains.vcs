@@ -63,16 +63,8 @@ do
 end
 
 -- monotonic timestamp validation
-do
-    local date = tonumber((
-        exec (
-            "git -C " .. REPO .. " log -1 --format=%at"
-        )
-    ))
-    assert(date, "bug found : date is not a number")
-    if NOW.s < date - C.time.future then
-        ERROR("chain " .. kind .. " : cannot be older than parent")
-    end
+if NOW.s < G.now-C.time.future then
+    ERROR("chain " .. kind .. " : cannot be older than parent")
 end
 
 -- write state + commit
