@@ -65,11 +65,13 @@ do
 
     do
         TEST "post without --sign or --beg fails"
-        local ok, code, out = exec (true,
+        local _, Q, err = exec (true,
             ENV_EXE .. " chain cli-sign post inline 'no auth'"
         )
-        assert(code ~= 0, "should fail without --sign or --beg")
-        assert(out:match("requires %-%-sign or %-%-beg"))
+        assert (
+            Q~=0 and err=="ERROR : chain post : requires --sign or --beg"
+            , "should fail: " .. tostring(err)
+        )
     end
 end
 

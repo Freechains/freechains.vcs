@@ -188,10 +188,13 @@ do
         )
 
         -- KEY3 has 0 reps, should fail to like
-        local ok, code, out = exec (true,
+        local _, Q, err = exec (true,
             ENV_EXE .. " chain cli-begs-4 like 1 post " .. beg .. " --sign " .. KEY3
         )
-        assert(code ~= 0, "should fail: KEY3 has no reps")
+        assert (
+            Q~=0 and err=="ERROR : chain post : insufficient reputation"
+            , "should fail: " .. tostring(err)
+        )
 
         TEST "like-beg-self-like-no-reps"
         -- KEY3 begged (0 reps), tries to like own beg
@@ -200,10 +203,13 @@ do
         )
         local beg = refs:match("%x+")
 
-        local ok, code, out = exec (true,
+        local _, Q, err = exec (true,
             ENV_EXE .. " chain cli-begs-4 like 1 post " .. beg .. " --sign " .. KEY3
         )
-        assert(code ~= 0, "should fail: KEY3 has 0 reps, cannot like own beg")
+        assert (
+            Q~=0 and err=="ERROR : chain post : insufficient reputation"
+            , "should fail: " .. tostring(err)
+        )
     end
 end
 

@@ -57,10 +57,13 @@ do
             f:write('return "not a table"\n')
             f:close()
         end
-        local _, code = exec (true,
+        local _, Q, err = exec (true,
             EXE .. " chains add x config " .. bad
         )
-        assert(code ~= 0, "should fail")
+        assert (
+            Q~=0 and err=="ERROR : chains add : file must return a table"
+            , "should fail: " .. tostring(err)
+        )
     end
 
     do
@@ -132,10 +135,13 @@ do
 
     do
         TEST "rem nonexistent fails"
-        local _, code = exec (true,
+        local _, Q, err = exec (true,
             EXE .. " chains rem nonexistent"
         )
-        assert(code ~= 0, "should fail")
+        assert (
+            Q~=0 and err:match("ERROR : chains rem : not found: nonexistent")
+            , "should fail: " .. tostring(err)
+        )
     end
 
     do

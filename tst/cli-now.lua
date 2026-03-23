@@ -108,20 +108,25 @@ do
         exec (
             ENV_EXE .. " --now=10000 chain cli-now post inline 'base2' --sign " .. KEY
         )
-        local ok, code, msg = exec (true,
+        local _, Q, err = exec (true,
             ENV_EXE .. " --now=5000 chain cli-now post inline 'too far back' --sign " .. KEY
         )
-        local err = "ERROR : chain post : cannot be older than parent"
-        assert(ok==false and msg==err, "should fail: " .. tostring(ok))
+        assert (
+            Q~=0 and err=="ERROR : chain post : cannot be older than parent"
+            , "should fail: " .. tostring(err)
+        )
     end
 
     do
         TEST "like beyond tolerance fails"
         local h = exec(ENV_EXE .. " --now=10000 chain cli-now post inline 'base3' --sign " .. KEY)
-        local ok, code = exec(true,
+        local _, Q, err = exec (true,
             ENV_EXE .. " --now=5000 chain cli-now like 1 post " .. h .. " --sign " .. KEY
         )
-        assert(ok == false, "should fail: " .. tostring(ok))
+        assert (
+            Q~=0 and err=="ERROR : chain like : cannot be older than parent"
+            , "should fail: " .. tostring(err)
+        )
     end
 end
 

@@ -173,10 +173,13 @@ do
     do
         TEST "like-nonexistent-post"
         local fake = "0000000000000000000000000000000000000000"
-        local _, code = exec (true,
+        local _, Q, err = exec (true,
             ENV_EXE .. " chain cli-like like 1 post " .. fake .. " --sign " .. KEY2
         )
-        assert(code ~= 0, "should fail")
+        assert (
+            Q~=0 and err=="ERROR : chain like : post not found : " .. fake
+            , "should fail: " .. tostring(err)
+        )
     end
 
     do
@@ -203,18 +206,35 @@ do
 
     do
         TEST "like-requires-sign"
-        local _, code = exec (true,
+        local _, Q, err = exec (true,
             ENV_EXE .. " chain cli-like like 1 post " .. POST
         )
-        assert(code ~= 0, "like without --sign should fail")
+        assert (
+            Q~=0 and err=="ERROR : chain post : requires --sign or --beg"
+            , "should fail: " .. tostring(err)
+        )
+    end
+
+    do
+        TEST "like-zero-number"
+        local _, Q, err = exec (true,
+            ENV_EXE .. " chain cli-like like 0 post " .. POST .. " --sign " .. KEY
+        )
+        assert (
+            Q~=0 and err=="ERROR : chain like : expected positive integer"
+            , "like with 0 should fail"
+        )
     end
 
     do
         TEST "like-bad-target-type"
-        local _, code = exec (true,
+        local _, Q, err = exec (true,
             ENV_EXE .. " chain cli-like like 1 foo " .. POST .. " --sign " .. KEY
         )
-        assert(code ~= 0, "bad target type should fail")
+        assert (
+            Q~=0 and err=="ERROR : chain like : target must be 'post' or 'author'"
+            , "should fail: " .. tostring(err)
+        )
     end
 end
 
