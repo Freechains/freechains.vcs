@@ -105,23 +105,6 @@ if ARGS.add then
         local dir = DIR .. "/" .. hash .. "/"
         exec("mv " .. tmp .. " " .. dir)
         exec("ln -s " .. hash .. " " .. DIR .. "/" .. ARGS.alias)
-        exec("mkdir -p " .. dir .. ".freechains/state/")
-        do
-            local f = io.open(dir .. ".freechains/state/now.lua" , "w")
-            f:write("return 0\n")
-            f:close()
-        end
-        do
-            local f = io.open(dir .. ".freechains/state/posts.lua", "w")
-            f:write("return {\n}\n")
-            f:close()
-        end
-        do
-            local f = io.open(dir .. ".freechains/state/order.lua", "w")
-            f:write("return {\n}\n")
-            f:close()
-        end
-        pioneers(dir)
         print(hash)
     end
 elseif ARGS.rem then

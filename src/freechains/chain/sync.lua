@@ -102,6 +102,7 @@ elseif ARGS.recv then
         G_com = {
             authors = F(".freechains/state/authors.lua"),
             posts   = F(".freechains/state/posts.lua"),
+            now     = F(".freechains/state/now.lua"),
         }
         if chk ~= com then
             replay(G_com, chk, com)
@@ -109,7 +110,7 @@ elseif ARGS.recv then
     end
 
     -- verify remote: replay remote branch from copy of G_com
-    local G_rem = { authors = {}, posts = {} }
+    local G_rem = { authors = {}, posts = {}, now = G_com.now }
     for k, v in pairs(G_com.authors) do
         G_rem.authors[k] = { reps = v.reps, time = v.time }
     end

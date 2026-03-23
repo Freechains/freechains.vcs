@@ -9,6 +9,71 @@ function write (T, file)
 end
 
 function apply (G, T)
+    local time = (T and T.time) or NOW.s
+    local sign = T and T.sign
+
+    -- time effects: discount + consolidation
+    if sign or time > G.now then
+        -- discount scan
+        for hash, entry in pairs(G.posts) do
+            if entry.state == "00-12" then
+                local subs = {}
+                for h2, other in pairs(G.posts) do
+                    if other.time and other.time > entry.time then
+                        subs[other.author] = true
+                    end
+                end
+                if sign then
+                    subs[sign] = true
+                end
+
+                local cur = 0
+                for a in pairs(subs) do
+                    cur = cur + math.max(0, (G.authors[a] and G.authors[a].reps) or 0)
+                end
+                local tot = 0
+                for _, v in pairs(G.authors) do
+                    tot = tot + math.max(0, v.reps)
+                end
+
+                local ratio = (tot>0 and cur/tot) or 0
+                local discount = C.time.half * math.max(0, 1 - 2*ratio)
+
+                if time >= entry.time + discount then
+                    G.authors[entry.author].reps = G.authors[entry.author].reps + C.reps.cost
+                    entry.state = "12-24"
+                end
+            end
+        end
+
+        -- consolidation scan
+        for hash, entry in pairs(G.posts) do
+            if entry.state == "12-24" then
+                if time >= entry.time + C.time.full then
+                    local last = G.authors[entry.author].time
+                    if time - last >= C.time.full then
+                        G.authors[entry.author].reps = G.authors[entry.author].reps + C.reps.cost
+                        G.authors[entry.author].time = last + C.time.full
+                        entry.state = nil
+                        entry.time  = nil
+                    end
+                end
+            end
+        end
+
+        G.now = time
+    end
+
+    if T == nil then
+        -- cap for query path
+        for k, v in pairs(G.authors) do
+            if v.reps > C.reps.max then
+                v.reps = C.reps.max
+            end
+        end
+        return true
+    end
+
     if T.kind == 'post' then
         G.xps = true
         G.posts[T.hash] = {
@@ -55,4 +120,6 @@ function apply (G, T)
             v.reps = C.reps.max
         end
     end
+
+    return true
 end
