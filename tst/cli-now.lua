@@ -112,7 +112,7 @@ do
             ENV_EXE .. " --now=5000 chain cli-now post inline 'too far back' --sign " .. KEY
         )
         assert (
-            Q~=0 and err=="ERROR : chain post : cannot be older than parent"
+            Q~=0 and err=="ERROR : chain post : too big time difference"
             , "should fail: " .. tostring(err)
         )
     end
@@ -124,7 +124,7 @@ do
             ENV_EXE .. " --now=5000 chain cli-now like 1 post " .. h .. " --sign " .. KEY
         )
         assert (
-            Q~=0 and err=="ERROR : chain like : cannot be older than parent"
+            Q~=0 and err=="ERROR : chain like : too big time difference"
             , "should fail: " .. tostring(err)
         )
     end
