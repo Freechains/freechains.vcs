@@ -3,11 +3,6 @@ local file
 
 local rand = math.random(0, 9999999999)
 
-local num = (ARGS.number or 0) * C.reps.unit
-if ARGS.dislike then
-    num = -num
-end
-
 -- signing gate (beg + auth checks; reps checked by apply)
 do
     if ARGS.sign then
@@ -24,38 +19,47 @@ do
     end
 end
 
--- post payload
-if ARGS.post then
-    if ARGS.inline then
-        local text = ARGS.text .. (ARGS.text:match("\n$") and "" or "\n")
-        file = ARGS.file or "post-" .. NOW.s .. "-" .. rand .. ".txt"
-        local f = io.open(REPO.."/"..file, (ARGS.file and "a") or "w")
-        f:write(text)
-        f:close()
+-- num is used in payload and apply
+local num = (ARGS.number or 0) * C.reps.unit
+if ARGS.dislike then
+    num = -num
+end
+
+-- payload
+do
+    -- post payload
+    if ARGS.post then
+        if ARGS.inline then
+            local text = ARGS.text .. (ARGS.text:match("\n$") and "" or "\n")
+            file = ARGS.file or "post-" .. NOW.s .. "-" .. rand .. ".txt"
+            local f = io.open(REPO.."/"..file, (ARGS.file and "a") or "w")
+            f:write(text)
+            f:close()
+        else
+            assert(ARGS.file)
+            file = ARGS.path:match("[^/]+$")
+            exec (
+                "cp " .. ARGS.path .. " " .. REPO .. "/"
+                , "chain post : copy failed: " .. ARGS.path
+            )
+        end
+
+    -- like payload
     else
-        assert(ARGS.file)
-        file = ARGS.path:match("[^/]+$")
-        exec (
-            "cp " .. ARGS.path .. " " .. REPO .. "/"
-            , "chain post : copy failed: " .. ARGS.path
-        )
+        assert(ARGS.like or ARGS.dislike)
+
+        local payload = [[
+            return {
+                target = "]] .. ARGS.target .. [[",
+                id     = "]] .. ARGS.id     .. [[",
+                number = ]]  .. num         .. [[,
+            }
+        ]]
+        file = ".freechains/likes/like-" .. NOW.s .. "-" .. rand .. ".lua"
+        local f = io.open(REPO .. file, "w")
+        f:write(payload)
+        f:close()
     end
-
--- like payload
-else
-    assert(ARGS.like or ARGS.dislike)
-
-    local payload = [[
-        return {
-            target = "]] .. ARGS.target .. [[",
-            id     = "]] .. ARGS.id     .. [[",
-            number = ]]  .. num         .. [[,
-        }
-    ]]
-    file = ".freechains/likes/like-" .. NOW.s .. "-" .. rand .. ".lua"
-    local f = io.open(REPO .. file, "w")
-    f:write(payload)
-    f:close()
 end
 
 -- monotonic timestamp validation
