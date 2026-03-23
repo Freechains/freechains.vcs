@@ -37,6 +37,10 @@ do
         )
         assert(#out == 40, "hash: " .. out)
 
+        TEST "GF matches pioneer key"
+        local gf = exec(ENV .. " git -C " .. REPO_A .. " log -1 --format='%GF' HEAD")
+        assert(gf == KEY, "GF mismatch: [" .. gf .. "] vs [" .. KEY .. "]")
+
         TEST "B recvs from A"
         exec(EXE_B .. " chain test sync recv " .. REPO_A)
     end

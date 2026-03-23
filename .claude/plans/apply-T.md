@@ -149,11 +149,39 @@ T.id:     for target == "author": author must exist
 T.hash:   #T.hash == 40 (defensive, low priority)
 ```
 
+## Beg Replay
+
+Begs come in pairs during replay:
+1. An unsigned post (beg) — `trailer == "post"`, no key
+2. A like targeting that beg — `trailer == "like"`
+
+Currently replay skips likes (`error "TODO"`), so begs
+are never unblocked during replay.
+
+**Decision:** Add a `"Freechains: beg"` trailer to beg
+commits so replay can distinguish begs from regular
+unsigned posts without relying on `key == nil` heuristic.
+
 ## Status
 
-- [ ] Decide which checks go in apply vs caller
-- [ ] Implement T.time validation (incl. monotonic check moved from post.lua)
+- [x] Decide which checks go in apply vs caller
+  - Refactored apply signature to `(G, kind, time, T)`
+  - Split apply body by kind (post/like/reps)
+- [x] Implement T.time validation
+  - Monotonic check moved from post.lua into apply
+  - `G.now` tracks highest seen timestamp (max)
+  - Sync resets `G.now` between winner/loser replay
 - [ ] Implement T.sign: check %G? in replay
 - [ ] Implement T.num negative/fractional check
 - [ ] Implement T.id author-existence check
 - [ ] Add tests for malformed T fields
+- [ ] Implement like replay in sync.lua
+  - replay must read like payload from commit
+  - replay must handle beg+like pairs
+- [ ] Add "Freechains: beg" trailer to beg commits
+- [ ] Fix sync replay error handling
+  - replay now returns false on apply failure
+  - all callers check and abort with ERROR
+  - current bug: step 1 (basic recv) fails with
+    "insufficient reputation" — need to debug
+    checkpoint state (pioneer reps not loaded?)

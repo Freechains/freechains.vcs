@@ -40,7 +40,7 @@ elseif ARGS.recv then
     local function replay (G, old, new)
         local out = exec (
             "git -C " .. REPO ..
-                " log --reverse --no-merges --format='%H %at %GK' " ..
+                " log --reverse --no-merges --format='%H %at %GF' " ..
                 (old .. ".." .. new)
         )
         for line in out:gmatch("[^\n]+") do
