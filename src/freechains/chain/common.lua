@@ -77,9 +77,6 @@ function apply (G, T)
             if not T.sign then
                 return false, "unsigned"
             end
-            if T.num == 0 then
-                return false, "expected positive integer"
-            end
             if T.target ~= "post" and T.target ~= "author" then
                 return false, "target must be 'post' or 'author'"
             end

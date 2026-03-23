@@ -221,8 +221,16 @@ do
             ENV_EXE .. " chain cli-like like 0 post " .. POST .. " --sign " .. KEY
         )
         assert (
-            Q~=0 and err=="ERROR : chain like : expected positive integer"
+            Q~=0 and err:match("Error: expected positive integer : got '0'")
             , "like with 0 should fail"
+        )
+        TEST "like-non-numeric"
+        local _, Q, err = exec (true,
+            ENV_EXE .. " chain cli-like like abc post " .. POST .. " --sign " .. KEY
+        )
+        assert (
+            Q~=0 and err:match("Error: expected positive integer : got 'abc'")
+            , "should fail with non-numeric number"
         )
     end
 
@@ -234,17 +242,6 @@ do
         assert (
             Q~=0 and err=="ERROR : chain like : target must be 'post' or 'author'"
             , "should fail: " .. tostring(err)
-        )
-    end
-
-    do
-        TEST "like-non-numeric"
-        local _, Q, err = exec (true,
-            ENV_EXE .. " chain cli-like like abc post " .. POST .. " --sign " .. KEY
-        )
-        assert (
-            Q~=0 and err:match("Error: malformed argument 'abc'")
-            , "should fail with non-numeric number"
         )
     end
 end

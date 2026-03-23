@@ -99,9 +99,18 @@ do
         cmd.chain.post.inline._:option("--file")
     end
 
+    local function positive (s)
+        local n = math.tointeger(s)
+        if n and n>0 then
+            return n
+        else
+            return nil, "expected positive integer : got '" .. s .. "'"
+        end
+    end
+
     -- cmd.chain.like
     cmd.chain.like._ = cmd.chain._:command("like")
-    cmd.chain.like._:argument("number"):convert(tonumber)
+    cmd.chain.like._:argument("number"):convert(positive)
     cmd.chain.like._:argument("target")
     cmd.chain.like._:argument("id")
     cmd.chain.like._:option("--sign")
@@ -109,7 +118,7 @@ do
 
     -- cmd.chain.dislike
     cmd.chain.dislike._ = cmd.chain._:command("dislike")
-    cmd.chain.dislike._:argument("number"):convert(tonumber)
+    cmd.chain.dislike._:argument("number"):convert(positive)
     cmd.chain.dislike._:argument("target")
     cmd.chain.dislike._:argument("id")
     cmd.chain.dislike._:option("--sign")
