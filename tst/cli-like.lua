@@ -236,6 +236,17 @@ do
             , "should fail: " .. tostring(err)
         )
     end
+
+    do
+        TEST "like-non-numeric"
+        local _, Q, err = exec (true,
+            ENV_EXE .. " chain cli-like like abc post " .. POST .. " --sign " .. KEY
+        )
+        assert (
+            Q~=0 and err:match("Error: malformed argument 'abc'")
+            , "should fail with non-numeric number"
+        )
+    end
 end
 
 print("<== ALL PASSED")
