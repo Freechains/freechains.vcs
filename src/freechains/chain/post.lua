@@ -106,17 +106,17 @@ do
     )
 
     -- apply immediate effects (after commit, with hash)
-    local ok, err
+    local T
     if ARGS.post then
-        ok, err = apply(G, {
+        T = {
             kind = 'post',
             hash = hash,
             sign = ARGS.sign,
             beg  = ARGS.beg,
             time = NOW.s,
-        })
+        }
     else
-        ok, err = apply(G, {
+        T = {
             kind   = 'like',
             sign   = ARGS.sign,
             num    = num,
@@ -124,8 +124,9 @@ do
             id     = ARGS.id,
             beg    = to_beg,
             time   = NOW.s,
-        })
+        }
     end
+    local ok, err = apply(G, T)
     if not ok then
         exec("git -C " .. REPO .. " reset --hard HEAD~1")
         write(G.now,     FC .. "state/now.lua")
