@@ -177,7 +177,7 @@ do
             ENV_EXE .. " chain cli-like like 1 post " .. fake .. " --sign " .. KEY2
         )
         assert (
-            Q~=0 and err=="ERROR : chain like : post not found"
+            Q~=0 and err=="ERROR : chain like : invalid target : post not found"
             , "should fail: " .. tostring(err)
         )
     end
@@ -240,7 +240,7 @@ do
             ENV_EXE .. " chain cli-like like 1 foo " .. POST .. " --sign " .. KEY
         )
         assert (
-            Q~=0 and err=="ERROR : chain like : target must be 'post' or 'author'"
+            Q~=0 and err=="ERROR : chain like : invalid target : expects 'post' or 'author'"
             , "should fail: " .. tostring(err)
         )
     end

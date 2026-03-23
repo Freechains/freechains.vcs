@@ -74,70 +74,71 @@ function apply (G, kind, time, T)
         end
     end
 
-    if T then
+    if kind == 'reps' then
+        -- no validation / mutation
+
+    elseif kind == 'post' then
         -- validation
-        if kind == 'post' then
-            if T.sign and not T.beg then
-                local reps = G.authors[T.sign] and G.authors[T.sign].reps or 0
-                if reps <= 0 then
-                    return false, "insufficient reputation"
-                end
-            end
-        elseif kind == 'like' then
-            if not T.sign then
-                return false, "unsigned"
-            end
-            if T.target ~= "post" and T.target ~= "author" then
-                return false, "target must be 'post' or 'author'"
-            end
-            if T.target == "post" and not G.posts[T.id] then
-                return false, "post not found"
-            end
+        if T.sign and not T.beg then
             local reps = G.authors[T.sign] and G.authors[T.sign].reps or 0
             if reps <= 0 then
                 return false, "insufficient reputation"
             end
         end
 
-        -- state mutation
-        if kind == 'post' then
-            G.xps = true
-            G.posts[T.hash] = {
-                author = T.sign,
-                time   = time,
-                state  = (T.beg and 'blocked') or (T.sign and '00-12') or 'blocked',
-                reps   = 0,
-            }
-            if T.sign then
-                G.xas = true
-                G.authors[T.sign] = G.authors[T.sign] or { reps=0 }
-                if not T.beg then
-                    G.authors[T.sign].reps = G.authors[T.sign].reps - C.reps.cost
-                    if G.authors[T.sign].time == nil then
-                        -- do not set for beg, bc not available to others
-                        G.authors[T.sign].time = time
-                    end
-                end
-            end
-
-        elseif kind == 'like' then
+        -- mutation
+        G.xps = true
+        G.posts[T.hash] = {
+            author = T.sign,
+            time   = time,
+            state  = (T.beg and 'blocked') or (T.sign and '00-12') or 'blocked',
+            reps   = 0,
+        }
+        if T.sign then
             G.xas = true
-            G.authors[T.sign].reps = G.authors[T.sign].reps - math.abs(T.num)
-            local num = T.num * (100 - C.like.tax) // 100
-            if T.target == "post" then
-                local a = G.posts[T.id].author
-                G.authors[a] = G.authors[a] or { reps=0 }
-                G.authors[a].reps = G.authors[a].reps + num//C.like.split
-                G.posts[T.id].reps = G.posts[T.id].reps + num//C.like.split
-                if T.beg then
-                    G.posts[T.id].state = "00-12"
-                    G.posts[T.id].time = time
+            G.authors[T.sign] = G.authors[T.sign] or { reps=0 }
+            if not T.beg then
+                G.authors[T.sign].reps = G.authors[T.sign].reps - C.reps.cost
+                if G.authors[T.sign].time == nil then
+                    -- do not set for beg, bc not available to others
+                    G.authors[T.sign].time = time
                 end
-                G.xps = true
-            else
-                G.authors[T.id] = G.authors[T.id] or { reps=0 }
-                G.authors[T.id].reps = G.authors[T.id].reps + num
             end
+        end
+
+    elseif kind == 'like' and T then
+        -- validation
+        if not T.sign then
+            return false, "not signed"
+        end
+        if T.target ~= "post" and T.target ~= "author" then
+            return false, "invalid target : expects 'post' or 'author'"
+        end
+        if T.target == "post" and not G.posts[T.id] then
+            return false, "invalid target : post not found"
+        end
+        local reps = G.authors[T.sign] and G.authors[T.sign].reps or 0
+        if reps <= 0 then
+            return false, "insufficient reputation"
+        end
+
+        -- mutation
+        G.xas = true
+        G.authors[T.sign].reps = G.authors[T.sign].reps - math.abs(T.num)
+        local num = T.num * (100 - C.like.tax) // 100
+        if T.target == "post" then
+            local a = G.posts[T.id].author
+            G.authors[a] = G.authors[a] or { reps=0 }
+            G.authors[a].reps = G.authors[a].reps + num//C.like.split
+            G.posts[T.id].reps = G.posts[T.id].reps + num//C.like.split
+            if T.beg then
+                G.posts[T.id].state = "00-12"
+                G.posts[T.id].time = time
+            end
+            G.xps = true
+        else
+            G.authors[T.id] = G.authors[T.id] or { reps=0 }
+            G.authors[T.id].reps = G.authors[T.id].reps + num
         end
     end
 
