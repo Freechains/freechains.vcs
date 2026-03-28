@@ -96,7 +96,7 @@ do
     do
         TEST "A and B are equal"
         local _, ok = exec (true,
-            "diff -r --exclude=.git --exclude=posts.lua " .. REPO_A .. " " .. REPO_B
+            "diff -r --exclude=.git " .. REPO_A .. " " .. REPO_B
         )
         assert(ok == 0, "A and B should not differ")
     end
