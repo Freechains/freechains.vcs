@@ -14,7 +14,7 @@ else
     G = {
         authors = dofile(FC .. "state/authors.lua"),
         posts   = dofile(FC .. "state/posts.lua"),
-        now     = dofile(FC .. "state/now.lua"),
+        now     = tonumber((exec("git -C " .. REPO .. " log -1 --format=%at HEAD"))),
     }
 
     -- fix tmp ? hash from previous post
