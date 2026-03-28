@@ -17,23 +17,25 @@ local to_beg = (
         ) and true
 )
 
--- beg: validate parent, checkout, load beg entry before apply
+-- beg: validate parent, merge into main, load beg entry
+local ref = "refs/begs/beg-" .. ARGS.id
 if to_beg then
     local up = exec (
         "git -C " .. REPO .. " log -1 --format=%P " .. ARGS.id
     )
-    local _, ok = exec (true,
+    local _,ok = exec (true,
         "git -C " .. REPO .. " merge-base --is-ancestor " .. up .. " HEAD"
     )
     if ok ~= 0 then
         error("TODO : bug found : branch should not exist in the first place")
-        ERROR("chain like : invalid target : beg post does not exist")
+        --exec("git -C " .. REPO .. " update-ref -d " .. ref)
+        --ERROR("chain like : invalid target : beg post does not exist")
     end
-    exec (
-        "git -C " .. REPO .. " checkout " .. ARGS.id
+    exec("git -C " .. REPO .. " merge -X ours --no-edit " .. ref)
+    local src = exec(
+        "git -C " .. REPO .. " show " .. ARGS.id .. ":.freechains/state/posts.lua"
     )
-    local G_beg = dofile(FC .. "state/posts.lua")
-    G.posts[ARGS.id] = G_beg["?"]
+    G.posts[ARGS.id] = load(src)()["?"]
 end
 
 -- apply (no tmp ? hash, likes dont go to G.posts)
@@ -82,19 +84,7 @@ do
 end
 
 if to_beg then
-    local ref = "refs/begs/beg-" .. ARGS.id
-    exec (
-        "git -C " .. REPO .. " update-ref " .. ref .. " " .. hash
-    )
-    exec (
-        "git -C " .. REPO .. " checkout main"
-    )
-    exec (
-        "git -C " .. REPO .. " merge --no-edit " .. ref
-    )
-    exec (
-        "git -C " .. REPO .. " update-ref -d " .. ref
-    )
+    exec("git -C " .. REPO .. " update-ref -d " .. ref)
 end
 
 print(hash)
