@@ -15,9 +15,14 @@ else
         authors = dofile(FC .. "state/authors.lua"),
         posts   = dofile(FC .. "state/posts.lua"),
         now     = dofile(FC .. "state/now.lua"),
-        xas     = false,
-        xps     = false,
     }
+
+    -- now we now previous tmp ? hash
+    if G.posts["?"] then
+        local head = exec("git -C " .. REPO .. " rev-parse HEAD")
+        G.posts[head] = G.posts["?"]
+        G.posts["?"] = nil
+    end
 
     if ARGS.reps then
         apply(G, 'reps', NOW.s, nil)
@@ -26,13 +31,5 @@ else
         require "freechains.chain.post"
     elseif ARGS.like or ARGS.dislike then
         require "freechains.chain.like"
-    end
-
-    write(G.now, FC .. "state/now.lua")
-    if G.xas then
-        write(G.authors, FC .. "state/authors.lua")
-    end
-    if G.xps then
-        write(G.posts, FC .. "state/posts.lua")
     end
 end

@@ -13,7 +13,21 @@ do
     end
 end
 
--- payload
+-- apply with tmp ? hash
+do
+    local T = {
+        hash = "?",
+        sign = ARGS.sign,
+        beg  = ARGS.beg,
+    }
+    local ok, err = apply(G, 'post', NOW.s, T)
+    if not ok then
+        ERROR("chain post : " .. err)
+    end
+end
+
+-- write / commit
+local hash
 do
     local file
     if ARGS.inline then
@@ -31,14 +45,10 @@ do
             , "chain post : copy failed: " .. ARGS.path
         )
     end
+    write(G) 
     exec (
         "git -C " .. REPO .. " add .freechains/state/ " .. file
     )
-end
-
--- commit
-local hash
-do
     local s1, s2 = "", ""
     if ARGS.sign then
         s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=openpgp"
@@ -52,23 +62,6 @@ do
     hash = exec (
         "git -C " .. REPO .. " rev-parse HEAD"
     )
-end
-
--- apply
-do
-    local T = {
-        hash = hash,
-        sign = ARGS.sign,
-        beg  = ARGS.beg,
-    }
-    local ok, err = apply(G, 'post', NOW.s, T)
-    if not ok then
-        exec("git -C " .. REPO .. " reset --hard HEAD~1")
-        write(G.now,     FC .. "state/now.lua")
-        write(G.authors, FC .. "state/authors.lua")
-        write(G.posts,   FC .. "state/posts.lua")
-        ERROR("chain post : " .. err)
-    end
 end
 
 if ARGS.beg then

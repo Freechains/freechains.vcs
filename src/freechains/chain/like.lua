@@ -15,7 +15,30 @@ local to_beg = (
     G.posts[ARGS.id] and G.posts[ARGS.id].state == "blocked"
 )
 
--- payload
+-- apply (no tmp ? hash, likes dont go to G.posts)
+do
+    local T = {
+        sign   = ARGS.sign,
+        num    = num,
+        target = ARGS.target,
+        id     = ARGS.id,
+        beg    = to_beg,
+    }
+    local ok, err = apply(G, 'like', NOW.s, T)
+    if not ok then
+        ERROR("chain like : " .. err)
+    end
+end
+
+-- beg: checkout referred beg branch
+if to_beg then
+    exec (
+        "git -C " .. REPO .. " checkout " .. ARGS.id
+    )
+end
+
+-- payload + commit
+local hash
 do
     local payload = [[
         return {
@@ -29,20 +52,10 @@ do
     local f = io.open(REPO .. file, "w")
     f:write(payload)
     f:close()
-
+    write(G)    -- write state
     exec (
         "git -C " .. REPO .. " add .freechains/state/ " .. file
     )
-end
-
--- commit
-local hash
-do
-    if to_beg then
-        exec (
-            "git -C " .. REPO .. " checkout " .. ARGS.id
-        )
-    end
     local s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=openpgp"
     local msg = ARGS.why or "(empty message)"
     exec (
@@ -52,25 +65,6 @@ do
     hash = exec (
         "git -C " .. REPO .. " rev-parse HEAD"
     )
-end
-
--- apply
-do
-    local T = {
-        sign   = ARGS.sign,
-        num    = num,
-        target = ARGS.target,
-        id     = ARGS.id,
-        beg    = to_beg,
-    }
-    local ok, err = apply(G, 'like', NOW.s, T)
-    if not ok then
-        exec("git -C " .. REPO .. " reset --hard HEAD~1")
-        write(G.now,     FC .. "state/now.lua")
-        write(G.authors, FC .. "state/authors.lua")
-        write(G.posts,   FC .. "state/posts.lua")
-        ERROR("chain like : " .. err)
-    end
 end
 
 if to_beg then

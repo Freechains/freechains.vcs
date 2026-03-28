@@ -2,10 +2,16 @@ C    = require "freechains.constants"
 REPO = ARGS.root .. "/chains/" .. ARGS.alias .. "/"
 FC   = REPO .. ".freechains/"
 
-function write (T, file)
-    local f = io.open(file, "w")
-    f:write(serial(T))
-    f:close()
+function write (G)
+    local function f (V, file)
+        local f = io.open(file, "w")
+        f:write(serial(V))
+        f:close()
+    end
+
+    f(G.now, FC .. "state/now.lua")
+    f(G.authors, FC .. "state/authors.lua")
+    f(G.posts, FC .. "state/posts.lua")
 end
 
 function apply (G, kind, time, T)
@@ -87,7 +93,6 @@ function apply (G, kind, time, T)
         end
 
         -- mutation
-        G.xps = true
         G.posts[T.hash] = {
             author = T.sign,
             time   = time,
@@ -95,7 +100,6 @@ function apply (G, kind, time, T)
             reps   = 0,
         }
         if T.sign then
-            G.xas = true
             G.authors[T.sign] = G.authors[T.sign] or { reps=0 }
             if not T.beg then
                 G.authors[T.sign].reps = G.authors[T.sign].reps - C.reps.cost
@@ -123,7 +127,6 @@ function apply (G, kind, time, T)
         end
 
         -- mutation
-        G.xas = true
         G.authors[T.sign].reps = G.authors[T.sign].reps - math.abs(T.num)
         local num = T.num * (100 - C.like.tax) // 100
         if T.target == "post" then
@@ -135,7 +138,6 @@ function apply (G, kind, time, T)
                 G.posts[T.id].state = "00-12"
                 G.posts[T.id].time = time
             end
-            G.xps = true
         else
             G.authors[T.id] = G.authors[T.id] or { reps=0 }
             G.authors[T.id].reps = G.authors[T.id].reps + num
