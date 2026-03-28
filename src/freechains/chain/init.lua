@@ -17,7 +17,7 @@ else
         now     = dofile(FC .. "state/now.lua"),
     }
 
-    -- now we now previous tmp ? hash
+    -- fix tmp ? hash from previous post
     if G.posts["?"] then
         local head = exec("git -C " .. REPO .. " rev-parse HEAD")
         G.posts[head] = G.posts["?"]

@@ -51,7 +51,7 @@ function serial (t)
         elseif type(v) == 'string' then
             assert(not string.find(v,'"'))
             return '"' .. v .. '"'
-        elseif type(v) ~= "table" then
+        elseif type(v) ~= 'table' then
             error("TODO : unsupported type")
         else
             local keys = {}
@@ -59,10 +59,20 @@ function serial (t)
             table.sort(keys)
             local parts = {}
             for _, k in ipairs(keys) do
-                local pfx = type(k) == "number" and "[" .. k .. "]=" or '["' .. k .. '"]='
+                local pfx
+                if type(k) == 'number' then
+                    pfx = "[" .. k .. "] = "
+                else
+                    pfx = '["' .. k .. '"] = '
+                end
                 parts[#parts+1] = pfx .. val(v[k])
             end
-            return "{ " .. table.concat(parts, ", ") .. " }"
+            local out = "{\n"
+            for _,v in ipairs(parts) do
+                out = out .. "    " .. v .. ",\n"
+            end
+            out = out .. "}"
+            return out
         end
     end
     return "return " .. val(t) .. "\n"
