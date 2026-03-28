@@ -9,9 +9,9 @@ function write (G)
         f:close()
     end
 
-    f(G.now, FC .. "state/now.lua")
+    f(G.now,     FC .. "state/now.lua")
     f(G.authors, FC .. "state/authors.lua")
-    f(G.posts, FC .. "state/posts.lua")
+    f(G.posts,   FC .. "state/posts.lua")
 end
 
 function apply (G, kind, time, T)

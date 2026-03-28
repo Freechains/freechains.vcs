@@ -45,7 +45,7 @@ do
             , "chain post : copy failed: " .. ARGS.path
         )
     end
-    write(G) 
+    write(G)    -- write state
     exec (
         "git -C " .. REPO .. " add .freechains/state/ " .. file
     )
