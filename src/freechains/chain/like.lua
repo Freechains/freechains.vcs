@@ -31,7 +31,7 @@ if to_beg then
         --exec("git -C " .. REPO .. " update-ref -d " .. ref)
         --ERROR("chain like : invalid target : beg post does not exist")
     end
-    exec("git -C " .. REPO .. " merge -X ours --no-edit " .. ref)
+    exec("git -C " .. REPO .. " merge -X ours --no-commit --no-edit " .. ref)
     local src = exec(
         "git -C " .. REPO .. " show " .. ARGS.id .. ":.freechains/state/posts.lua"
     )
