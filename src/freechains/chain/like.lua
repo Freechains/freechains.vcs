@@ -17,6 +17,15 @@ local to_beg = (
         ) and true
 )
 
+-- beg: checkout and load beg entry before apply
+if to_beg then
+    exec (
+        "git -C " .. REPO .. " checkout " .. ARGS.id
+    )
+    local G_beg = dofile(FC .. "state/posts.lua")
+    G.posts[ARGS.id] = G_beg["?"]
+end
+
 -- apply (no tmp ? hash, likes dont go to G.posts)
 do
     local T = {
@@ -30,13 +39,6 @@ do
     if not ok then
         ERROR("chain like : " .. err)
     end
-end
-
--- beg: checkout referred beg branch
-if to_beg then
-    exec (
-        "git -C " .. REPO .. " checkout " .. ARGS.id
-    )
 end
 
 -- payload + commit
