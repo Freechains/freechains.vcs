@@ -17,8 +17,18 @@ local to_beg = (
         ) and true
 )
 
--- beg: checkout and load beg entry before apply
+-- beg: validate parent, checkout, load beg entry before apply
 if to_beg then
+    local up = exec (
+        "git -C " .. REPO .. " log -1 --format=%P " .. ARGS.id
+    )
+    local _, ok = exec (true,
+        "git -C " .. REPO .. " merge-base --is-ancestor " .. up .. " HEAD"
+    )
+    if ok ~= 0 then
+        error("TODO : bug found : branch should not exist in the first place")
+        ERROR("chain like : invalid target : beg post does not exist")
+    end
     exec (
         "git -C " .. REPO .. " checkout " .. ARGS.id
     )
