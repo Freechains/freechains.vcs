@@ -32,7 +32,7 @@ do
         )
     end
     exec (
-        "git -C " .. REPO .. " add " .. file
+        "git -C " .. REPO .. " add .freechains/state/ " .. file
     )
 end
 
