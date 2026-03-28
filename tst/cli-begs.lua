@@ -43,10 +43,9 @@ do
     end
 
     do
-        TEST "beg-blocked-in-posts"
+        TEST "beg-not-in-main-posts"
         local posts = dofile(DIR1 .. ".freechains/state/posts.lua")
-        assert(posts[BEG], "post entry not found: " .. BEG)
-        assert(posts[BEG].state == "blocked", "state should be blocked")
+        assert(not posts[BEG], "beg should not be in main posts.lua")
     end
 end
 
@@ -281,9 +280,9 @@ do
     end
 
     do
-        TEST "merge-parent-includes-like"
+        TEST "merge-parent-includes-beg"
         local parents = exec("git -C " .. DIR6 .. " log -1 --format=%P " .. MERGE)
-        assert(parents:match(LIKE), "like not in merge parents: " .. parents)
+        assert(parents:match(BEG), "beg not in merge parents: " .. parents)
     end
 end
 

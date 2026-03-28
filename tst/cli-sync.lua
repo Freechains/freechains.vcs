@@ -29,8 +29,8 @@ do
         TEST "B clones"
         exec(EXE_B .. " chains add test clone " .. REPO_A)
     end
-    -- A:  [state] genesis ── [post] P1
-    -- B:  [state] genesis ── [post] P1
+    -- A:  genesis ── [post] P1
+    -- B:  genesis ── [post] P1
 
     do
         TEST "A posts again"
@@ -43,8 +43,8 @@ do
         local gf = exec(ENV .. " git -C " .. REPO_A .. " log -1 --format='%GF' HEAD")
         assert(gf == KEY, "GF mismatch: [" .. gf .. "] vs [" .. KEY .. "]")
     end
-    -- A:  [state] genesis ── [post] P1 ── [post] P2
-    -- B:  [state] genesis ── [post] P1
+    -- A:  genesis ── [post] P1 ── [post] P2
+    -- B:  genesis ── [post] P1
 
     do
         TEST "B recvs from A"
@@ -57,8 +57,8 @@ do
             "heads should be equal: " .. A .. " vs " .. B
         )
     end
-    -- A:  [state] genesis ── [post] P1 ── [post] P2
-    -- B:  [state] genesis ── [post] P1 ── [post] P2
+    -- A:  genesis ── [post] P1 ── [post] P2
+    -- B:  genesis ── [post] P1 ── [post] P2
 end
 
 -- 2. recv bidirectional
@@ -75,8 +75,8 @@ do
         TEST "B recvs from A"
         exec(EXE_B .. " chain test sync recv " .. REPO_A)
     end
-    -- A:  [state] genesis ── [post] P1 ── P2 ── [post] P3
-    -- B:  [state] genesis ── [post] P1 ── P2 ── [post] P3
+    -- A:  genesis ── [post] P1 ── P2 ── [post] P3
+    -- B:  genesis ── [post] P1 ── P2 ── [post] P3
 
     do
         TEST "B posts"
@@ -88,18 +88,20 @@ do
         TEST "A recvs from B"
         exec(EXE_A .. " chain test sync recv " .. REPO_B)
     end
-    -- A:  [state] genesis ── [post] P1 ── P2 ── P3 ── [post] P4
-    -- B:  [state] genesis ── [post] P1 ── P2 ── P3 ── [post] P4
+    -- A:  genesis ── [post] P1 ── P2 ── P3 ── [post] P4
+    -- B:  genesis ── [post] P1 ── P2 ── P3 ── [post] P4
 
+    -- A: posts.lua: { [P1_hash]=..., ..., [P4_hash]=... }
+    -- B: posts.lua: { [P1_hash]=..., ..., ["?"]=...     }
     do
         TEST "A and B are equal"
         local _, ok = exec (true,
-            "diff -r --exclude=.git --exclude=now.lua --exclude=authors.lua --exclude=posts.lua " .. REPO_A .. " " .. REPO_B
+            "diff -r --exclude=.git --exclude=posts.lua " .. REPO_A .. " " .. REPO_B
         )
         assert(ok == 0, "A and B should not differ")
     end
-    -- A:  [state] genesis ── [post] P1 ── P2 ── P3 ── [post] P4
-    -- B:  [state] genesis ── [post] P1 ── P2 ── P3 ── [post] P4
+    -- A:  genesis ── [post] P1 ── P2 ── P3 ── [post] P4
+    -- B:  genesis ── [post] P1 ── P2 ── P3 ── [post] P4
 end
 
 -- 3. recv divergent + consensus
@@ -122,8 +124,8 @@ do
         )
         assert(#B == 40, "hash: " .. B)
     end
-    -- A:  [state] genesis ── [post] P1 ── P2 ── P3 ── P4 ── [post] P5
-    -- B:  [state] genesis ── [post] P1 ── P2 ── P3 ── P4 ── [post] P6
+    -- A:  genesis ── [post] P1 ── P2 ── P3 ── P4 ── [post] P5
+    -- B:  genesis ── [post] P1 ── P2 ── P3 ── P4 ── [post] P6
 
     -- A <-- B
     do
@@ -142,10 +144,10 @@ do
         assert(posts[A], "A's should be in posts.lua")
         assert(posts[B], "B's should be in posts.lua")
     end
-    --                                                    ┌── [post] P5
-    -- A:  [state] genesis ── P1 ── P2 ── P3 ── P4 ── [merge] ── [state] S1
-    --                                                    └── [post] P6
-    -- B:  [state] genesis ── [post] P1 ── P2 ── P3 ── P4 ── [post] P6
+    --                                                 ┌── [post] P5
+    -- A:  genesis ── P1 ── P2 ── P3 ── P4 ── [merge]
+    --                                                 └── [post] P6
+    -- B:  genesis ── [post] P1 ── P2 ── P3 ── P4 ── [post] P6
 
     -- B <-- A
     do
@@ -180,13 +182,13 @@ do
 
         TEST "A and B are bit-equal"
         local _, ok = exec(true,
-            "diff -r --exclude=.git --exclude=now.lua " .. REPO_A .. " " .. REPO_B
+            "diff -r --exclude=.git " .. REPO_A .. " " .. REPO_B
         )
         assert(ok == 0, "A and B should not differ")
     end
-    --                                                    ┌── [post] P5
-    -- A:  [state] genesis ── P1 ── P2 ── P3 ── P4 ── [merge] ── [state] S1
-    --                                                    └── [post] P6
+    --                                                 ┌── [post] P5
+    -- A:  genesis ── P1 ── P2 ── P3 ── P4 ── [merge]
+    --                                                 └── [post] P6
     -- B:  same as A (FF recv)
 end
 
