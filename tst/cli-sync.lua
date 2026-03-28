@@ -91,8 +91,6 @@ do
     -- A:  genesis ── [post] P1 ── P2 ── P3 ── [post] P4
     -- B:  genesis ── [post] P1 ── P2 ── P3 ── [post] P4
 
-    -- A: posts.lua: { [P1_hash]=..., ..., [P4_hash]=... }
-    -- B: posts.lua: { [P1_hash]=..., ..., ["?"]=...     }
     do
         TEST "A and B are equal"
         local _, ok = exec (true,

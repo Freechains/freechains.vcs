@@ -13,20 +13,7 @@ do
     end
 end
 
--- apply with tmp ? hash
-do
-    local T = {
-        hash = "?",
-        sign = ARGS.sign,
-        beg  = ARGS.beg,
-    }
-    local ok, err = apply(G, 'post', NOW.s, T)
-    if not ok then
-        ERROR("chain post : " .. err)
-    end
-end
-
--- write / commit
+-- commit post (content only, no state)
 local hash
 do
     local file
@@ -45,9 +32,8 @@ do
             , "chain post : copy failed: " .. ARGS.path
         )
     end
-    write(G)    -- write state
     exec (
-        "git -C " .. REPO .. " add .freechains/state/ " .. file
+        "git -C " .. REPO .. " add " .. file
     )
     local s1, s2 = "", ""
     if ARGS.sign then
@@ -64,12 +50,38 @@ do
     )
 end
 
+-- apply with real hash
+do
+    local T = {
+        hash = hash,
+        sign = ARGS.sign,
+        beg  = ARGS.beg,
+    }
+    local ok, err = apply(G, 'post', NOW.s, T)
+    if not ok then
+        exec("git -C " .. REPO .. " reset --hard HEAD~1")
+        ERROR("chain post : " .. err)
+    end
+end
+
+-- commit state
+do
+    write(G)
+    exec (
+        "git -C " .. REPO .. " add .freechains/state/"
+    )
+    exec (
+        NOW.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
+        .. " --trailer 'Freechains: state'"
+    )
+end
+
 if ARGS.beg then
     exec (
         "git -C " .. REPO .. " update-ref refs/begs/beg-" .. hash .. " HEAD"
     )
     exec (
-        "git -C " .. REPO .. " reset --hard HEAD~1"
+        "git -C " .. REPO .. " reset --hard HEAD~2"
     )
 end
 

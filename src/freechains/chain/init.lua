@@ -17,13 +17,6 @@ else
         now     = tonumber((exec("git -C " .. REPO .. " log -1 --format=%at HEAD"))),
     }
 
-    -- fix tmp ? hash from previous post
-    if G.posts["?"] then
-        local head = exec("git -C " .. REPO .. " rev-parse HEAD")
-        G.posts[head] = G.posts["?"]
-        G.posts["?"] = nil
-    end
-
     if ARGS.reps then
         apply(G, 'reps', NOW.s, nil)
         require "freechains.chain.reps"

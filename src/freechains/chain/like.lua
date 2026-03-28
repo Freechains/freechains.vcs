@@ -33,12 +33,12 @@ if to_beg then
     end
     exec("git -C " .. REPO .. " merge -X ours --no-commit --no-edit " .. ref)
     local src = exec(
-        "git -C " .. REPO .. " show " .. ARGS.id .. ":.freechains/state/posts.lua"
+        "git -C " .. REPO .. " show " .. ref .. ":.freechains/state/posts.lua"
     )
-    G.posts[ARGS.id] = load(src)()["?"]
+    G.posts[ARGS.id] = load(src)()[ARGS.id]
 end
 
--- apply (no tmp ? hash, likes dont go to G.posts)
+-- apply
 do
     local T = {
         sign   = ARGS.sign,
@@ -53,7 +53,7 @@ do
     end
 end
 
--- payload + commit
+-- commit like (content only, no state)
 local hash
 do
     local payload = [[
@@ -68,9 +68,8 @@ do
     local f = io.open(REPO .. file, "w")
     f:write(payload)
     f:close()
-    write(G)    -- write state
     exec (
-        "git -C " .. REPO .. " add .freechains/state/ " .. file
+        "git -C " .. REPO .. " add " .. file
     )
     local s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=openpgp"
     local msg = ARGS.why or "(empty message)"
@@ -80,6 +79,18 @@ do
     )
     hash = exec (
         "git -C " .. REPO .. " rev-parse HEAD"
+    )
+end
+
+-- commit state
+do
+    write(G)
+    exec (
+        "git -C " .. REPO .. " add .freechains/state/"
+    )
+    exec (
+        NOW.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
+        .. " --trailer 'Freechains: state'"
     )
 end
 
