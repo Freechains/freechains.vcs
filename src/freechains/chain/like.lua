@@ -9,10 +9,12 @@ if ARGS.dislike then
     num = -num
 end
 
--- detect if like targets a blocked beg
+-- detect if like targets a blocked beg on refs/begs/
 local to_beg = (
-    ARGS.target == "post" and
-    G.posts[ARGS.id] and G.posts[ARGS.id].state == "blocked"
+    (ARGS.target == "post") and
+        exec (true,
+            "git -C " .. REPO .. " rev-parse --verify refs/begs/beg-" .. ARGS.id
+        ) and true
 )
 
 -- apply (no tmp ? hash, likes dont go to G.posts)
