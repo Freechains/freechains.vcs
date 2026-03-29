@@ -16,74 +16,18 @@ All tests in `tst/cli-sync.lua`. Uses local paths
 
 ## Files
 
-| File                        | Role                            |
-|-----------------------------|---------------------------------|
-| `src/freechains.lua`        | sync subcommand + dispatch      |
-| `src/freechains/sync.lua`   | recv + send implementation      |
-| `src/freechains/replay.lua` | new: replay incoming commits    |
-| `src/freechains/chain.lua`  | refactor: extract time effects  |
-| `tst/cli-sync.lua`          | tests (grows incrementally)     |
+| File                              | Role                            |
+|-----------------------------------|---------------------------------|
+| `src/freechains.lua`              | sync subcommand + dispatch      |
+| `src/freechains/chain/sync.lua`   | recv + send implementation      |
+| `src/freechains/chain/common.lua` | shared: apply, write, NOW       |
+| `tst/cli-sync.lua`               | tests (grows incrementally)     |
 
-## State commits and local/ removal
+## State commits and local/ removal (DONE)
 
-### Problem
-
-Local state (authors.lua, posts.lua) lives in
-untracked `local/` dir. After recv, incoming commits
-are not registered. Replaying from genesis is correct
-but we need a checkpoint at merge-base for efficiency.
-
-### Design: committed state with commit keys
-
-Move authors.lua/posts.lua to `.freechains/` (tracked).
-Use commit hashes as post keys (not blob hashes).
-A separate "freechains: state" commit avoids circularity
-— the post commit hash exists before the state commit
-records it.
-
-### File layout (new)
-
-```
-<chain-repo>/
-  .freechains/
-    genesis.lua        -- tracked
-    random             -- tracked
-    likes/             -- tracked
-    authors.lua        -- tracked (committed in state commits)
-    posts.lua          -- tracked (committed in state commits)
-    now.lua            -- UNTRACKED (.git/info/exclude)
-```
-
-### Commit types
-
-| Trailer              | Content                        |
-|----------------------|--------------------------------|
-| `freechains: post`   | post file only                 |
-| `freechains: like`   | like file only                 |
-| `freechains: state`  | authors.lua + posts.lua update |
-| (none)               | git-compat post (treat as post)|
-| (merge)              | skip during replay             |
-| (genesis)            | skip during replay             |
-
-### When to create state commits
-
-- **Before send**: so the receiver can load our state
-  from our tree (winner side needs committed state)
-- **After recv**: to persist replayed state
-- **NOT before recv**: we have state on disk already
-
-Multiple posts/likes without sync produce zero state
-commits. State is kept on disk (modified but not
-committed) until sync.
-
-### On post/like
-
-1. Load authors.lua/posts.lua from disk (working tree)
-2. Run time effects + immediate effects
-3. Write authors.lua/posts.lua to disk (NOT committed)
-4. `git add` only the post/like file (selective)
-5. `git commit` with post/like trailer
-6. State files stay dirty in working tree — that's OK
+State files moved to `.freechains/state/` (tracked).
+Post keys use blob hashes. State commits use
+`Freechains: state` trailer. See new-merge.md §1.
 
 ### On send
 
@@ -344,38 +288,25 @@ to send.
 
 ## Current state
 
-- Step 1 test passes (`make test T=cli-sync`)
-- `src/freechains.lua`: sync subcommand added (argparse
-  + dispatch to `freechains.sync`)
-- `src/freechains/sync.lua`: recv does fetch + merge,
-  send does push (minimal)
-- `tst/cli-sync.lua`: step 1 + step 2 tests
-
-### Next: Step 2 — consensus + validation + merge
-
-Implementation order:
-1. ~~Migrate local/ to committed state (2a)~~ DONE
-2. State commit inline in sync.lua (2b)
-3. Extract time_effects() from chain.lua (2c)
-4. Recv: consensus + validation + merge (2d)
-5. Update step 2 test (2e)
-6. Run all tests
-
-### Pending: begs.md TODO update
-
-Change line 458 in `.claude/plans/begs.md`:
-`"Impl: register fetched begs"` -> `"see sync.md step 6"`
+- `src/freechains/chain/sync.lua`: recv with consensus
+  + validation + merge. Send is TODO.
+- `src/freechains/chain/common.lua`: shared apply, write
+- `tst/cli-sync.lua`: steps 1-3 pass
 
 ## Done
 
 - [x] Step 1: recv basic
+- [x] Step 2: recv bidirectional
+- [x] Step 3: recv divergent + consensus
 - [x] Rename "stage/unstage" -> "local time effects"
-  across code + 8 plan files
+- [x] Migrate local/ to committed state
+- [x] Extract time_effects into apply (common.lua)
+- [x] Refactor: `freechains/chain/` dir with common.lua
+- [x] FF validates remote before accepting (replay
+  runs before FF check)
 
 ## TODO
 
-- [ ] Step 2: recv bidirectional
-- [ ] Step 3: recv already up to date
 - [ ] Step 4: recv unrelated histories
 - [ ] Step 5: recv conflict
 - [ ] Step 6: recv begs + registration
@@ -383,6 +314,7 @@ Change line 458 in `.claude/plans/begs.md`:
 - [ ] Step 8: recv beg pruning
 - [ ] Step 9: send basic
 - [ ] Step 10: send begs
-- [ ] Refactor: create `freechains/chain/` dir with
-  shared common.lua (write, authors/posts registration
-  duplicated in sync.lua and chain.lua)
+- [ ] Like replay in sync.lua (designed in rec-replay.md,
+  not yet integrated — `error "TODO"` at line 33)
+- [ ] Recursive replay (designed in rec-replay.md,
+  sync.lua still uses flat `git log --no-merges`)

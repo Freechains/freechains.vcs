@@ -38,10 +38,11 @@ all subsequent loser commits.
 
 ## Merge (after validation)
 
-No `git merge` call. Merge commit is built via git
-plumbing (`commit-tree` with two parents: winner HEAD
-+ validated loser pointer). This avoids working tree
-conflicts entirely.
+Current implementation uses `git merge --no-commit`
+followed by writing state files and `git commit`. This
+produces a merge commit with two parents + state files
+in a single commit. Equivalent to plumbing for the
+non-conflict case.
 
 State commits ("freechains: state") are created:
 - After merge in recv (to persist replayed state)
@@ -54,16 +55,19 @@ state files.
 
 ### State Commits as Checkpoints
 
-State commits serve as **replay checkpoints**. During
-recv, the merge-base may not itself be a state commit
-(it could be a post commit). To find accurate state:
+State commits serve as **replay checkpoints**. The
+merge-base always has state files in its tree (post/like
+commits carry dirty state on disk, but the merge-base
+is always reachable via a state commit in the shared
+history). Current implementation loads state directly:
 
-1. Walk backwards from merge-base (linear)
-2. Find the last commit with trailer `freechains: state`
-   (or genesis)
-3. Load state from that checkpoint
-4. Replay all commits from checkpoint to merge-base
-5. Then replay the divergent branch
+```lua
+git show com:.freechains/state/authors.lua
+git show com:.freechains/state/posts.lua
+```
+
+No backward walk is needed — state files are always
+present in the tree at every commit (dirty but readable).
 
 ### Linearity Guarantee
 
@@ -116,7 +120,7 @@ owner/non-owner trust table. Owner-to-owner replication
 skips freechains validation entirely. Non-owner
 validation is future scope.
 
-## Hard Fork Rule
+## Hard Fork Rule (NOT IMPLEMENTED)
 
 A **hard fork** occurs when a local branch crosses either
 activity threshold:

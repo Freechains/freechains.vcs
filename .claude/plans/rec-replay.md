@@ -130,7 +130,11 @@ sides converge to identical state (bit-equal diff).
 Future: add a test with 3 peers (A syncs with C, then
 A syncs with B) to exercise nested merge replay.
 
-## Done
+## Done (designed, NOT yet integrated into sync.lua)
+
+The functions below are designed and specified but
+sync.lua still uses the flat `git log --no-merges`
+replay. Integration is pending.
 
 - [x] `consensus(com, a, b)` — tip hash comparison
 - [x] `collect_linear(list, old, new)` — linear segment
@@ -146,5 +150,6 @@ A syncs with B) to exercise nested merge replay.
 
 ## TODO
 
+- [ ] Integrate into sync.lua (replace flat replay)
 - [ ] Verify: `make test T=cli-sync`
 - [ ] Test: 3-peer nested merge replay

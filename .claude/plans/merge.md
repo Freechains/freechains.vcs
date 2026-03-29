@@ -165,11 +165,9 @@ git merge --no-edit FETCH_HEAD             # real merge (--no-ff)
 - Never use `git pull` (bypasses validation)
 - Fast-forward skips `pre-merge-commit` hook → must be
   rejected (see merge-hook.md)
-- **Local time effects**: (local-staging.md) writes to
-  `local/` files (untracked, git-excluded) on every
-  chain command. Since `local/` is excluded, no cleanup
-  is needed before fetch/merge. Reset `local/now.lua`
-  to 0 so next command re-scans from merged state.
+- **Local time effects**: state files in
+  `.freechains/state/` (tracked, dirty in working tree).
+  No cleanup needed before fetch/merge.
 
 ### Strategies Are Equivalent Without Conflict
 
