@@ -12,7 +12,9 @@ local function consensus (com, a, b)
     end
 end
 
--- replay commits from range onto state G
+-- Replay commits from range onto state G.
+-- In case of error, partial replay has been applied.
+
 local function replay (G, old, new)
     local out = exec (
         "git -C " .. REPO ..
@@ -36,7 +38,7 @@ local function replay (G, old, new)
                 beg  = (key == nil),
             })
             if not ok then
-                return false, err .. " : " .. hash
+                return false, hash .. " : " .. err
             end
         else
             assert(trailer == "state")
@@ -65,98 +67,64 @@ elseif ARGS.recv then
         goto RECV
     end
 
-    local com, G_com
+    local com, G_com, now
     do
         com = exec (
             "git -C " .. REPO .. " merge-base " .. loc .. " " .. rem
         )
-        if com == loc then
-            G_com = {
-                authors = dofile(FC .. "state/authors.lua"),
-                posts   = dofile(FC .. "state/posts.lua"),
-                now     = NOW(loc),
-            }
-        else
-            local trailer = exec (
-                "git -C " .. REPO .. " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. com
+        local function F (path)
+            local src = exec (
+                "git -C " .. REPO .. " show " .. com .. ":" .. path
             )
-            assert (
-                trailer:match("state")
-                , "bug found: merge-base is not a state commit"
-            )
-            local function F (path)
-                local src = exec (
-                    "git -C " .. REPO .. " show " .. com .. ":" .. path
-                )
-                return load(src)()
-            end
-            G_com = {
-                authors = F(".freechains/state/authors.lua"),
-                posts   = F(".freechains/state/posts.lua"),
-                now     = NOW(com),
-            }
+            return load(src)()
         end
+        G_com = {
+            authors = F(".freechains/state/authors.lua"),
+            posts   = F(".freechains/state/posts.lua"),
+            now     = NOW(com),
+        }
+        now = G_com.now
     end
 
-    -- verify remote: replay remote branch from copy of G_com
-    local G_rem = { authors={}, posts={}, now=G_com.now }
+    -- verify remote: replay remote branch from G_com (no longer required)
+    local G_rem = G_com
     do
-        for k, v in pairs(G_com.authors) do
-            G_rem.authors[k] = { reps=v.reps, time=v.time }
-        end
-        for k, v in pairs(G_com.posts) do
-            G_rem.posts[k] = {
-                author = v.author,
-                time   = v.time,
-                state  = v.state,
-                reps   = v.reps,
-            }
-        end
         local ok, err = replay(G_rem, com, rem)
-        if not ok then ERROR("chain sync : replay : " .. err) end
+        if not ok then
+            ERROR("chain sync : invalid remote : " .. err)
+        end
     end
 
     -- final state
     local G_end
     do
         if com == loc then
-            -- fast-forward: load local, replay remote
-            G_end = G_com
-            local ok, err = replay(G_end, loc, rem)
-            if not ok then ERROR("chain sync : replay : " .. err) end
+            G_end = G_rem   -- fast-forward: it is just G_rem replayed above
         else
             -- divergent: winner already computed, replay loser
             local fst, snd = consensus(com, loc, rem)
+            local ok, err
             if fst == loc then
                 G_end = {
                     authors = dofile(FC .. "state/authors.lua"),
                     posts   = dofile(FC .. "state/posts.lua"),
                     now     = NOW(loc),
                 }
-                local fst_now = G_end.now
-                G_end.now = G_com.now
-                local ok, err = replay(G_end, com, rem)
-                if not ok then ERROR("chain sync : replay : " .. err) end
-                G_end.now = math.max(G_end.now, fst_now)
+                ok, err = replay(G_end, com, rem)
             else
                 G_end = G_rem
-                local fst_now = G_end.now
-                G_end.now = G_com.now
-                local ok, err = replay(G_end, com, loc)
-                if not ok then ERROR("chain sync : replay : " .. err) end
-                G_end.now = math.max(G_end.now, fst_now)
+                ok, err = replay(G_end, com, loc)
+            end
+            if not ok then
+                -- partial replay, what to do with fails?
+                -- if in local branch, we should signal "removal"
+                error("TODO : replay fail : " .. err)
             end
         end
     end
 
     -- merge
     do
-        -- stash state files to avoid merge conflicts
-        exec (
-            "git -C " .. REPO
-            .. " stash push -- .freechains/state/"
-        )
-        --exec(true, "git -C " .. REPO .. " stash drop")
         local _, code = exec (true,
             "git -C " .. REPO .. " merge --no-edit FETCH_HEAD"
         )
@@ -168,20 +136,15 @@ elseif ARGS.recv then
     end
 
     -- write replayed state to disk
-    do
-        write(G_end.authors, FC .. "state/authors.lua")
-        write(G_end.posts,   FC .. "state/posts.lua")
-    end
+    write(G_end)
 
-    -- commit state if non-ff merge
+    -- amend merge commit with replayed state
     if com ~= loc then
         exec (
-            "git -C " .. REPO
-            .. " add .freechains/state/authors.lua .freechains/state/posts.lua"
+            "git -C " .. REPO .. " add .freechains/state/"
         )
         exec (
-            NOW.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
-            .. " --trailer 'Freechains: state'"
+            "git -C " .. REPO .. " commit --amend --no-edit"
         )
     end
 
