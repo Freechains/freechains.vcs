@@ -23,7 +23,7 @@ do
     do
         TEST "git verify-commit passes"
         local out, code = exec (
-            ENV .. " git -C " .. DIR .. " verify-commit HEAD"
+            ENV .. " git -C " .. DIR .. " verify-commit HEAD~1"
         )
         assert(code == 0, "verify-commit failed")
         assert(out:match('Good signature from "test <test@freechains>"'))
@@ -32,7 +32,7 @@ do
     do
         TEST "gpgsig header present"
         local out = exec (
-            "git -C " .. DIR .. " cat-file commit HEAD"
+            "git -C " .. DIR .. " cat-file commit HEAD~1"
         )
         assert(out:match("gpgsig"), "gpgsig header missing")
     end

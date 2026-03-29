@@ -37,9 +37,9 @@ do
     do
         TEST "beg-on-ref"
         local out = exec (
-            "git -C " .. DIR1 .. " for-each-ref refs/begs/ --format='%(objectname)'"
+            "git -C " .. DIR1 .. " for-each-ref refs/begs/ --format='%(refname)'"
         )
-        assert(out:match(BEG), "beg hash not found in refs/begs/: " .. out)
+        assert(out:match("refs/begs/beg%-" .. BEG), "beg ref not found: " .. out)
     end
 
     do
@@ -148,9 +148,14 @@ do
         local head = exec("git -C " .. DIR4 .. " rev-parse HEAD")
         assert(head ~= HEAD, "HEAD should advance after merge")
 
-        TEST "like-beg-parent-is-beg"
-        local parent = exec("git -C " .. DIR4 .. " log -1 --format=%P " .. head)
-        assert(parent == BEG, "like parent: " .. parent .. " expected: " .. BEG)
+        TEST "like-beg-structure: BEG-S-LIKE"
+        local like = exec("git -C " .. DIR4 .. " rev-parse HEAD~1")
+        local beg = exec("git -C " .. DIR4 .. " rev-parse " .. like .. "~2")
+        assert(beg == BEG, "beg: " .. beg .. " expected: " .. BEG)
+
+        TEST "like-beg-ancestor-is-beg"
+        local _, code = exec(true, "git -C " .. DIR4 .. " merge-base --is-ancestor " .. BEG .. " HEAD")
+        assert(code == 0, "beg should be ancestor of HEAD")
     end
 
     do
@@ -198,9 +203,9 @@ do
         TEST "like-beg-self-like-no-reps"
         -- KEY3 begged (0 reps), tries to like own beg
         local refs = exec (
-            "git -C " .. DIR4 .. " for-each-ref refs/begs/ --format='%(objectname)'"
+            "git -C " .. DIR4 .. " for-each-ref refs/begs/ --format='%(refname)'"
         )
-        local beg = refs:match("%x+")
+        local beg = refs:match("refs/begs/beg%-(%x+)")
 
         local _, Q, err = exec (true,
             ENV_EXE .. " chain cli-begs-4 like 1 post " .. beg .. " --sign " .. KEY3
@@ -269,20 +274,18 @@ do
     -- KEY likes the beg (triggers true merge)
     local LIKE = exec(ENV_EXE .. " chain cli-begs-6 like 1 post " .. BEG .. " --sign " .. KEY)
 
-    local MERGE = exec("git -C " .. DIR6 .. " rev-parse HEAD")
-
     do
         TEST "merge-has-two-parents"
-        local parents = exec("git -C " .. DIR6 .. " log -1 --format=%P " .. MERGE)
+        local parents = exec("git -C " .. DIR6 .. " log -1 --format=%P " .. LIKE)
         local count = 0
         for _ in parents:gmatch("%x+") do count = count + 1 end
         assert(count == 2, "true merge should have 2 parents, got: " .. count)
     end
 
     do
-        TEST "merge-parent-includes-beg"
-        local parents = exec("git -C " .. DIR6 .. " log -1 --format=%P " .. MERGE)
-        assert(parents:match(BEG), "beg not in merge parents: " .. parents)
+        TEST "merge-ancestor-includes-beg"
+        local _, code = exec(true, "git -C " .. DIR6 .. " merge-base --is-ancestor " .. BEG .. " " .. LIKE)
+        assert(code == 0, "beg should be ancestor of like")
     end
 end
 

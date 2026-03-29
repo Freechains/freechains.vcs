@@ -18,7 +18,7 @@ do
     print("==> freechains: post trailer")
     do
         TEST "post-has-trailer"
-        local out = exec("git -C " .. DIR .. " cat-file commit HEAD")
+        local out = exec("git -C " .. DIR .. " cat-file commit HEAD~1")
         assert(out:match("Freechains: post"), "missing freechains: post trailer")
     end
 end
@@ -41,7 +41,7 @@ do
 
     do
         TEST "like-has-trailer"
-        local out = exec("git -C " .. DIR .. " cat-file commit HEAD")
+        local out = exec("git -C " .. DIR .. " cat-file commit HEAD~1")
         assert(out:match("Freechains: like"), "missing freechains: like trailer")
     end
 
@@ -62,16 +62,15 @@ do
     do
         TEST "like-is-signed"
         local _, code = exec (
-            ENV .. " git -C " .. DIR .. " verify-commit HEAD"
+            ENV .. " git -C " .. DIR .. " verify-commit HEAD~1"
         )
         assert(code == 0, "verify-commit failed")
     end
 
     do
-        TEST "like-parent"
-        local parent = exec("git -C " .. DIR .. " rev-parse HEAD~1")
-        assert(parent == POST,
-            "parent: " .. parent .. " expected: " .. POST)
+        TEST "like-ancestor-is-post"
+        local _, code = exec(true, "git -C " .. DIR .. " merge-base --is-ancestor " .. POST .. " HEAD")
+        assert(code == 0, "post should be ancestor of HEAD")
     end
 end
 
@@ -95,7 +94,7 @@ do
 
     do
         TEST "dislike-payload"
-        local out = exec("git -C " .. DIR .. " cat-file commit HEAD")
+        local out = exec("git -C " .. DIR .. " cat-file commit HEAD~1")
         assert(out:match("Freechains: like"), "missing freechains: like trailer")
     end
 
@@ -109,7 +108,7 @@ do
             .. " --sign " .. KEY2 .. " --why 'spam content'"
         )
         assert(code == 0, "exit code: " .. tostring(code))
-        local msg = exec("git -C " .. DIR .. " log -1 --format=%s")
+        local msg = exec("git -C " .. DIR .. " log -1 --format=%s HEAD~1")
         assert(msg:match("spam content"), "reason not recorded")
     end
 end

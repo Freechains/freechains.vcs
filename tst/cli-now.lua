@@ -71,16 +71,16 @@ do
         exec(ENV_EXE .. " --now=200 chain cli-now post inline 2 --sign " .. KEY)
         exec(ENV_EXE .. " --now=300 chain cli-now post inline 3 --sign " .. KEY)
 
-        -- newest first
-        local logs = exec("git -C " .. DIR .. " log --format=%at")
+        -- newest first, filter post commits only
+        local logs = exec("git -C " .. DIR .. " log --format='%at %(trailers:key=Freechains,valueonly)'")
         local ts = {}
-        for t in logs:gmatch("%d+") do
+        for t in logs:gmatch("(%d+) post") do
             ts[#ts+1] = tonumber(t)
             if #ts == 4 then
                 break
             end
         end
-        assert(#ts == 4, "expected 4 commits: " .. #ts)
+        assert(#ts == 4, "expected 4 post commits: " .. #ts)
         assert(ts[1] == 300, "t[1]: " .. ts[1])
         assert(ts[2] == 200, "t[2]: " .. ts[2])
         assert(ts[3] == 100, "t[3]: " .. ts[3])

@@ -124,7 +124,7 @@ do
             ENV_EXE .. " chain cli-post post inline 'some text' --sign " .. KEY
             .. " --why 'reason for posting'"
         )
-        local msg = exec("git -C " .. DIR .. " log -1 --format=%s")
+        local msg = exec("git -C " .. DIR .. " log -1 --format=%s HEAD~1")
         assert(msg == "reason for posting", "commit message: " .. msg)
     end
 
@@ -138,14 +138,14 @@ do
             ENV_EXE .. " chain cli-post post file " .. tmp .. " --sign " .. KEY
             .. " --why 'file reason'"
         )
-        local msg = exec("git -C " .. DIR .. " log -1 --format=%s")
+        local msg = exec("git -C " .. DIR .. " log -1 --format=%s HEAD~1")
         assert(msg == "file reason", "commit message: " .. msg)
     end
 
     do
         TEST "post without --why has empty message"
         exec(ENV_EXE .. " chain cli-post post inline 'no reason' --sign " .. KEY)
-        local msg = exec("git -C " .. DIR .. " log -1 --format=%s")
+        local msg = exec("git -C " .. DIR .. " log -1 --format=%s HEAD~1")
         assert(msg == "(empty message)", "commit message should be empty: " .. msg)
     end
 end
