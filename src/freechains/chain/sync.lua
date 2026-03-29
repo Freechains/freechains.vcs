@@ -85,11 +85,6 @@ elseif ARGS.recv then
         }
     end
 
-    if com == loc then
-        exec("git -C " .. REPO .. " merge --ff-only FETCH_HEAD")
-        goto RECV
-    end
-
     -- verify remote: replay remote branch from G_com
     local G_rem = G_com -- (G_com no longer required)
     do
@@ -97,6 +92,11 @@ elseif ARGS.recv then
         if not ok then
             ERROR("chain sync : invalid remote : " .. err)
         end
+    end
+
+    if com == loc then
+        exec("git -C " .. REPO .. " merge --ff-only FETCH_HEAD")
+        goto RECV
     end
 
     -- final state: consensus + replay looser
