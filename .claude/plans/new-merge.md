@@ -40,12 +40,11 @@
 - [x] Added missing `like-zero-number` test
 
 ### Pending issues
-- [ ] **Sync test Step 3 failure**: `cli-sync.lua`
-  divergent merge produces empty `posts.lua`.
-  Root cause unknown — needs debug.
-  Time_effects during replay is the suspected cause.
-- [ ] Like replay not implemented in sync.lua
-  (`error "TODO: replay likes via apply"`)
+- [x] ~~Sync test Step 3 failure~~: resolved, step 3
+  passes (bit-equal diff between peers).
+- [ ] Like replay not integrated in sync.lua
+  (`error "TODO: replay likes via apply"`).
+  Design exists in rec-replay.md (diff-tree + git show).
 
 ### Step 4: Consensus / branch_compare (pending)
 - [ ] Replace hash comparison with prefix reps
