@@ -67,7 +67,7 @@ elseif ARGS.recv then
         goto RECV
     end
 
-    local com, G_com, now
+    local com, G_com
     do
         com = exec (
             "git -C " .. REPO .. " merge-base " .. loc .. " " .. rem
@@ -83,11 +83,15 @@ elseif ARGS.recv then
             posts   = F(".freechains/state/posts.lua"),
             now     = NOW(com),
         }
-        now = G_com.now
     end
 
-    -- verify remote: replay remote branch from G_com (no longer required)
-    local G_rem = G_com
+    if com == loc then
+        exec("git -C " .. REPO .. " merge --ff-only FETCH_HEAD")
+        goto RECV
+    end
+
+    -- verify remote: replay remote branch from G_com
+    local G_rem = G_com -- (G_com no longer required)
     do
         local ok, err = replay(G_rem, com, rem)
         if not ok then
@@ -95,48 +99,43 @@ elseif ARGS.recv then
         end
     end
 
-    -- final state
+    -- final state: consensus + replay looser
     local G_end
     do
-        if com == loc then
-            G_end = G_rem   -- fast-forward: it is just G_rem replayed above
+        -- fst wins, use it as base, replay snd looser
+        local fst, snd = consensus(com, loc, rem)
+        local ok, err
+        if fst == loc then
+            G_end = {
+                authors = dofile(FC .. "state/authors.lua"),
+                posts   = dofile(FC .. "state/posts.lua"),
+                now     = NOW(loc),
+            }
+            ok, err = replay(G_end, com, rem)
         else
-            -- divergent: winner already computed, replay loser
-            local fst, snd = consensus(com, loc, rem)
-            local ok, err
-            if fst == loc then
-                G_end = {
-                    authors = dofile(FC .. "state/authors.lua"),
-                    posts   = dofile(FC .. "state/posts.lua"),
-                    now     = NOW(loc),
-                }
-                ok, err = replay(G_end, com, rem)
-            else
-                G_end = G_rem
-                ok, err = replay(G_end, com, loc)
-            end
-            if not ok then
-                -- partial replay, what to do with fails?
-                -- if in local branch, we should signal "removal"
-                error("TODO : replay fail : " .. err)
-            end
+            G_end = G_rem
+            ok, err = replay(G_end, com, loc)
+        end
+        if not ok then
+            -- partial replay, what to do with fails?
+            -- if in local branch, we should signal "removal"
+            error("TODO : replay fail : " .. err)
         end
     end
 
-    -- merge + write state
-    if com ~= loc then
+    -- merge + write state + commit
+    do
         local _, code = exec(true,
-            "git -C " .. REPO .. " merge --no-edit FETCH_HEAD"
+            "git -C " .. REPO .. " merge --no-commit --no-edit FETCH_HEAD"
         )
         if code ~= 0 then
             exec(true, "git -C " .. REPO .. " merge --abort")
             error("TODO : merge conflict (content)")
         end
-    end
-    write(G_end)
-    if com ~= loc then
+
+        write(G_end)
         exec("git -C " .. REPO .. " add .freechains/state/")
-        exec("git -C " .. REPO .. " commit --amend --no-edit")
+        exec("git -C " .. REPO .. " commit --no-edit")
     end
 
     ::RECV::
