@@ -20,31 +20,31 @@ do
 
     do
         TEST "A creates chain + posts"
-        exec(EXE_A .. " chains add test config " .. GEN_1)
+        exec(EXE_A .. " --now=1000 chains add test config " .. GEN_1)
         local out = exec (
-            EXE_A .. " chain test post inline 'post from A' --sign " .. KEY
+            EXE_A .. " --now=2000 chain test post inline 'post from A' --sign " .. KEY
         )
         assert(#out == 40, "hash: " .. out)
 
         TEST "B clones"
         exec(EXE_B .. " chains add test clone " .. REPO_A)
     end
-    -- A:  genesis ── [post] P1
-    -- B:  genesis ── [post] P1
+    -- A:  [state] genesis ── [post] P1 ── [state] S1
+    -- B:  [state] genesis ── [post] P1 ── [state] S1
 
     do
         TEST "A posts again"
         local out = exec (
-            EXE_A .. " chain test post inline 'second from A' --sign " .. KEY
+            EXE_A .. " --now=3000 chain test post inline 'second from A' --sign " .. KEY
         )
         assert(#out == 40, "hash: " .. out)
 
         TEST "GF matches pioneer key"
-        local gf = exec(ENV .. " git -C " .. REPO_A .. " log -1 --format='%GF' HEAD")
+        local gf = exec(ENV .. " git -C " .. REPO_A .. " log -1 --format='%GF' HEAD~1")
         assert(gf == KEY, "GF mismatch: [" .. gf .. "] vs [" .. KEY .. "]")
     end
-    -- A:  genesis ── [post] P1 ── [post] P2
-    -- B:  genesis ── [post] P1
+    -- A:  [state] genesis ── [post] P1 ── [state] S1 ── [post] P2 ── [state] S2
+    -- B:  [state] genesis ── [post] P1 ── [state] S1
 
     do
         TEST "B recvs from A"
@@ -57,8 +57,8 @@ do
             "heads should be equal: " .. A .. " vs " .. B
         )
     end
-    -- A:  genesis ── [post] P1 ── [post] P2
-    -- B:  genesis ── [post] P1 ── [post] P2
+    -- A:  [state] genesis ── [post] P1 ── [state] S1 ── [post] P2 ── [state] S2
+    -- B:  [state] genesis ── [post] P1 ── [state] S1 ── [post] P2 ── [state] S2
 end
 
 -- 2. recv bidirectional
@@ -68,28 +68,28 @@ do
     do
         TEST "A posts"
         local out = exec (
-            EXE_A .. " chain test post inline 'third from A' --sign " .. KEY
+            EXE_A .. " --now=4000 chain test post inline 'third from A' --sign " .. KEY
         )
         assert(#out == 40, "hash: " .. out)
 
         TEST "B recvs from A"
         exec(EXE_B .. " chain test sync recv " .. REPO_A)
     end
-    -- A:  genesis ── [post] P1 ── P2 ── [post] P3
-    -- B:  genesis ── [post] P1 ── P2 ── [post] P3
+    -- A:  genesis ── P1 ── S1 ── P2 ── S2 ── [post] P3 ── [state] S3
+    -- B:  genesis ── P1 ── S1 ── P2 ── S2 ── [post] P3 ── [state] S3
 
     do
         TEST "B posts"
         local out = exec (
-            EXE_B .. " chain test post inline 'first from B' --sign " .. KEY
+            EXE_B .. " --now=5000 chain test post inline 'first from B' --sign " .. KEY
         )
         assert(#out == 40, "hash: " .. out)
 
         TEST "A recvs from B"
         exec(EXE_A .. " chain test sync recv " .. REPO_B)
     end
-    -- A:  genesis ── [post] P1 ── P2 ── P3 ── [post] P4
-    -- B:  genesis ── [post] P1 ── P2 ── P3 ── [post] P4
+    -- A:  genesis ── ... ── S3 ── [post] P4 ── [state] S4
+    -- B:  genesis ── ... ── S3 ── [post] P4 ── [state] S4
 
     do
         TEST "A and B are equal"
@@ -98,8 +98,8 @@ do
         )
         assert(ok == 0, "A and B should not differ")
     end
-    -- A:  genesis ── [post] P1 ── P2 ── P3 ── [post] P4
-    -- B:  genesis ── [post] P1 ── P2 ── P3 ── [post] P4
+    -- A:  genesis ── ... ── S3 ── [post] P4 ── [state] S4
+    -- B:  genesis ── ... ── S3 ── [post] P4 ── [state] S4
 end
 
 -- 3. recv divergent + consensus
@@ -112,18 +112,18 @@ do
     do
         TEST "A posts (diverge)"
         A = exec (
-            EXE_A .. " chain test post inline 'fourth from A' --sign " .. KEY
+            EXE_A .. " --now=6000 chain test post inline 'fourth from A' --sign " .. KEY
         )
         assert(#A == 40, "hash: " .. A)
 
         TEST "B posts (diverge)"
         B = exec (
-            EXE_B .. " chain test post inline 'second from B' --sign " .. KEY
+            EXE_B .. " --now=7000 chain test post inline 'second from B' --sign " .. KEY
         )
         assert(#B == 40, "hash: " .. B)
     end
-    -- A:  genesis ── [post] P1 ── P2 ── P3 ── P4 ── [post] P5
-    -- B:  genesis ── [post] P1 ── P2 ── P3 ── P4 ── [post] P6
+    -- A:  genesis ── ... ── S4 ── [post] P5 ── [state] S5
+    -- B:  genesis ── ... ── S4 ── [post] P6 ── [state] S6
 
     -- A <-- B
     do
@@ -142,10 +142,10 @@ do
         assert(posts[A], "A's should be in posts.lua")
         assert(posts[B], "B's should be in posts.lua")
     end
-    --                                                 ┌── [post] P5
-    -- A:  genesis ── P1 ── P2 ── P3 ── P4 ── [merge]
-    --                                                 └── [post] P6
-    -- B:  genesis ── [post] P1 ── P2 ── P3 ── P4 ── [post] P6
+    --                             ┌── [post] P5 ── [state] S5
+    -- A:  genesis ── ... ── S4 ── [merge] (amend w/ state)
+    --                             └── [post] P6 ── [state] S6
+    -- B:  genesis ── ... ── S4 ── [post] P6 ── [state] S6
 
     -- B <-- A
     do
@@ -184,9 +184,9 @@ do
         )
         assert(ok == 0, "A and B should not differ")
     end
-    --                                                 ┌── [post] P5
-    -- A:  genesis ── P1 ── P2 ── P3 ── P4 ── [merge]
-    --                                                 └── [post] P6
+    --                             ┌── [post] P5 ── [state] S5
+    -- A:  genesis ── ... ── S4 ── [merge] (amend w/ state)
+    --                             └── [post] P6 ── [state] S6
     -- B:  same as A (FF recv)
 end
 
