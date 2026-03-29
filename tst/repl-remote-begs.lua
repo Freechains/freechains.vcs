@@ -179,7 +179,7 @@ do
             local count = exec (
                 "git -C " .. REPO_A .. " rev-list --count HEAD"
             )
-            assert(count == "2", "count: " .. count)
+            assert(count == "3", "count: " .. count)
 
             TEST "remove merged beg ref"
             exec (
@@ -195,7 +195,7 @@ do
             local count = exec (
                 "git -C " .. REPO_A .. " rev-list --count HEAD"
             )
-            assert(count == "4", "count: " .. count)
+            assert(count == "6", "count: " .. count)
 
             TEST "remove merged beg ref"
             exec (

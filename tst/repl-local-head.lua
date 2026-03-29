@@ -65,11 +65,11 @@ do
     end
 
     do
-        TEST "B has 2 commits (genesis + A's post)"
+        TEST "B has 3 commits (genesis + post + state)"
         local count = exec (
             "git -C " .. REPO_B .. " rev-list --count HEAD"
         )
-        assert(count == "2", "count: " .. count)
+        assert(count == "3", "count: " .. count)
     end
 
     do
@@ -82,11 +82,11 @@ do
     end
 
     do
-        TEST "B has 3 commits (genesis + A + B)"
+        TEST "B has 5 commits (genesis + A post/state + B post/state)"
         local count = exec (
             "git -C " .. REPO_B .. " rev-list --count HEAD"
         )
-        assert(count == "3", "count: " .. count)
+        assert(count == "5", "count: " .. count)
     end
 end
 
@@ -118,11 +118,11 @@ do
     end
 
     do
-        TEST "A has 3 commits (genesis + A + B, fast-forward)"
+        TEST "A has 5 commits (genesis + A post/state + B post/state, fast-forward)"
         local count = exec(
             "git -C " .. REPO_A .. " rev-list --count HEAD"
         )
-        assert(count == "3", "count: " .. count)
+        assert(count == "5", "count: " .. count)
     end
 
     do
@@ -183,11 +183,11 @@ do
             "git -C " .. REPO_A .. " merge --no-edit FETCH_HEAD"
         )
 
-        TEST "A has 6 commits"
+        TEST "A has 10 commits"
         local count = exec (
             "git -C " .. REPO_A .. " rev-list --count HEAD"
         )
-        assert(count == "6", "count: " .. count)
+        assert(count == "10", "count: " .. count)
     end
 
     do
@@ -212,11 +212,11 @@ do
             "git -C " .. REPO_B .. " merge --no-edit FETCH_HEAD"
         )
 
-        TEST "B has 6 commits"
+        TEST "B has 10 commits"
         local count = exec (
             "git -C " .. REPO_B .. " rev-list --count HEAD"
         )
-        assert(count == "6", "count: " .. count)
+        assert(count == "10", "count: " .. count)
     end
 
     do
