@@ -117,8 +117,9 @@ elseif ARGS.recv then
             ok, err = replay(G_end, com, loc)
         end
         if not ok then
-            -- partial replay, what to do with fails?
-            -- if in local branch, we should signal "removal"
+            -- TODO: replay returns the failing hash, but we need the last successful hash
+            -- use that to merge winner with last-successful-commit instead of full branch tip
+            -- if loser is local, signal "removal" for commits after last successful
             error("TODO : replay fail : " .. err)
         end
     end
