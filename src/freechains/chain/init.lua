@@ -14,11 +14,11 @@ else
     G = {
         authors = dofile(FC .. "state/authors.lua"),
         posts   = dofile(FC .. "state/posts.lua"),
-        now     = tonumber((exec("git -C " .. REPO .. " log -1 --format=%at HEAD"))),
+        now     = NOW("HEAD"),
     }
 
     if ARGS.reps then
-        apply(G, 'reps', NOW.s, nil)
+        apply(G, 'reps', CMD.now, nil)
         require "freechains.chain.reps"
     elseif ARGS.post then
         require "freechains.chain.post"

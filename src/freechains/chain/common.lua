@@ -2,6 +2,14 @@ C    = require "freechains.constants"
 REPO = ARGS.root .. "/chains/" .. ARGS.alias .. "/"
 FC   = REPO .. ".freechains/"
 
+function NOW (hash)
+    return assert(
+        tonumber((
+            exec("git -C " .. REPO .. " log -1 --format=%at " .. hash)
+        ))
+    )
+end
+
 function write (G)
     local function f (V, file)
         local f = io.open(file, "w")

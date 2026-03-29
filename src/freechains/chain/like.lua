@@ -47,7 +47,7 @@ do
         id     = ARGS.id,
         beg    = to_beg,
     }
-    local ok, err = apply(G, 'like', NOW.s, T)
+    local ok, err = apply(G, 'like', CMD.now, T)
     if not ok then
         ERROR("chain like : " .. err)
     end
@@ -64,7 +64,7 @@ do
         }
     ]]
     local rand = math.random(0, 9999999999)
-    local file = ".freechains/likes/like-" .. NOW.s .. "-" .. rand .. ".lua"
+    local file = ".freechains/likes/like-" .. CMD.now .. "-" .. rand .. ".lua"
     local f = io.open(REPO .. file, "w")
     f:write(payload)
     f:close()
@@ -74,7 +74,7 @@ do
     local s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=openpgp"
     local msg = ARGS.why or "(empty message)"
     exec (
-        NOW.git .. "git -C " .. REPO .. s1 .. " commit -S -m '" .. msg
+        CMD.git .. "git -C " .. REPO .. s1 .. " commit -S -m '" .. msg
         .. "' --trailer 'Freechains: like'"
     )
     hash = exec (
@@ -89,7 +89,7 @@ do
         "git -C " .. REPO .. " add .freechains/state/"
     )
     exec (
-        NOW.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
+        CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
         .. " --trailer 'Freechains: state'"
     )
 end

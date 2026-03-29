@@ -74,7 +74,7 @@ elseif ARGS.recv then
             G_com = {
                 authors = dofile(FC .. "state/authors.lua"),
                 posts   = dofile(FC .. "state/posts.lua"),
-                now     = dofile(FC .. "state/now.lua"),
+                now     = NOW(loc),
             }
         else
             local trailer = exec (
@@ -93,7 +93,7 @@ elseif ARGS.recv then
             G_com = {
                 authors = F(".freechains/state/authors.lua"),
                 posts   = F(".freechains/state/posts.lua"),
-                now     = F(".freechains/state/now.lua"),
+                now     = NOW(com),
             }
         end
     end
@@ -131,7 +131,7 @@ elseif ARGS.recv then
                 G_end = {
                     authors = dofile(FC .. "state/authors.lua"),
                     posts   = dofile(FC .. "state/posts.lua"),
-                    now     = dofile(FC .. "state/now.lua"),
+                    now     = NOW(loc),
                 }
                 local fst_now = G_end.now
                 G_end.now = G_com.now
@@ -154,7 +154,7 @@ elseif ARGS.recv then
         -- stash state files to avoid merge conflicts
         exec (
             "git -C " .. REPO
-            .. " stash push -- .freechains/state/authors.lua .freechains/state/posts.lua"
+            .. " stash push -- .freechains/state/"
         )
         --exec(true, "git -C " .. REPO .. " stash drop")
         local _, code = exec (true,

@@ -74,7 +74,7 @@ if ARGS.add then
             "git -C " .. tmp .. " add .freechains/"
         )
         exec (
-            NOW.git .. "git -C " .. tmp .. " commit -m '(empty message)'"
+            CMD.git .. "git -C " .. tmp .. " commit -m '(empty message)'"
             .. " --trailer 'Freechains: state'"
         )
 

@@ -141,12 +141,12 @@ end
 
 ARGS = parser:parse()
 
-NOW = { s = os.time(), git = "" }
+CMD = { now=os.time(), git="" }
 if ARGS.now then
-    NOW.s = ARGS.now
-    NOW.git = (
-        "GIT_AUTHOR_DATE=$(date -u -d @" .. NOW.s .. " --iso-8601=seconds) " ..
-        "GIT_COMMITTER_DATE=$(date -u -d @" .. NOW.s .. " --iso-8601=seconds) "
+    CMD.now = ARGS.now
+    CMD.git = (
+        "GIT_AUTHOR_DATE=$(date -u -d @" .. CMD.now .. " --iso-8601=seconds) " ..
+        "GIT_COMMITTER_DATE=$(date -u -d @" .. CMD.now .. " --iso-8601=seconds) "
     )
 end
 

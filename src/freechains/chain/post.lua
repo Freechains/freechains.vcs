@@ -20,7 +20,7 @@ do
     if ARGS.inline then
         local text = ARGS.text .. (ARGS.text:match("\n$") and "" or "\n")
         local rand = math.random(0, 9999999999)
-        file = ARGS.file or "post-" .. NOW.s .. "-" .. rand .. ".txt"
+        file = ARGS.file or "post-" .. CMD.now .. "-" .. rand .. ".txt"
         local f = io.open(REPO.."/"..file, (ARGS.file and "a") or "w")
         f:write(text)
         f:close()
@@ -42,7 +42,7 @@ do
     end
     local msg = ARGS.why or "(empty message)"
     exec (
-        NOW.git .. "git -C " .. REPO .. s1 .. " commit" .. s2 .. " -m '" .. msg
+        CMD.git .. "git -C " .. REPO .. s1 .. " commit" .. s2 .. " -m '" .. msg
         .. "' --trailer 'Freechains: post'"
     )
     hash = exec (
@@ -57,7 +57,7 @@ do
         sign = ARGS.sign,
         beg  = ARGS.beg,
     }
-    local ok, err = apply(G, 'post', NOW.s, T)
+    local ok, err = apply(G, 'post', CMD.now, T)
     if not ok then
         exec("git -C " .. REPO .. " reset --hard HEAD~1")
         ERROR("chain post : " .. err)
@@ -71,7 +71,7 @@ do
         "git -C " .. REPO .. " add .freechains/state/"
     )
     exec (
-        NOW.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
+        CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
         .. " --trailer 'Freechains: state'"
     )
 end
