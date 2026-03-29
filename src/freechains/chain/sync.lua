@@ -123,29 +123,20 @@ elseif ARGS.recv then
         end
     end
 
-    -- merge
-    do
-        local _, code = exec (true,
+    -- merge + write state
+    if com ~= loc then
+        local _, code = exec(true,
             "git -C " .. REPO .. " merge --no-edit FETCH_HEAD"
         )
         if code ~= 0 then
             exec(true, "git -C " .. REPO .. " merge --abort")
-            ERROR("chain sync : merge conflict")
-            -- TODO(a): conflict is not error, just one of the sides is lost
+            error("TODO : merge conflict (content)")
         end
     end
-
-    -- write replayed state to disk
     write(G_end)
-
-    -- amend merge commit with replayed state
     if com ~= loc then
-        exec (
-            "git -C " .. REPO .. " add .freechains/state/"
-        )
-        exec (
-            "git -C " .. REPO .. " commit --amend --no-edit"
-        )
+        exec("git -C " .. REPO .. " add .freechains/state/")
+        exec("git -C " .. REPO .. " commit --amend --no-edit")
     end
 
     ::RECV::

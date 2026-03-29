@@ -6,6 +6,7 @@ local function git_config (dir)
     exec("git -C " .. dir .. " config user.email '-'")
     exec("git -C " .. dir .. " config commit.gpgsign false")
     exec("git -C " .. dir .. " config pull.rebase false")
+    exec("git -C " .. dir .. " config merge.ours.driver true")
 end
 
 local function pioneers (dir)
