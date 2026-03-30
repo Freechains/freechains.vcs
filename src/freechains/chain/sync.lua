@@ -30,7 +30,33 @@ local function replay (G, old, new)
         )
         trailer = trailer:match("(%S+)") or ""
         if trailer == "like" then
-            error "TODO: replay likes via apply"
+            local file = exec (
+                "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash .. " -- .freechains/likes/"
+            )
+            file = file:match("(%S+)")
+            if not file then
+                return false, "invalid like : " .. hash
+            end
+            local src = exec (
+                "git -C " .. REPO .. " show " .. hash .. ":" .. file
+            )
+            local f = load(src)
+            if not f then
+                return false, "invalid like : " .. hash
+            end
+            local ok, like = pcall(f)
+            if (not ok) or type(like)~="table" then
+                return false, "invalid like : " .. hash
+            end
+            local ok, err = apply(G, 'like', tonumber(time), {
+                sign   = key,
+                num    = like.number,
+                target = like.target,
+                id     = like.id,
+            })
+            if not ok then
+                return false, err .. " : " .. hash
+            end
         elseif trailer == "post" then
             local ok, err = apply(G, 'post', tonumber(time), {
                 hash = hash,
@@ -38,7 +64,7 @@ local function replay (G, old, new)
                 beg  = (key == nil),
             })
             if not ok then
-                return false, hash .. " : " .. err
+                return false, err .. " : " .. hash
             end
         else
             assert(trailer == "state")

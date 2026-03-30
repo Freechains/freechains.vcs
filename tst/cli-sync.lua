@@ -196,7 +196,44 @@ do
     -- B:  same as A (FF recv)
 end
 
--- TODO(a): 4. conflicts: same results in both sides
+-- 4. recv with like
+do
+    print("==> Step 4: recv like")
+
+    local A
+    do
+        -- reuse post hash from step 3
+        local posts = dofile(REPO_A .. ".freechains/state/posts.lua")
+        for k in pairs(posts) do
+            A = k
+            break
+        end
+        assert(A, "need a post hash from previous steps")
+    end
+
+    do
+        TEST "A likes a post"
+        exec (
+            EXE_A .. " --now=8000 chain test like 1 post " .. A .. " --sign " .. KEY
+        )
+
+        TEST "B recvs from A (with like)"
+        exec(EXE_B .. " --now=8500 chain test sync recv " .. REPO_A)
+
+        TEST "B's posts.lua reflects like"
+        local pa = dofile(REPO_A .. ".freechains/state/posts.lua")
+        local pb = dofile(REPO_B .. ".freechains/state/posts.lua")
+        assert(pb[A], "post missing in B")
+        assert(pb[A].reps == pa[A].reps, "like reps mismatch")
+
+        TEST "B's authors.lua reflects like"
+        local aa = dofile(REPO_A .. ".freechains/state/authors.lua")
+        local ab = dofile(REPO_B .. ".freechains/state/authors.lua")
+        assert(ab[KEY].reps == aa[KEY].reps, "author reps mismatch")
+    end
+end
+
+-- TODO(a): 5. conflicts: same results in both sides
 do
 end
 
