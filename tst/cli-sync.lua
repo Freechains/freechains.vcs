@@ -48,7 +48,7 @@ do
 
     do
         TEST "B recvs from A"
-        exec(EXE_B .. " chain test sync recv " .. REPO_A)
+        exec(EXE_B .. " --now=3500 chain test sync recv " .. REPO_A)
 
         TEST "B has A's latest post"
         local A = exec("git -C " .. REPO_A .. " rev-parse HEAD")
@@ -73,7 +73,7 @@ do
         assert(#out == 40, "hash: " .. out)
 
         TEST "B recvs from A"
-        exec(EXE_B .. " chain test sync recv " .. REPO_A)
+        exec(EXE_B .. " --now=4500 chain test sync recv " .. REPO_A)
     end
     -- A:  genesis ── P1 ── S1 ── P2 ── S2 ── [post] P3 ── [state] S3
     -- B:  genesis ── P1 ── S1 ── P2 ── S2 ── [post] P3 ── [state] S3
@@ -86,7 +86,7 @@ do
         assert(#out == 40, "hash: " .. out)
 
         TEST "A recvs from B"
-        exec(EXE_A .. " chain test sync recv " .. REPO_B)
+        exec(EXE_A .. " --now=5500 chain test sync recv " .. REPO_B)
     end
     -- A:  genesis ── ... ── S3 ── [post] P4 ── [state] S4
     -- B:  genesis ── ... ── S3 ── [post] P4 ── [state] S4
@@ -128,7 +128,13 @@ do
     -- A <-- B
     do
         TEST "A recvs from B"
-        exec(EXE_A .. " chain test sync recv " .. REPO_B)
+        exec(EXE_A .. " --now=7500 chain test sync recv " .. REPO_B)
+
+        TEST "no wall-clock timestamps"
+        local out = exec("git -C " .. REPO_A .. " log --format=%at")
+        for ts in out:gmatch("%d+") do
+            assert(tonumber(ts) <= 10000, "wall-clock leak: " .. ts)
+        end
 
         TEST "A has both post files"
         local h = io.popen("cat " .. REPO_A .. "*.txt")
@@ -150,7 +156,7 @@ do
     -- B <-- A
     do
         TEST "B recvs from A"
-        exec(EXE_B .. " chain test sync recv " .. REPO_A)
+        exec(EXE_B .. " --now=7500 chain test sync recv " .. REPO_A)
 
         TEST "B has both post files"
         local h = io.popen("cat " .. REPO_B .. "*.txt")

@@ -136,7 +136,7 @@ elseif ARGS.recv then
 
         write(G_end)
         exec("git -C " .. REPO .. " add .freechains/state/")
-        exec("git -C " .. REPO .. " commit --no-edit")
+        exec(CMD.git .. "git -C " .. REPO .. " commit --no-edit")
     end
 
     ::RECV::
