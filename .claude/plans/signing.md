@@ -67,7 +67,7 @@ Source: [frank.sauerburger.io](https://frank.sauerburger.io/2018/11/07/security-
 |                          | Git                     | Freechains          |
 |--------------------------|-------------------------|---------------------|
 | Signing                  | Optional (GPG/SSH)      | Structural          |
-| Key management           | External (`gpg`)        | Built-in or GPG     |
+| Key management           | External (`gpg`/`ssh`)  | Built-in            |
 | Identity                 | Email + key, loose      | Public key = ID     |
 | Unsigned content         | Fully valid             | Valid on `#` chains |
 | Signature affects hash   | **yes** (via `gpgsig`)  | yes                 |
@@ -75,120 +75,70 @@ Source: [frank.sauerburger.io](https://frank.sauerburger.io/2018/11/07/security-
 
 ## Options for Freechains
 
-### Option A: Standard GPG signing (recommended)
+### Option A: Standard GPG signing (abandoned)
 
 Use `git commit -S` with GPG keys.
 
 **Pros:**
 - Zero custom code — standard git tooling
 - `git verify-commit` for validation
-- `gpgsig` is inside the hash — block identity includes
-  authorship proof
+- `gpgsig` is inside the hash
 - Stripping the sig changes the hash — tamper-evident
-- GitHub/GitLab show "Verified" badges
-- Different authors signing same content → different hashes
-  (desirable: different blocks)
 
 **Cons:**
-- Requires GPG key management on each peer
 - GPG is heavyweight (keyring, trust model)
-- Author/committer fields are still free text (but the sig
-  binds them to a key)
+- GPG signatures only contain key ID, not public key —
+  verification requires signer's key in local keyring
+- Impossible in trustless p2p: peers are unknown
 
-**Flow:**
-```
-git commit -S -c user.signingkey=<KEY_ID> ...
-```
-
-**Verification:**
-```
-git verify-commit <hash>
-```
-
-**Key storage:**
-Keys live in `<host>/config/keys/` as GPG exports, imported
-into the local keyring on use.
-
-### Option B: Extra headers (original plan, abandoned)
+### Option B: Extra headers (abandoned)
 
 Embed `freechains-pubkey` and `freechains-sig` as custom
 headers in the commit object.
 
-**Pros:**
-- Inside the hash (same as GPG)
-- No GPG dependency
-- Pubkey explicitly visible in commit headers
-
 **Cons:**
 - Requires raw commit object construction (can't use
   `git commit`)
-- Must build the commit bytes manually, sign, rebuild
-  with signature, then write via `git hash-object -t commit`
 - Fragile, complex, non-standard
 - Breaks `git log`, `git verify-commit`, and other tooling
 
-### Option C: Commit message (fallback)
+### Option C: Commit message (abandoned)
 
 Embed pubkey and signature in the commit message body.
-
-**Pros:**
-- Inside the hash
-- Easy to implement (`-m` flag)
-- No raw object construction
 
 **Cons:**
 - Ugly in `git log`
 - Must parse message to extract crypto fields
 - Mixes human-readable and machine data
 
-### Option D: SSH signing with literal key (new recommendation)
+### Option D: SSH signing (chosen)
 
-Use `git commit -S` with `gpg.format=ssh` and a literal
-public key string (Git >= 2.35).
-
-```
-git -c gpg.format=ssh \
-    -c user.signingkey="ssh-ed25519 AAAA... user" \
-    commit -S -m '...'
-```
+Use `git commit -S` with `gpg.format=ssh`.
 
 **Pros:**
-- **Self-validating**: the `gpgsig` header embeds the full
+- **Self-validating**: `gpgsig` header embeds the full
   public key — any node can verify without a keyring
 - No GPG keyring management — no import/export needed
 - Ed25519 — same curve as crypto.md's openssl choice
 - Standard git tooling (`git verify-commit` with
   `allowed_signers`)
 - Signature is inside the commit hash (same as GPG)
-- Literal key string: no temp files, key passed inline
-  via `--sign "ssh-ed25519 AAAA..."`
+- `ssh-keygen` is ubiquitous, `gpg` is heavyweight
 
 **Cons:**
-- Requires Git >= 2.35 (released 2022-01)
+- Requires Git >= 2.34 (released 2021-11)
 - Verification needs a temporary `allowed_signers` file
-  (can be built on the fly from the signature itself)
+  (built on the fly from the signature itself)
 - `ssh-keygen` required for verify (standard on all systems)
 
-**Open question:**
-- `user.signingkey` accepts both a file path and a literal
-  string (Git >= 2.35). Literal string is simpler (no temp
-  files), but needs confirmation that the embedded key in
-  the `gpgsig` header is identical in both cases.
+## Decision: Option D — SSH signing
 
-**Self-validation flow (sync recv):**
-1. For each fetched commit, extract pubkey from `gpgsig`
-2. Write temp `allowed_signers` with extracted key
-3. `git verify-commit` against it
-4. Compare extracted key with claimed author identity
-5. No keyring, no key distribution, no external state
-
-## Decision: Option D — SSH signing (replaces Option A)
-
-~~Option A (GPG signing)~~ was the initial choice but has a
-critical flaw for p2p: GPG signatures only contain the key
-ID, not the public key. Verification requires the signer's
-public key in the local GPG keyring — impossible in a
-trustless p2p network where peers are unknown.
+Option A (GPG) was the initial choice but has a critical flaw
+for p2p: GPG signatures only contain the key ID, not the
+public key.
+Verification requires the signer's public key in the local
+GPG keyring — impossible in a trustless p2p network where
+peers are unknown.
 
 Option D (SSH signing) solves this:
 - Signature is inside the commit hash (same as GPG)
@@ -200,17 +150,13 @@ Option D (SSH signing) solves this:
 
 ## Why git's trust model works for Freechains
 
-Previously this document argued git's model was fragile for
-trustless systems.
-With the corrected understanding:
-
 - The `gpgsig` header is part of the hash, so the block
   identity (commit hash) includes the signature
 - A peer cannot strip or forge a signature without producing
   a different hash
 - Replication can verify signatures on arrival using
   `git verify-commit`
-- The only trust anchor needed is the GPG public key, which
+- The only trust anchor needed is the SSH public key, which
   maps directly to Freechains' "public key = identity" model
 
 The remaining difference: git's author/committer fields are
@@ -218,6 +164,49 @@ free text, so a signed commit proves "key X signed this" but
 not "the author field is truthful".
 For Freechains, the signing key **is** the identity — the
 author/committer name/email are irrelevant metadata.
+
+## Identity model
+
+- Identity = SSH public key string (`ssh-ed25519 AAAA...`)
+- `--sign <pubkey-string>` on the CLI
+- Internally: resolve pubkey → private key path for signing
+- Pubkey string used in: `G.authors`, pioneers, `apply()`
+- Pioneer lists in `genesis-*.lua` use pubkey strings
+
+## Git SSH signing mechanics
+
+**Signing:**
+```
+git -c gpg.format=ssh \
+    -c user.signingkey=/path/to/id_ed25519 \
+    commit -S -m "msg"
+```
+
+**Open question:**
+- `user.signingkey` accepts both a file path and a literal
+  public key string (Git >= 2.35).
+  Literal string is simpler (no temp files), but needs
+  confirmation that it works for signing (not just verify).
+  Must test before deciding.
+
+## Verification flow (resolved)
+
+**Tested:** `%GK` returns fingerprint (`SHA256:...`), not
+pubkey string. `%GP` empty. No `%G` format gives the pubkey.
+
+**The pubkey is embedded in the SSH signature blob.**
+Extract via `git cat-file commit` → decode `gpgsig` →
+`string.unpack` (~15 lines Lua).
+
+**Per-commit verification during replay:**
+1. `cat-file commit <hash>` → parse signature → extract pubkey
+2. Write ephemeral single-entry `allowed_signers`
+3. `git verify-commit <hash>` → confirms valid signature
+4. Pass pubkey to `apply()`
+
+No persistent `allowed_signers` file needed.
+No fingerprint→pubkey mapping needed.
+No `%GK` usage.
 
 ## Implementation
 
@@ -237,79 +226,23 @@ author/committer name/email are irrelevant metadata.
 - Verification happens at merge time (pre-merge-commit hook),
   not as a separate command
 
-### Pending
+### Pending (general)
 
 - Key management (`freechains keys` command)
 - Encryption (shared/sealed for private/personal chains)
 - Pre-merge-commit hook for signature verification
 
-## Pending — SSH migration
-
-**Goal:** Replace GPG signing with SSH signing (Ed25519).
-Git natively supports `gpg.format=ssh` since v2.34.
-
-**Why SSH over GPG:**
-- No keyring management (just files)
-- Ed25519 keys are simple files, no `GNUPGHOME`
-- `ssh-keygen` is ubiquitous, `gpg` is heavyweight
-- Aligns with crypto.md — Ed25519 everywhere
-
-### Identity model
-
-- Identity = SSH public key string (`ssh-ed25519 AAAA...`)
-- `--sign <path-to-private-key>` on the CLI
-- Internally: `ssh-keygen -y -f <path>` → pubkey string
-- Pubkey string used in: `G.authors`, pioneers, `apply()`
-- Pioneer lists in `genesis-*.lua` become pubkey strings
-
-### Git SSH signing mechanics
-
-**Signing (always needs private key file path):**
-```
-git -c gpg.format=ssh \
-    -c user.signingkey=/path/to/id_ed25519 \
-    commit -S -m "msg"
-```
-
-**Verification:**
-- `git verify-commit` with `gpg.ssh.allowedSignersFile`
-- `allowedSignersFile` lives in repo:
-  `<chain>/.freechains/allowed_signers`
-- Auto-generated from pioneers + known authors
-- Format: `<email> ssh-ed25519 AAAA...`
-
-### Resolved: verification flow
-
-**Tested:** `%GK` returns fingerprint (`SHA256:...`), not
-pubkey string. `%GP` empty. No `%G` format gives the pubkey.
-
-**The pubkey is embedded in the SSH signature blob.**
-Extract via `git cat-file commit` → decode `gpgsig` →
-`string.unpack` (~15 lines Lua).
-
-**Per-commit verification during replay:**
-1. `cat-file commit <hash>` → parse signature → extract pubkey
-2. Write single-entry `allowed_signers`: `<principal> <pubkey>`
-3. `git verify-commit <hash>` → confirms valid signature
-4. Pass pubkey to `apply()`
-
-No persistent `allowed_signers` file needed.
-No fingerprint→pubkey mapping needed.
-No `%GK` usage.
-
-### Implementation order
+### SSH migration — implementation order
 
 1. **Generate SSH test keys**
    - Create `tst/ssh-keys/` with 3 Ed25519 keypairs
    - `ssh-keygen -t ed25519 -N "" -f key1` (×3)
-   - Generate `allowed_signers` from pubkeys
    - Replaces `tst/gnupg/`
 
 2. **Update tests.lua**
    - `KEY = "tst/ssh-keys/key1"` (path to private key)
    - Extract pubkeys: `ssh-keygen -y -f <path>`
    - Remove `GNUPGHOME` dependency
-   - Setup `allowed_signers` for verification
 
 3. **Update genesis**
    - `genesis-*.lua`: pioneers = `{ "ssh-ed25519 AAAA..." }`
@@ -317,8 +250,9 @@ No `%GK` usage.
 
 4. **Update post.lua**
    - Line 112: `-c gpg.format=ssh -c user.signingkey=<path>`
-   - `ARGS.sign` = path to private key
-   - Extract pubkey via `ssh-keygen -y -f` for `apply()`
+   - `ARGS.sign` = pubkey string
+   - Resolve to private key path for signing
+   - Pubkey used directly for `apply()`
 
 5. **Update like** (shares post.lua code, inherits changes)
 
