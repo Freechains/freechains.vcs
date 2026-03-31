@@ -23,13 +23,20 @@ local function replay (G, old, new)
     )
     for line in out:gmatch("[^\n]+") do
         local hash, time, key = line:match("^(%S+) (%S+) ?(.*)")
-        assert(key, "TODO")
+        if key == "" then
+            key = nil
+        end
 
         local trailer = exec (
             "git -C " .. REPO .. " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash
         )
-        trailer = trailer:match("(%S+)") or ""
-        if trailer == "like" then
+        local kind = trailer:match("(%S+)") or ""
+
+        if kind == 'like' then
+            if not key then
+                return false, "invalid like : missing sign key"
+            end
+
             local file = exec (
                 "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash .. " -- .freechains/likes/"
             )
@@ -45,7 +52,7 @@ local function replay (G, old, new)
                 return false, "invalid like : " .. hash
             end
             local ok, like = pcall(f)
-            if (not ok) or type(like)~="table" then
+            if (not ok) or type(like)~='table' then
                 return false, "invalid like : " .. hash
             end
             local ok, err = apply(G, 'like', tonumber(time), {
@@ -57,7 +64,7 @@ local function replay (G, old, new)
             if not ok then
                 return false, err .. " : " .. hash
             end
-        elseif trailer == "post" then
+        elseif kind == 'post' then
             local ok, err = apply(G, 'post', tonumber(time), {
                 hash = hash,
                 sign = key,
@@ -67,7 +74,7 @@ local function replay (G, old, new)
                 return false, err .. " : " .. hash
             end
         else
-            assert(trailer == "state")
+            assert(kind == 'state')
         end
     end
     return true
@@ -116,7 +123,7 @@ elseif ARGS.recv then
     do
         local ok, err = replay(G_rem, com, rem)
         if not ok then
-            ERROR("chain sync : invalid remote : " .. err)
+            ERROR("chain sync : " .. err)
         end
     end
 
