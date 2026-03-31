@@ -176,6 +176,10 @@ end
 do
     print("==> Error cases")
 
+    POST = exec (
+        ENV_EXE .. " chain cli-like post inline 'target post' --sign " .. KEY
+    )
+
     do
         TEST "like-nonexistent-post"
         local fake = "0000000000000000000000000000000000000000"
@@ -247,6 +251,17 @@ do
         )
         assert (
             Q~=0 and err=="ERROR : chain like : invalid target : expects 'post' or 'author'"
+            , "should fail: " .. tostring(err)
+        )
+    end
+
+    do
+        TEST "like with invalid GPG key fails"
+        local _,Q,err = exec (true,
+            ENV_EXE .. " chain cli-like like 1 post " .. POST .. " --sign bad-key"
+        )
+        assert (
+            Q~=0 and err=="ERROR : chain like : insufficient reputation"
             , "should fail: " .. tostring(err)
         )
     end

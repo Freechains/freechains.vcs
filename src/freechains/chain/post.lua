@@ -41,9 +41,10 @@ do
         s2 = " -S"
     end
     local msg = ARGS.why or "(empty message)"
-    exec (
+    exec ('stdout',
         CMD.git .. "git -C " .. REPO .. s1 .. " commit" .. s2 .. " -m '" .. msg
         .. "' --trailer 'Freechains: post'"
+        , "chain post : invalid sign key"
     )
     hash = exec (
         "git -C " .. REPO .. " rev-parse HEAD"

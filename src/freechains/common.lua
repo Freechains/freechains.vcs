@@ -7,6 +7,7 @@ function ERROR (msg, out)
 end
 
 function exec (a, b, c)
+    -- 'stdout' silences "stderr > /dev/null"
     local stdout, cmd, err
     if a == true then
         err = true
@@ -32,6 +33,9 @@ function exec (a, b, c)
     if code == 0 then
         return out, code
     elseif err then
+        if out == "" then
+            out = nil
+        end
         if err == true then
             return false, code, out
         else

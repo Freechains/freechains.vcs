@@ -75,4 +75,20 @@ do
     end
 end
 
+-- ERROR: post with invalid GPG key
+do
+    print("==> freechains chain post --sign bad key")
+
+    do
+        TEST "post with invalid GPG key fails"
+        local _,Q,err = exec (true,
+            ENV_EXE .. " chain cli-sign post inline 'bad key' --sign bad-key"
+        )
+        assert (
+            Q~=0 and err=="ERROR : chain post : invalid sign key"
+            , "should fail: " .. tostring(err)
+        )
+    end
+end
+
 print("<== ALL PASSED")
