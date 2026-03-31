@@ -234,22 +234,98 @@ author/committer name/email are irrelevant metadata.
     - `gpgsig` header present in commit object
     - unsigned post still works (regression)
     - unsigned commit has no `gpgsig` header
-- `chain/post.lua`: invalid sign key now caught with
-  proper error message (check-errors.md #26)
+- Verification happens at merge time (pre-merge-commit hook),
+  not as a separate command
 
-### Pending — SSH migration
+### Pending
 
-- [ ] Migrate `chain/post.lua` from `gpg.format=openpgp`
-      to `gpg.format=ssh` with literal key
-- [ ] Migrate `chain/like.lua` same
-- [ ] Migrate `chains.lua` git_config (remove
-      `commit.gpgsign false` or adapt)
-- [ ] Migrate `chain/sync.lua` replay: extract pubkey
-      from `gpgsig`, build temp `allowed_signers`, verify
-- [ ] Migrate `tst/`: SSH keypairs instead of GPG keyring
-- [ ] Self-validation in sync recv (check-errors.md #28)
-- [ ] Bad/forged signature rejection (check-errors.md #29)
-- [ ] Confirm literal string vs file path for
-      `user.signingkey` (Git >= 2.35)
-- [ ] Key management (`freechains keys` command)
-- [ ] Encryption (shared/sealed for private/personal chains)
+- Key management (`freechains keys` command)
+- Encryption (shared/sealed for private/personal chains)
+- Pre-merge-commit hook for signature verification
+
+## Pending — SSH migration
+
+**Goal:** Replace GPG signing with SSH signing (Ed25519).
+Git natively supports `gpg.format=ssh` since v2.34.
+
+**Why SSH over GPG:**
+- No keyring management (just files)
+- Ed25519 keys are simple files, no `GNUPGHOME`
+- `ssh-keygen` is ubiquitous, `gpg` is heavyweight
+- Aligns with crypto.md — Ed25519 everywhere
+
+### Identity model
+
+- Identity = SSH public key string (`ssh-ed25519 AAAA...`)
+- `--sign <path-to-private-key>` on the CLI
+- Internally: `ssh-keygen -y -f <path>` → pubkey string
+- Pubkey string used in: `G.authors`, pioneers, `apply()`
+- Pioneer lists in `genesis-*.lua` become pubkey strings
+
+### Git SSH signing mechanics
+
+**Signing (always needs private key file path):**
+```
+git -c gpg.format=ssh \
+    -c user.signingkey=/path/to/id_ed25519 \
+    commit -S -m "msg"
+```
+
+**Verification:**
+- `git verify-commit` with `gpg.ssh.allowedSignersFile`
+- `allowedSignersFile` lives in repo:
+  `<chain>/.freechains/allowed_signers`
+- Auto-generated from pioneers + known authors
+- Format: `<email> ssh-ed25519 AAAA...`
+
+### Resolved: verification flow
+
+**Tested:** `%GK` returns fingerprint (`SHA256:...`), not
+pubkey string. `%GP` empty. No `%G` format gives the pubkey.
+
+**The pubkey is embedded in the SSH signature blob.**
+Extract via `git cat-file commit` → decode `gpgsig` →
+`string.unpack` (~15 lines Lua).
+
+**Per-commit verification during replay:**
+1. `cat-file commit <hash>` → parse signature → extract pubkey
+2. Write single-entry `allowed_signers`: `<principal> <pubkey>`
+3. `git verify-commit <hash>` → confirms valid signature
+4. Pass pubkey to `apply()`
+
+No persistent `allowed_signers` file needed.
+No fingerprint→pubkey mapping needed.
+No `%GK` usage.
+
+### Implementation order
+
+1. **Generate SSH test keys**
+   - Create `tst/ssh-keys/` with 3 Ed25519 keypairs
+   - `ssh-keygen -t ed25519 -N "" -f key1` (×3)
+   - Generate `allowed_signers` from pubkeys
+   - Replaces `tst/gnupg/`
+
+2. **Update tests.lua**
+   - `KEY = "tst/ssh-keys/key1"` (path to private key)
+   - Extract pubkeys: `ssh-keygen -y -f <path>`
+   - Remove `GNUPGHOME` dependency
+   - Setup `allowed_signers` for verification
+
+3. **Update genesis**
+   - `genesis-*.lua`: pioneers = `{ "ssh-ed25519 AAAA..." }`
+   - `chains.lua`: no changes (pioneers are opaque strings)
+
+4. **Update post.lua**
+   - Line 112: `-c gpg.format=ssh -c user.signingkey=<path>`
+   - `ARGS.sign` = path to private key
+   - Extract pubkey via `ssh-keygen -y -f` for `apply()`
+
+5. **Update like** (shares post.lua code, inherits changes)
+
+6. **Update sync.lua**
+   - Extract pubkey from SSH signature blob per commit
+     (`cat-file commit` → decode gpgsig → `string.unpack`)
+   - Write ephemeral `allowed_signers` for verification
+   - `git verify-commit` per commit
+   - Pass extracted pubkey to `apply()`
+   - Set `gpg.ssh.allowedSignersFile` in chain git config
