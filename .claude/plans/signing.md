@@ -141,13 +141,62 @@ Embed pubkey and signature in the commit message body.
 - Must parse message to extract crypto fields
 - Mixes human-readable and machine data
 
-## Decision: Option A — GPG signing
+### Option D: SSH signing with literal key (new recommendation)
 
-Standard GPG signing satisfies all Freechains requirements:
-- Signature is inside the commit hash
+Use `git commit -S` with `gpg.format=ssh` and a literal
+public key string (Git >= 2.35).
+
+```
+git -c gpg.format=ssh \
+    -c user.signingkey="ssh-ed25519 AAAA... user" \
+    commit -S -m '...'
+```
+
+**Pros:**
+- **Self-validating**: the `gpgsig` header embeds the full
+  public key — any node can verify without a keyring
+- No GPG keyring management — no import/export needed
+- Ed25519 — same curve as crypto.md's openssl choice
+- Standard git tooling (`git verify-commit` with
+  `allowed_signers`)
+- Signature is inside the commit hash (same as GPG)
+- Literal key string: no temp files, key passed inline
+  via `--sign "ssh-ed25519 AAAA..."`
+
+**Cons:**
+- Requires Git >= 2.35 (released 2022-01)
+- Verification needs a temporary `allowed_signers` file
+  (can be built on the fly from the signature itself)
+- `ssh-keygen` required for verify (standard on all systems)
+
+**Open question:**
+- `user.signingkey` accepts both a file path and a literal
+  string (Git >= 2.35). Literal string is simpler (no temp
+  files), but needs confirmation that the embedded key in
+  the `gpgsig` header is identical in both cases.
+
+**Self-validation flow (sync recv):**
+1. For each fetched commit, extract pubkey from `gpgsig`
+2. Write temp `allowed_signers` with extracted key
+3. `git verify-commit` against it
+4. Compare extracted key with claimed author identity
+5. No keyring, no key distribution, no external state
+
+## Decision: Option D — SSH signing (replaces Option A)
+
+~~Option A (GPG signing)~~ was the initial choice but has a
+critical flaw for p2p: GPG signatures only contain the key
+ID, not the public key. Verification requires the signer's
+public key in the local GPG keyring — impossible in a
+trustless p2p network where peers are unknown.
+
+Option D (SSH signing) solves this:
+- Signature is inside the commit hash (same as GPG)
 - Stripping it changes the hash (tamper-evident)
 - Different signers produce different block hashes
-- Standard tooling works out of the box
+- **Self-validating**: pubkey embedded in signature
+- No key distribution needed — every commit carries its
+  own verification material
 
 ## Why git's trust model works for Freechains
 
@@ -172,7 +221,7 @@ author/committer name/email are irrelevant metadata.
 
 ## Implementation
 
-### Done
+### Done (GPG era — to be migrated)
 
 - `src/freechains`: added `--sign <KEY_ID>` option to
   `chain <alias> post file|inline` commands
@@ -185,11 +234,22 @@ author/committer name/email are irrelevant metadata.
     - `gpgsig` header present in commit object
     - unsigned post still works (regression)
     - unsigned commit has no `gpgsig` header
-- Verification happens at merge time (pre-merge-commit hook),
-  not as a separate command
+- `chain/post.lua`: invalid sign key now caught with
+  proper error message (check-errors.md #26)
 
-### Pending
+### Pending — SSH migration
 
-- Key management (`freechains keys` command)
-- Encryption (shared/sealed for private/personal chains)
-- Pre-merge-commit hook for signature verification
+- [ ] Migrate `chain/post.lua` from `gpg.format=openpgp`
+      to `gpg.format=ssh` with literal key
+- [ ] Migrate `chain/like.lua` same
+- [ ] Migrate `chains.lua` git_config (remove
+      `commit.gpgsign false` or adapt)
+- [ ] Migrate `chain/sync.lua` replay: extract pubkey
+      from `gpgsig`, build temp `allowed_signers`, verify
+- [ ] Migrate `tst/`: SSH keypairs instead of GPG keyring
+- [ ] Self-validation in sync recv (check-errors.md #28)
+- [ ] Bad/forged signature rejection (check-errors.md #29)
+- [ ] Confirm literal string vs file path for
+      `user.signingkey` (Git >= 2.35)
+- [ ] Key management (`freechains keys` command)
+- [ ] Encryption (shared/sealed for private/personal chains)

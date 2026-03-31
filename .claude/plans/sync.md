@@ -285,6 +285,13 @@ to send.
 
 - Hard fork detection (7d / 100 posts)
 - Signature verification per fetched commit
+    - With SSH signing (signing.md Option D), each commit's
+      `gpgsig` header embeds the full public key
+    - Replay can extract the pubkey, build a temp
+      `allowed_signers`, and run `git verify-commit`
+    - Bad/forged signatures must be rejected (not treated
+      as unsigned/beg) — see check-errors.md #29
+    - Missing-key problem eliminated: key is in the commit
 
 ## Current state
 

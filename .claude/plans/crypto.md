@@ -54,3 +54,17 @@ Wrapper: `tst/fc-crypto.sh`
 1. **Now**: openssl CLI for tests — zero dependencies, validates the protocol
 2. **Next**: luasodium for the Lua implementation — NaCl API matches Kotlin original exactly
 3. **Optional**: tweetnacl-lua if zero-C-dependency Lua is needed
+
+## SSH signing for git commits
+
+Git commit signing is migrating from GPG to SSH
+(see signing.md Option D). SSH signing uses Ed25519 —
+the same curve as openssl/luasodium above. Benefits:
+
+- **Self-validating**: `gpgsig` header embeds the full
+  public key (GPG only embeds key ID)
+- No keyring management — literal key string via
+  `user.signingkey="ssh-ed25519 AAAA..."` (Git >= 2.35)
+- Verification via `ssh-keygen -Y verify` + temp
+  `allowed_signers` file (no GPG needed)
+- Aligns with Ed25519 already chosen for crypto primitives
