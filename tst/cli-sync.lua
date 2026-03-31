@@ -256,8 +256,4 @@ do
     end
 end
 
--- TODO(a): 5. conflicts: same results in both sides
-do
-end
-
 print("<== ALL PASSED")

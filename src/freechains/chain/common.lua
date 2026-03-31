@@ -119,9 +119,7 @@ function apply (G, kind, time, T)
 
     elseif kind == 'like' and T then
         -- validation
-        if not T.sign then
-            return false, "not signed"
-        end
+        assert(T.sign, "bug found")
         if T.target ~= "post" and T.target ~= "author" then
             return false, "invalid target : expects 'post' or 'author'"
         end

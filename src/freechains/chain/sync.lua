@@ -23,7 +23,7 @@ local function replay (G, old, new)
     )
     for line in out:gmatch("[^\n]+") do
         local hash, time, key = line:match("^(%S+) (%S+) ?(.*)")
-        if key == "" then key = nil end
+        assert(key, "TODO")
 
         local trailer = exec (
             "git -C " .. REPO .. " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash

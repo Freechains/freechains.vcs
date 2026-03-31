@@ -6,7 +6,7 @@ Test coverage for all error paths in `src/`.
 
 | #  | Error Message                                | Source File        | Line     | Status  |
 |----|----------------------------------------------|--------------------|----------|---------|
-| 4  | `chain like : not signed`                    | `chain/common.lua` | 123      | PENDING |
+| 4  | sync replay: unsigned post (empty `%GF`)     | `chain/sync.lua`   | 25-26    | TEST ADDED (cli-sync.lua step 5) |
 | 12 | `chain post : copy failed: <path>`           | `chain/post.lua`   | 32       | PENDING |
 | 13 | `chain reps : post requires a hash`          | `chain/reps.lua`   | 13       | PENDING |
 | 14 | `chain reps : author requires a pubkey`      | `chain/reps.lua`   | 29       | PENDING |
