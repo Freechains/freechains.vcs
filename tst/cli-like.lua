@@ -40,6 +40,13 @@ do
     end
 
     do
+        TEST "like-triggers-discount-refund"
+        local k1 = exec(ENV_EXE .. " chain cli-like reps author " .. KEY)
+        -- KEY: 15000 - 1000 (post) + 1000 (discount refund) + 450 (self-back) = 15450 -> ext 16
+        assert(k1 == "16", "KEY reps after like: " .. k1)
+    end
+
+    do
         TEST "like-has-trailer"
         local out = exec("git -C " .. DIR .. " cat-file commit HEAD~1")
         assert(out:match("Freechains: like"), "missing freechains: like trailer")

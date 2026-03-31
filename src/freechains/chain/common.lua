@@ -31,8 +31,8 @@ function apply (G, kind, time, T)
             return false, "too big time difference"
         end
 
-        -- discount scan
-        if sign or time>G.now then
+        -- discount scan (maybe signed at same G.now)
+        if time>G.now or sign then
             for hash, entry in pairs(G.posts) do
                 if entry.state == "00-12" then
                     local subs = {}

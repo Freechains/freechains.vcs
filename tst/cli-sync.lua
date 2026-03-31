@@ -202,7 +202,6 @@ do
 
     local A
     do
-        -- reuse post hash from step 3
         local posts = dofile(REPO_A .. ".freechains/state/posts.lua")
         for k in pairs(posts) do
             A = k
@@ -213,23 +212,47 @@ do
 
     do
         TEST "A likes a post"
+
+        local bef = {
+            author = tonumber((exec (
+                EXE_A .. " --now=8000 chain test reps author " .. KEY
+            ))),
+            post = tonumber((exec (
+                EXE_A .. " --now=8000 chain test reps post " .. A
+            ))),
+        }
+        assert(bef.author==29, "bef.author expected 29, got " .. bef.author)
+        assert(bef.post  == 0, "bef.post expected 0, got " .. bef.post)
+
         exec (
-            EXE_A .. " --now=8000 chain test like 1 post " .. A .. " --sign " .. KEY
+            EXE_A .. " --now=8000 chain test like 5 post " .. A .. " --sign " .. KEY
         )
+
+        local aft = {
+            author = tonumber((exec (
+                EXE_A .. " --now=8000 chain test reps author " .. KEY
+            ))),
+            post = tonumber((exec (
+                EXE_A .. " --now=8000 chain test reps post " .. A
+            ))),
+        }
+        assert(aft.author == 28, "aft.author expected 28, got " .. aft.author)
+        assert(aft.post   == 3,  "aft.post expected 3, got " .. aft.post)
 
         TEST "B recvs from A (with like)"
         exec(EXE_B .. " --now=8500 chain test sync recv " .. REPO_A)
 
-        TEST "B's posts.lua reflects like"
-        local pa = dofile(REPO_A .. ".freechains/state/posts.lua")
-        local pb = dofile(REPO_B .. ".freechains/state/posts.lua")
-        assert(pb[A], "post missing in B")
-        assert(pb[A].reps == pa[A].reps, "like reps mismatch")
-
-        TEST "B's authors.lua reflects like"
-        local aa = dofile(REPO_A .. ".freechains/state/authors.lua")
-        local ab = dofile(REPO_B .. ".freechains/state/authors.lua")
-        assert(ab[KEY].reps == aa[KEY].reps, "author reps mismatch")
+        TEST "B reflects like"
+        local b = {
+            author = tonumber((exec (
+                EXE_B .. " --now=8500 chain test reps author " .. KEY
+            ))),
+            post = tonumber((exec (
+                EXE_B .. " --now=8500 chain test reps post " .. A
+            ))),
+        }
+        assert(b.author == aft.author, "author reps: A=" .. aft.author .. " B=" .. b.author)
+        assert(b.post   == aft.post,   "post reps: A=" .. aft.post .. " B=" .. b.post)
     end
 end
 
