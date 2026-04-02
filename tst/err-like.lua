@@ -264,4 +264,47 @@ do
     )
 end
 
+-- sync rejects like from author with insufficient reputation
+do
+    print("==> sync rejects like with insufficient reputation")
+
+    local REPO_A7 = ROOT_A .. "/chains/err-reps/"
+    local REPO_B7 = ROOT_B .. "/chains/err-reps/"
+
+    TEST "A creates chain + post"
+    exec(EXE_A .. " chains add err-reps config " .. GEN_1)
+    local post = exec(EXE_A .. " chain err-reps post inline 'legit' --sign " .. KEY)
+
+    TEST "B clones from A"
+    exec(EXE_B .. " chains add err-reps clone " .. REPO_A7)
+
+    TEST "A crafts like signed by non-pioneer (0 reps)"
+    exec("mkdir -p " .. REPO_A7 .. ".freechains/likes/")
+    local f = io.open(REPO_A7 .. ".freechains/likes/like-err.lua", "w")
+    f:write('return { target="post", id="'..post..'", number=1000 }\n')
+    f:close()
+    exec (
+        ENV .. " git -C " .. REPO_A7
+        .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=openpgp"
+        .. " add .freechains/likes/like-err.lua"
+    )
+    exec (
+        ENV .. " git -C " .. REPO_A7
+        .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=openpgp"
+        .. " commit -S -m 'x' --trailer 'Freechains: like'"
+    )
+    exec (
+        "git -C " .. REPO_A7 .. " commit -m 'x' --trailer 'Freechains: state' --allow-empty"
+    )
+
+    TEST "B rejects like with insufficient reps on sync"
+    local _,Q,err = exec (true,
+        EXE_B .. " chain err-reps sync recv " .. REPO_A7
+    )
+    assert (
+        Q~=0 and err=="ERROR : chain sync : invalid like : insufficient reputation"
+        , "should fail: " .. tostring(err)
+    )
+end
+
 print("<== ALL PASSED")
