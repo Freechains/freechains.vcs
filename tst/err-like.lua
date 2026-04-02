@@ -87,7 +87,93 @@ do
         EXE_B .. " chain err-payload sync recv " .. REPO_A2
     )
     assert (
-        Q~=0 and err:match("invalid like")
+        Q~=0 and err=="ERROR : chain sync : invalid like : missing metadata file"
+        , "should fail: " .. tostring(err)
+    )
+end
+
+-- sync rejects like with invalid lua metadata (syntax error)
+do
+    print("==> sync rejects like with bad lua metadata (syntax error)")
+
+    local REPO_A3 = ROOT_A .. "/chains/err-lua/"
+    local REPO_B3 = ROOT_B .. "/chains/err-lua/"
+
+    TEST "A creates chain + post"
+    exec(EXE_A .. " chains add err-lua config " .. GEN_1)
+    exec(EXE_A .. " chain err-lua post inline 'legit' --sign " .. KEY)
+
+    TEST "B clones from A"
+    exec(EXE_B .. " chains add err-lua clone " .. REPO_A3)
+
+    TEST "A crafts like with invalid lua metadata"
+    exec("mkdir -p " .. REPO_A3 .. ".freechains/likes/")
+    local f = io.open(REPO_A3 .. ".freechains/likes/like-err.lua", "w")
+    f:write("not valid lua !!!\n")
+    f:close()
+    exec (
+        ENV .. " git -C " .. REPO_A3
+        .. " -c user.signingkey=" .. KEY .. " -c gpg.format=openpgp"
+        .. " add .freechains/likes/like-err.lua"
+    )
+    exec (
+        ENV .. " git -C " .. REPO_A3
+        .. " -c user.signingkey=" .. KEY .. " -c gpg.format=openpgp"
+        .. " commit -S -m 'x' --trailer 'Freechains: like'"
+    )
+    exec (
+        "git -C " .. REPO_A3 .. " commit -m 'x' --trailer 'Freechains: state' --allow-empty"
+    )
+
+    TEST "B rejects like with bad lua on sync"
+    local _,Q,err = exec (true,
+        EXE_B .. " chain err-lua sync recv " .. REPO_A3
+    )
+    assert (
+        Q~=0 and err=="ERROR : chain sync : invalid like : invalid lua metadata"
+        , "should fail: " .. tostring(err)
+    )
+end
+
+-- sync rejects like with invalid lua metadata (not table)
+do
+    print("==> sync rejects like with bad lua metadata (not table)")
+
+    local REPO_A4 = ROOT_A .. "/chains/err-table/"
+    local REPO_B4 = ROOT_B .. "/chains/err-table/"
+
+    TEST "A creates chain + post"
+    exec(EXE_A .. " chains add err-table config " .. GEN_1)
+    exec(EXE_A .. " chain err-table post inline 'legit' --sign " .. KEY)
+
+    TEST "B clones from A"
+    exec(EXE_B .. " chains add err-table clone " .. REPO_A4)
+
+    TEST "A crafts like with invalid lua metadata"
+    exec("mkdir -p " .. REPO_A4 .. ".freechains/likes/")
+    local f = io.open(REPO_A4 .. ".freechains/likes/like-err.lua", "w")
+    f:write("return 10\n")
+    f:close()
+    exec (
+        ENV .. " git -C " .. REPO_A4
+        .. " -c user.signingkey=" .. KEY .. " -c gpg.format=openpgp"
+        .. " add .freechains/likes/like-err.lua"
+    )
+    exec (
+        ENV .. " git -C " .. REPO_A4
+        .. " -c user.signingkey=" .. KEY .. " -c gpg.format=openpgp"
+        .. " commit -S -m 'x' --trailer 'Freechains: like'"
+    )
+    exec (
+        "git -C " .. REPO_A4 .. " commit -m 'x' --trailer 'Freechains: state' --allow-empty"
+    )
+
+    TEST "B rejects like with bad lua on sync"
+    local _,Q,err = exec (true,
+        EXE_B .. " chain err-table sync recv " .. REPO_A4
+    )
+    assert (
+        Q~=0 and err=="ERROR : chain sync : invalid like : invalid lua metadata"
         , "should fail: " .. tostring(err)
     )
 end

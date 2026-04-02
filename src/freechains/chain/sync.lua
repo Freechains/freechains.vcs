@@ -42,18 +42,18 @@ local function replay (G, old, new)
             )
             file = file:match("(%S+)")
             if not file then
-                return false, "invalid like : " .. hash
+                return false, "invalid like : missing metadata file"
             end
             local src = exec (
                 "git -C " .. REPO .. " show " .. hash .. ":" .. file
             )
             local f = load(src)
             if not f then
-                return false, "invalid like : " .. hash
+                return false, "invalid like : invalid lua metadata"
             end
             local ok, like = pcall(f)
             if (not ok) or type(like)~='table' then
-                return false, "invalid like : " .. hash
+                return false, "invalid like : invalid lua metadata"
             end
             local ok, err = apply(G, 'like', tonumber(time), {
                 sign   = key,
@@ -62,7 +62,7 @@ local function replay (G, old, new)
                 id     = like.id,
             })
             if not ok then
-                return false, err .. " : " .. hash
+                return false, "invalid like : " .. err
             end
         elseif kind == 'post' then
             local ok, err = apply(G, 'post', tonumber(time), {
@@ -71,7 +71,7 @@ local function replay (G, old, new)
                 beg  = (key == nil),
             })
             if not ok then
-                return false, err .. " : " .. hash
+                return false, "invalid post : " .. err
             end
         else
             assert(kind == 'state')
