@@ -178,4 +178,47 @@ do
     )
 end
 
+-- sync rejects like with invalid target type
+do
+    print("==> sync rejects like with bad target type")
+
+    local REPO_A5 = ROOT_A .. "/chains/err-target/"
+    local REPO_B5 = ROOT_B .. "/chains/err-target/"
+
+    TEST "A creates chain + post"
+    exec(EXE_A .. " chains add err-target config " .. GEN_1)
+    local post = exec(EXE_A .. " chain err-target post inline 'legit' --sign " .. KEY)
+
+    TEST "B clones from A"
+    exec(EXE_B .. " chains add err-target clone " .. REPO_A5)
+
+    TEST "A crafts like with bad target type"
+    exec("mkdir -p " .. REPO_A5 .. ".freechains/likes/")
+    local f = io.open(REPO_A5 .. ".freechains/likes/like-err.lua", "w")
+    f:write('return { target="xxx", id="'..post..'", number=1000 }\n')
+    f:close()
+    exec (
+        ENV .. " git -C " .. REPO_A5
+        .. " -c user.signingkey=" .. KEY .. " -c gpg.format=openpgp"
+        .. " add .freechains/likes/like-err.lua"
+    )
+    exec (
+        ENV .. " git -C " .. REPO_A5
+        .. " -c user.signingkey=" .. KEY .. " -c gpg.format=openpgp"
+        .. " commit -S -m 'x' --trailer 'Freechains: like'"
+    )
+    exec (
+        "git -C " .. REPO_A5 .. " commit -m 'x' --trailer 'Freechains: state' --allow-empty"
+    )
+
+    TEST "B rejects like with bad target type on sync"
+    local _,Q,err = exec (true,
+        EXE_B .. " chain err-target sync recv " .. REPO_A5
+    )
+    assert (
+        Q~=0 and err=="ERROR : chain sync : invalid like : invalid target : expects 'post' or 'author'"
+        , "should fail: " .. tostring(err)
+    )
+end
+
 print("<== ALL PASSED")
