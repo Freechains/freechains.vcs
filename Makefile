@@ -13,7 +13,7 @@ tests: src/freechains/argparse.lua
 	$(L) cli-time.lua
 	$(L) cli-begs.lua
 	$(L) cli-sync.lua
-	$(L) err-like-sign.lua
+	$(L) err-like.lua
 	$(L) repl-local-head.lua
 	$(L) repl-remote-head.lua
 	$(L) repl-local-begs.lua
