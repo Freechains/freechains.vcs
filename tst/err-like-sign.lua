@@ -2,17 +2,17 @@
 
 require "tests"
 
-local ROOT_C = ROOT .. "/err-sign/C/"
-local ROOT_D = ROOT .. "/err-sign/D/"
+local ROOT_A = ROOT .. "/err-sign/A/"
+local ROOT_B = ROOT .. "/err-sign/B/"
 
-local EXE_C  = ENV .. " ../src/freechains.lua --root " .. ROOT_C
-local EXE_D  = ENV .. " ../src/freechains.lua --root " .. ROOT_D
+local EXE_A  = ENV .. " ../src/freechains.lua --root " .. ROOT_A
+local EXE_B  = ENV .. " ../src/freechains.lua --root " .. ROOT_B
 
-local REPO_C = ROOT_C .. "/chains/err-sign/"
-local REPO_D = ROOT_D .. "/chains/err-sign/"
+local REPO_A = ROOT_A .. "/chains/err-sign/"
+local REPO_B = ROOT_B .. "/chains/err-sign/"
 
-exec("mkdir -p " .. ROOT_C)
-exec("mkdir -p " .. ROOT_D)
+exec("mkdir -p " .. ROOT_A)
+exec("mkdir -p " .. ROOT_B)
 
 -- sync rejects unsigned like from remote
 
@@ -21,41 +21,73 @@ print("==> sync rejects unsigned like")
 local POST
 
 do
-    TEST "C creates chain"
-    exec(EXE_C .. " chains add err-sign config " .. GEN_1)
+    TEST "A creates chain"
+    exec(EXE_A .. " chains add err-sign config " .. GEN_1)
 
-    TEST "C posts signed"
-    POST = exec(EXE_C .. " chain err-sign post inline 'legit' --sign " .. KEY)
+    TEST "A posts signed"
+    POST = exec(EXE_A .. " chain err-sign post inline 'legit' --sign " .. KEY)
 
-    TEST "D clones from C"
-    exec(EXE_D .. " chains add err-sign clone " .. REPO_C)
+    TEST "B clones from A"
+    exec(EXE_B .. " chains add err-sign clone " .. REPO_A)
 end
 
 -- craft unsigned like directly via git (bypass freechains)
 do
-    TEST "C crafts unsigned like via raw git"
-    exec("mkdir -p " .. REPO_C .. ".freechains/likes/")
-    local f = io.open(REPO_C .. ".freechains/likes/like-forged.lua", "w")
+    TEST "A crafts unsigned like via raw git"
+    exec("mkdir -p " .. REPO_A .. ".freechains/likes/")
+    local f = io.open(REPO_A .. ".freechains/likes/like-forged.lua", "w")
     f:write('return { target="post", id="'..POST..'", number=1000 }\n')
     f:close()
     exec (
-        "git -C " .. REPO_C .. " add .freechains/likes/like-forged.lua"
+        "git -C " .. REPO_A .. " add .freechains/likes/like-forged.lua"
     )
     exec (
-        "git -C " .. REPO_C .. " commit -m 'x' --trailer 'Freechains: like'"
+        "git -C " .. REPO_A .. " commit -m 'x' --trailer 'Freechains: like'"
     )
     exec (
-        "git -C " .. REPO_C .. " commit -m 'x' --trailer 'Freechains: state' --allow-empty"
+        "git -C " .. REPO_A .. " commit -m 'x' --trailer 'Freechains: state' --allow-empty"
     )
-end
 
-do
-    TEST "D rejects unsigned like on sync"
+    TEST "B rejects unsigned like on sync"
     local _,Q,err = exec (true,
-        EXE_D .. " chain err-sign sync recv " .. REPO_C
+        EXE_B .. " chain err-sign sync recv " .. REPO_A
     )
     assert (
         Q~=0 and err=="ERROR : chain sync : invalid like : missing sign key"
+        , "should fail: " .. tostring(err)
+    )
+end
+
+-- sync rejects like with no payload file
+do
+    print("==> sync rejects like without payload")
+
+    local REPO_A2 = ROOT_A .. "/chains/err-payload/"
+    local REPO_B2 = ROOT_B .. "/chains/err-payload/"
+
+    TEST "A creates chain + post"
+    exec(EXE_A .. " chains add err-payload config " .. GEN_1)
+    exec(EXE_A .. " chain err-payload post inline 'legit' --sign " .. KEY)
+
+    TEST "B clones from A"
+    exec(EXE_B .. " chains add err-payload clone " .. REPO_A2)
+
+    TEST "A crafts like with no payload file"
+    exec (
+        ENV .. " git -C " .. REPO_A2
+        .. " -c user.signingkey=" .. KEY .. " -c gpg.format=openpgp"
+        .. " commit --allow-empty -S -m 'x' --trailer 'Freechains: like'"
+    )
+    exec (
+        "git -C " .. REPO_A2 .. " commit -m 'x' --trailer 'Freechains: state' --allow-empty"
+    )
+
+    TEST "B rejects like without payload on sync"
+    local _,Q,err = exec (true,
+        EXE_B .. " chain err-payload sync recv " .. REPO_A2
+    )
+    assert (
+        Q~=0 and err:match("invalid like")
         , "should fail: " .. tostring(err)
     )
 end
