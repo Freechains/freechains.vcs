@@ -307,4 +307,47 @@ do
     )
 end
 
+-- sync rejects like with too big time difference
+do
+    print("==> sync rejects like with too big time difference")
+
+    local REPO_A8 = ROOT_A .. "/chains/err-time/"
+    local REPO_B8 = ROOT_B .. "/chains/err-time/"
+
+    TEST "A creates chain + post"
+    exec(EXE_A .. " --now=10000 chains add err-time config " .. GEN_1)
+    local post = exec(EXE_A .. " --now=11000 chain err-time post inline 'legit' --sign " .. KEY)
+
+    TEST "B clones from A"
+    exec(EXE_B .. " chains add err-time clone " .. REPO_A8)
+
+    TEST "A crafts like with old timestamp"
+    exec("mkdir -p " .. REPO_A8 .. ".freechains/likes/")
+    local f = io.open(REPO_A8 .. ".freechains/likes/like-err.lua", "w")
+    f:write('return { target="post", id="'..post..'", number=1000 }\n')
+    f:close()
+    exec (
+        ENV .. " git -C " .. REPO_A8
+        .. " -c user.signingkey=" .. KEY .. " -c gpg.format=openpgp"
+        .. " add .freechains/likes/like-err.lua"
+    )
+    exec (
+        ENV .. " git -C " .. REPO_A8
+        .. " -c user.signingkey=" .. KEY .. " -c gpg.format=openpgp"
+        .. " commit -S --date='1970-01-01T00:00:01+0000' -m 'x' --trailer 'Freechains: like'"
+    )
+    exec (
+        "git -C " .. REPO_A8 .. " commit -m 'x' --trailer 'Freechains: state' --allow-empty"
+    )
+
+    TEST "B rejects like with old timestamp on sync"
+    local _,Q,err = exec (true,
+        EXE_B .. " chain err-time sync recv " .. REPO_A8
+    )
+    assert (
+        Q~=0 and err=="ERROR : chain sync : invalid like : too old"
+        , "should fail: " .. tostring(err)
+    )
+end
+
 print("<== ALL PASSED")

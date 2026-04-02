@@ -28,7 +28,7 @@ function apply (G, kind, time, T)
     do
         -- monotonic timestamp
         if time < G.now-C.time.diff then
-            return false, "too big time difference"
+            return false, "too old"
         end
 
         -- discount scan (maybe signed at same G.now)
