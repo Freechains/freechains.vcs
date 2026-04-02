@@ -221,4 +221,47 @@ do
     )
 end
 
+-- sync rejects like with nonexistent post target
+do
+    print("==> sync rejects like with post not found")
+
+    local REPO_A6 = ROOT_A .. "/chains/err-post/"
+    local REPO_B6 = ROOT_B .. "/chains/err-post/"
+
+    TEST "A creates chain + post"
+    exec(EXE_A .. " chains add err-post config " .. GEN_1)
+    exec(EXE_A .. " chain err-post post inline 'legit' --sign " .. KEY)
+
+    TEST "B clones from A"
+    exec(EXE_B .. " chains add err-post clone " .. REPO_A6)
+
+    TEST "A crafts like targeting nonexistent post"
+    exec("mkdir -p " .. REPO_A6 .. ".freechains/likes/")
+    local f = io.open(REPO_A6 .. ".freechains/likes/like-err.lua", "w")
+    f:write('return { target="post", id="0000000000000000000000000000000000000000", number=1000 }\n')
+    f:close()
+    exec (
+        ENV .. " git -C " .. REPO_A6
+        .. " -c user.signingkey=" .. KEY .. " -c gpg.format=openpgp"
+        .. " add .freechains/likes/like-err.lua"
+    )
+    exec (
+        ENV .. " git -C " .. REPO_A6
+        .. " -c user.signingkey=" .. KEY .. " -c gpg.format=openpgp"
+        .. " commit -S -m 'x' --trailer 'Freechains: like'"
+    )
+    exec (
+        "git -C " .. REPO_A6 .. " commit -m 'x' --trailer 'Freechains: state' --allow-empty"
+    )
+
+    TEST "B rejects like with post not found on sync"
+    local _,Q,err = exec (true,
+        EXE_B .. " chain err-post sync recv " .. REPO_A6
+    )
+    assert (
+        Q~=0 and err=="ERROR : chain sync : invalid like : invalid target : post not found"
+        , "should fail: " .. tostring(err)
+    )
+end
+
 print("<== ALL PASSED")
