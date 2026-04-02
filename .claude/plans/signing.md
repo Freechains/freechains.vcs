@@ -75,7 +75,7 @@ Source: [frank.sauerburger.io](https://frank.sauerburger.io/2018/11/07/security-
 
 ## Options for Freechains
 
-### Option A: Standard GPG signing (abandoned)
+### Option A: Standard GPG signing (reconsidered)
 
 Use `git commit -S` with GPG keys.
 
@@ -89,7 +89,11 @@ Use `git commit -S` with GPG keys.
 - GPG is heavyweight (keyring, trust model)
 - GPG signatures only contain key ID, not public key —
   verification requires signer's key in local keyring
-- Impossible in trustless p2p: peers are unknown
+
+**Note:** The register phase (see below) solves the keyring
+problem — keys are registered in-chain, so every node builds
+a local keyring from register commits.
+GPG becomes viable again, though SSH remains simpler.
 
 ### Option B: Extra headers (abandoned)
 
@@ -167,11 +171,86 @@ author/committer name/email are irrelevant metadata.
 
 ## Identity model
 
-- Identity = SSH public key string (`ssh-ed25519 AAAA...`)
-- `--sign <pubkey-string>` on the CLI
-- Internally: resolve pubkey → private key path for signing
-- Pubkey string used in: `G.authors`, pioneers, `apply()`
-- Pioneer lists in `genesis-*.lua` use pubkey strings
+- Identity = key string (fingerprint for GPG, pubkey for SSH)
+- `--sign <key-string>` on the CLI
+- Internally: resolve key → private key path for signing
+- Key string used in: `G.authors`, pioneers, `apply()`
+
+### Pioneer format in `genesis-*.lua`
+
+```lua
+pioneers = {
+    -- SSH: key is identity AND full material
+    { name = "Alice", type = "ssh",
+      key = "ssh-ed25519 AAAA..." },
+
+    -- GPG: key is fingerprint, base64 is full pubkey blob
+    { name = "Bob", type = "gpg",
+      key    = "CA6391CEA51882DF980E0F0C6774E21538E4078B",
+      base64 = "mDMEaavwGBYJKwYBBAHaRw8BAQdA..." },
+}
+```
+
+| Field    | SSH                    | GPG                       |
+|----------|------------------------|---------------------------|
+| `name`   | human-readable label   | human-readable label      |
+| `type`   | `"ssh"`                | `"gpg"`                   |
+| `key`    | full pubkey (~80 ch)   | fingerprint (40 ch)       |
+| `base64` | —                      | pubkey blob (~300 ch)     |
+
+- `key` is always the identity (used in `G.authors`, `apply()`)
+- Keyring build by `type`:
+  - `gpg`: wrap `base64` with PGP armor headers → `.asc`
+  - `ssh`: write `name .. " " .. key` → `allowed_signers`
+- For GPG, `key` is derivable from `base64` (SHA-1 hash)
+  but stored explicitly for fast lookup
+
+## Register phase
+
+### Concept
+
+An **identity commit** is a special commit that modifies
+keyring files inside the chain's `.freechains/` directory.
+A trailer identifies it:
+
+```
+--trailer 'Freechains: identity'
+```
+
+This follows the existing trailer pattern (`post`, `like`,
+`state`, `identity`).
+
+The chain itself becomes its own PKI — the history of
+identity commits is the ledger of trusted keys.
+
+### Mechanics
+
+- Identity commit adds a pubkey to the chain's keyring:
+  `.freechains/keys/allowed_signers` (SSH) or imports into
+  `.freechains/gpg/` (GPG)
+- Revocation: an identity commit can also remove a key
+- Identity commits must be signed by a pioneer or an
+  already-registered key
+- Replay reconstructs the keyring deterministically —
+  every node that replays the chain builds the same keyring
+
+### Bootstrap
+
+Pioneers are known from genesis — they form the initial
+keyring. A pioneer's first action can be an identity commit
+for their own key. Subsequent keys are registered by
+existing members.
+
+### Consequences
+
+| Property                    | Before identity  | After identity      |
+|-----------------------------|------------------|---------------------|
+| Key distribution            | Extract from sig | Built from chain    |
+| Verification                | Parse sig blob   | `git verify-commit` |
+| GPG support                 | Impossible (p2p) | Viable              |
+| Revocation                  | Not supported    | Identity commit     |
+| Keyring determinism         | N/A              | Yes (replay)        |
+| SSH blob parsing needed     | Yes              | Only for bootstrap  |
 
 ## Git SSH signing mechanics
 
@@ -189,24 +268,50 @@ git -c gpg.format=ssh \
   confirmation that it works for signing (not just verify).
   Must test before deciding.
 
-## Verification flow (resolved)
+## Verification flow (updated — identity phase)
 
-**Tested:** `%GK` returns fingerprint (`SHA256:...`), not
-pubkey string. `%GP` empty. No `%G` format gives the pubkey.
+### GPG (current, minimal change)
 
-**The pubkey is embedded in the SSH signature blob.**
-Extract via `git cat-file commit` → decode `gpgsig` →
-`string.unpack` (~15 lines Lua).
+**At genesis (`chains.lua` → `pioneers()`):**
+1. For each pioneer fingerprint, export pubkey:
+   `gpg --export --armor <KEY> > .freechains/keys/<KEY>.asc`
+2. Commit keyring files with
+   `--trailer 'Freechains: identity'`
+3. Then commit state as usual
+   (`--trailer 'Freechains: state'`)
 
-**Per-commit verification during replay:**
-1. `cat-file commit <hash>` → parse signature → extract pubkey
-2. Write ephemeral single-entry `allowed_signers`
-3. `git verify-commit <hash>` → confirms valid signature
-4. Pass pubkey to `apply()`
+**At post/like (no change):**
+- Signing uses user's `GNUPGHOME` as before
+- `%GF` extracts fingerprint as before
 
-No persistent `allowed_signers` file needed.
-No fingerprint→pubkey mapping needed.
-No `%GK` usage.
+**At sync (`sync.lua` → `replay()`):**
+1. On `trailer == "identity"`: skip (keyring already in
+   the repo tree, applied by merge)
+2. For post/like verification: build ephemeral GNUPGHOME
+   from `.freechains/keys/*.asc` files in the chain
+3. `GNUPGHOME=<tmp> git verify-commit <hash>`
+4. Pass `%GF` fingerprint to `apply()`
+
+### SSH (future)
+
+**Normal commits (post-registration):**
+1. Keyring already built from identity commits
+   (`allowed_signers` file exists in chain)
+2. `git verify-commit <hash>` — git matches signature
+   against `allowed_signers`
+3. Pass verified pubkey to `apply()`
+
+**Identity commits (bootstrap):**
+1. Genesis pioneers are the initial keyring
+2. An identity commit from a pioneer is verified against
+   the genesis keyring
+3. After verification, the new key is added to the keyring
+4. Subsequent identity commits verified against the
+   growing keyring
+
+**No SSH blob parsing needed for normal operation.**
+Parsing is only needed if we want to support a mode where
+unregistered keys can post (e.g., `#` open chains).
 
 ## Implementation
 
@@ -232,34 +337,61 @@ No `%GK` usage.
 - Encryption (shared/sealed for private/personal chains)
 - Pre-merge-commit hook for signature verification
 
-### SSH migration — implementation order
+### Phase 1: GPG identity commits (minimal, keep tests)
 
-1. **Generate SSH test keys**
-   - Create `tst/ssh-keys/` with 3 Ed25519 keypairs
-   - `ssh-keygen -t ed25519 -N "" -f key1` (×3)
-   - Replaces `tst/gnupg/`
+**Goal:** Chain carries its own GPG keyring. No changes to
+signing or test infrastructure.
 
-2. **Update tests.lua**
-   - `KEY = "tst/ssh-keys/key1"` (path to private key)
-   - Extract pubkeys: `ssh-keygen -y -f <path>`
-   - Remove `GNUPGHOME` dependency
+1. **Update `genesis-*.lua` — pioneer format**
+   - Change from string to table:
+     `{ name="test", type="gpg", key="CA6391...",
+       base64="mDME..." }`
+   - `base64` contains full GPG pubkey (from
+     `gpg --export --armor`, body only, no PGP headers)
+   - SSH pioneers have no `base64` (`key` is full material)
 
-3. **Update genesis**
-   - `genesis-*.lua`: pioneers = `{ "ssh-ed25519 AAAA..." }`
-   - `chains.lua`: no changes (pioneers are opaque strings)
+2. **Update `chains.lua` — `pioneers()` function**
+   - Iterate `T.pioneers` as tables, not strings
+   - `A[p.key] = { reps = n }` (identity = `p.key`)
+   - Write keyring based on `p.type`:
+     - `gpg`: wrap `p.base64` with PGP armor headers →
+       `.freechains/keys/<key>.asc`
+     - `ssh`: append `p.name .. " " .. p.key` to
+       `.freechains/keys/allowed_signers`
+   - Skel provides `.freechains/keys/` via `.gitkeep`
 
-4. **Update post.lua**
-   - Line 112: `-c gpg.format=ssh -c user.signingkey=<path>`
-   - `ARGS.sign` = pubkey string
-   - Resolve to private key path for signing
-   - Pubkey used directly for `apply()`
+3. **Update `chains.lua` — chain creation**
+   - `.freechains/keys/` already included in `git add .freechains/`
+   - Genesis stays as single state commit (keyring files
+     included alongside state files)
 
-5. **Update like** (shares post.lua code, inherits changes)
+3. **Update `sync.lua` — `replay()` loop (line 69)**
+   - Add `elseif trailer == "identity"` branch (skip/no-op,
+     keyring files are already in the tree after merge)
+   - Currently `assert(trailer == "state")` — add identity
+     to the accepted set
 
-6. **Update sync.lua**
-   - Extract pubkey from SSH signature blob per commit
-     (`cat-file commit` → decode gpgsig → `string.unpack`)
-   - Write ephemeral `allowed_signers` for verification
-   - `git verify-commit` per commit
-   - Pass extracted pubkey to `apply()`
-   - Set `gpg.ssh.allowedSignersFile` in chain git config
+4. **Update `sync.lua` — verification (future)**
+   - Build ephemeral GNUPGHOME from chain's
+     `.freechains/keys/*.asc` for `git verify-commit`
+   - Not needed for current tests (GNUPGHOME already set)
+   - Mark as TODO for p2p scenario
+
+5. **Update `tst/cli-sign.lua`**
+   - Add test: identity commit exists after `chains add`
+   - Verify `.freechains/keys/<KEY>.asc` is in the repo
+   - Verify trailer is `Freechains: identity`
+
+**Files changed:** `chains.lua`, `sync.lua`
+**Files added:** none
+**Tests broken:** none (GNUPGHOME unchanged, signing unchanged)
+
+### Phase 2: SSH migration (future)
+
+1. Generate SSH test keys (`tst/ssh-keys/`)
+2. Update `post.lua`: `gpg.format=ssh`, `user.signingkey=<path>`
+3. Update `like.lua`: same
+4. Update `tests.lua`: SSH keys, remove GNUPGHOME
+5. Update genesis files: pubkey strings as pioneers
+6. Update `sync.lua`: verify against `allowed_signers`
+7. Identity commits write `allowed_signers` instead of `.asc`
