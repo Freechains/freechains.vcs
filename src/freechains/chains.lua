@@ -17,13 +17,13 @@ local function pioneers (dir)
         for _, p in ipairs(T.pioneers) do
             A[p.key] = { reps = n }
             if p.type == "gpg" then
-                local f = io.open(dir .. ".freechains/keys/" .. p.key .. ".asc", "w")
+                local f = io.open(dir .. ".freechains/state/keys/" .. p.key .. ".asc", "w")
                 f:write("-----BEGIN PGP PUBLIC KEY BLOCK-----\n\n")
                 f:write(p.base64 .. "\n")
                 f:write("-----END PGP PUBLIC KEY BLOCK-----\n")
                 f:close()
             elseif p.type == "ssh" then
-                local f = io.open(dir .. ".freechains/keys/allowed_signers", "a")
+                local f = io.open(dir .. ".freechains/state/keys/allowed_signers", "a")
                 f:write(p.name .. " " .. p.key .. "\n")
                 f:close()
             else
