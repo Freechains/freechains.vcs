@@ -1,5 +1,20 @@
 # Replace "beg" with "ident" commits
 
+## Status
+
+**Done (preparation):**
+- Pioneer format migrated to
+  `{ name, type, key, base64 }`
+- `tst/genesis-1.lua`, `genesis-2.lua`, `genesis-3.lua`
+  updated with new format
+- `chains.lua` `pioneers()` writes keyring files into
+  `.freechains/state/keys/` (`.asc` for GPG,
+  `allowed_signers` for SSH)
+- `skel/.freechains/state/keys/.gitkeep` added
+- All existing tests pass
+
+**Pending:** Steps 1–9 below.
+
 ## Context
 
 The "beg" mechanism lets unknown users request entry into a
