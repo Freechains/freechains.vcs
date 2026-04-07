@@ -32,8 +32,12 @@ approves via `like author <key>` which merges everything.
 ## Design decisions
 
 - Trailer: `Freechains: ident`
-- Command: `freechains chain <alias> ident --sign <KEY>
-  [--why "reason"]`
+- Command: `freechains chain <alias> ident [<bio.md>]
+  [--why=...] --sign <KEY>`
+- Optional positional `<bio.md>`: free-form markdown bio
+  (links, description, etc) stored at
+  `.freechains/id/<KEY>.md` (outside `state/`, normal merge)
+- One-shot: bio updates not supported yet
 - GPG pubkey auto-extracted from GNUPGHOME
 - Approval: `like N author <KEY>` (not `like N post <hash>`)
 - Off-main branch: `refs/idents/ident-<KEY>` (keyed by
@@ -42,9 +46,10 @@ approves via `like author <key>` which merges everything.
 
 ## Approval flow
 
-1. User runs `ident --sign <KEY>`
+1. User runs `ident [bio.md] --sign <KEY>`
    - Extracts pubkey from GNUPGHOME
    - Writes `.freechains/state/keys/<KEY>.asc`
+   - If bio provided: copies to `.freechains/id/<KEY>.md`
    - Signs commit with trailer `Freechains: ident`
    - State commit follows
    - Creates `refs/idents/ident-<KEY>`, HEAD reset
@@ -208,6 +213,7 @@ In `cmd.chain` table (~line 46): add `ident = {}`
 After cmd.chain.sync block (~line 139):
 ```lua
 cmd.chain.ident._ = cmd.chain._:command("ident")
+cmd.chain.ident._:argument("bio"):args("?")
 cmd.chain.ident._:option("--sign")
 cmd.chain.ident._:option("--why")
 ```
