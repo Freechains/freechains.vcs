@@ -226,7 +226,7 @@ identity commits is the ledger of trusted keys.
 ### Mechanics
 
 - Identity commit adds a pubkey to the chain's keyring:
-  `.freechains/state/keys/allowed_signers` (SSH) or imports into
+  `.freechains/keys/allowed_signers` (SSH) or imports into
   `.freechains/gpg/` (GPG)
 - Revocation: an identity commit can also remove a key
 - Identity commits must be signed by a pioneer or an
@@ -274,7 +274,7 @@ git -c gpg.format=ssh \
 
 **At genesis (`chains.lua` → `pioneers()`):**
 1. For each pioneer fingerprint, export pubkey:
-   `gpg --export --armor <KEY> > .freechains/state/keys/<KEY>.asc`
+   `gpg --export --armor <KEY> > .freechains/keys/<KEY>.asc`
 2. Commit keyring files with
    `--trailer 'Freechains: identity'`
 3. Then commit state as usual
@@ -288,7 +288,7 @@ git -c gpg.format=ssh \
 1. On `trailer == "identity"`: skip (keyring already in
    the repo tree, applied by merge)
 2. For post/like verification: build ephemeral GNUPGHOME
-   from `.freechains/state/keys/*.asc` files in the chain
+   from `.freechains/keys/*.asc` files in the chain
 3. `GNUPGHOME=<tmp> git verify-commit <hash>`
 4. Pass `%GF` fingerprint to `apply()`
 
@@ -355,13 +355,13 @@ signing or test infrastructure.
    - `A[p.key] = { reps = n }` (identity = `p.key`)
    - Write keyring based on `p.type`:
      - `gpg`: wrap `p.base64` with PGP armor headers →
-       `.freechains/state/keys/<key>.asc`
+       `.freechains/keys/<key>.asc`
      - `ssh`: append `p.name .. " " .. p.key` to
-       `.freechains/state/keys/allowed_signers`
-   - Skel provides `.freechains/state/keys/` via `.gitkeep`
+       `.freechains/keys/allowed_signers`
+   - Skel provides `.freechains/keys/` via `.gitkeep`
 
 3. **Update `chains.lua` — chain creation**
-   - `.freechains/state/keys/` already included in `git add .freechains/`
+   - `.freechains/keys/` already included in `git add .freechains/`
    - Genesis stays as single state commit (keyring files
      included alongside state files)
 
@@ -373,13 +373,13 @@ signing or test infrastructure.
 
 4. **Update `sync.lua` — verification (future)**
    - Build ephemeral GNUPGHOME from chain's
-     `.freechains/state/keys/*.asc` for `git verify-commit`
+     `.freechains/keys/*.asc` for `git verify-commit`
    - Not needed for current tests (GNUPGHOME already set)
    - Mark as TODO for p2p scenario
 
 5. **Update `tst/cli-sign.lua`**
    - Add test: identity commit exists after `chains add`
-   - Verify `.freechains/state/keys/<KEY>.asc` is in the repo
+   - Verify `.freechains/keys/<KEY>.asc` is in the repo
    - Verify trailer is `Freechains: identity`
 
 **Files changed:** `chains.lua`, `sync.lua`

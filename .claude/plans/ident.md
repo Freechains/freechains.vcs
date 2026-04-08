@@ -8,12 +8,36 @@
 - `tst/genesis-1.lua`, `genesis-2.lua`, `genesis-3.lua`
   updated with new format
 - `chains.lua` `pioneers()` writes keyring files into
-  `.freechains/state/keys/` (`.asc` for GPG,
+  `.freechains/keys/` (`.asc` for GPG,
   `allowed_signers` for SSH)
-- `skel/.freechains/state/keys/.gitkeep` added
+- `skel/.freechains/keys/.gitkeep` added
 - All existing tests pass
 
 **Pending:** Steps 1–9 below.
+
+## Keyring location
+
+The keyring lives at `.freechains/keys/`, **outside** of
+`state/`.
+
+Reasons:
+- `state/**` has `merge=ours` which would discard remote
+  keyring additions during sync — keys could not propagate
+  between peers.
+- For SSH, multiple peers append to a single
+  `allowed_signers` file. Needs `merge=union` line-level
+  merging, which conflicts with `merge=ours`.
+
+Layout:
+- `.freechains/keys/<KEY>.asc` (GPG) — one file per key,
+  same content for the same key, so merges cleanly.
+- `.freechains/keys/allowed_signers` (SSH) — single
+  append-only file. Use `merge=union` in `.gitattributes`.
+
+`.gitattributes` additions:
+```
+.freechains/keys/allowed_signers merge=union
+```
 
 ## Context
 
@@ -48,7 +72,7 @@ approves via `like author <key>` which merges everything.
 
 1. User runs `ident [bio.md] --sign <KEY>`
    - Extracts pubkey from GNUPGHOME
-   - Writes `.freechains/state/keys/<KEY>.asc`
+   - Writes `.freechains/keys/<KEY>.asc`
    - If bio provided: copies to `.freechains/id/<KEY>.md`
    - Signs commit with trailer `Freechains: ident`
    - State commit follows
@@ -107,7 +131,7 @@ New file. Structure mirrors `post.lua`:
 ```
 -- validate: --sign required, author must not have reps > 0
 -- extract pubkey: gpg --export --armor <KEY>
--- write .freechains/state/keys/<KEY>.asc
+-- write .freechains/keys/<KEY>.asc
 -- git add + signed commit with trailer 'Freechains: ident'
 -- apply(G, 'ident', ...)
 -- write state + state commit
