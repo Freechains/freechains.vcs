@@ -113,7 +113,7 @@ do
     cmd.chain.like._:argument("number"):convert(positive)
     cmd.chain.like._:argument("target")
     cmd.chain.like._:argument("id")
-    cmd.chain.like._:option("--sign")
+    cmd.chain.like._:option("--sign"):count(1)
     cmd.chain.like._:option("--why")
 
     -- cmd.chain.dislike
@@ -121,7 +121,7 @@ do
     cmd.chain.dislike._:argument("number"):convert(positive)
     cmd.chain.dislike._:argument("target")
     cmd.chain.dislike._:argument("id")
-    cmd.chain.dislike._:option("--sign")
+    cmd.chain.dislike._:option("--sign"):count(1)
     cmd.chain.dislike._:option("--why")
 
     -- cmd.chain.reps

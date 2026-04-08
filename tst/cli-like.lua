@@ -219,8 +219,14 @@ do
         local _, Q, err = exec (true,
             ENV_EXE .. " chain cli-like like 1 post " .. POST
         )
+        local msg =
+[[Usage: freechains chain like [-h] --sign <sign> [--why <why>] <number>
+       <target> <id>
+
+Error: missing option '--sign'
+]]
         assert (
-            Q~=0 and err=="ERROR : chain like : requires --sign"
+            Q~=0 and err==msg
             , "should fail: " .. tostring(err)
         )
     end
