@@ -6,35 +6,50 @@ local DIR = ROOT .. "/chains/cli-ident/"
 
 exec(ENV_EXE .. " chains add cli-ident init " .. GEN_1)
 
--- ident without --sign must fail
+-- ERORS: no --sign, invalid key, invalid bio
 do
-    TEST "ident-without-sign-fails"
-    local _,Q,err = exec (true,
-        ENV_EXE .. " chain cli-ident ident"
-    )
+    -- ident without --sign must fail
+    do
+        TEST "ident-without-sign-fails"
+        local _,Q,err = exec (true,
+            ENV_EXE .. " chain cli-ident ident"
+        )
 
-    local msg =
+        local msg =
 [[Usage: freechains chain ident [-h] --sign <sign> [--why <why>] [<bio>]
 
 Error: missing option '--sign'
 ]]
 
-    assert (
-        Q~=0 and err==msg
-        , "should fail: " .. tostring(err)
-    )
-end
+        assert (
+            Q~=0 and err==msg
+            , "should fail: " .. tostring(err)
+        )
+    end
 
--- ident with invalid key must fail
-do
-    TEST "ident-invalid-key-fails"
-    local _,Q,err = exec (true,
-        ENV_EXE .. " chain cli-ident ident --sign bad-key"
-    )
-    assert (
-        Q~=0 and err=="ERROR : chain ident : invalid sign key"
-        , "should fail: " .. tostring(err)
-    )
+    -- ident with invalid key must fail
+    do
+        TEST "ident-invalid-key-fails"
+        local _,Q,err = exec (true,
+            ENV_EXE .. " chain cli-ident ident --sign bad-key"
+        )
+        assert (
+            Q~=0 and err=="ERROR : chain ident : invalid sign key"
+            , "should fail: " .. tostring(err)
+        )
+    end
+
+    -- ident with invalid bio must fail
+    do
+        TEST "ident-invalid-bio-fails"
+        local _,Q,err = exec (true,
+            ENV_EXE .. " chain cli-ident ident /no.md --sign " .. KEY2
+        )
+        assert (
+            Q~=0 and err=="ERROR : chain ident : invalid bio : /no.md"
+            , "should fail: " .. tostring(err)
+        )
+    end
 end
 
 -- KEY2 idents

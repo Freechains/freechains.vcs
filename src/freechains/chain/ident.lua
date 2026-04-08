@@ -17,7 +17,7 @@ end
 
 -- optional bio
 if ARGS.bio then
-    exec (
+    exec ('stdout',
         "cp " .. ARGS.bio .. " " .. FC .. "idents/" .. ARGS.sign .. ".md"
         , "chain ident : invalid bio : " .. ARGS.bio
     )
