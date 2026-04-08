@@ -87,7 +87,7 @@ do
     -- cmd.chain.ident
     cmd.chain.ident._ = cmd.chain._:command("ident")
     cmd.chain.ident._:argument("bio"):args("?")
-    cmd.chain.ident._:option("--sign")
+    cmd.chain.ident._:option("--sign"):count(1)
     cmd.chain.ident._:option("--why")
 
     -- cmd.chain.reps
