@@ -6,7 +6,7 @@ local DIR = ROOT .. "/chains/cli-ident/"
 
 exec(ENV_EXE .. " chains add cli-ident init " .. GEN_1)
 
--- ERORS: no --sign, invalid key, invalid bio
+-- ERRORS: no --sign, invalid key, invalid bio, invalid pvt
 do
     -- ident without --sign must fail
     do
@@ -47,6 +47,18 @@ Error: missing option '--sign'
         )
         assert (
             Q~=0 and err=="ERROR : chain ident : invalid bio : /no.md"
+            , "should fail: " .. tostring(err)
+        )
+    end
+
+    -- ident with pubkey-only key (no private) must fail
+    do
+        TEST "ident-no-private-key-fails"
+        local _,Q,err = exec (true,
+            ENV_EXE .. " chain cli-ident ident --sign " .. KEY4
+        )
+        assert (
+            Q~=0 and err=="ERROR : chain ident : invalid sign key"
             , "should fail: " .. tostring(err)
         )
     end

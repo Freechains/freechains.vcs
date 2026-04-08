@@ -4,7 +4,7 @@ end
 
 -- export pubkey + write .asc
 do
-    local armor = exec (
+    local armor = exec ('stdout',
         "gpg --export --armor " .. ARGS.sign    -- never fails
     )
     if armor == "" then
