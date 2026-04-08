@@ -1,8 +1,3 @@
--- check sign
-if not ARGS.sign then
-    ERROR("chain like : requires --sign")
-end
-
 -- num
 local num = ARGS.number * C.reps.unit
 if ARGS.dislike then
