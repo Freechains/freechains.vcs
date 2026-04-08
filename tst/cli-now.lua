@@ -10,7 +10,7 @@ do
 
     do
         TEST "genesis with --now=0"
-        exec(ENV_EXE .. " --now=0 chains add cli-now config " .. GEN_1)
+        exec(ENV_EXE .. " --now=0 chains add cli-now init " .. GEN_1)
         local ts = exec("git -C " .. DIR .. " log -1 --format=%at")
         assert(ts == "0", "genesis timestamp: " .. ts)
     end
@@ -112,7 +112,7 @@ do
             ENV_EXE .. " --now=5000 chain cli-now post inline 'too far back' --sign " .. KEY
         )
         assert (
-            Q~=0 and err=="ERROR : chain post : too big time difference"
+            Q~=0 and err=="ERROR : chain post : too old"
             , "should fail: " .. tostring(err)
         )
     end
@@ -124,7 +124,7 @@ do
             ENV_EXE .. " --now=5000 chain cli-now like 1 post " .. h .. " --sign " .. KEY
         )
         assert (
-            Q~=0 and err=="ERROR : chain like : too big time difference"
+            Q~=0 and err=="ERROR : chain like : too old"
             , "should fail: " .. tostring(err)
         )
     end

@@ -28,7 +28,7 @@ function apply (G, kind, time, T)
     do
         -- monotonic timestamp
         if time < G.now-C.time.diff then
-            return false, "too big time difference"
+            return false, "too old"
         end
 
         -- discount scan (maybe signed at same G.now)
@@ -92,7 +92,8 @@ function apply (G, kind, time, T)
 
     elseif kind == 'post' then
         -- validation
-        if T.sign and not T.beg then
+        assert(T.sign or T.beg)
+        if T.sign and (not T.beg) then
             local reps = G.authors[T.sign] and G.authors[T.sign].reps or 0
             if reps <= 0 then
                 return false, "insufficient reputation"
@@ -119,9 +120,7 @@ function apply (G, kind, time, T)
 
     elseif kind == 'like' and T then
         -- validation
-        if not T.sign then
-            return false, "not signed"
-        end
+        assert(T.sign, "bug found")
         if T.target ~= "post" and T.target ~= "author" then
             return false, "invalid target : expects 'post' or 'author'"
         end

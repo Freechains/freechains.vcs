@@ -14,7 +14,7 @@ A chain is univocally identified by its **genesis commit hash**:
 genesis_hash = git_commit_hash(genesis)
 ```
 
-Each `chains add config` call creates a unique genesis commit
+Each `chains add init` call creates a unique genesis commit
 (real pubkey + timestamp), so the hash is unique per creation.
 To join an existing chain, use `chains add <alias> clone <url>`.
 

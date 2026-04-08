@@ -1,0 +1,98 @@
+#!/usr/bin/env lua5.4
+
+require "tests"
+
+local ROOT_A = ROOT .. "/err-post/A/"
+local ROOT_B = ROOT .. "/err-post/B/"
+
+local EXE_A  = ENV .. " ../src/freechains.lua --root " .. ROOT_A
+local EXE_B  = ENV .. " ../src/freechains.lua --root " .. ROOT_B
+
+exec("mkdir -p " .. ROOT_A)
+exec("mkdir -p " .. ROOT_B)
+
+-- sync rejects post from author with insufficient reputation
+do
+    print("==> sync rejects post with insufficient reputation")
+
+    local REPO_A1 = ROOT_A .. "/chains/err-reps/"
+    local REPO_B1 = ROOT_B .. "/chains/err-reps/"
+
+    TEST "A creates chain + post"
+    exec(EXE_A .. " chains add err-reps init " .. GEN_1)
+    exec(EXE_A .. " chain err-reps post inline 'legit' --sign " .. KEY)
+
+    TEST "B clones from A"
+    exec(EXE_B .. " chains add err-reps clone " .. REPO_A1)
+
+    TEST "A crafts post signed by non-pioneer (0 reps)"
+    local f = io.open(REPO_A1 .. "forged.txt", "w")
+    f:write("forged content\n")
+    f:close()
+    exec (
+        ENV .. " git -C " .. REPO_A1
+        .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=openpgp"
+        .. " add forged.txt"
+    )
+    exec (
+        ENV .. " git -C " .. REPO_A1
+        .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=openpgp"
+        .. " commit -S -m 'x' --trailer 'Freechains: post'"
+    )
+    exec (
+        "git -C " .. REPO_A1 .. " commit -m 'x' --trailer 'Freechains: state' --allow-empty"
+    )
+
+    TEST "B rejects post with insufficient reps on sync"
+    local _,Q,err = exec (true,
+        EXE_B .. " chain err-reps sync recv " .. REPO_A1
+    )
+    assert (
+        Q~=0 and err=="ERROR : chain sync : invalid post : insufficient reputation"
+        , "should fail: " .. tostring(err)
+    )
+end
+
+-- sync rejects post with too big time difference
+do
+    print("==> sync rejects post with too old timestamp")
+
+    local REPO_A2 = ROOT_A .. "/chains/err-time/"
+    local REPO_B2 = ROOT_B .. "/chains/err-time/"
+
+    TEST "A creates chain + post"
+    exec(EXE_A .. " --now=10000 chains add err-time init " .. GEN_1)
+    exec(EXE_A .. " --now=11000 chain err-time post inline 'legit' --sign " .. KEY)
+
+    TEST "B clones from A"
+    exec(EXE_B .. " chains add err-time clone " .. REPO_A2)
+
+    TEST "A crafts post with old timestamp"
+    local f = io.open(REPO_A2 .. "forged.txt", "w")
+    f:write("forged content\n")
+    f:close()
+    exec (
+        ENV .. " git -C " .. REPO_A2
+        .. " -c user.signingkey=" .. KEY .. " -c gpg.format=openpgp"
+        .. " add forged.txt"
+    )
+    exec (
+        ENV .. " git -C " .. REPO_A2
+        .. " -c user.signingkey=" .. KEY .. " -c gpg.format=openpgp"
+        .. " commit -S --date='1970-01-01T00:00:01+0000' -m 'x' --trailer 'Freechains: post'"
+    )
+    exec (
+        "git -C " .. REPO_A2 .. " commit -m 'x' --trailer 'Freechains: state' --allow-empty"
+    )
+
+    TEST "B rejects post with old timestamp on sync"
+    local _,Q,err = exec (true,
+        EXE_B .. " chain err-time sync recv " .. REPO_A2
+    )
+    assert (
+        Q~=0 and err=="ERROR : chain sync : invalid post : too old"
+        , "should fail: " .. tostring(err)
+    )
+end
+
+print("<== ALL PASSED")

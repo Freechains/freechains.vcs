@@ -23,30 +23,37 @@ local function replay (G, old, new)
     )
     for line in out:gmatch("[^\n]+") do
         local hash, time, key = line:match("^(%S+) (%S+) ?(.*)")
-        if key == "" then key = nil end
+        if key == "" then
+            key = nil
+        end
 
         local trailer = exec (
             "git -C " .. REPO .. " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash
         )
-        trailer = trailer:match("(%S+)") or ""
-        if trailer == "like" then
+        local kind = trailer:match("(%S+)") or ""
+
+        if kind == 'like' then
+            if not key then
+                return false, "invalid like : missing sign key"
+            end
+
             local file = exec (
                 "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash .. " -- .freechains/likes/"
             )
             file = file:match("(%S+)")
             if not file then
-                return false, "invalid like : " .. hash
+                return false, "invalid like : missing metadata file"
             end
             local src = exec (
                 "git -C " .. REPO .. " show " .. hash .. ":" .. file
             )
             local f = load(src)
             if not f then
-                return false, "invalid like : " .. hash
+                return false, "invalid like : invalid lua metadata"
             end
             local ok, like = pcall(f)
-            if (not ok) or type(like)~="table" then
-                return false, "invalid like : " .. hash
+            if (not ok) or type(like)~='table' then
+                return false, "invalid like : invalid lua metadata"
             end
             local ok, err = apply(G, 'like', tonumber(time), {
                 sign   = key,
@@ -55,19 +62,19 @@ local function replay (G, old, new)
                 id     = like.id,
             })
             if not ok then
-                return false, err .. " : " .. hash
+                return false, "invalid like : " .. err
             end
-        elseif trailer == "post" then
+        elseif kind == 'post' then
             local ok, err = apply(G, 'post', tonumber(time), {
                 hash = hash,
                 sign = key,
                 beg  = (key == nil),
             })
             if not ok then
-                return false, err .. " : " .. hash
+                return false, "invalid post : " .. err
             end
         else
-            assert(trailer == "state")
+            assert(kind == 'state')
         end
     end
     return true
@@ -116,7 +123,7 @@ elseif ARGS.recv then
     do
         local ok, err = replay(G_rem, com, rem)
         if not ok then
-            ERROR("chain sync : invalid remote : " .. err)
+            ERROR("chain sync : " .. err)
         end
     end
 
