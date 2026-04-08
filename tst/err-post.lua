@@ -19,7 +19,7 @@ do
     local REPO_B1 = ROOT_B .. "/chains/err-reps/"
 
     TEST "A creates chain + post"
-    exec(EXE_A .. " chains add err-reps config " .. GEN_1)
+    exec(EXE_A .. " chains add err-reps init " .. GEN_1)
     exec(EXE_A .. " chain err-reps post inline 'legit' --sign " .. KEY)
 
     TEST "B clones from A"
@@ -61,7 +61,7 @@ do
     local REPO_B2 = ROOT_B .. "/chains/err-time/"
 
     TEST "A creates chain + post"
-    exec(EXE_A .. " --now=10000 chains add err-time config " .. GEN_1)
+    exec(EXE_A .. " --now=10000 chains add err-time init " .. GEN_1)
     exec(EXE_A .. " --now=11000 chain err-time post inline 'legit' --sign " .. KEY)
 
     TEST "B clones from A"

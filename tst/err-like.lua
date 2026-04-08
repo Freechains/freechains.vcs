@@ -22,7 +22,7 @@ local POST
 
 do
     TEST "A creates chain"
-    exec(EXE_A .. " chains add err-sign config " .. GEN_1)
+    exec(EXE_A .. " chains add err-sign init " .. GEN_1)
 
     TEST "A posts signed"
     POST = exec(EXE_A .. " chain err-sign post inline 'legit' --sign " .. KEY)
@@ -66,7 +66,7 @@ do
     local REPO_B2 = ROOT_B .. "/chains/err-payload/"
 
     TEST "A creates chain + post"
-    exec(EXE_A .. " chains add err-payload config " .. GEN_1)
+    exec(EXE_A .. " chains add err-payload init " .. GEN_1)
     exec(EXE_A .. " chain err-payload post inline 'legit' --sign " .. KEY)
 
     TEST "B clones from A"
@@ -100,7 +100,7 @@ do
     local REPO_B3 = ROOT_B .. "/chains/err-lua/"
 
     TEST "A creates chain + post"
-    exec(EXE_A .. " chains add err-lua config " .. GEN_1)
+    exec(EXE_A .. " chains add err-lua init " .. GEN_1)
     exec(EXE_A .. " chain err-lua post inline 'legit' --sign " .. KEY)
 
     TEST "B clones from A"
@@ -143,7 +143,7 @@ do
     local REPO_B4 = ROOT_B .. "/chains/err-table/"
 
     TEST "A creates chain + post"
-    exec(EXE_A .. " chains add err-table config " .. GEN_1)
+    exec(EXE_A .. " chains add err-table init " .. GEN_1)
     exec(EXE_A .. " chain err-table post inline 'legit' --sign " .. KEY)
 
     TEST "B clones from A"
@@ -186,7 +186,7 @@ do
     local REPO_B5 = ROOT_B .. "/chains/err-target/"
 
     TEST "A creates chain + post"
-    exec(EXE_A .. " chains add err-target config " .. GEN_1)
+    exec(EXE_A .. " chains add err-target init " .. GEN_1)
     local post = exec(EXE_A .. " chain err-target post inline 'legit' --sign " .. KEY)
 
     TEST "B clones from A"
@@ -229,7 +229,7 @@ do
     local REPO_B6 = ROOT_B .. "/chains/err-post/"
 
     TEST "A creates chain + post"
-    exec(EXE_A .. " chains add err-post config " .. GEN_1)
+    exec(EXE_A .. " chains add err-post init " .. GEN_1)
     exec(EXE_A .. " chain err-post post inline 'legit' --sign " .. KEY)
 
     TEST "B clones from A"
@@ -272,7 +272,7 @@ do
     local REPO_B7 = ROOT_B .. "/chains/err-reps/"
 
     TEST "A creates chain + post"
-    exec(EXE_A .. " chains add err-reps config " .. GEN_1)
+    exec(EXE_A .. " chains add err-reps init " .. GEN_1)
     local post = exec(EXE_A .. " chain err-reps post inline 'legit' --sign " .. KEY)
 
     TEST "B clones from A"
@@ -315,7 +315,7 @@ do
     local REPO_B8 = ROOT_B .. "/chains/err-time/"
 
     TEST "A creates chain + post"
-    exec(EXE_A .. " --now=10000 chains add err-time config " .. GEN_1)
+    exec(EXE_A .. " --now=10000 chains add err-time init " .. GEN_1)
     local post = exec(EXE_A .. " --now=11000 chain err-time post inline 'legit' --sign " .. KEY)
 
     TEST "B clones from A"

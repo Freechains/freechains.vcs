@@ -6,12 +6,12 @@ local DIR = ROOT .. "/chains/cli-chains"
 
 -- ADD
 do
-    print("==> freechains chains add config")
+    print("==> freechains chains add init")
 
     do
         TEST "success"
         local out, code = exec (
-            EXE .. " chains add cli-chains config " .. GEN_0
+            EXE .. " chains add cli-chains init " .. GEN_0
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -58,7 +58,7 @@ do
             f:close()
         end
         local _, Q, err = exec (true,
-            EXE .. " chains add x config " .. bad
+            EXE .. " chains add x init " .. bad
         )
         assert (
             Q~=0 and err=="ERROR : chains add : file must return a table"
@@ -99,7 +99,7 @@ do
     do
         TEST "dir two chains"
         exec (
-            EXE .. " chains add other config " .. GEN_0
+            EXE .. " chains add other init " .. GEN_0
         )
         local out, code = exec(
             EXE .. " chains dir"

@@ -20,7 +20,7 @@ do
 
     do
         TEST "A creates chain + posts"
-        exec(EXE_A .. " --now=1000 chains add test config " .. GEN_1)
+        exec(EXE_A .. " --now=1000 chains add test init " .. GEN_1)
         local out = exec (
             EXE_A .. " --now=2000 chain test post inline 'post from A' --sign " .. KEY
         )

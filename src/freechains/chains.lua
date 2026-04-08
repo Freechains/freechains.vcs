@@ -38,7 +38,7 @@ if ARGS.add then
         ERROR("chains add : alias already exists: " .. ARGS.alias)
     end
 
-    if ARGS.config then
+    if ARGS.init then
         local genesis = dofile(ARGS.path)
         if type(genesis) ~= "table" then
             -- TODO: check format
