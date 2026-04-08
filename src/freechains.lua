@@ -45,17 +45,18 @@ local cmd = {
     },
     chain = {
         _ = parser:command("chain"),
+        ident = {},
+        reps = {},
+        sync = {
+            recv = {},
+            send = {},
+        },
         post = {
             file = {},
             inline = {},
         },
         like = {},
         dislike = {},
-        reps = {},
-        sync = {
-            recv = {},
-            send = {},
-        },
     },
 }
 
@@ -82,6 +83,26 @@ end
 -- cmd.chain
 do
     cmd.chain._:argument("alias")
+
+    -- cmd.chain.ident
+    cmd.chain.ident._ = cmd.chain._:command("ident")
+    cmd.chain.ident._:argument("bio"):args("?")
+    cmd.chain.ident._:option("--sign")
+    cmd.chain.ident._:option("--why")
+
+    -- cmd.chain.reps
+    cmd.chain.reps._ = cmd.chain._:command("reps")
+    cmd.chain.reps._:argument("target")
+    cmd.chain.reps._:argument("key"):args("?")
+
+    -- cmd.chain.sync
+    cmd.chain.sync._ = cmd.chain._:command("sync")
+    do
+        cmd.chain.sync.recv._ = cmd.chain.sync._:command("recv")
+        cmd.chain.sync.recv._:argument("remote")
+        cmd.chain.sync.send._ = cmd.chain.sync._:command("send")
+        cmd.chain.sync.send._:argument("remote")
+    end
 
     -- cmd.chain.post
     cmd.chain.post._ = cmd.chain._:command("post")
@@ -123,20 +144,6 @@ do
     cmd.chain.dislike._:argument("id")
     cmd.chain.dislike._:option("--sign")
     cmd.chain.dislike._:option("--why")
-
-    -- cmd.chain.reps
-    cmd.chain.reps._ = cmd.chain._:command("reps")
-    cmd.chain.reps._:argument("target")
-    cmd.chain.reps._:argument("key"):args("?")
-
-    -- cmd.chain.sync
-    cmd.chain.sync._ = cmd.chain._:command("sync")
-    do
-        cmd.chain.sync.recv._ = cmd.chain.sync._:command("recv")
-        cmd.chain.sync.recv._:argument("remote")
-        cmd.chain.sync.send._ = cmd.chain.sync._:command("send")
-        cmd.chain.sync.send._:argument("remote")
-    end
 end
 
 ARGS = parser:parse()
