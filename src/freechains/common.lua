@@ -8,6 +8,7 @@ end
 
 function exec (a, b, c)
     -- 'stdout' silences "stderr > /dev/null"
+    -- a = true = returns error, otherwise crashes
     local stdout, cmd, err
     if a == true then
         err = true
