@@ -1,5 +1,16 @@
-if G.authors[ARGS.sign] then
-    ERROR("chain ident : already registered")
+do
+    if G.authors[ARGS.sign] then
+        ERROR("chain ident : already registered")   -- TODO: untested
+    end
+
+    do
+        local _,code = exec (true,
+            "git -C " .. REPO .. " rev-parse --verify refs/idents/ident-" .. ARGS.sign
+        )
+        if code == 0 then
+            ERROR("chain ident : already registered")
+        end
+    end
 end
 
 -- export pubkey + write .asc

@@ -105,6 +105,27 @@ do
         )
         assert(not out:match(KEY2 .. "%.md"), "bio should not exist: " .. out)
     end
+
+    do
+        TEST "ident-state-author-added"
+        local src = exec (
+            "git -C " .. DIR .. " show " .. REF .. ":.freechains/state/authors.lua"
+        )
+        local A = load(src)()
+        assert(A[KEY2], "KEY2 not in authors: " .. src)
+        assert(A[KEY2].reps == 0, "expected reps=0, got: " .. tostring(A[KEY2].reps))
+    end
+
+    do
+        TEST "ident-already-registered-fails"
+        local _,Q,err = exec (true,
+            ENV_EXE .. " chain cli-ident ident --sign " .. KEY2
+        )
+        assert (
+            Q~=0 and err=="ERROR : chain ident : already registered"
+            , "should fail: " .. tostring(err)
+        )
+    end
 end
 
 -- KEY3 ident, with bio
