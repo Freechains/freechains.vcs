@@ -90,6 +90,15 @@ function apply (G, kind, time, T)
     if kind == 'reps' then
         -- no validation / mutation
 
+    elseif kind == 'ident' then
+        -- validation
+        if G.authors[T.sign] then
+            return false, "already registered"
+        end
+
+        -- mutation
+        G.authors[T.sign] = { reps = 0 }
+
     elseif kind == 'post' then
         -- validation
         assert(T.sign or T.beg)

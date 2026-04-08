@@ -41,13 +41,37 @@ do
     )
 end
 
+-- apply
+do
+    local T = {
+        sign = ARGS.sign,
+    }
+    local ok, err = apply(G, 'ident', CMD.now, T)
+    if not ok then
+        exec("git -C " .. REPO .. " reset --hard HEAD~1")
+        ERROR("chain ident : " .. err)
+    end
+end
+
+-- commit state
+do
+    write(G)
+    exec (
+        "git -C " .. REPO .. " add .freechains/state/"
+    )
+    exec (
+        CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
+        .. " --trailer 'Freechains: state'"
+    )
+end
+
 -- create ident ref + reset HEAD
 do
     exec (
         "git -C " .. REPO .. " update-ref refs/idents/ident-" .. ARGS.sign .. " HEAD"
     )
     exec (
-        "git -C " .. REPO .. " reset --hard HEAD~1"
+        "git -C " .. REPO .. " reset --hard HEAD~2"
     )
 end
 

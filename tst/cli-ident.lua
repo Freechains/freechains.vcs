@@ -92,7 +92,7 @@ do
     do
         TEST "ident-trailer"
         local trailer = exec (
-            "git -C " .. DIR .. " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. REF
+            "git -C " .. DIR .. " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. REF .. "~1"
         )
         trailer = trailer:match("(%S+)") or ""
         assert(trailer == "ident", "trailer: " .. trailer)
