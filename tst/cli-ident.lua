@@ -6,8 +6,20 @@ local DIR = ROOT .. "/chains/cli-ident/"
 
 exec(ENV_EXE .. " chains add cli-ident init " .. GEN_1)
 
--- ERRORS: no --sign, invalid key, invalid bio, invalid pvt
+-- ERRORS: no --sign, invalid key, invalid bio, invalid pvt, pioneer
 do
+    -- ident with pioneer key (already in main state) must fail
+    do
+        TEST "ident-pioneer-fails"
+        local _,Q,err = exec (true,
+            ENV_EXE .. " chain cli-ident ident --sign " .. KEY
+        )
+        assert (
+            Q~=0 and err=="ERROR : chain ident : already registered"
+            , "should fail: " .. tostring(err)
+        )
+    end
+
     -- ident without --sign must fail
     do
         TEST "ident-without-sign-fails"

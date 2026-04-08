@@ -1,6 +1,6 @@
 do
     if G.authors[ARGS.sign] then
-        ERROR("chain ident : already registered")   -- TODO: untested
+        ERROR("chain ident : already registered")
     end
 
     do
