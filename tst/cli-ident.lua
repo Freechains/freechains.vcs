@@ -64,24 +64,81 @@ Error: missing option '--sign'
     end
 end
 
--- KEY2 idents
-local IDENT
+-- KEY2 ident, no bio
 do
-    TEST "ident-succeeds"
-    local out,Q = exec (
-        ENV_EXE .. " chain cli-ident ident --sign " .. KEY2
-    )
-    assert(Q == 0, "exit code: " .. tostring(Q))
-    assert(#out == 40, "hash length: " .. #out)
-    IDENT = out
+    local REF = "refs/idents/ident-" .. KEY2
+    local IDENT
+    do
+        TEST "ident-succeeds"
+        local out,Q = exec (
+            ENV_EXE .. " chain cli-ident ident --sign " .. KEY2
+        )
+        assert(Q == 0, "exit code: " .. tostring(Q))
+        assert(#out == 40, "hash length: " .. #out)
+        IDENT = out
+    end
+
+    do
+        TEST "ident-on-ref"
+        local out = exec (
+            "git -C " .. DIR .. " for-each-ref refs/idents/ --format='%(refname)'"
+        )
+        assert (
+            out == "refs/idents/ident-" .. KEY2
+            , "ident ref not found: " .. out
+        )
+    end
+
+    do
+        TEST "ident-trailer"
+        local trailer = exec (
+            "git -C " .. DIR .. " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. REF
+        )
+        trailer = trailer:match("(%S+)") or ""
+        assert(trailer == "ident", "trailer: " .. trailer)
+    end
+
+    do
+        TEST "ident-no-bio"
+        local out = exec (
+            "git -C " .. DIR .. " ls-tree -r " .. REF .. " .freechains/idents/"
+        )
+        assert(not out:match(KEY2 .. "%.md"), "bio should not exist: " .. out)
+    end
 end
 
+-- KEY3 ident, with bio
 do
-    TEST "ident-on-ref"
-    local out = exec (
-        "git -C " .. DIR .. " for-each-ref refs/idents/ --format='%(refname)'"
-    )
-    assert(out:match("refs/idents/ident%-" .. KEY2), "ident ref not found: " .. out)
+    local bio = TMP .. "/bio.md"
+    local f = io.open(bio, "w")
+    f:write("# About\n\nHello, I am test3.\n")
+    f:close()
+
+    do
+        TEST "ident-with-bio-succeeds"
+        local _,Q = exec (
+            ENV_EXE .. " chain cli-ident ident " .. bio .. " --sign " .. KEY3
+        )
+        assert(Q == 0, "exit code: " .. tostring(Q))
+    end
+
+    local REF3 = "refs/idents/ident-" .. KEY3
+
+    do
+        TEST "ident-bio-in-ref"
+        local out = exec (
+            "git -C " .. DIR .. " ls-tree -r " .. REF3 .. " .freechains/idents/"
+        )
+        assert(out:match(KEY3 .. "%.md"), "bio not found in ref: " .. out)
+    end
+
+    do
+        TEST "ident-bio-content"
+        local content = exec (
+            "git -C " .. DIR .. " show " .. REF3 .. ":.freechains/idents/" .. KEY3 .. ".md"
+        )
+        assert(content:match("Hello, I am test3"), "bio content mismatch: " .. content)
+    end
 end
 
 print("<== ALL PASSED")
