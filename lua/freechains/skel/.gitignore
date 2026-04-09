@@ -1,0 +1,2 @@
+.freechains/tmp/*
+!.freechains/tmp/.gitkeep

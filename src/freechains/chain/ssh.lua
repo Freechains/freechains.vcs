@@ -57,12 +57,12 @@ function verify (repo, hash)
     local key = pubkey(repo, hash)
     assert(key)
 
-    local f = io.open(repo .. "/.git/info/allowed_signers", "w")
+    local f = io.open(repo .. "/.freechains/tmp/allowed_signers", "w")
     f:write(key .. " " .. key .. "\n")
     f:close()
     local out, code = exec(true,
         "git -C " .. repo
-        .. " -c gpg.ssh.allowedSignersFile=.git/info/allowed_signers"
+        .. " -c gpg.ssh.allowedSignersFile=.freechains/tmp/allowed_signers"
         .. " verify-commit " .. hash
     )
     if code == 0 then
