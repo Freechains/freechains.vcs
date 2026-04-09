@@ -52,7 +52,7 @@ function pubkey (repo, hash)
 end
 
 -- Verify a commit's SSH signature against its embedded pubkey.
--- Returns (true, pubkey) on success, (false, err) on failure.
+-- Returns pubkey on success, nil on failure.
 function verify (repo, hash)
     local key = pubkey(repo, hash)
     if key == nil then
