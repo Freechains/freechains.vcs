@@ -12,6 +12,7 @@ tests: src/freechains/argparse.lua
 	$(L) cli-now.lua
 	$(L) cli-time.lua
 	$(L) cli-begs.lua
+	$(L) cli-ident.lua
 	$(L) cli-sync.lua
 	$(L) err-post.lua
 	$(L) err-like.lua

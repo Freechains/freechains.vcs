@@ -12,6 +12,21 @@ local to_beg = (
         ) and true
 )
 
+-- detect if like targets an ident on refs/idents/
+local to_ident = false
+if ARGS.target == "author" then
+    local _, code = exec (true,
+        "git -C " .. REPO .. " rev-parse --verify refs/idents/ident-" .. ARGS.id
+    )
+    to_ident = (code == 0)
+end
+
+-- ident: merge ident branch into main
+local iref = "refs/idents/ident-" .. ARGS.id
+if to_ident then
+    exec("git -C " .. REPO .. " merge -X ours --no-commit --no-edit " .. iref)
+end
+
 -- beg: validate parent, merge into main, load beg entry
 local ref = "refs/begs/beg-" .. ARGS.id
 if to_beg then
@@ -91,6 +106,10 @@ end
 
 if to_beg then
     exec("git -C " .. REPO .. " update-ref -d " .. ref)
+end
+
+if to_ident then
+    exec("git -C " .. REPO .. " update-ref -d " .. iref)
 end
 
 print(hash)

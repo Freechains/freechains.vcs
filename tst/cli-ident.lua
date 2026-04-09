@@ -174,4 +174,47 @@ do
     end
 end
 
+-- KEY (pioneer) approves KEY2 via like author
+do
+    local REF = "refs/idents/ident-" .. KEY2
+    local HEAD = exec("git -C " .. DIR .. " rev-parse HEAD")
+
+    local LIKE
+    do
+        TEST "like-author-succeeds"
+        local out, Q = exec (
+            ENV_EXE .. " chain cli-ident like 1 author " .. KEY2 .. " --sign " .. KEY
+        )
+        assert(Q == 0, "exit code: " .. tostring(Q))
+        LIKE = out
+    end
+
+    do
+        TEST "like-author-merges"
+        local head = exec("git -C " .. DIR .. " rev-parse HEAD")
+        assert(head ~= HEAD, "HEAD should advance after merge")
+    end
+
+    do
+        TEST "like-author-key2-on-main"
+        local A = dofile(DIR .. ".freechains/state/authors.lua")
+        assert(A[KEY2], "KEY2 not in main authors.lua")
+    end
+
+    do
+        TEST "like-author-asc-on-main"
+        local f = io.open(DIR .. ".freechains/keys/" .. KEY2 .. ".asc")
+        assert(f, ".asc file not in main keyring")
+        f:close()
+    end
+
+    do
+        TEST "like-author-ref-removed"
+        local _, code = exec(true,
+            "git -C " .. DIR .. " rev-parse --verify " .. REF
+        )
+        assert(code ~= 0, "ident ref should be removed")
+    end
+end
+
 print("<== ALL PASSED")
