@@ -86,8 +86,8 @@ do
     print("==> Multiple begs from different heads")
     exec(ENV_EXE .. " chains add cli-begs-3 init " .. GEN_1)
 
-    -- KEY posts normally (advances HEAD)
-    exec(ENV_EXE .. " chain cli-begs-3 post inline 'normal post 1' --sign " .. KEY)
+    -- KEY1 posts normally (advances HEAD)
+    exec(ENV_EXE .. " chain cli-begs-3 post inline 'normal post 1' --sign " .. KEY1)
     local HEAD1 = exec("git -C " .. DIR3 .. " rev-parse HEAD")
 
     -- KEY2 begs from HEAD1
@@ -95,8 +95,8 @@ do
         ENV_EXE .. " chain cli-begs-3 post inline 'beg from head1' --beg --sign " .. KEY2
     )
 
-    -- KEY posts again (advances HEAD)
-    exec(ENV_EXE .. " chain cli-begs-3 post inline 'normal post 2' --sign " .. KEY)
+    -- KEY1 posts again (advances HEAD)
+    exec(ENV_EXE .. " chain cli-begs-3 post inline 'normal post 2' --sign " .. KEY1)
     local HEAD2 = exec("git -C " .. DIR3 .. " rev-parse HEAD")
 
     -- KEY3 begs from HEAD2
@@ -136,7 +136,7 @@ do
     do
         TEST "like-beg-succeeds"
         local out, code = exec (
-            ENV_EXE .. " chain cli-begs-4 like 1 post " .. BEG .. " --sign " .. KEY
+            ENV_EXE .. " chain cli-begs-4 like 1 post " .. BEG .. " --sign " .. KEY1
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -229,8 +229,8 @@ do
     )
     local HEAD = exec("git -C " .. DIR5 .. " rev-parse HEAD")
 
-    -- KEY likes the beg (triggers merge)
-    exec(ENV_EXE .. " chain cli-begs-5 like 1 post " .. BEG .. " --sign " .. KEY)
+    -- KEY1 likes the beg (triggers merge)
+    exec(ENV_EXE .. " chain cli-begs-5 like 1 post " .. BEG .. " --sign " .. KEY1)
 
     local MERGE = exec("git -C " .. DIR5 .. " rev-parse HEAD")
 
@@ -267,12 +267,12 @@ do
         ENV_EXE .. " chain cli-begs-6 post inline 'merge test beg' --beg --sign " .. KEY2
     )
 
-    -- KEY posts normally (advances HEAD past genesis)
-    exec(ENV_EXE .. " chain cli-begs-6 post inline 'normal post' --sign " .. KEY)
+    -- KEY1 posts normally (advances HEAD past genesis)
+    exec(ENV_EXE .. " chain cli-begs-6 post inline 'normal post' --sign " .. KEY1)
     local HEAD = exec("git -C " .. DIR6 .. " rev-parse HEAD")
 
-    -- KEY likes the beg (triggers true merge)
-    local LIKE = exec(ENV_EXE .. " chain cli-begs-6 like 1 post " .. BEG .. " --sign " .. KEY)
+    -- KEY1 likes the beg (triggers true merge)
+    local LIKE = exec(ENV_EXE .. " chain cli-begs-6 like 1 post " .. BEG .. " --sign " .. KEY1)
 
     do
         TEST "merge-has-two-parents"

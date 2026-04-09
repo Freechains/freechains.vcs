@@ -25,7 +25,7 @@ do
     exec(EXE_A .. " chains add err-sign init " .. GEN_1)
 
     TEST "A posts signed"
-    POST = exec(EXE_A .. " chain err-sign post inline 'legit' --sign " .. KEY)
+    POST = exec(EXE_A .. " chain err-sign post inline 'legit' --sign " .. KEY1)
 
     TEST "B clones from A"
     exec(EXE_B .. " chains add err-sign clone " .. REPO_A)
@@ -67,7 +67,7 @@ do
 
     TEST "A creates chain + post"
     exec(EXE_A .. " chains add err-payload init " .. GEN_1)
-    exec(EXE_A .. " chain err-payload post inline 'legit' --sign " .. KEY)
+    exec(EXE_A .. " chain err-payload post inline 'legit' --sign " .. KEY1)
 
     TEST "B clones from A"
     exec(EXE_B .. " chains add err-payload clone " .. REPO_A2)
@@ -75,7 +75,7 @@ do
     TEST "A crafts like with no payload file"
     exec (
         ENV .. " git -C " .. REPO_A2
-        .. " -c user.signingkey=" .. KEY .. " -c gpg.format=openpgp"
+        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=openpgp"
         .. " commit --allow-empty -S -m 'x' --trailer 'Freechains: like'"
     )
     exec (
@@ -101,7 +101,7 @@ do
 
     TEST "A creates chain + post"
     exec(EXE_A .. " chains add err-lua init " .. GEN_1)
-    exec(EXE_A .. " chain err-lua post inline 'legit' --sign " .. KEY)
+    exec(EXE_A .. " chain err-lua post inline 'legit' --sign " .. KEY1)
 
     TEST "B clones from A"
     exec(EXE_B .. " chains add err-lua clone " .. REPO_A3)
@@ -113,12 +113,12 @@ do
     f:close()
     exec (
         ENV .. " git -C " .. REPO_A3
-        .. " -c user.signingkey=" .. KEY .. " -c gpg.format=openpgp"
+        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=openpgp"
         .. " add .freechains/likes/like-err.lua"
     )
     exec (
         ENV .. " git -C " .. REPO_A3
-        .. " -c user.signingkey=" .. KEY .. " -c gpg.format=openpgp"
+        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=openpgp"
         .. " commit -S -m 'x' --trailer 'Freechains: like'"
     )
     exec (
@@ -144,7 +144,7 @@ do
 
     TEST "A creates chain + post"
     exec(EXE_A .. " chains add err-table init " .. GEN_1)
-    exec(EXE_A .. " chain err-table post inline 'legit' --sign " .. KEY)
+    exec(EXE_A .. " chain err-table post inline 'legit' --sign " .. KEY1)
 
     TEST "B clones from A"
     exec(EXE_B .. " chains add err-table clone " .. REPO_A4)
@@ -156,12 +156,12 @@ do
     f:close()
     exec (
         ENV .. " git -C " .. REPO_A4
-        .. " -c user.signingkey=" .. KEY .. " -c gpg.format=openpgp"
+        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=openpgp"
         .. " add .freechains/likes/like-err.lua"
     )
     exec (
         ENV .. " git -C " .. REPO_A4
-        .. " -c user.signingkey=" .. KEY .. " -c gpg.format=openpgp"
+        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=openpgp"
         .. " commit -S -m 'x' --trailer 'Freechains: like'"
     )
     exec (
@@ -187,7 +187,7 @@ do
 
     TEST "A creates chain + post"
     exec(EXE_A .. " chains add err-target init " .. GEN_1)
-    local post = exec(EXE_A .. " chain err-target post inline 'legit' --sign " .. KEY)
+    local post = exec(EXE_A .. " chain err-target post inline 'legit' --sign " .. KEY1)
 
     TEST "B clones from A"
     exec(EXE_B .. " chains add err-target clone " .. REPO_A5)
@@ -199,12 +199,12 @@ do
     f:close()
     exec (
         ENV .. " git -C " .. REPO_A5
-        .. " -c user.signingkey=" .. KEY .. " -c gpg.format=openpgp"
+        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=openpgp"
         .. " add .freechains/likes/like-err.lua"
     )
     exec (
         ENV .. " git -C " .. REPO_A5
-        .. " -c user.signingkey=" .. KEY .. " -c gpg.format=openpgp"
+        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=openpgp"
         .. " commit -S -m 'x' --trailer 'Freechains: like'"
     )
     exec (
@@ -230,7 +230,7 @@ do
 
     TEST "A creates chain + post"
     exec(EXE_A .. " chains add err-post init " .. GEN_1)
-    exec(EXE_A .. " chain err-post post inline 'legit' --sign " .. KEY)
+    exec(EXE_A .. " chain err-post post inline 'legit' --sign " .. KEY1)
 
     TEST "B clones from A"
     exec(EXE_B .. " chains add err-post clone " .. REPO_A6)
@@ -242,12 +242,12 @@ do
     f:close()
     exec (
         ENV .. " git -C " .. REPO_A6
-        .. " -c user.signingkey=" .. KEY .. " -c gpg.format=openpgp"
+        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=openpgp"
         .. " add .freechains/likes/like-err.lua"
     )
     exec (
         ENV .. " git -C " .. REPO_A6
-        .. " -c user.signingkey=" .. KEY .. " -c gpg.format=openpgp"
+        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=openpgp"
         .. " commit -S -m 'x' --trailer 'Freechains: like'"
     )
     exec (
@@ -273,7 +273,7 @@ do
 
     TEST "A creates chain + post"
     exec(EXE_A .. " chains add err-reps init " .. GEN_1)
-    local post = exec(EXE_A .. " chain err-reps post inline 'legit' --sign " .. KEY)
+    local post = exec(EXE_A .. " chain err-reps post inline 'legit' --sign " .. KEY1)
 
     TEST "B clones from A"
     exec(EXE_B .. " chains add err-reps clone " .. REPO_A7)
@@ -316,7 +316,7 @@ do
 
     TEST "A creates chain + post"
     exec(EXE_A .. " --now=10000 chains add err-time init " .. GEN_1)
-    local post = exec(EXE_A .. " --now=11000 chain err-time post inline 'legit' --sign " .. KEY)
+    local post = exec(EXE_A .. " --now=11000 chain err-time post inline 'legit' --sign " .. KEY1)
 
     TEST "B clones from A"
     exec(EXE_B .. " chains add err-time clone " .. REPO_A8)
@@ -328,12 +328,12 @@ do
     f:close()
     exec (
         ENV .. " git -C " .. REPO_A8
-        .. " -c user.signingkey=" .. KEY .. " -c gpg.format=openpgp"
+        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=openpgp"
         .. " add .freechains/likes/like-err.lua"
     )
     exec (
         ENV .. " git -C " .. REPO_A8
-        .. " -c user.signingkey=" .. KEY .. " -c gpg.format=openpgp"
+        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=openpgp"
         .. " commit -S --date='1970-01-01T00:00:01+0000' -m 'x' --trailer 'Freechains: like'"
     )
     exec (

@@ -13,7 +13,7 @@ do
     do
         TEST "signed post succeeds"
         local out, code = exec (
-            ENV_EXE .. " chain cli-sign post file hello.txt --sign " .. KEY
+            ENV_EXE .. " chain cli-sign post file hello.txt --sign " .. KEY1
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
