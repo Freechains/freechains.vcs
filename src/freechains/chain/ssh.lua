@@ -1,6 +1,8 @@
+local M = {}
+
 -- Extract the SSH pubkey from a signed commit, or nil if unsigned.
 -- Parses the SSHSIG armored blob in the gpgsig header.
-function pubkey (repo, hash)
+function M.pubkey (repo, hash)
     local commit = exec("git -C " .. repo .. " cat-file commit " .. hash)
     if not commit:match("\ngpgsig ") then
         return nil
@@ -53,8 +55,8 @@ end
 
 -- Verify a commit's SSH signature against its embedded pubkey.
 -- Returns pubkey on success, nil on failure.
-function verify (repo, hash)
-    local key = pubkey(repo, hash)
+function M.verify (repo, hash)
+    local key = M.pubkey(repo, hash)
     if key == nil then
         return nil
     end
@@ -73,3 +75,5 @@ function verify (repo, hash)
         return nil
     end
 end
+
+return M

@@ -13,13 +13,13 @@ do
         exec (  -- 30 -> 29 (post)
             ENV_EXE .. " --now=0 chain cli-time post inline 'p1' --sign " .. KEY1
         )
-        local out = exec(ENV_EXE .. " --now=0 chain cli-time reps author " .. KEY1)
+        local out = exec(ENV_EXE .. " --now=0 chain cli-time reps author '" .. PUB1 .. "')
         assert(out == "29", "reps: " .. out)
 
         exec (  -- 29 -> 30 (refund) -> 29 (post)
             ENV_EXE .. " --now=0 chain cli-time post inline 'p2' --sign " .. KEY1
         )
-        local out = exec(ENV_EXE .. " --now=0 chain cli-time reps author " .. KEY1)
+        local out = exec(ENV_EXE .. " --now=0 chain cli-time reps author '" .. PUB1 .. "')
         assert(out == "29", "reps: " .. out)
     end
 end
@@ -38,13 +38,13 @@ do
         exec (  -- 30 -> 29 (post)
             ENV_EXE .. " --now=0 chain cli-time post inline 'p1' --sign " .. KEY1
         )
-        local out = exec(ENV_EXE .. " --now=0 chain cli-time reps author " .. KEY1)
+        local out = exec(ENV_EXE .. " --now=0 chain cli-time reps author '" .. PUB1 .. "')
         assert(out == "29", "reps: " .. out)
 
         exec (  -- refund P1 + consolidate P1 + cost P2 → 30
             ENV_EXE .. " --now=86400 chain cli-time post inline 'p2' --sign " .. KEY1
         )
-        local out = exec(ENV_EXE .. " --now=86400 chain cli-time reps author " .. KEY1)
+        local out = exec(ENV_EXE .. " --now=86400 chain cli-time reps author '" .. PUB1 .. "')
         assert(out == "30", "reps: " .. out)
     end
 
@@ -64,13 +64,13 @@ do
         exec (  -- refund P2 + cost P3 → 29
             ENV_EXE .. " --now=0 chain cli-time post inline 'p3' --sign " .. KEY1
         )
-        local out = exec(ENV_EXE .. " --now=0 chain cli-time reps author " .. KEY1)
+        local out = exec(ENV_EXE .. " --now=0 chain cli-time reps author '" .. PUB1 .. "')
         assert(out == "29", "reps: " .. out)
 
         exec (  -- refund P3 + consolidate P1 only + cost P4 → 30
             ENV_EXE .. " --now=86400 chain cli-time post inline 'p4' --sign " .. KEY1
         )
-        local out = exec(ENV_EXE .. " --now=86400 chain cli-time reps author " .. KEY1)
+        local out = exec(ENV_EXE .. " --now=86400 chain cli-time reps author '" .. PUB1 .. "')
         assert(out == "30", "reps: " .. out)
     end
 
@@ -90,11 +90,11 @@ do
             ENV_EXE .. " --now=0 chain cli-time post inline 'p1' --sign " .. KEY1
         )
         -- query at now=0: still in discount → 29
-        local out = exec(ENV_EXE .. " --now=0 chain cli-time reps author " .. KEY1)
+        local out = exec(ENV_EXE .. " --now=0 chain cli-time reps author '" .. PUB1 .. "')
         assert(out == "29", "reps at now=0: " .. out)
 
         -- query at now=86400: refund + consolidation → 30
-        local out = exec(ENV_EXE .. " --now=86400 chain cli-time reps author " .. KEY1)
+        local out = exec(ENV_EXE .. " --now=86400 chain cli-time reps author '" .. PUB1 .. "')
         assert(out == "30", "reps at now=86400: " .. out)
     end
 

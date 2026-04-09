@@ -215,7 +215,7 @@ do
 
         local bef = {
             author = tonumber((exec (
-                EXE_A .. " --now=8000 chain test reps author " .. KEY1
+                EXE_A .. " --now=8000 chain test reps author '" .. PUB1 .. "'
             ))),
             post = tonumber((exec (
                 EXE_A .. " --now=8000 chain test reps post " .. A
@@ -230,7 +230,7 @@ do
 
         local aft = {
             author = tonumber((exec (
-                EXE_A .. " --now=8000 chain test reps author " .. KEY1
+                EXE_A .. " --now=8000 chain test reps author '" .. PUB1 .. "'
             ))),
             post = tonumber((exec (
                 EXE_A .. " --now=8000 chain test reps post " .. A
@@ -245,7 +245,7 @@ do
         TEST "B reflects like"
         local b = {
             author = tonumber((exec (
-                EXE_B .. " --now=8500 chain test reps author " .. KEY1
+                EXE_B .. " --now=8500 chain test reps author '" .. PUB1 .. "'
             ))),
             post = tonumber((exec (
                 EXE_B .. " --now=8500 chain test reps post " .. A
