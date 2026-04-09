@@ -41,7 +41,7 @@ do
 
     do
         TEST "like-triggers-discount-refund"
-        local k1 = exec(ENV_EXE .. " chain cli-like reps author '" .. PUB1 .. "')
+        local k1 = exec(ENV_EXE .. " chain cli-like reps author '" .. PUB1 .. "'")
         -- KEY1: 15000 - 1000 (post) + 1000 (discount refund) + 450 (self-back) = 15450 -> ext 16
         assert(k1 == "16", "KEY1 reps after like: " .. k1)
     end
@@ -139,12 +139,12 @@ do
     do
         TEST "like-author-liker-cost"
         -- KEY1: 15 - 1 (cost) = 14
-        local out = exec(ENV_EXE .. " chain cli-like reps author '" .. PUB1 .. "')
+        local out = exec(ENV_EXE .. " chain cli-like reps author '" .. PUB1 .. "'")
         assert(out == "14", "liker reps: " .. out)
 
         TEST "like-author-target-gains"
         -- KEY2: 15000 + 900 = 15900 -> ext = 16
-        local out = exec(ENV_EXE .. " chain cli-like reps author '" .. PUB2 .. "')
+        local out = exec(ENV_EXE .. " chain cli-like reps author '" .. PUB2 .. "'")
         assert(out == "16", "target reps: " .. out)
     end
 
@@ -152,8 +152,8 @@ do
         TEST "like-author-2-transfer"
         -- like 2: KEY1 pays 2000 cost, KEY2 gets 2000*90%=1800
         exec(ENV_EXE .. " chain cli-like like 2 author " .. KEY2 .. " --sign " .. KEY1)
-        local k1 = exec(ENV_EXE .. " chain cli-like reps author '" .. PUB1 .. "')
-        local k2 = exec(ENV_EXE .. " chain cli-like reps author '" .. PUB2 .. "')
+        local k1 = exec(ENV_EXE .. " chain cli-like reps author '" .. PUB1 .. "'")
+        local k2 = exec(ENV_EXE .. " chain cli-like reps author '" .. PUB2 .. "'")
         -- KEY1: 14000 - 2000 = 12000 -> ext=12
         -- KEY2: 15900 + 1800 = 17700 -> ext=18
         assert(k1 == "12", "liker reps: " .. k1)
@@ -163,8 +163,8 @@ do
     do
         TEST "dislike-author"
         exec(ENV_EXE .. " chain cli-like dislike 1 author " .. KEY2 .. " --sign " .. KEY1)
-        local k1 = exec(ENV_EXE .. " chain cli-like reps author '" .. PUB1 .. "')
-        local k2 = exec(ENV_EXE .. " chain cli-like reps author '" .. PUB2 .. "')
+        local k1 = exec(ENV_EXE .. " chain cli-like reps author '" .. PUB1 .. "'")
+        local k2 = exec(ENV_EXE .. " chain cli-like reps author '" .. PUB2 .. "'")
         -- KEY1: 12000 - 1000 = 11000 -> ext=11
         -- KEY2: 17700 - 900 = 16800 -> ext=17
         assert(k1 == "11", "liker reps: " .. k1)
