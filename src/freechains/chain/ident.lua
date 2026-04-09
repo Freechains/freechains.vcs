@@ -21,7 +21,7 @@ do
     if armor == "" then
         ERROR("chain ident : invalid sign key")
     end
-    local f = io.open(FC .. "state/keys/" .. ARGS.sign .. ".asc", "w")
+    local f = io.open(FC .. "keys/" .. ARGS.sign .. ".asc", "w")
     f:write(armor)
     f:close()
 end
@@ -38,7 +38,7 @@ end
 local hash
 do
     exec (
-        "git -C " .. REPO .. " add .freechains/state/keys/ .freechains/idents/"
+        "git -C " .. REPO .. " add .freechains/keys/ .freechains/idents/"
     )
     local s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=openpgp"
     local msg = ARGS.why or "(empty message)"
