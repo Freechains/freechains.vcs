@@ -13,22 +13,21 @@ local to_beg = (
 )
 
 -- detect if like targets an ident on refs/idents/
-local to_ident = false
-if ARGS.target == "author" then
-    local _, code = exec (true,
-        "git -C " .. REPO .. " rev-parse --verify refs/idents/ident-" .. ARGS.id
-    )
-    to_ident = (code == 0)
-end
+local to_ident = (
+    (ARGS.target == "author") and
+        exec (true,
+            "git -C " .. REPO .. " rev-parse --verify refs/idents/ident-" .. ARGS.id
+        ) and true
+)
 
 -- ident: merge ident branch into main
-local iref = "refs/idents/ident-" .. ARGS.id
+local ref_ident = "refs/idents/ident-" .. ARGS.id
 if to_ident then
-    exec("git -C " .. REPO .. " merge -X ours --no-commit --no-edit " .. iref)
+    exec("git -C " .. REPO .. " merge -X ours --no-commit --no-edit " .. ref_ident)
 end
 
 -- beg: validate parent, merge into main, load beg entry
-local ref = "refs/begs/beg-" .. ARGS.id
+local ref_beg = "refs/begs/beg-" .. ARGS.id
 if to_beg then
     local up = exec (
         "git -C " .. REPO .. " log -1 --format=%P " .. ARGS.id
@@ -36,14 +35,10 @@ if to_beg then
     local _,ok = exec (true,
         "git -C " .. REPO .. " merge-base --is-ancestor " .. up .. " HEAD"
     )
-    if ok ~= 0 then
-        error("TODO : bug found : branch should not exist in the first place")
-        --exec("git -C " .. REPO .. " update-ref -d " .. ref)
-        --ERROR("chain like : invalid target : beg post does not exist")
-    end
-    exec("git -C " .. REPO .. " merge -X ours --no-commit --no-edit " .. ref)
-    local src = exec(
-        "git -C " .. REPO .. " show " .. ref .. ":.freechains/state/posts.lua"
+    assert(ok==0, "bug found : branch should not exist in the first place")
+    exec("git -C " .. REPO .. " merge -X ours --no-commit --no-edit " .. ref_beg)
+    local src = exec (
+        "git -C " .. REPO .. " show " .. ref_beg .. ":.freechains/state/posts.lua"
     )
     G.posts[ARGS.id] = load(src)()[ARGS.id]
 end
@@ -105,11 +100,11 @@ do
 end
 
 if to_beg then
-    exec("git -C " .. REPO .. " update-ref -d " .. ref)
+    exec("git -C " .. REPO .. " update-ref -d " .. ref_beg)
 end
 
 if to_ident then
-    exec("git -C " .. REPO .. " update-ref -d " .. iref)
+    exec("git -C " .. REPO .. " update-ref -d " .. ref_ident)
 end
 
 print(hash)
