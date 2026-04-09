@@ -45,13 +45,13 @@ local cmd = {
     },
     chain = {
         _ = parser:command("chain"),
+        reps = {},
         post = {
             file = {},
             inline = {},
         },
         like = {},
         dislike = {},
-        reps = {},
         sync = {
             recv = {},
             send = {},
@@ -82,6 +82,11 @@ end
 -- cmd.chain
 do
     cmd.chain._:argument("alias")
+
+    -- cmd.chain.reps
+    cmd.chain.reps._ = cmd.chain._:command("reps")
+    cmd.chain.reps._:argument("target")
+    cmd.chain.reps._:argument("key"):args("?")
 
     -- cmd.chain.post
     cmd.chain.post._ = cmd.chain._:command("post")
@@ -123,11 +128,6 @@ do
     cmd.chain.dislike._:argument("id")
     cmd.chain.dislike._:option("--sign"):count(1)
     cmd.chain.dislike._:option("--why")
-
-    -- cmd.chain.reps
-    cmd.chain.reps._ = cmd.chain._:command("reps")
-    cmd.chain.reps._:argument("target")
-    cmd.chain.reps._:argument("key"):args("?")
 
     -- cmd.chain.sync
     cmd.chain.sync._ = cmd.chain._:command("sync")
