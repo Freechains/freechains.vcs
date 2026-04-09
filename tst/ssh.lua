@@ -4,7 +4,7 @@ require "tests"
 require "freechains.chain.ssh"
 
 local DIR  = TMP .. "/ssh-unit/"
-local KEYS = exec("realpath ssh-keys/")
+local KEYS = exec("realpath ssh/")
 local K1   = KEYS .. "/key1"
 local K2   = KEYS .. "/key2"
 local PUB1 = exec("awk '{print $1\" \"$2}' " .. K1 .. ".pub")
@@ -12,7 +12,7 @@ local PUB2 = exec("awk '{print $1\" \"$2}' " .. K2 .. ".pub")
 
 local function reset_repo ()
     exec("rm -rf " .. DIR)
-    exec("mkdir -p " .. DIR)
+    exec("mkdir -p " .. DIR .. "/.freechains/tmp")
     exec("git -C " .. DIR .. " init -q")
     exec("git -C " .. DIR .. " config user.email t@t")
     exec("git -C " .. DIR .. " config user.name  t")
@@ -46,8 +46,7 @@ do
     TEST "verify_commit returns (true, pubkey) on good signature"
     reset_repo()
     local h = commit_signed(K1, "two")
-    local ok, pk = verify(DIR, h)
-    assert(ok == true, "verify failed")
+    local pk = verify(DIR, h)
     assert(pk == PUB1, "wrong pubkey")
 end
 
@@ -64,7 +63,7 @@ do
     reset_repo()
     local h = commit_unsigned("plain")
     local ok = verify(DIR, h)
-    assert(ok == false, "expected false")
+    assert(not ok, "expected false")
 end
 
 do
@@ -74,7 +73,7 @@ do
     exec("git -C " .. DIR .. " commit --amend --allow-empty -q -m 'tampered' --no-gpg-sign")
     local h2 = exec("git -C " .. DIR .. " rev-parse HEAD")
     local ok = verify(DIR, h2)
-    assert(ok == false, "tampered commit should not verify")
+    assert(not ok, "tampered commit should not verify")
 end
 
 do

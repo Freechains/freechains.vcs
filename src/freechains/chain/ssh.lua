@@ -55,10 +55,12 @@ end
 -- Returns (true, pubkey) on success, (false, err) on failure.
 function verify (repo, hash)
     local key = pubkey(repo, hash)
-    assert(key)
+    if key == nil then
+        return nil
+    end
 
     local f = io.open(repo .. "/.freechains/tmp/allowed_signers", "w")
-    f:write(key .. " " .. key .. "\n")
+    f:write("git " .. key .. "\n")
     f:close()
     local out, code = exec(true,
         "git -C " .. repo
@@ -66,8 +68,8 @@ function verify (repo, hash)
         .. " verify-commit " .. hash
     )
     if code == 0 then
-        return true, key
+        return key
     else
-        return false, out
+        return nil
     end
 end
