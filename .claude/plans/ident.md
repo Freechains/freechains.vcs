@@ -24,20 +24,37 @@ Reasons:
 - `state/**` has `merge=ours` which would discard remote
   keyring additions during sync — keys could not propagate
   between peers.
-- For SSH, multiple peers append to a single
-  `allowed_signers` file. Needs `merge=union` line-level
-  merging, which conflicts with `merge=ours`.
+- One file per key — every peer ends up with identical
+  blob hashes, so commit history converges.
 
 Layout:
-- `.freechains/keys/<KEY>.asc` (GPG) — one file per key,
-  same content for the same key, so merges cleanly.
-- `.freechains/keys/allowed_signers` (SSH) — single
-  append-only file. Use `merge=union` in `.gitattributes`.
+- `.freechains/keys/<KEY>.asc` (GPG) — one file per key
+- `.freechains/keys/<KEY>.pub` (SSH) — one file per key
 
-`.gitattributes` additions:
+### SSH verification: assembled `allowed_signers`
+
+`git verify-commit` for SSH requires
+`gpg.ssh.allowedSignersFile=<single-file>`. We don't commit
+this file. Instead, before verification, we assemble it
+from the per-key files into an **untracked** location:
+
 ```
-.freechains/keys/allowed_signers merge=union
+.git/info/allowed_signers
 ```
+
+Built deterministically (sorted by filename) from
+`.freechains/keys/*.pub` whenever needed. Same pattern as
+the GPG verification flow already described in
+[signing.md](signing.md), where an ephemeral `GNUPGHOME`
+is built from `.freechains/keys/*.asc`.
+
+Pros:
+- Per-key files merge cleanly across peers (identical blob
+  hashes, no conflicts)
+- No `merge=union` needed
+- Commit history converges across peers
+- Verification material is rebuilt locally, never
+  replicated
 
 ## Context
 
