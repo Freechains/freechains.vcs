@@ -1,3 +1,5 @@
+local ssh = require "freechains.chain.ssh"
+
 -- check sign/beg
 do
     if ARGS.sign and ARGS.beg then
@@ -55,7 +57,7 @@ end
 do
     local T = {
         hash = hash,
-        sign = ARGS.sign,
+        sign = ARGS.sign and ssh.pubkey(REPO, hash),
         beg  = ARGS.beg,
     }
     local ok, err = apply(G, 'post', CMD.now, T)

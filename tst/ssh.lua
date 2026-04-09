@@ -1,7 +1,7 @@
 #!/usr/bin/env lua5.4
 
 require "tests"
-require "freechains.chain.ssh"
+local ssh = require "freechains.chain.ssh"
 
 local DIR  = TMP .. "/ssh-unit/"
 local KEYS = exec("realpath ssh/")
@@ -38,7 +38,7 @@ do
     TEST "extract_pubkey returns key1 pubkey after signing with key1"
     reset_repo()
     local h = commit_signed(K1, "one")
-    local pk = pubkey(DIR, h)
+    local pk = ssh.pubkey(DIR, h)
     assert(pk == PUB1, "got: " .. tostring(pk) .. " want: " .. PUB1)
 end
 
@@ -46,7 +46,7 @@ do
     TEST "verify_commit returns (true, pubkey) on good signature"
     reset_repo()
     local h = commit_signed(K1, "two")
-    local pk = verify(DIR, h)
+    local pk = ssh.verify(DIR, h)
     assert(pk == PUB1, "wrong pubkey")
 end
 
@@ -54,7 +54,7 @@ do
     TEST "extract_pubkey returns nil on unsigned commit"
     reset_repo()
     local h = commit_unsigned("plain")
-    local pk = pubkey(DIR, h)
+    local pk = ssh.pubkey(DIR, h)
     assert(pk == nil, "expected nil, got: " .. tostring(pk))
 end
 
@@ -62,7 +62,7 @@ do
     TEST "verify_commit returns false on unsigned commit"
     reset_repo()
     local h = commit_unsigned("plain")
-    local ok = verify(DIR, h)
+    local ok = ssh.verify(DIR, h)
     assert(not ok, "expected false")
 end
 
@@ -72,7 +72,7 @@ do
     local h = commit_signed(K1, "orig")
     exec("git -C " .. DIR .. " commit --amend --allow-empty -q -m 'tampered' --no-gpg-sign")
     local h2 = exec("git -C " .. DIR .. " rev-parse HEAD")
-    local ok = verify(DIR, h2)
+    local ok = ssh.verify(DIR, h2)
     assert(not ok, "tampered commit should not verify")
 end
 
@@ -80,7 +80,7 @@ do
     TEST "extract_pubkey distinguishes key2 from key1"
     reset_repo()
     local h = commit_signed(K2, "by key2")
-    local pk = pubkey(DIR, h)
+    local pk = ssh.pubkey(DIR, h)
     assert(pk == PUB2, "got: " .. tostring(pk))
     assert(pk ~= PUB1, "must differ from key1")
 end
