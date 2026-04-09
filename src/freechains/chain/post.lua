@@ -37,7 +37,7 @@ do
     )
     local s1, s2 = "", ""
     if ARGS.sign then
-        s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=openpgp"
+        s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=ssh"
         s2 = " -S"
     end
     local msg = ARGS.why or "(empty message)"

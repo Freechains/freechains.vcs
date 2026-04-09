@@ -6,6 +6,6 @@ return {
         This forum is about...
     ]],
     pioneers = {
-        "CA6391CEA51882DF980E0F0C6774E21538E4078B",
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAqHFxBG30T7GfOA98i2zJiLvLWf+Z6YHMuuoL89redH",
     },
 }

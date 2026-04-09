@@ -66,7 +66,7 @@ do
     exec (
         "git -C " .. REPO .. " add " .. file
     )
-    local s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=openpgp"
+    local s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=ssh"
     local msg = ARGS.why or "(empty message)"
     exec (
         CMD.git .. "git -C " .. REPO .. s1 .. " commit -S -m '" .. msg
