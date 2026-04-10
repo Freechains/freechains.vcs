@@ -69,6 +69,7 @@ function M.verify (repo, hash)
         .. " -c gpg.ssh.allowedSignersFile=.freechains/tmp/allowed_signers"
         .. " verify-commit " .. hash
     )
+    os.remove(repo .. "/.freechains/tmp/allowed_signers")
     if code == 0 then
         return key
     else
