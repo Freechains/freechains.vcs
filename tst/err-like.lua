@@ -350,4 +350,90 @@ do
     )
 end
 
+-- sync rejects like with fractional number
+do
+    print("==> sync rejects like with fractional number")
+
+    local REPO_A9 = ROOT_A .. "/chains/err-frac/"
+    local REPO_B9 = ROOT_B .. "/chains/err-frac/"
+
+    TEST "A creates chain + post"
+    exec(EXE_A .. " chains add err-frac init " .. GEN_1)
+    local post = exec(EXE_A .. " chain err-frac post inline 'legit' --sign " .. KEY1)
+
+    TEST "B clones from A"
+    exec(EXE_B .. " chains add err-frac clone " .. REPO_A9)
+
+    TEST "A crafts like with fractional number"
+    exec("mkdir -p " .. REPO_A9 .. ".freechains/likes/")
+    local f = io.open(REPO_A9 .. ".freechains/likes/like-err.lua", "w")
+    f:write('return { target="post", id="'..post..'", number=0.5 }\n')
+    f:close()
+    exec (
+        ENV .. " git -C " .. REPO_A9
+        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh"
+        .. " add .freechains/likes/like-err.lua"
+    )
+    exec (
+        ENV .. " git -C " .. REPO_A9
+        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh"
+        .. " commit -S -m 'x' --trailer 'Freechains: like'"
+    )
+    exec (
+        "git -C " .. REPO_A9 .. " commit -m 'x' --trailer 'Freechains: state' --allow-empty"
+    )
+
+    TEST "B rejects like with fractional number on sync"
+    local _,Q,err = exec (true,
+        EXE_B .. " chain err-frac sync recv " .. REPO_A9
+    )
+    assert (
+        Q~=0 and err=="ERROR : chain sync : invalid like : invalid number : expects non-zero integer"
+        , "should fail: " .. tostring(err)
+    )
+end
+
+-- sync rejects like with zero number
+do
+    print("==> sync rejects like with zero number")
+
+    local REPO_A10 = ROOT_A .. "/chains/err-zero/"
+    local REPO_B10 = ROOT_B .. "/chains/err-zero/"
+
+    TEST "A creates chain + post"
+    exec(EXE_A .. " chains add err-zero init " .. GEN_1)
+    local post = exec(EXE_A .. " chain err-zero post inline 'legit' --sign " .. KEY1)
+
+    TEST "B clones from A"
+    exec(EXE_B .. " chains add err-zero clone " .. REPO_A10)
+
+    TEST "A crafts like with zero number"
+    exec("mkdir -p " .. REPO_A10 .. ".freechains/likes/")
+    local f = io.open(REPO_A10 .. ".freechains/likes/like-err.lua", "w")
+    f:write('return { target="post", id="'..post..'", number=0 }\n')
+    f:close()
+    exec (
+        ENV .. " git -C " .. REPO_A10
+        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh"
+        .. " add .freechains/likes/like-err.lua"
+    )
+    exec (
+        ENV .. " git -C " .. REPO_A10
+        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh"
+        .. " commit -S -m 'x' --trailer 'Freechains: like'"
+    )
+    exec (
+        "git -C " .. REPO_A10 .. " commit -m 'x' --trailer 'Freechains: state' --allow-empty"
+    )
+
+    TEST "B rejects like with zero number on sync"
+    local _,Q,err = exec (true,
+        EXE_B .. " chain err-zero sync recv " .. REPO_A10
+    )
+    assert (
+        Q~=0 and err=="ERROR : chain sync : invalid like : invalid number : expects non-zero integer"
+        , "should fail: " .. tostring(err)
+    )
+end
+
 print("<== ALL PASSED")
