@@ -271,6 +271,17 @@ Error: missing option '--sign'
             , "should fail: " .. tostring(err)
         )
     end
+
+    do
+        TEST "like with invalid author key fails"
+        local _,Q,err = exec (true,
+            ENV_EXE .. " chain cli-like like 1 author bad-key --sign " .. KEY1
+        )
+        assert (
+            Q~=0 and err=="ERROR : chain like : invalid author key"
+            , "should fail: " .. tostring(err)
+        )
+    end
 end
 
 print("<== ALL PASSED")

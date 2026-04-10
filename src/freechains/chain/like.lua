@@ -6,6 +6,12 @@ if ARGS.dislike then
     num = -num
 end
 
+if ARGS.target == "author" then
+    if #ARGS.id~=80 or (not ARGS.id:match("^ssh%-ed25519 %S+$")) then
+        ERROR("chain like : invalid author key")
+    end
+end
+
 -- detect if like targets a blocked beg on refs/begs/
 local to_beg = (
     (ARGS.target == "post") and
