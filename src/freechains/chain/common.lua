@@ -128,13 +128,16 @@ function apply (G, kind, time, T)
     elseif kind == 'like' and T then
         -- validation
         assert(T.sign, "bug found")
-        if T.target ~= "post" and T.target ~= "author" then
+        if math.type(T.num)~='integer' or T.num==0 then
+            return false, "invalid number : expects non-zero integer"
+        end
+        if T.target~="post" and T.target~="author" then
             return false, "invalid target : expects 'post' or 'author'"
         end
-        if T.target == "post" and not G.posts[T.id] then
+        if T.target=="post" and (not G.posts[T.id]) then
             return false, "invalid target : post not found"
         end
-        local reps = G.authors[T.sign] and G.authors[T.sign].reps or 0
+        local reps = (G.authors[T.sign] and G.authors[T.sign].reps) or 0
         if reps <= 0 then
             return false, "insufficient reputation"
         end
