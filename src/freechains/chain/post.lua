@@ -20,7 +20,7 @@ do
         file = ARGS.path:match("[^/]+$")
         exec (
             "cp " .. ARGS.path .. " " .. REPO .. "/"
-            , "chain post : copy failed: " .. ARGS.path
+            , "TODO : TEST : chain post : copy failed: " .. ARGS.path
         )
     end
     exec (

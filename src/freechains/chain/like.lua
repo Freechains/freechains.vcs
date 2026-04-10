@@ -55,9 +55,10 @@ do
     )
     local s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=ssh"
     local msg = ARGS.why or "(empty message)"
-    exec (
+    exec ('stdout',
         CMD.git .. "git -C " .. REPO .. s1 .. " commit -S -m '" .. msg
         .. "' --trailer 'Freechains: like'"
+        , "chain like : invalid sign key"
     )
     hash = exec (
         "git -C " .. REPO .. " rev-parse HEAD"
