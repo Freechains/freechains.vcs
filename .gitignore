@@ -1,8 +1,6 @@
 .*.swp
 .*.swo
 src/argparse.lua
-tst/gnupg/openpgp-revocs.d/
-tst/gnupg/pubring.kbx~
 
 .claude/ok
-.claude/worktrees/
+.work/
