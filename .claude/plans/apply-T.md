@@ -180,17 +180,40 @@ unsigned posts without relying on `key == nil` heuristic.
   - Monotonic check moved from post.lua into apply
   - `G.now` tracks highest seen timestamp (max)
   - Sync resets `G.now` between winner/loser replay
-- [ ] Implement T.sign: check %G? in replay
-- [ ] Implement T.num negative/fractional check
-- [ ] Implement T.id author-existence check
-- [ ] Add tests for malformed T fields
-- [ ] Implement like replay in sync.lua
-  - replay must read like payload from commit
-  - replay must handle beg+like pairs
-- [ ] Add "Freechains: beg" trailer to beg commits
-- [ ] Fix sync replay error handling
-  - replay now returns false on apply failure
+  - Tests: `err-post.lua` + `err-like.lua` cover
+    old-timestamp rejection during sync replay
+- [x] Implement like replay in sync.lua
+  - `sync.lua:34-65` reads like payload, calls apply
+  - `cli-sync.lua` step 4 tests sync with likes
+- [x] Fix sync replay error handling
+  - replay returns false on apply failure
   - all callers check and abort with ERROR
-  - current bug: step 1 (basic recv) fails with
-    "insufficient reputation" — need to debug
-    checkpoint state (pioneer reps not loaded?)
+  - old bug ("insufficient reputation") resolved by
+    GPG→SSH migration (key string mismatch fixed)
+- [ ] Implement T.sign: call ssh.verify() in replay
+  - Currently `sync.lua:27` calls `ssh.pubkey()` only
+    (extracts key without verifying signature)
+  - A forged commit with hand-crafted SSHSIG blob
+    would pass replay — SECURITY GAP
+  - Fix: call `ssh.verify()` instead of `ssh.pubkey()`
+  - Also check-errors.md #29
+- [ ] Implement T.num negative/fractional check
+  - `math.abs(T.num)` at line 143 silently handles
+    negatives but does not reject them
+  - Fractional values bypass integer arithmetic
+  - Add: `math.type(num) == "integer"` check
+- [ ] Implement T.id author-existence check
+  - `apply()` line 155 creates `G.authors[T.id]` from
+    likes targeting unknown authors
+  - A malicious remote could inject arbitrary keys
+  - Fix: require `G.authors[T.id]` to exist already
+- [ ] Add "Freechains: beg" trailer to beg commits
+  - Beg commits currently use `Freechains: post`
+  - Replay uses `key == nil` heuristic to detect begs
+  - Dedicated trailer makes replay explicit
+- [ ] Add tests for malformed T fields
+  - Needed: negative num, fractional num, fake
+    author-id, forged signature
+  - Partially covered: `err-like.lua` tests unsigned
+    like, missing payload, bad lua, bad target, post
+    not found, insufficient reps, old timestamp
