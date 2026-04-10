@@ -50,6 +50,12 @@ do
     end
 
     do
+        TEST "duplicate alias fails"
+        local _,Q,err = exec(true, EXE .. " chains add cli-chains init " .. GEN_0)
+        assert(Q~=0 and err=="ERROR : chains add : alias already exists", "should fail: " .. tostring(err))
+    end
+
+    do
         TEST "bad genesis file"
         local bad = "/tmp/fc-test-bad-genesis.lua"
         do

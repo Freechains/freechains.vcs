@@ -35,7 +35,7 @@ local DIR = ARGS.root .. "/chains/"
 
 if ARGS.add then
     if io.open(DIR .. "/" .. ARGS.alias) then
-        ERROR("chains add : alias already exists: " .. ARGS.alias)
+        ERROR("chains add : alias already exists")
     end
 
     if ARGS.init then
