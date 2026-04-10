@@ -8,14 +8,14 @@ Test coverage for all error paths in `src/`.
 |----|----------------------------------------------|--------------------|----------|---------|
 | 4  | sync replay: unsigned like (`ssh.pubkey` nil) | `chain/sync.lua`   | 35-37    | DONE (`err-like.lua` tests this) |
 | 12 | `chain post : copy failed: <path>`           | `chain/post.lua`   | 22-24    | PENDING (hard — needs unreadable file) |
-| 13 | `chain reps : post requires a hash`          | `chain/reps.lua`   | 13       | PENDING (easy CLI test) |
-| 14 | `chain reps : author requires a pubkey`      | `chain/reps.lua`   | 29       | PENDING (easy CLI test) |
-| 15 | `chain reps : invalid target : <target>`     | `chain/reps.lua`   | 44       | PENDING (easy CLI test) |
+| 13 | `chain reps : post requires a hash`          | `chain/reps.lua`   | 13       | DONE (`cli-reps.lua`) |
+| 14 | `chain reps : author requires a pubkey`      | `chain/reps.lua`   | 29       | DONE (`cli-reps.lua`) |
+| 15 | `chain reps : invalid target : <target>`     | `chain/reps.lua`   | 44       | DONE (`cli-reps.lua`) |
 | 16 | `chain sync : fetch failed`                  | `chain/sync.lua`   | 92       | PENDING (hard — needs git failure) |
 | 17 | `chain sync : push failed`                   | `chain/sync.lua`   | 85       | PENDING (hard — needs git failure) |
 | 18 | `chain sync : invalid remote : <err>`        | `chain/sync.lua`   | 119      | PENDING |
-| 19 | `invalid like` replay variants               | `chain/sync.lua`   | 38-65    | MOSTLY DONE (`err-like.lua` covers: missing payload, bad lua, bad target, post not found, insufficient reps, old timestamp) |
-| 20 | `chains add : alias already exists: <alias>` | `chains.lua`       | 38       | PENDING (easy CLI test) |
+| 19 | `invalid like` replay variants               | `chain/sync.lua`   | 38-65    | MOSTLY DONE (`err-like.lua` covers: unsigned, missing payload, bad lua, bad target, post not found, insufficient reps, old timestamp, fractional num, zero num) |
+| 20 | `chains add : alias already exists: <alias>` | `chains.lua`       | 38       | DONE (`cli-chains.lua`) |
 | 22 | `chains add : git init failed`               | `chains.lua`       | 60       | PENDING (hard — needs git failure) |
 | 23 | `chains add : copy genesis failed`           | `chains.lua`       | 71       | PENDING (hard — needs missing file) |
 | 24 | `chains add : chain already exists: <hash>`  | `chains.lua`       | 88       | PENDING (hard — needs hash collision) |
@@ -59,5 +59,6 @@ Test coverage for all error paths in `src/`.
   `err-post.lua` tests forged signature rejection.
 - Items 12, 16, 17, 22, 23, 24, 25 are git/IO failures —
   harder to test, lower priority.
-- Items 13, 14, 15, 20 are simple validation errors —
-  easy to test via CLI.
+- Items 13, 14, 15, 20: DONE. All tested via CLI.
+  Also removed `"TODO : TEST : "` prefix from reps.lua
+  error messages.
