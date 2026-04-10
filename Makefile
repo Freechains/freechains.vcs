@@ -3,6 +3,7 @@ L = cd tst && LUA_PATH="../src/?.lua;../src/?/init.lua;;" lua5.4
 tests: src/freechains/argparse.lua
 	@rm -Rf /tmp/freechains/
 	@mkdir -p /tmp/freechains/
+	@chmod 600 tst/ssh/key1 tst/ssh/key2 tst/ssh/key3
 	$(L) ssh.lua
 	$(L) git-merge.lua
 	$(L) cli-chains.lua
