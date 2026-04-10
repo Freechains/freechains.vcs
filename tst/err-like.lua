@@ -75,7 +75,7 @@ do
     TEST "A crafts like with no payload file"
     exec (
         ENV .. " git -C " .. REPO_A2
-        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=openpgp"
+        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh"
         .. " commit --allow-empty -S -m 'x' --trailer 'Freechains: like'"
     )
     exec (
@@ -113,12 +113,12 @@ do
     f:close()
     exec (
         ENV .. " git -C " .. REPO_A3
-        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=openpgp"
+        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh"
         .. " add .freechains/likes/like-err.lua"
     )
     exec (
         ENV .. " git -C " .. REPO_A3
-        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=openpgp"
+        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh"
         .. " commit -S -m 'x' --trailer 'Freechains: like'"
     )
     exec (
@@ -156,12 +156,12 @@ do
     f:close()
     exec (
         ENV .. " git -C " .. REPO_A4
-        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=openpgp"
+        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh"
         .. " add .freechains/likes/like-err.lua"
     )
     exec (
         ENV .. " git -C " .. REPO_A4
-        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=openpgp"
+        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh"
         .. " commit -S -m 'x' --trailer 'Freechains: like'"
     )
     exec (
@@ -199,12 +199,12 @@ do
     f:close()
     exec (
         ENV .. " git -C " .. REPO_A5
-        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=openpgp"
+        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh"
         .. " add .freechains/likes/like-err.lua"
     )
     exec (
         ENV .. " git -C " .. REPO_A5
-        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=openpgp"
+        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh"
         .. " commit -S -m 'x' --trailer 'Freechains: like'"
     )
     exec (
@@ -242,12 +242,12 @@ do
     f:close()
     exec (
         ENV .. " git -C " .. REPO_A6
-        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=openpgp"
+        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh"
         .. " add .freechains/likes/like-err.lua"
     )
     exec (
         ENV .. " git -C " .. REPO_A6
-        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=openpgp"
+        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh"
         .. " commit -S -m 'x' --trailer 'Freechains: like'"
     )
     exec (
@@ -285,12 +285,12 @@ do
     f:close()
     exec (
         ENV .. " git -C " .. REPO_A7
-        .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=openpgp"
+        .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh"
         .. " add .freechains/likes/like-err.lua"
     )
     exec (
         ENV .. " git -C " .. REPO_A7
-        .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=openpgp"
+        .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh"
         .. " commit -S -m 'x' --trailer 'Freechains: like'"
     )
     exec (
@@ -328,12 +328,12 @@ do
     f:close()
     exec (
         ENV .. " git -C " .. REPO_A8
-        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=openpgp"
+        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh"
         .. " add .freechains/likes/like-err.lua"
     )
     exec (
         ENV .. " git -C " .. REPO_A8
-        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=openpgp"
+        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh"
         .. " commit -S --date='1970-01-01T00:00:01+0000' -m 'x' --trailer 'Freechains: like'"
     )
     exec (

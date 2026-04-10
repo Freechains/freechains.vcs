@@ -1,6 +1,7 @@
 #!/usr/bin/env lua5.4
 
 require "tests"
+local ssh = require "freechains.chain.ssh"
 
 local DIR1 = ROOT .. "/chains/cli-begs-1/"
 local DIR2 = ROOT .. "/chains/cli-begs-2/"
@@ -244,10 +245,8 @@ do
 
     do
         TEST "merge-preserves-beg-sig"
-        local _, code = exec (
-            ENV .. " git -C " .. DIR5 .. " verify-commit " .. BEG
-        )
-        assert(code == 0, "beg commit signature should be intact")
+        local key = ssh.verify(DIR5, BEG)
+        assert(key, "beg commit signature should be intact")
     end
 
     do

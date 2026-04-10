@@ -1,6 +1,7 @@
 #!/usr/bin/env lua5.4
 
 require "tests"
+local ssh = require "freechains.chain.ssh"
 
 exec(ENV_EXE .. " chains add cli-like init " .. GEN_2)
 local DIR = ROOT .. "/chains/cli-like/"
@@ -68,10 +69,9 @@ do
 
     do
         TEST "like-is-signed"
-        local _, code = exec (
-            ENV .. " git -C " .. DIR .. " verify-commit HEAD~1"
-        )
-        assert(code == 0, "verify-commit failed")
+        local hash = exec("git -C " .. DIR .. " rev-parse HEAD~1")
+        local key = ssh.verify(DIR, hash)
+        assert(key == PUB2, "verify failed: " .. tostring(key))
     end
 
     do
@@ -130,7 +130,7 @@ do
     do
         TEST "like-author-success"
         local out, code = exec (
-            ENV_EXE .. " chain cli-like like 1 author " .. KEY2 .. " --sign " .. KEY1
+            ENV_EXE .. " chain cli-like like 1 author '" .. PUB2 .. "'" .. " --sign " .. KEY1
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -151,7 +151,7 @@ do
     do
         TEST "like-author-2-transfer"
         -- like 2: KEY1 pays 2000 cost, KEY2 gets 2000*90%=1800
-        exec(ENV_EXE .. " chain cli-like like 2 author " .. KEY2 .. " --sign " .. KEY1)
+        exec(ENV_EXE .. " chain cli-like like 2 author '" .. PUB2 .. "'" .. " --sign " .. KEY1)
         local k1 = exec(ENV_EXE .. " chain cli-like reps author '" .. PUB1 .. "'")
         local k2 = exec(ENV_EXE .. " chain cli-like reps author '" .. PUB2 .. "'")
         -- KEY1: 14000 - 2000 = 12000 -> ext=12
@@ -162,7 +162,7 @@ do
 
     do
         TEST "dislike-author"
-        exec(ENV_EXE .. " chain cli-like dislike 1 author " .. KEY2 .. " --sign " .. KEY1)
+        exec(ENV_EXE .. " chain cli-like dislike 1 author '" .. PUB2 .. "'" .. " --sign " .. KEY1)
         local k1 = exec(ENV_EXE .. " chain cli-like reps author '" .. PUB1 .. "'")
         local k2 = exec(ENV_EXE .. " chain cli-like reps author '" .. PUB2 .. "'")
         -- KEY1: 12000 - 1000 = 11000 -> ext=11

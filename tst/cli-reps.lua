@@ -221,7 +221,7 @@ do
         TEST "gate-unblocked-after-like"
         -- KEY1 likes KEY2 (author-targeted) to give reps, then KEY2 can post
         exec (
-            ENV_EXE .. " chain cli-reps like 1 author " .. KEY2 .. " --sign " .. KEY1
+            ENV_EXE .. " chain cli-reps like 1 author '" .. PUB2 .. "'" .. " --sign " .. KEY1
         )
         local out2 = exec (
             ENV_EXE .. " chain cli-reps reps author '" .. PUB2 .. "'"
