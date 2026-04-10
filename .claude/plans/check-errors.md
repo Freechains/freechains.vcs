@@ -21,7 +21,7 @@ Test coverage for all error paths in `src/`.
 | 24 | `chains add : chain already exists: <hash>`  | `chains.lua`       | 88       | PENDING (hard — needs hash collision) |
 | 25 | `chains add : git clone failed`              | `chains.lua`       | 100      | PENDING (hard — needs bad URL) |
 | 28 | sync replay: valid sig, key missing locally  | `chain/sync.lua`   | —        | RESOLVED (SSH embeds key in commit — no local keyring needed) |
-| 29 | sync replay: bad/forged sig as unsigned      | `chain/sync.lua`   | 27       | PENDING (`ssh.verify` not called in replay — see apply-T.md) |
+| 29 | sync replay: bad/forged sig as unsigned      | `chain/sync.lua`   | 27       | DONE (`err-post.lua` tests forged signature rejection) |
 
 ## Already Tested (reference)
 
@@ -55,8 +55,8 @@ Test coverage for all error paths in `src/`.
   bad target, post not found, insufficient reps, old time).
 - #28: RESOLVED. SSH signing embeds the full public key in
   the commit signature — no local keyring lookup needed.
-- #29: Blocked on `ssh.verify()` not called in replay.
-  Same issue as apply-T.md T.sign check. Security gap.
+- #29: DONE. `ssh.verify()` now called in replay.
+  `err-post.lua` tests forged signature rejection.
 - Items 12, 16, 17, 22, 23, 24, 25 are git/IO failures —
   harder to test, lower priority.
 - Items 13, 14, 15, 20 are simple validation errors —

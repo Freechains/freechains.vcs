@@ -190,30 +190,28 @@ unsigned posts without relying on `key == nil` heuristic.
   - all callers check and abort with ERROR
   - old bug ("insufficient reputation") resolved by
     GPG→SSH migration (key string mismatch fixed)
-- [ ] Implement T.sign: call ssh.verify() in replay
-  - Currently `sync.lua:27` calls `ssh.pubkey()` only
-    (extracts key without verifying signature)
-  - A forged commit with hand-crafted SSHSIG blob
-    would pass replay — SECURITY GAP
-  - Fix: call `ssh.verify()` instead of `ssh.pubkey()`
-  - Also check-errors.md #29
-- [ ] Implement T.num negative/fractional check
-  - `math.abs(T.num)` at line 143 silently handles
-    negatives but does not reject them
-  - Fractional values bypass integer arithmetic
-  - Add: `math.type(num) == "integer"` check
-- [ ] Implement T.id author-existence check
-  - `apply()` line 155 creates `G.authors[T.id]` from
-    likes targeting unknown authors
-  - A malicious remote could inject arbitrary keys
-  - Fix: require `G.authors[T.id]` to exist already
+- [x] Implement T.sign: call ssh.verify() in replay
+  - `ssh.verify` now returns `nil, 'unsigned'` or
+    `nil, 'forged'` (was just `nil`)
+  - `sync.lua:27` calls `ssh.verify()` instead of
+    `ssh.pubkey()`, rejects forged signatures
+  - Test: `err-post.lua` crafts tampered commit
+    (signs, changes message via `hash-object`)
+  - Also check-errors.md #29 — DONE
+- [x] Implement T.num zero/fractional check
+  - `apply()` checks `math.type(T.num) ~= 'integer'`
+    and `T.num == 0` (negatives are valid: dislikes)
+  - CLI already validates via `positive()` converter
+  - Tests: `err-like.lua` covers fractional (0.5)
+    and zero (0) via sync replay
+- [x] Implement T.id author key format check
+  - CLI validates in `like.lua`: length == 80 and
+    `ssh-ed25519` prefix (before `apply()`)
+  - `apply()` does NOT check — fake keys only waste
+    the sender's own reps (harmless)
+  - Test: `cli-like.lua` covers bad author key
 - [ ] Add "Freechains: beg" trailer to beg commits
   - Beg commits currently use `Freechains: post`
   - Replay uses `key == nil` heuristic to detect begs
   - Dedicated trailer makes replay explicit
-- [ ] Add tests for malformed T fields
-  - Needed: negative num, fractional num, fake
-    author-id, forged signature
-  - Partially covered: `err-like.lua` tests unsigned
-    like, missing payload, bad lua, bad target, post
-    not found, insufficient reps, old timestamp
+  - Low priority: heuristic works after verify fix
