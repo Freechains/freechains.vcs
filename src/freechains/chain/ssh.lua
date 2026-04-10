@@ -58,7 +58,7 @@ end
 function M.verify (repo, hash)
     local key = M.pubkey(repo, hash)
     if key == nil then
-        return nil
+        return nil, 'unsigned'
     end
 
     local f = io.open(repo .. "/.freechains/tmp/allowed_signers", "w")
@@ -73,7 +73,7 @@ function M.verify (repo, hash)
     if code == 0 then
         return key
     else
-        return nil
+        return nil, 'forged'
     end
 end
 
