@@ -1,18 +1,7 @@
 local ssh = require "freechains.chain.ssh"
 
--- check sign/beg
-do
-    if ARGS.sign and ARGS.beg then
-        local reps = G.authors[ARGS.sign] and G.authors[ARGS.sign].reps or 0
-        if reps > 0 then
-            ERROR (
-                "chain post : --beg error : author has sufficient reputation"
-            )
-        end
-    end
-    if not (ARGS.sign or ARGS.beg) then
-        ERROR("chain post : requires --sign or --beg")
-    end
+if not (ARGS.sign or ARGS.beg) then
+    ERROR("chain post : requires --sign or --beg")
 end
 
 -- commit post (content only, no state)
