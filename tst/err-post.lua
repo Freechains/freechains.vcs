@@ -129,7 +129,7 @@ do
 
     TEST "B rejects forged signature on sync"
     local _,Q,err = exec(true, EXE_B .. " chain err-forge sync recv " .. REPO_A3)
-    assert(Q~=0 and err == "ERROR : chain sync : invalid post : forged signature", "should fail: " .. tostring(err))
+    assert(Q~=0 and err == "ERROR : chain sync : invalid post : invalid signature", "should fail: " .. tostring(err))
 end
 
 print("<== ALL PASSED")

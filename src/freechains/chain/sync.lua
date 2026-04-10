@@ -24,12 +24,16 @@ local function replay (G, old, new)
     )
     for line in out:gmatch("[^\n]+") do
         local hash, time = line:match("^(%S+) (%S+)")
-        local key = ssh.pubkey(REPO, hash)
+        local key, err = ssh.verify(REPO, hash)
 
         local trailer = exec (
             "git -C " .. REPO .. " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash
         )
         local kind = trailer:match("(%S+)") or ""
+
+        if (not key) and (err == 'forged') then
+            return false, "invalid " .. kind .. " : invalid signature"
+        end
 
         if kind == 'like' then
             if not key then
