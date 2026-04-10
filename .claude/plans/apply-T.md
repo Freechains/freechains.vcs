@@ -15,7 +15,7 @@ All `T` fields must be validated before use.
 |--------|---------------------------|-------------------------|------------|
 | `kind` | hardcoded `'post'`        | hardcoded `'post'`      | safe       |
 | `hash` | `git rev-parse HEAD`      | `git log %H`            | safe       |
-| `sign` | `ARGS.sign` (CLI)         | `git log %GK`           | unsafe     |
+| `sign` | `ssh.pubkey(REPO, hash)`  | `ssh.pubkey(REPO, hash)`| unsafe     |
 | `time` | `NOW.s` (`os.time()`)     | `tonumber(git log %at)` | unsafe     |
 | `beg`  | `ARGS.beg` (CLI flag)     | derived: `key == nil`   | safe       |
 
@@ -24,7 +24,7 @@ All `T` fields must be validated before use.
 | Field    | Local source                | Replay source          | Status     |
 |----------|-----------------------------|------------------------|------------|
 | `kind`   | hardcoded `'like'`          | (TODO — not impl.)     | safe       |
-| `sign`   | `ARGS.sign` (CLI)           | commit `%GK`           | unsafe     |
+| `sign`   | `ssh.pubkey(REPO, hash)`    | `ssh.pubkey(REPO, hash)`| unsafe    |
 | `time`   | `NOW.s`                     | commit `%at`           | unsafe     |
 | `num`    | `ARGS.number * C.reps.unit` | like payload file      | unsafe     |
 | `target` | `ARGS.target` (CLI)         | like payload file      | validated  |
@@ -96,37 +96,46 @@ never explicitly checked.
 
 ### Current state
 
-- **Signing** (post.lua): uses `-S` with
-  `-c user.signingkey=KEY`
-- **Reading** (sync.lua:43): `git log --format='%GK'`
-  extracts fingerprint
-- **Verifying**: nowhere — `%G?` is never checked
+- **Signing** (post.lua, like.lua): uses `-S` with
+  `-c user.signingkey=KEY -c gpg.format=ssh`
+- **Reading** (post.lua, like.lua, sync.lua):
+  `ssh.pubkey(REPO, hash)` extracts the SSH pubkey
+  from the SSHSIG blob embedded in the `gpgsig` header
+- **Verifying**: `ssh.verify(REPO, hash)` writes a
+  temporary `allowed_signers` file and calls
+  `git verify-commit`
 
-### The gap
+### How ssh.pubkey works
 
-`%GK` returns a fingerprint even if the signature is
-invalid.
-Git's `%G?` field gives the actual verification status:
+`ssh.pubkey(repo, hash)` parses the SSHSIG binary
+format directly in Lua (base64 decode via shell, then
+byte-level parsing). Returns the SSH pubkey string
+(`ssh-ed25519 AAAA...`) or nil if unsigned.
+No `ssh-keygen` needed for extraction.
 
-| `%G?` | Meaning                            |
-|-------|------------------------------------|
-| `G`   | good (valid + trusted key)         |
-| `U`   | good (valid + untrusted key)       |
-| `B`   | bad signature                      |
-| `N`   | no signature                       |
-| `E`   | can't check (missing key)          |
+### How ssh.verify works
+
+`ssh.verify(repo, hash)` calls `ssh.pubkey` first,
+then writes `"git <pubkey>\n"` to
+`.freechains/tmp/allowed_signers`, runs
+`git verify-commit`, and cleans up.
+Returns the pubkey on success, nil on failure.
 
 ### Attack: hand-crafted commits
 
 A malicious remote can craft git commit objects with
 arbitrary signature data (`git hash-object -t commit -w`).
-Without checking `%G?`, `%GK` may return a fingerprint
-from a forged or invalid signature.
+`ssh.pubkey` extracts whatever pubkey is in the blob
+without verifying the signature.
+`ssh.verify` catches this — it runs `git verify-commit`
+which checks the signature against the extracted key.
 
-### What's needed
+### Current gap
 
-In replay, read `%G?` alongside `%GK`.
-Reject if `%G?` is not `G` or `U`.
+Replay (`sync.lua`) calls `ssh.pubkey` but not
+`ssh.verify` per commit. Verification during replay
+is deferred as an optimization question (see
+signing.md).
 
 Checking whether the key is "authorized" (exists in
 `G.authors`) is NOT needed separately — `apply` already
@@ -140,8 +149,8 @@ Begs are never replayed.
 T.time:   type(T.time) == "number" and T.time >= 0
           monotonic: T.time >= parent's timestamp
           (move check from post.lua:66-76 into apply)
-T.sign:   %G? must be G or U (signature valid)
-          format: 40 hex chars (GPG fingerprint)
+T.sign:   ssh.verify() must succeed (signature valid)
+          format: "ssh-ed25519 <base64>" (SSH pubkey)
 T.num:    type == "number" and num ~= 0
           and math.type(num) == "integer"
 T.id:     for target == "author": author must exist

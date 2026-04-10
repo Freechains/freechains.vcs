@@ -36,7 +36,7 @@ do
     do
         TEST "post on A"
         local out = exec (
-            EXE_A .. " chain test post inline 'post from A' --sign " .. KEY
+            EXE_A .. " chain test post inline 'post from A' --sign " .. KEY1
         )
         assert(#out == 40, "hash: " .. out)
         assert(out:match("^%x+$"), "not hex")
@@ -75,7 +75,7 @@ do
     do
         TEST "post on B"
         local out = exec (
-            EXE_B .. " chain test post inline 'post from B' --sign " .. KEY
+            EXE_B .. " chain test post inline 'post from B' --sign " .. KEY1
         )
         assert(#out == 40, "hash: " .. out)
         assert(out:match("^%x+$"), "not hex")
@@ -150,13 +150,13 @@ do
     do
         TEST "A posts again"
         local out = exec (
-            EXE_A .. " chain test post inline 'second from A' --sign " .. KEY
+            EXE_A .. " chain test post inline 'second from A' --sign " .. KEY1
         )
         assert(#out == 40, "hash: " .. out)
 
         TEST "B posts again"
         local out = exec (
-            EXE_B .. " chain test post inline 'second from B' --sign " .. KEY
+            EXE_B .. " chain test post inline 'second from B' --sign " .. KEY1
         )
         assert(#out == 40, "hash: " .. out)
     end
@@ -259,7 +259,7 @@ do
     do
         TEST "A posts to log.txt"
         local out = exec (
-            EXE_A .. " chain test post" .. " inline 'from A' --file log.txt --sign " .. KEY
+            EXE_A .. " chain test post" .. " inline 'from A' --file log.txt --sign " .. KEY1
         )
         assert(#out == 40, "hash: " .. out)
     end
@@ -267,7 +267,7 @@ do
     do
         TEST "B posts to log.txt"
         local out = exec (
-            EXE_B .. " chain test post" .. " inline 'from B' --file log.txt --sign " .. KEY
+            EXE_B .. " chain test post" .. " inline 'from B' --file log.txt --sign " .. KEY1
         )
         assert(#out == 40, "hash: " .. out)
     end

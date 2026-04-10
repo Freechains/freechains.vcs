@@ -136,8 +136,8 @@ for each new ref in refs/begs/:
     posts[hash] = { state="blocked", reps=0 }
 
     -- register author if signed
-    author = git log -1 --format='%GK' <ref>
-    if author ~= "" then
+    author = ssh.pubkey(REPO, <ref>)
+    if author then
         authors[author] = authors[author] or { reps=0 }
     end
 
@@ -247,7 +247,7 @@ Uses `GEN_1P` (KEY=30 reps, KEY2/KEY3=0 reps).
 ### 5. Merge structure
 
 - `merge-two-parents`: merge commit has 2 parents
-- `merge-preserves-sig`: beg commit GPG sig intact
+- `merge-preserves-sig`: beg commit signature intact
 - `merge-head-advances`: HEAD is merge commit
 
 ## repl-begs vs repl-head: What Differs

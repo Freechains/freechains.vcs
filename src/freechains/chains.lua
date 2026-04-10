@@ -72,7 +72,7 @@ if ARGS.add then
         )
         pioneers(tmp .. "/")
         exec (
-            "git -C " .. tmp .. " add .freechains/ .gitattributes"
+            "git -C " .. tmp .. " add .freechains/ .gitattributes .gitignore"
         )
         exec (
             CMD.git .. "git -C " .. tmp .. " commit -m '(empty message)'"

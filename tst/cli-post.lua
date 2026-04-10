@@ -13,7 +13,7 @@ do
     do
         TEST "post file success"
         local out, code = exec (
-            ENV_EXE .. " chain cli-post post file hello.txt --sign " .. KEY
+            ENV_EXE .. " chain cli-post post file hello.txt --sign " .. KEY1
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -44,7 +44,7 @@ do
         f:write("hello world updated\n")
         f:close()
         local hash2, code = exec (
-            ENV_EXE .. " chain cli-post post file " .. tmp .. " --sign " .. KEY
+            ENV_EXE .. " chain cli-post post file " .. tmp .. " --sign " .. KEY1
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(hash1 ~= hash2, "hashes should differ")
@@ -57,7 +57,7 @@ do
         f:write("second file\n")
         f:close()
         exec (
-            ENV_EXE .. " chain cli-post post file " .. tmp .. " --sign " .. KEY
+            ENV_EXE .. " chain cli-post post file " .. tmp .. " --sign " .. KEY1
         )
         local _, code1 = exec (
             "test -f " .. DIR .. "/hello.txt"
@@ -77,7 +77,7 @@ do
     do
         TEST "inline auto-name"
         local out, code = exec (
-            ENV_EXE .. " chain cli-post post inline 'Quick note' --sign " .. KEY
+            ENV_EXE .. " chain cli-post post inline 'Quick note' --sign " .. KEY1
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -95,7 +95,7 @@ do
         TEST "inline --file creates file"
         local _, code = exec (
             ENV_EXE .. " chain cli-post post inline 'Line 1'"
-            .. " --file log.txt --sign " .. KEY
+            .. " --file log.txt --sign " .. KEY1
         )
         assert(code == 0, "exit code: " .. tostring(code))
         local content = exec("cat " .. DIR .. "/log.txt")
@@ -106,7 +106,7 @@ do
         TEST "inline --file appends"
         local _, code = exec (
             ENV_EXE .. " chain cli-post post inline 'Line 2'"
-            .. " --file log.txt --sign " .. KEY
+            .. " --file log.txt --sign " .. KEY1
         )
         assert(code == 0, "exit code: " .. tostring(code))
         local content = exec("cat " .. DIR .. "/log.txt")
@@ -121,7 +121,7 @@ do
     do
         TEST "inline --why sets commit message"
         exec (
-            ENV_EXE .. " chain cli-post post inline 'some text' --sign " .. KEY
+            ENV_EXE .. " chain cli-post post inline 'some text' --sign " .. KEY1
             .. " --why 'reason for posting'"
         )
         local msg = exec("git -C " .. DIR .. " log -1 --format=%s HEAD~1")
@@ -135,7 +135,7 @@ do
         f:write("why test content\n")
         f:close()
         exec (
-            ENV_EXE .. " chain cli-post post file " .. tmp .. " --sign " .. KEY
+            ENV_EXE .. " chain cli-post post file " .. tmp .. " --sign " .. KEY1
             .. " --why 'file reason'"
         )
         local msg = exec("git -C " .. DIR .. " log -1 --format=%s HEAD~1")
@@ -144,7 +144,7 @@ do
 
     do
         TEST "post without --why has empty message"
-        exec(ENV_EXE .. " chain cli-post post inline 'no reason' --sign " .. KEY)
+        exec(ENV_EXE .. " chain cli-post post inline 'no reason' --sign " .. KEY1)
         local msg = exec("git -C " .. DIR .. " log -1 --format=%s HEAD~1")
         assert(msg == "(empty message)", "commit message should be empty: " .. msg)
     end
@@ -158,7 +158,7 @@ do
         TEST "post to nonexistent chain fails"
         local tmp = TMP .. "/hello.txt"
         local _, Q, err = exec (true,
-            ENV_EXE .. " chain nochain post file " .. tmp .. " --sign " .. KEY
+            ENV_EXE .. " chain nochain post file " .. tmp .. " --sign " .. KEY1
         )
         assert (
             Q~=0 and err=="ERROR : chain nochain : not found"

@@ -93,10 +93,17 @@ function apply (G, kind, time, T)
     elseif kind == 'post' then
         -- validation
         assert(T.sign or T.beg)
-        if T.sign and (not T.beg) then
-            local reps = G.authors[T.sign] and G.authors[T.sign].reps or 0
-            if reps <= 0 then
-                return false, "insufficient reputation"
+        if T.sign then
+            if T.beg then
+                local reps = G.authors[T.sign] and G.authors[T.sign].reps or 0
+                if reps > 0 then
+                    return false, "--beg error : author has sufficient reputation"
+                end
+            else
+                local reps = G.authors[T.sign] and G.authors[T.sign].reps or 0
+                if reps <= 0 then
+                    return false, "insufficient reputation"
+                end
             end
         end
 

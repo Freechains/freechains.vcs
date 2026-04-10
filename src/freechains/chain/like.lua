@@ -1,3 +1,5 @@
+local ssh = require "freechains.chain.ssh"
+
 -- num
 local num = ARGS.number * C.reps.unit
 if ARGS.dislike then
@@ -33,21 +35,6 @@ if to_beg then
     G.posts[ARGS.id] = load(src)()[ARGS.id]
 end
 
--- apply
-do
-    local T = {
-        sign   = ARGS.sign,
-        num    = num,
-        target = ARGS.target,
-        id     = ARGS.id,
-        beg    = to_beg,
-    }
-    local ok, err = apply(G, 'like', CMD.now, T)
-    if not ok then
-        ERROR("chain like : " .. err)
-    end
-end
-
 -- commit like (content only, no state)
 local hash
 do
@@ -66,15 +53,32 @@ do
     exec (
         "git -C " .. REPO .. " add " .. file
     )
-    local s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=openpgp"
+    local s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=ssh"
     local msg = ARGS.why or "(empty message)"
-    exec (
+    exec ('stdout',
         CMD.git .. "git -C " .. REPO .. s1 .. " commit -S -m '" .. msg
         .. "' --trailer 'Freechains: like'"
+        , "chain like : invalid sign key"
     )
     hash = exec (
         "git -C " .. REPO .. " rev-parse HEAD"
     )
+end
+
+-- apply
+do
+    local T = {
+        sign   = ssh.pubkey(REPO, hash),
+        num    = num,
+        target = ARGS.target,
+        id     = ARGS.id,
+        beg    = to_beg,
+    }
+    local ok, err = apply(G, 'like', CMD.now, T)
+    if not ok then
+        exec("git -C " .. REPO .. " reset --hard HEAD~1")
+        ERROR("chain like : " .. err)
+    end
 end
 
 -- commit state

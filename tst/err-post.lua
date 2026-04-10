@@ -20,7 +20,7 @@ do
 
     TEST "A creates chain + post"
     exec(EXE_A .. " chains add err-reps init " .. GEN_1)
-    exec(EXE_A .. " chain err-reps post inline 'legit' --sign " .. KEY)
+    exec(EXE_A .. " chain err-reps post inline 'legit' --sign " .. KEY1)
 
     TEST "B clones from A"
     exec(EXE_B .. " chains add err-reps clone " .. REPO_A1)
@@ -31,12 +31,12 @@ do
     f:close()
     exec (
         ENV .. " git -C " .. REPO_A1
-        .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=openpgp"
+        .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh"
         .. " add forged.txt"
     )
     exec (
         ENV .. " git -C " .. REPO_A1
-        .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=openpgp"
+        .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh"
         .. " commit -S -m 'x' --trailer 'Freechains: post'"
     )
     exec (
@@ -62,7 +62,7 @@ do
 
     TEST "A creates chain + post"
     exec(EXE_A .. " --now=10000 chains add err-time init " .. GEN_1)
-    exec(EXE_A .. " --now=11000 chain err-time post inline 'legit' --sign " .. KEY)
+    exec(EXE_A .. " --now=11000 chain err-time post inline 'legit' --sign " .. KEY1)
 
     TEST "B clones from A"
     exec(EXE_B .. " chains add err-time clone " .. REPO_A2)
@@ -73,12 +73,12 @@ do
     f:close()
     exec (
         ENV .. " git -C " .. REPO_A2
-        .. " -c user.signingkey=" .. KEY .. " -c gpg.format=openpgp"
+        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh"
         .. " add forged.txt"
     )
     exec (
         ENV .. " git -C " .. REPO_A2
-        .. " -c user.signingkey=" .. KEY .. " -c gpg.format=openpgp"
+        .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh"
         .. " commit -S --date='1970-01-01T00:00:01+0000' -m 'x' --trailer 'Freechains: post'"
     )
     exec (

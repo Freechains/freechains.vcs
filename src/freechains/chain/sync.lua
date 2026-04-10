@@ -1,4 +1,5 @@
 require "freechains.chain.common"
+local ssh = require "freechains.chain.ssh"
 
 -- Consensus (common, left, right)
 --  - tip hash as simplest criteria
@@ -18,14 +19,12 @@ end
 local function replay (G, old, new)
     local out = exec (
         "git -C " .. REPO ..
-            " log --reverse --no-merges --format='%H %at %GF' " ..
+            " log --reverse --no-merges --format='%H %at' " ..
             (old .. ".." .. new)
     )
     for line in out:gmatch("[^\n]+") do
-        local hash, time, key = line:match("^(%S+) (%S+) ?(.*)")
-        if key == "" then
-            key = nil
-        end
+        local hash, time = line:match("^(%S+) (%S+)")
+        local key = ssh.pubkey(REPO, hash)
 
         local trailer = exec (
             "git -C " .. REPO .. " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash
@@ -90,7 +89,7 @@ if ARGS.send then
 elseif ARGS.recv then
     exec (
         "git -C " .. REPO .. " fetch " .. ARGS.remote .. " main"
-        , "chain sync : fetch failed"
+        , "TODO : TEST : chain sync : fetch failed"
     )
 
     local loc = exec("git -C " .. REPO .. " rev-parse HEAD")

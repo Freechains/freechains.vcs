@@ -8,12 +8,15 @@ GEN_3 = "genesis-3.lua"
 ROOT  = TMP .. "/root/"
 EXE   = "../src/freechains.lua --root " .. ROOT
 
-GPG     = exec("realpath gnupg/") .. "/"
-KEY     = "CA6391CEA51882DF980E0F0C6774E21538E4078B"
-KEY2    = "783975D11C5437506E4EF015CC72520488613667"
-KEY3    = "F02130B311328E060A909923190C651F0C13FAB1"
-ENV     = "GNUPGHOME=" .. GPG
-ENV_EXE = ENV .. " " .. EXE
+SSH     = exec("realpath ssh/") .. "/"
+KEY1    = SSH .. "key1"
+KEY2    = SSH .. "key2"
+KEY3    = SSH .. "key3"
+PUB1    = exec("awk '{print $1\" \"$2}' " .. KEY1 .. ".pub")
+PUB2    = exec("awk '{print $1\" \"$2}' " .. KEY2 .. ".pub")
+PUB3    = exec("awk '{print $1\" \"$2}' " .. KEY3 .. ".pub")
+ENV     = ""
+ENV_EXE = EXE
 
 function TEST (name)
     print("  - " .. name .. "... ")

@@ -10,7 +10,7 @@ do
     do
         TEST "reps-pioneer-initial"
         local out, code = exec (
-            ENV_EXE .. " chain cli-reps reps author " .. KEY
+            ENV_EXE .. " chain cli-reps reps author '" .. PUB1 .. "'"
         )
         assert(code==0, "exit code: " .. tostring(code))
         assert(out=="30", "reps: " .. out)
@@ -19,7 +19,7 @@ do
     do
         TEST "reps-unknown-pubkey"
         local out, code = exec (
-            ENV_EXE .. " chain cli-reps reps author " .. KEY2
+            ENV_EXE .. " chain cli-reps reps author '" .. PUB2 .. "'"
         )
         assert(code==0,  "exit code: " .. tostring(code))
         assert(out=="0", "reps: " .. out)
@@ -31,7 +31,7 @@ do
             ENV_EXE .. " chain cli-reps reps authors"
         )
         assert(code==0,         "exit code: " .. tostring(code))
-        assert(out:match(KEY),  "KEY not listed")
+        assert(out:find(PUB1, 1, true), "PUB1 not listed")
         assert(out:match("30"), "30 not in output")
     end
 
@@ -52,28 +52,28 @@ do
     do
         TEST "reps-after-1-post"
         exec (
-            ENV_EXE .. " chain cli-reps post inline 'p1'" .. " --sign " .. KEY
+            ENV_EXE .. " chain cli-reps post inline 'p1'" .. " --sign " .. KEY1
         )
         local out, code = exec (
-            ENV_EXE .. " chain cli-reps reps author " .. KEY
+            ENV_EXE .. " chain cli-reps reps author '" .. PUB1 .. "'"
         )
         assert(code == 0, "exit code: " .. tostring(code))
-        assert(out == "29", "reps: " .. out)    -- KEY: 30 -> post -> 29
+        assert(out == "29", "reps: " .. out)    -- KEY1: 30 -> post -> 29
     end
 
     do
         TEST "reps-after-3-posts"
         exec (
-            ENV_EXE .. " chain cli-reps post inline 'p2'" .. " --sign " .. KEY
+            ENV_EXE .. " chain cli-reps post inline 'p2'" .. " --sign " .. KEY1
         )
         exec (
-            ENV_EXE .. " chain cli-reps post inline 'p3'" .. " --sign " .. KEY
+            ENV_EXE .. " chain cli-reps post inline 'p3'" .. " --sign " .. KEY1
         )
         local out, code = exec (
-            ENV_EXE .. " chain cli-reps reps author " .. KEY
+            ENV_EXE .. " chain cli-reps reps author '" .. PUB1 .. "'"
         )
         assert(code==0, "exit code: " .. tostring(code))
-        assert(out == "29", "reps: " .. out)    -- KEY: 30 -> posts -> 29 (discount refunds)
+        assert(out == "29", "reps: " .. out)    -- KEY1: 30 -> posts -> 29 (discount refunds)
     end
 
     do
@@ -103,14 +103,14 @@ do
             ENV_EXE .. " chain cli-reps post inline 'hello'" .. " --sign " .. KEY2
         )
         exec (
-            ENV_EXE .. " chain cli-reps like 2 post " .. post .. " --sign " .. KEY
+            ENV_EXE .. " chain cli-reps like 2 post " .. post .. " --sign " .. KEY1
         )
 
         local out, code = exec (
-            ENV_EXE .. " chain cli-reps reps author " .. KEY
+            ENV_EXE .. " chain cli-reps reps author '" .. PUB1 .. "'"
         )
         assert(code==0, "exit code: " .. tostring(code))
-        assert(out == "13", "reps: " .. out)    -- KEY: 15 -> like -> 13
+        assert(out == "13", "reps: " .. out)    -- KEY1: 15 -> like -> 13
 
         local out, code = exec (
             ENV_EXE .. " chain cli-reps reps post " .. post
@@ -125,13 +125,13 @@ do
             ENV_EXE .. " chain cli-reps post inline 'bad'" .. " --sign " .. KEY2
         )
         exec (
-            ENV_EXE .. " chain cli-reps dislike 1 post " .. post .. " --sign " .. KEY
+            ENV_EXE .. " chain cli-reps dislike 1 post " .. post .. " --sign " .. KEY1
         )
         local out, code = exec (
-            ENV_EXE .. " chain cli-reps reps author " .. KEY
+            ENV_EXE .. " chain cli-reps reps author '" .. PUB1 .. "'"
         )
         assert(code==0, "exit code: " .. tostring(code))
-        assert(out == "12", "reps: " .. out) -- KEY: 15 -> like -> 13 -> dislike -> 12
+        assert(out == "12", "reps: " .. out) -- KEY1: 15 -> like -> 13 -> dislike -> 12
     end
 
     do
@@ -142,10 +142,10 @@ do
             .. " chain cli-reps post inline 'disliked'" .. " --sign " .. KEY2
         )
         exec (
-            ENV_EXE .. " chain cli-reps dislike 1 post " .. target .. " --sign " .. KEY
+            ENV_EXE .. " chain cli-reps dislike 1 post " .. target .. " --sign " .. KEY1
         )
         local out, code = exec (
-            ENV_EXE .. " chain cli-reps reps author " .. KEY2
+            ENV_EXE .. " chain cli-reps reps author '" .. PUB2 .. "'"
         )
         assert(code == 0, "exit code: " .. tostring(code))
         -- KEY2: 15 - 1(post) - 1(dislike) + refunds = 14
@@ -166,12 +166,12 @@ do
             ENV_EXE .. " chains add cli-reps init " .. GEN_2
         )
         local out1 = exec (
-            ENV_EXE .. " chain cli-reps reps author " .. KEY
+            ENV_EXE .. " chain cli-reps reps author '" .. PUB1 .. "'"
         )
         local out2 = exec (
-            ENV_EXE .. " chain cli-reps reps author " .. KEY2
+            ENV_EXE .. " chain cli-reps reps author '" .. PUB2 .. "'"
         )
-        assert(out1 == "15", "KEY reps: " .. out1)
+        assert(out1 == "15", "KEY1 reps: " .. out1)
         assert(out2 == "15", "KEY2 reps: " .. out2)
     end
 
@@ -181,9 +181,9 @@ do
         exec("mkdir -p " .. ROOT)
         exec(ENV_EXE .. " chains add cr7 init " .. GEN_3)
         local out = exec (
-            ENV_EXE .. " chain cr7 reps author " .. KEY
+            ENV_EXE .. " chain cr7 reps author '" .. PUB1 .. "'"
         )
-        assert(out == "10", "KEY reps: " .. out)
+        assert(out == "10", "KEY1 reps: " .. out)
     end
 end
 
@@ -209,9 +209,9 @@ do
 
     do
         TEST "gate-accepted-with-reps"
-        -- KEY is pioneer with 30 reps -> post must succeed
+        -- KEY1 is pioneer with 30 reps -> post must succeed
         local out, code = exec (
-            ENV_EXE .. " chain cli-reps post inline 'accepted'" .. " --sign " .. KEY
+            ENV_EXE .. " chain cli-reps post inline 'accepted'" .. " --sign " .. KEY1
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "expected commit hash: " .. out)
@@ -219,12 +219,12 @@ do
 
     do
         TEST "gate-unblocked-after-like"
-        -- KEY likes KEY2 (author-targeted) to give reps, then KEY2 can post
+        -- KEY1 likes KEY2 (author-targeted) to give reps, then KEY2 can post
         exec (
-            ENV_EXE .. " chain cli-reps like 1 author " .. KEY2 .. " --sign " .. KEY
+            ENV_EXE .. " chain cli-reps like 1 author '" .. PUB2 .. "'" .. " --sign " .. KEY1
         )
         local out2 = exec (
-            ENV_EXE .. " chain cli-reps reps author " .. KEY2
+            ENV_EXE .. " chain cli-reps reps author '" .. PUB2 .. "'"
         )
         assert(tonumber(out2) >= 1, "KEY2 should have reps: " .. out2)
 
@@ -237,9 +237,9 @@ do
 
     do
         TEST "gate-beg-with-reps-fails"
-        -- KEY is pioneer with reps -> --beg must fail
+        -- KEY1 is pioneer with reps -> --beg must fail
         local _, Q, err = exec (true,
-            ENV_EXE .. " chain cli-reps post inline 'no beg needed'" .. " --sign " .. KEY .. " --beg"
+            ENV_EXE .. " chain cli-reps post inline 'no beg needed'" .. " --sign " .. KEY1 .. " --beg"
         )
         assert (
             Q~=0 and err=="ERROR : chain post : --beg error : author has sufficient reputation"

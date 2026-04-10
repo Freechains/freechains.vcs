@@ -1,5 +1,15 @@
 # Replace "beg" with "ident" commits
 
+## SUPERSEDED
+
+This plan was written before the GPG → SSH migration.
+Key assumptions (GPG keyring, `.asc` files, `%GK`,
+`GNUPGHOME`) no longer apply.
+See `gpg-to-ssh.md` and `signing.md` for the current
+SSH-based identity model.
+The ident concept itself is out of scope for the SSH
+migration and has not been implemented.
+
 ## Status
 
 **Done (preparation):**

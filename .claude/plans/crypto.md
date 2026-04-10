@@ -57,14 +57,14 @@ Wrapper: `tst/fc-crypto.sh`
 
 ## SSH signing for git commits
 
-Git commit signing is migrating from GPG to SSH
-(see signing.md Option D). SSH signing uses Ed25519 —
-the same curve as openssl/luasodium above. Benefits:
+Git commit signing uses SSH keys (Ed25519) — the same
+curve as openssl/luasodium above (see signing.md).
+Benefits:
 
 - **Self-validating**: `gpgsig` header embeds the full
-  public key (GPG only embeds key ID)
-- No keyring management — literal key string via
+  public key (no keyring needed)
+- Literal key string via
   `user.signingkey="ssh-ed25519 AAAA..."` (Git >= 2.35)
-- Verification via `ssh-keygen -Y verify` + temp
-  `allowed_signers` file (no GPG needed)
+- Verification via `git verify-commit` + temp
+  `allowed_signers` file
 - Aligns with Ed25519 already chosen for crypto primitives

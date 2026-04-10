@@ -1,6 +1,7 @@
 #!/usr/bin/env lua5.4
 
 require "tests"
+local ssh = require "freechains.chain.ssh"
 
 local DIR = ROOT .. "/chains/cli-sign/"
 
@@ -13,7 +14,7 @@ do
     do
         TEST "signed post succeeds"
         local out, code = exec (
-            ENV_EXE .. " chain cli-sign post file hello.txt --sign " .. KEY
+            ENV_EXE .. " chain cli-sign post file hello.txt --sign " .. KEY1
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -22,11 +23,9 @@ do
 
     do
         TEST "git verify-commit passes"
-        local out, code = exec (
-            ENV .. " git -C " .. DIR .. " verify-commit HEAD~1"
-        )
-        assert(code == 0, "verify-commit failed")
-        assert(out:match('Good signature from "test <test@freechains>"'))
+        local hash = exec("git -C " .. DIR .. " rev-parse HEAD~1")
+        local key = ssh.verify(DIR, hash)
+        assert(key == PUB1, "verify-commit failed: " .. tostring(key))
     end
 
     do

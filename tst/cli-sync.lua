@@ -1,6 +1,7 @@
 #!/usr/bin/env lua5.4
 
 require "tests"
+local ssh = require "freechains.chain.ssh"
 
 local ROOT_A = ROOT .. "/cli-sync/A/"
 local ROOT_B = ROOT .. "/cli-sync/B/"
@@ -22,7 +23,7 @@ do
         TEST "A creates chain + posts"
         exec(EXE_A .. " --now=1000 chains add test init " .. GEN_1)
         local out = exec (
-            EXE_A .. " --now=2000 chain test post inline 'post from A' --sign " .. KEY
+            EXE_A .. " --now=2000 chain test post inline 'post from A' --sign " .. KEY1
         )
         assert(#out == 40, "hash: " .. out)
 
@@ -35,13 +36,14 @@ do
     do
         TEST "A posts again"
         local out = exec (
-            EXE_A .. " --now=3000 chain test post inline 'second from A' --sign " .. KEY
+            EXE_A .. " --now=3000 chain test post inline 'second from A' --sign " .. KEY1
         )
         assert(#out == 40, "hash: " .. out)
 
-        TEST "GF matches pioneer key"
-        local gf = exec(ENV .. " git -C " .. REPO_A .. " log -1 --format='%GF' HEAD~1")
-        assert(gf == KEY, "GF mismatch: [" .. gf .. "] vs [" .. KEY .. "]")
+        TEST "pubkey matches pioneer key"
+        local hash = exec("git -C " .. REPO_A .. " rev-parse HEAD~1")
+        local pk = ssh.verify(REPO_A, hash)
+        assert(pk == PUB1, "pubkey mismatch: [" .. tostring(pk) .. "] vs [" .. PUB1 .. "]")
     end
     -- A:  [state] genesis ── [post] P1 ── [state] S1 ── [post] P2 ── [state] S2
     -- B:  [state] genesis ── [post] P1 ── [state] S1
@@ -68,7 +70,7 @@ do
     do
         TEST "A posts"
         local out = exec (
-            EXE_A .. " --now=4000 chain test post inline 'third from A' --sign " .. KEY
+            EXE_A .. " --now=4000 chain test post inline 'third from A' --sign " .. KEY1
         )
         assert(#out == 40, "hash: " .. out)
 
@@ -81,7 +83,7 @@ do
     do
         TEST "B posts"
         local out = exec (
-            EXE_B .. " --now=5000 chain test post inline 'first from B' --sign " .. KEY
+            EXE_B .. " --now=5000 chain test post inline 'first from B' --sign " .. KEY1
         )
         assert(#out == 40, "hash: " .. out)
 
@@ -112,13 +114,13 @@ do
     do
         TEST "A posts (diverge)"
         A = exec (
-            EXE_A .. " --now=6000 chain test post inline 'fourth from A' --sign " .. KEY
+            EXE_A .. " --now=6000 chain test post inline 'fourth from A' --sign " .. KEY1
         )
         assert(#A == 40, "hash: " .. A)
 
         TEST "B posts (diverge)"
         B = exec (
-            EXE_B .. " --now=7000 chain test post inline 'second from B' --sign " .. KEY
+            EXE_B .. " --now=7000 chain test post inline 'second from B' --sign " .. KEY1
         )
         assert(#B == 40, "hash: " .. B)
     end
@@ -215,7 +217,7 @@ do
 
         local bef = {
             author = tonumber((exec (
-                EXE_A .. " --now=8000 chain test reps author " .. KEY
+                EXE_A .. " --now=8000 chain test reps author '" .. PUB1 .. "'"
             ))),
             post = tonumber((exec (
                 EXE_A .. " --now=8000 chain test reps post " .. A
@@ -225,12 +227,12 @@ do
         assert(bef.post  == 0, "bef.post expected 0, got " .. bef.post)
 
         exec (
-            EXE_A .. " --now=8000 chain test like 5 post " .. A .. " --sign " .. KEY
+            EXE_A .. " --now=8000 chain test like 5 post " .. A .. " --sign " .. KEY1
         )
 
         local aft = {
             author = tonumber((exec (
-                EXE_A .. " --now=8000 chain test reps author " .. KEY
+                EXE_A .. " --now=8000 chain test reps author '" .. PUB1 .. "'"
             ))),
             post = tonumber((exec (
                 EXE_A .. " --now=8000 chain test reps post " .. A
@@ -245,7 +247,7 @@ do
         TEST "B reflects like"
         local b = {
             author = tonumber((exec (
-                EXE_B .. " --now=8500 chain test reps author " .. KEY
+                EXE_B .. " --now=8500 chain test reps author '" .. PUB1 .. "'"
             ))),
             post = tonumber((exec (
                 EXE_B .. " --now=8500 chain test reps post " .. A

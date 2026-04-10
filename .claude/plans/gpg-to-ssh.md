@@ -1,5 +1,29 @@
 # GPG → SSH migration
 
+## STATUS: DONE
+
+Migration completed. All steps executed, all referenced
+tests pass. Notable deviations from the original plan:
+
+- Helpers landed in `src/freechains/chain/ssh.lua`
+  (module `M.pubkey`, `M.verify`), not as globals.
+- `extract_pubkey` parses SSHSIG directly in Lua
+  (no `ssh-keygen` extraction needed); only base64 is shelled.
+- `verify_commit` writes `.freechains/tmp/allowed_signers`
+  (gitignored via skel `.gitignore` + `.gitkeep` for the dir)
+  and `os.remove`s it after the call.
+- `--beg` reps check moved into `apply()` instead of
+  `post.lua` pre-check — closes a latent sync-replay bug
+  where remote `--beg` commits by high-reps authors
+  were not validated.
+- `like.lua` restructured: commit before apply (mirrors
+  `post.lua`) so the SSH pubkey can be extracted from the
+  just-signed commit.
+- `like.lua` commit exec now wrapped with
+  `"chain like : invalid sign key"` error.
+- Test identities (`reps author`, `like N author`) switched
+  to shell-quoted SSH pubkey strings.
+
 ## Goal
 
 Replace GPG commit signing with SSH commit signing.

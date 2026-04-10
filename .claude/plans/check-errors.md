@@ -6,7 +6,7 @@ Test coverage for all error paths in `src/`.
 
 | #  | Error Message                                | Source File        | Line     | Status  |
 |----|----------------------------------------------|--------------------|----------|---------|
-| 4  | sync replay: unsigned like (empty `%GF`)     | `chain/sync.lua`   | 25-26    | TEST ADDED (err-sign.lua), needs code fix |
+| 4  | sync replay: unsigned like (`ssh.pubkey` nil) | `chain/sync.lua`   | 25-27    | TEST ADDED (err-sign.lua), needs code fix |
 | 12 | `chain post : copy failed: <path>`           | `chain/post.lua`   | 32       | PENDING |
 | 13 | `chain reps : post requires a hash`          | `chain/reps.lua`   | 13       | PENDING |
 | 14 | `chain reps : author requires a pubkey`      | `chain/reps.lua`   | 29       | PENDING |
@@ -20,8 +20,8 @@ Test coverage for all error paths in `src/`.
 | 23 | `chains add : copy genesis failed`           | `chains.lua`       | 71       | PENDING |
 | 24 | `chains add : chain already exists: <hash>`  | `chains.lua`       | 88       | PENDING |
 | 25 | `chains add : git clone failed`              | `chains.lua`       | 100      | PENDING |
-| 28 | sync replay: valid sig, key missing locally  | `chain/sync.lua`   | 21,64    | PENDING (solved by SSH signing — key embedded in commit) |
-| 29 | sync replay: bad/forged sig as unsigned      | `chain/sync.lua`   | 21,64    | PENDING (needs SSH migration + verify in replay) |
+| 28 | sync replay: valid sig, key missing locally  | `chain/sync.lua`   | 21,64    | RESOLVED (SSH signing embeds key in commit — no local keyring needed) |
+| 29 | sync replay: bad/forged sig as unsigned      | `chain/sync.lua`   | 21,64    | PENDING (ssh.verify not called in replay yet — deferred optimization) |
 
 ## Already Tested (reference)
 
@@ -45,10 +45,9 @@ Test coverage for all error paths in `src/`.
 
 ## Notes
 
-- #27 (like with bad GPG key): reputation check in `apply()` catches
-  the bad key before `git commit -S` runs, so the GPG failure is
-  never reached. Test passes as `insufficient reputation`.
-- #26 (post with bad GPG key): DONE. Added `'stdout'` + error msg
+- #27 (like with bad sign key): the SSH commit fails before
+  `apply()` runs. Test passes as `invalid sign key`.
+- #26 (post with bad sign key): DONE. Added `'stdout'` + error msg
   to exec call in `chain/post.lua`. Test passes.
 - Items 16, 17, 22, 23, 25 are git/IO failures -- harder to test.
 - Items 4, 13, 14, 15, 20 are simple validation errors -- easy to

@@ -1,16 +1,7 @@
--- check sign/beg
-do
-    if ARGS.sign and ARGS.beg then
-        local reps = G.authors[ARGS.sign] and G.authors[ARGS.sign].reps or 0
-        if reps > 0 then
-            ERROR (
-                "chain post : --beg error : author has sufficient reputation"
-            )
-        end
-    end
-    if not (ARGS.sign or ARGS.beg) then
-        ERROR("chain post : requires --sign or --beg")
-    end
+local ssh = require "freechains.chain.ssh"
+
+if not (ARGS.sign or ARGS.beg) then
+    ERROR("chain post : requires --sign or --beg")
 end
 
 -- commit post (content only, no state)
@@ -29,7 +20,7 @@ do
         file = ARGS.path:match("[^/]+$")
         exec (
             "cp " .. ARGS.path .. " " .. REPO .. "/"
-            , "chain post : copy failed: " .. ARGS.path
+            , "TODO : TEST : chain post : copy failed: " .. ARGS.path
         )
     end
     exec (
@@ -37,7 +28,7 @@ do
     )
     local s1, s2 = "", ""
     if ARGS.sign then
-        s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=openpgp"
+        s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=ssh"
         s2 = " -S"
     end
     local msg = ARGS.why or "(empty message)"
@@ -55,7 +46,7 @@ end
 do
     local T = {
         hash = hash,
-        sign = ARGS.sign,
+        sign = ARGS.sign and ssh.pubkey(REPO, hash),
         beg  = ARGS.beg,
     }
     local ok, err = apply(G, 'post', CMD.now, T)

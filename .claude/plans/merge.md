@@ -96,7 +96,7 @@ git diff HEAD...target-branch
   remote content at time T"
 - `Freechains-Peer: <pubkey>` trailer identifies the peer
   (see [trailer.md](trailer.md))
-- GPG signing (`-S`) makes it a signed attestation
+- SSH signing (`-S`) makes it a signed attestation
 - Merge commits are currently **skipped** in reputation
   computation ([reps.md](reps.md))
 - The `pre-merge-commit` hook runs consensus checks before
