@@ -56,7 +56,7 @@ Full mapping of all `freechains` CLI commands to git equivalents. Match scores f
 
 ### Signing — [signing.md](signing.md)
 
-Migrating from GPG to SSH signing (`gpg.format=ssh`).
+Uses SSH signing (`gpg.format=ssh`).
 SSH embeds the full public key in the `gpgsig` header,
 making every commit self-validating (no keyring needed).
 Requires Git >= 2.35. Public key **is** the identity.

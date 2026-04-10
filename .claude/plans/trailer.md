@@ -176,7 +176,7 @@ Used in `src/freechains:330` for every chain commit.
 --trailer 'Freechains-Peer: CA6391CE...'
 ```
 
-- Combined with GPG signing (`git commit -S`), this
+- Combined with SSH signing (`git commit -S`), this
   creates a signed attestation: "peer X saw this branch
   state at time T"
 

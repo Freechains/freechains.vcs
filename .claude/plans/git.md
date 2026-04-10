@@ -72,7 +72,7 @@ algorithm can skip them) is deferred.
 | `message` | yes | Free text string, any length | Human description — **can hold signature data** | yes (can be empty) |
 | `encoding` | yes | Charset string e.g. `UTF-8` | Character encoding of message | no |
 | `extra headers` | yes | Free text key-value lines | Custom metadata — **cleanest place for Freechains signature** | no |
-| `gpg signature` | **yes** | Armored PGP/SSH blob | Authorship verification — **inside the hash** (see signing.md) | no |
+| `gpg signature` | **yes** | Armored SSH blob | Authorship verification — **inside the hash** (see signing.md) | no |
 | `mergetag` | **yes** | Raw embedded tag object | Signed merge metadata — **inside the hash** | no |
 | blob (payload) | yes (indirect) | Raw bytes, any content | Actual file/post content, reached via tree reference | via tree |
 
