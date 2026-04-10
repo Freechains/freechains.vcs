@@ -247,6 +247,30 @@ do
         )
     end
 
+end
+
+-- ERROR PATHS
+do
+    print("==> Error paths")
+
+    do
+        TEST "reps-post-requires-hash"
+        local _,Q,err = exec(true, ENV_EXE .. " chain cli-reps reps post")
+        assert(Q~=0 and err=="ERROR : chain reps : post requires a hash", "should fail: " .. tostring(err))
+    end
+
+    do
+        TEST "reps-author-requires-pubkey"
+        local _,Q,err = exec(true, ENV_EXE .. " chain cli-reps reps author")
+        assert(Q~=0 and err=="ERROR : chain reps : author requires a pubkey", "should fail: " .. tostring(err))
+    end
+
+    do
+        TEST "reps-invalid-target"
+        local _,Q,err = exec(true, ENV_EXE .. " chain cli-reps reps foo")
+        assert(Q~=0 and err=="ERROR : chain reps : invalid target : foo", "should fail: " .. tostring(err))
+    end
+
     exec(ENV_EXE .. " chains rem cli-reps")
 end
 

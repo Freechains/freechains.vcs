@@ -10,7 +10,7 @@ end
 
 if ARGS.target == "post" then
     if not ARGS.key then
-        ERROR("TODO : TEST : chain reps : post requires a hash")
+        ERROR("chain reps : post requires a hash")
     end
     local e = G.posts[ARGS.key]
     local v = (e and e.reps) or 0
@@ -26,7 +26,7 @@ elseif ARGS.target == "posts" then
     end
 elseif ARGS.target == "author" then
     if not ARGS.key then
-        ERROR("TODO : TEST : chain reps : author requires a pubkey")
+        ERROR("chain reps : author requires a pubkey")
     end
     local e = G.authors[ARGS.key]
     local v = (e and e.reps) or 0
@@ -41,5 +41,5 @@ elseif ARGS.target == "authors" then
         print(e.k .. " " .. ext(e.v))
     end
 else
-    ERROR("TODO : TEST : chain reps : invalid target : " .. ARGS.target)
+    ERROR("chain reps : invalid target : " .. ARGS.target)
 end
