@@ -1,6 +1,7 @@
 #!/usr/bin/env lua5.4
 
 require "tests"
+local ssh = require "freechains.chain.ssh"
 
 local ROOT_A = ROOT .. "/cli-sync/A/"
 local ROOT_B = ROOT .. "/cli-sync/B/"
@@ -39,9 +40,10 @@ do
         )
         assert(#out == 40, "hash: " .. out)
 
-        TEST "GF matches pioneer key"
-        local gf = exec(ENV .. " git -C " .. REPO_A .. " log -1 --format='%GF' HEAD~1")
-        assert(gf == KEY1, "GF mismatch: [" .. gf .. "] vs [" .. KEY1 .. "]")
+        TEST "pubkey matches pioneer key"
+        local hash = exec("git -C " .. REPO_A .. " rev-parse HEAD~1")
+        local pk = ssh.verify(REPO_A, hash)
+        assert(pk == PUB1, "pubkey mismatch: [" .. tostring(pk) .. "] vs [" .. PUB1 .. "]")
     end
     -- A:  [state] genesis ── [post] P1 ── [state] S1 ── [post] P2 ── [state] S2
     -- B:  [state] genesis ── [post] P1 ── [state] S1

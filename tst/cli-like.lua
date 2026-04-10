@@ -262,12 +262,12 @@ Error: missing option '--sign'
     end
 
     do
-        TEST "like with invalid GPG key fails"
+        TEST "like with invalid sign key fails"
         local _,Q,err = exec (true,
             ENV_EXE .. " chain cli-like like 1 post " .. POST .. " --sign bad-key"
         )
         assert (
-            Q~=0 and err=="ERROR : chain like : insufficient reputation"
+            Q~=0 and err=="ERROR : chain like : invalid sign key"
             , "should fail: " .. tostring(err)
         )
     end
