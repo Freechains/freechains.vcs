@@ -95,4 +95,41 @@ do
     )
 end
 
+-- sync rejects post with forged signature
+do
+    print("==> sync rejects forged signature post")
+
+    local REPO_A3 = ROOT_A .. "/chains/err-forge/"
+    local REPO_B3 = ROOT_B .. "/chains/err-forge/"
+
+    TEST "A creates chain + post"
+    exec(EXE_A .. " chains add err-forge init " .. GEN_1)
+    exec(EXE_A .. " chain err-forge post inline 'legit' --sign " .. KEY1)
+
+    TEST "B clones from A"
+    exec(EXE_B .. " chains add err-forge clone " .. REPO_A3)
+
+    TEST "A crafts a post with forged signature"
+    exec(EXE_A .. " chain err-forge post inline 'original content' --sign " .. KEY1)
+    -- Strip state commit
+    exec("git -C " .. REPO_A3 .. " reset --hard HEAD~1")
+    -- Tamper: change commit message, gpgsig header stays intact
+    local raw = exec("git -C " .. REPO_A3 .. " cat-file commit HEAD")
+    local forged = raw:gsub("%(empty message%)", "(tampered)")
+    assert(forged ~= raw, "substitution must change something")
+    local tmpf = REPO_A3 .. ".freechains/tmp/forged-commit"
+    local fh = io.open(tmpf, "w")
+    fh:write(forged)
+    fh:close()
+    local new_hash = exec("git -C " .. REPO_A3 .. " hash-object -t commit -w --stdin <" .. tmpf)
+    os.remove(tmpf)
+    exec("git -C " .. REPO_A3 .. " reset --hard " .. new_hash)
+    -- State commit on top
+    exec("git -C " .. REPO_A3 .. " commit -m 'x' --trailer 'Freechains: state' --allow-empty")
+
+    TEST "B rejects forged signature on sync"
+    local _,Q,err = exec(true, EXE_B .. " chain err-forge sync recv " .. REPO_A3)
+    assert(Q~=0 and err == "ERROR : chain sync : invalid post : forged signature", "should fail: " .. tostring(err))
+end
+
 print("<== ALL PASSED")
