@@ -12,14 +12,14 @@ Test coverage for all error paths in `src/`.
 | 14 | `chain reps : author requires a pubkey`      | `chain/reps.lua`   | 29       | DONE (`cli-reps.lua`) |
 | 15 | `chain reps : invalid target : <target>`     | `chain/reps.lua`   | 44       | DONE (`cli-reps.lua`) |
 | 16 | `chain sync : invalid fetch`                 | `chain/sync.lua`   | 94       | DONE (`err-post.lua`) |
-| 17 | `chain sync : push failed`                   | `chain/sync.lua`   | 85       | PENDING (hard — needs git failure) |
+| 17 | `chain sync : push failed`                   | `chain/sync.lua`   | 88       | SKIPPED (dead code — `send` not implemented) |
 | 18 | `chain sync : invalid remote : <err>`        | `chain/sync.lua`   | —        | REMOVED (error no longer exists in code) |
-| 19 | `invalid like` replay variants               | `chain/sync.lua`   | 38-65    | DONE (`err-like.lua` covers: unsigned, missing payload, bad lua, bad target, post not found, insufficient reps, old timestamp, fractional num, zero num) |
-| 20 | `chains add : alias already exists: <alias>` | `chains.lua`       | 38       | DONE (`cli-chains.lua`) |
-| 22 | `chains add : git init failed`               | `chains.lua`       | 60       | PENDING (hard — needs git failure) |
+| 19 | `invalid like` replay variants               | `chain/sync.lua`   | 38-65    | DONE (`err-like.lua`: all replay paths + forged sig) |
+| 20 | `chains add : alias already exists`          | `chains.lua`       | 38       | DONE (`cli-chains.lua`) |
+| 22 | `chains add : init failed`                   | `chains.lua`       | 61-64    | DONE (`cli-chains.lua` — `--root /dev/null`) |
 | 23 | `chains add : invalid genesis`               | `chains.lua`       | 42-56    | DONE (`cli-chains.lua`) |
-| 24 | `chains add : chain already exists: <hash>`  | `chains.lua`       | 88       | PENDING (hard — needs hash collision) |
-| 25 | `chains add : clone failed`                  | `chains.lua`       | 114      | DONE (`cli-chains.lua`) |
+| 24 | `chains add : clone failed` (dup hash)       | `chains.lua`       | 113-117  | DONE (`cli-chains.lua` — clone existing chain) |
+| 25 | `chains add : clone failed` (bad URL)        | `chains.lua`       | 105-108  | DONE (`cli-chains.lua`) |
 | 28 | sync replay: valid sig, key missing locally  | `chain/sync.lua`   | —        | RESOLVED (SSH embeds key in commit — no local keyring needed) |
 | 29 | sync replay: bad/forged sig as unsigned      | `chain/sync.lua`   | 27       | DONE (`err-post.lua` tests forged signature rejection) |
 
@@ -50,15 +50,19 @@ Test coverage for all error paths in `src/`.
 - #26 (post with bad sign key): DONE. Added `'stdout'` + error msg
   to exec call in `chain/post.lua`. Test passes.
 - #4: DONE. `err-like.lua` tests unsigned like rejection.
-- #19: MOSTLY DONE. `err-like.lua` covers 6 of the replay
-  like error paths (unsigned, missing payload, bad lua ×2,
-  bad target, post not found, insufficient reps, old time).
+- #19: DONE. `err-like.lua` covers all replay like paths
+  (unsigned, missing payload, bad lua ×2, bad target, post
+  not found, insufficient reps, old time, fractional num,
+  zero num, forged signature).
 - #28: RESOLVED. SSH signing embeds the full public key in
   the commit signature — no local keyring lookup needed.
 - #29: DONE. `ssh.verify()` now called in replay.
   `err-post.lua` tests forged signature rejection.
-- Items 12, 16, 17, 22, 23, 24, 25 are git/IO failures —
-  harder to test, lower priority.
 - Items 13, 14, 15, 20: DONE. All tested via CLI.
-  Also removed `"TODO : TEST : "` prefix from reps.lua
-  error messages.
+  Also removed `"TODO : TEST : "` prefix from reps.lua.
+- Items 12, 16, 22, 23, 24, 25: DONE. Added `'stdout'`
+  to silence stderr leak in several `exec` calls.
+  #22 tested via `--root /dev/null` trick.
+  #23 switched `dofile` → `loadfile` + format check.
+  #24 switched clone `mv` → `os.rename` + error.
+- Item 17: SKIPPED. `send` command is dead code.
