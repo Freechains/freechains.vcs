@@ -11,15 +11,15 @@ Test coverage for all error paths in `src/`.
 | 13 | `chain reps : post requires a hash`          | `chain/reps.lua`   | 13       | DONE (`cli-reps.lua`) |
 | 14 | `chain reps : author requires a pubkey`      | `chain/reps.lua`   | 29       | DONE (`cli-reps.lua`) |
 | 15 | `chain reps : invalid target : <target>`     | `chain/reps.lua`   | 44       | DONE (`cli-reps.lua`) |
-| 16 | `chain sync : fetch failed`                  | `chain/sync.lua`   | 92       | PENDING (hard — needs git failure) |
+| 16 | `chain sync : invalid fetch`                 | `chain/sync.lua`   | 94       | DONE (`err-post.lua`) |
 | 17 | `chain sync : push failed`                   | `chain/sync.lua`   | 85       | PENDING (hard — needs git failure) |
-| 18 | `chain sync : invalid remote : <err>`        | `chain/sync.lua`   | 119      | PENDING |
+| 18 | `chain sync : invalid remote : <err>`        | `chain/sync.lua`   | —        | REMOVED (error no longer exists in code) |
 | 19 | `invalid like` replay variants               | `chain/sync.lua`   | 38-65    | DONE (`err-like.lua` covers: unsigned, missing payload, bad lua, bad target, post not found, insufficient reps, old timestamp, fractional num, zero num) |
 | 20 | `chains add : alias already exists: <alias>` | `chains.lua`       | 38       | DONE (`cli-chains.lua`) |
 | 22 | `chains add : git init failed`               | `chains.lua`       | 60       | PENDING (hard — needs git failure) |
-| 23 | `chains add : copy genesis failed`           | `chains.lua`       | 71       | PENDING (hard — needs missing file) |
+| 23 | `chains add : invalid genesis`               | `chains.lua`       | 42-56    | DONE (`cli-chains.lua`) |
 | 24 | `chains add : chain already exists: <hash>`  | `chains.lua`       | 88       | PENDING (hard — needs hash collision) |
-| 25 | `chains add : git clone failed`              | `chains.lua`       | 100      | PENDING (hard — needs bad URL) |
+| 25 | `chains add : clone failed`                  | `chains.lua`       | 114      | DONE (`cli-chains.lua`) |
 | 28 | sync replay: valid sig, key missing locally  | `chain/sync.lua`   | —        | RESOLVED (SSH embeds key in commit — no local keyring needed) |
 | 29 | sync replay: bad/forged sig as unsigned      | `chain/sync.lua`   | 27       | DONE (`err-post.lua` tests forged signature rejection) |
 

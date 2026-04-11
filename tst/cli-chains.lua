@@ -79,6 +79,12 @@ do
     end
 
     do
+        TEST "git init failed"
+        local _,Q,err = exec(true, ENV .. " ../src/freechains.lua --root /dev/null chains add x init " .. GEN_0)
+        assert(Q~=0 and err=="ERROR : chains add : init failed", "should fail: " .. tostring(err))
+    end
+
+    do
         TEST "git clone failed"
         local _,Q,err = exec(true, EXE .. " chains add x clone /nonexistent/repo")
         assert(Q~=0 and err=="ERROR : chains add : clone failed")
@@ -157,7 +163,7 @@ do
             EXE .. " chains rem nonexistent"
         )
         assert (
-            Q~=0 and err:match("ERROR : chains rem : not found: nonexistent")
+            Q~=0 and err=="ERROR : chains rem : invalid chain"
             , "should fail: " .. tostring(err)
         )
     end

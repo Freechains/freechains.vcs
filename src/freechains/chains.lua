@@ -17,15 +17,15 @@ local function pioneers (dir)
         for _, key in ipairs(T.pioneers) do
             A[key] = { reps = n }
         end
-        local f = io.open(
+        local f = assert(io.open(
             dir .. ".freechains/state/authors.lua", "w"
-        )
+        ), "bug found : chain add : init failed")
         f:write(serial(A))
         f:close()
     else
-        local f = io.open(
+        local f = assert(io.open(
             dir .. ".freechains/state/authors.lua", "w"
-        )
+        ), "bug found : chain add : init failed")
         f:write("return {\n}\n")
         f:close()
     end
@@ -56,29 +56,23 @@ if ARGS.add then
         end
 
         local rand = math.random(0, 9999999999)
-        local tmp
-        while true do
-            tmp = DIR .. "/tmp-" .. rand .. "/"
-            if not io.open(tmp .. ".") then
-                break
-            end
-            rand = math.random(0, 9999999999)
-        end
+        local tmp = DIR .. "/tmp-" .. rand .. "/"
 
-        exec (
+        exec ('stdout',
             "git init -b main " .. tmp
-            , "chains add : git init failed"
+            , "chains add : init failed"
         )
         git_config(tmp)
-        exec ("cp -r " .. SKEL .. ". " .. tmp .. "/")
+        exec (
+            "cp -r " .. SKEL .. ". " .. tmp .. "/"
+        )
         do
             local f = io.open(tmp .. "/.freechains/random", "w")
             f:write(tostring(rand) .. "\n")
             f:close()
         end
-        exec ('stdout',
+        exec (
             "cp " .. ARGS.path .. " " .. tmp .. "/.freechains/genesis.lua"
-            , "chains add : copy genesis failed"
         )
         pioneers(tmp .. "/")
         exec (
@@ -95,7 +89,7 @@ if ARGS.add then
         local final = DIR .. "/" .. hash
         if not os.rename(tmp, final) then
             exec("rm -rf " .. tmp)
-            ERROR("chains add : chain already exists: " .. hash)
+            ERROR("chains add : init failed")
         end
         exec (
             "ln -s " .. hash .. "/ " .. DIR .. "/" .. ARGS.alias
@@ -103,7 +97,10 @@ if ARGS.add then
         print(hash)
 
     elseif ARGS.clone then
-        exec("mkdir -p " .. DIR)
+        exec (
+            "mkdir -p " .. DIR
+            , "chains add : clone failed"
+        )
         local tmp = DIR .. "/" .. "_tmp" .. "/"
         exec ('stdout',
             "git clone " .. ARGS.url .. " " .. tmp
@@ -122,7 +119,7 @@ elseif ARGS.rem then
     local alias = DIR .. "/" .. ARGS.alias
     local lnk = exec (
         "readlink " .. alias
-        , "chains rem : not found: " .. ARGS.alias
+        , "chains rem : invalid chain"
     )
     exec ("rm -rf " .. DIR .. lnk)
     os.remove(alias)
