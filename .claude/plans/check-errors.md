@@ -14,7 +14,7 @@ Test coverage for all error paths in `src/`.
 | 16 | `chain sync : fetch failed`                  | `chain/sync.lua`   | 92       | PENDING (hard — needs git failure) |
 | 17 | `chain sync : push failed`                   | `chain/sync.lua`   | 85       | PENDING (hard — needs git failure) |
 | 18 | `chain sync : invalid remote : <err>`        | `chain/sync.lua`   | 119      | PENDING |
-| 19 | `invalid like` replay variants               | `chain/sync.lua`   | 38-65    | MOSTLY DONE (`err-like.lua` covers: unsigned, missing payload, bad lua, bad target, post not found, insufficient reps, old timestamp, fractional num, zero num) |
+| 19 | `invalid like` replay variants               | `chain/sync.lua`   | 38-65    | DONE (`err-like.lua` covers: unsigned, missing payload, bad lua, bad target, post not found, insufficient reps, old timestamp, fractional num, zero num) |
 | 20 | `chains add : alias already exists: <alias>` | `chains.lua`       | 38       | DONE (`cli-chains.lua`) |
 | 22 | `chains add : git init failed`               | `chains.lua`       | 60       | PENDING (hard — needs git failure) |
 | 23 | `chains add : copy genesis failed`           | `chains.lua`       | 71       | PENDING (hard — needs missing file) |

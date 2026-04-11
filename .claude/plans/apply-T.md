@@ -210,8 +210,8 @@ unsigned posts without relying on `key == nil` heuristic.
   - `apply()` does NOT check — fake keys only waste
     the sender's own reps (harmless)
   - Test: `cli-like.lua` covers bad author key
-- [ ] Add "Freechains: beg" trailer to beg commits
-  - Beg commits currently use `Freechains: post`
-  - Replay uses `key == nil` heuristic to detect begs
-  - Dedicated trailer makes replay explicit
-  - Low priority: heuristic works after verify fix
+- [x] ~~Add "Freechains: beg" trailer~~ — DROPPED
+  - "beg" is a state (no reps), not a commit type
+  - A beg is just a post from someone outside freechains
+  - Once accepted via like, it's a regular post
+  - No trailer needed — apply() handles it via reps

@@ -18,9 +18,9 @@ do
     else
         assert(ARGS.file)
         file = ARGS.path:match("[^/]+$")
-        exec (
+        exec ('stdout',
             "cp " .. ARGS.path .. " " .. REPO .. "/"
-            , "TODO : TEST : chain post : copy failed: " .. ARGS.path
+            , "chain post : invalid path"
         )
     end
     exec (

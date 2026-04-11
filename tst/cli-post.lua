@@ -165,6 +165,12 @@ do
             , "should fail: " .. tostring(err)
         )
     end
+
+    do
+        TEST "post file copy failed"
+        local _,Q,err = exec(true, ENV_EXE .. " chain cli-post post file /tmp/nonexistent-file.txt --sign " .. KEY1)
+        assert(Q~=0 and err=="ERROR : chain post : invalid path", "should fail: " .. tostring(err))
+    end
 end
 
 print("<== ALL PASSED")
