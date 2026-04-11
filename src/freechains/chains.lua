@@ -111,7 +111,10 @@ if ARGS.add then
             "git -C " .. tmp .. " rev-list --max-parents=0 HEAD"
         )
         local dir = DIR .. "/" .. hash .. "/"
-        exec("mv " .. tmp .. " " .. dir)
+        if not os.rename(tmp, dir) then
+            exec("rm -rf " .. tmp)
+            ERROR("chains add : clone failed")
+        end
         exec("ln -s " .. hash .. " " .. DIR .. "/" .. ARGS.alias)
         print(hash)
     end

@@ -91,6 +91,14 @@ do
     end
 
     do
+        TEST "clone existing chain fails"
+        local _,Q,err = exec (true,
+            EXE .. " chains add clone-dup clone " .. ROOT .. "/chains/cli-chains"
+        )
+        assert(Q~=0 and err=="ERROR : chains add : clone failed", "should fail: " .. tostring(err))
+    end
+
+    do
         TEST "add args fails"
         local _, code = exec (true,
             EXE .. " chains add x args --type '#'"
