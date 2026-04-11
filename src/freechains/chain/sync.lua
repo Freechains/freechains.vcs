@@ -103,6 +103,19 @@ elseif ARGS.recv then
         goto RECV
     end
 
+    -- reject unrelated histories (different genesis)
+    do
+        local loc_root = exec (
+            "git -C " .. REPO .. " rev-list --max-parents=0 " .. loc
+        )
+        local rem_root = exec (
+            "git -C " .. REPO .. " rev-list --max-parents=0 " .. rem
+        )
+        if loc_root ~= rem_root then
+            ERROR("chain sync : incompatible genesis")
+        end
+    end
+
     local com, G_com
     do
         com = exec (

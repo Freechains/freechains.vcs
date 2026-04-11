@@ -26,6 +26,7 @@ tests: src/freechains/argparse.lua
 test: src/freechains/argparse.lua
 	@rm -Rf /tmp/freechains/
 	@mkdir -p /tmp/freechains/
+	@chmod 600 tst/ssh/key*
 	$(L) $(T).lua
 	@rm -Rf /tmp/freechains/
 

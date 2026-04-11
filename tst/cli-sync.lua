@@ -5,15 +5,19 @@ local ssh = require "freechains.chain.ssh"
 
 local ROOT_A = ROOT .. "/cli-sync/A/"
 local ROOT_B = ROOT .. "/cli-sync/B/"
+local ROOT_C = ROOT .. "/cli-sync/C/"
 
 local EXE_A  = ENV .. " ../src/freechains.lua --root " .. ROOT_A
 local EXE_B  = ENV .. " ../src/freechains.lua --root " .. ROOT_B
+local EXE_C  = ENV .. " ../src/freechains.lua --root " .. ROOT_C
 
 local REPO_A = ROOT_A .. "/chains/test/"
 local REPO_B = ROOT_B .. "/chains/test/"
+local REPO_C = ROOT_C .. "/chains/test/"
 
 exec("mkdir -p " .. ROOT_A)
 exec("mkdir -p " .. ROOT_B)
+exec("mkdir -p " .. ROOT_C)
 
 -- 1. recv basic (fetch + merge)
 do
@@ -256,6 +260,33 @@ do
         assert(b.author == aft.author, "author reps: A=" .. aft.author .. " B=" .. b.author)
         assert(b.post   == aft.post,   "post reps: A=" .. aft.post .. " B=" .. b.post)
     end
+end
+
+-- 5. recv unrelated histories
+do
+    print("==> Step 5: recv unrelated histories")
+
+    TEST "C creates independent chain"
+    exec(EXE_C .. " --now=1000 chains add test init " .. GEN_1)
+    exec (
+        EXE_C .. " --now=2000 chain test post inline 'post from C' --sign " .. KEY1
+    )
+
+    TEST "B's HEAD before recv"
+    local before = exec("git -C " .. REPO_B .. " rev-parse HEAD")
+
+    TEST "B recvs from C fails with unrelated histories"
+    local _, Q, err = exec (true,
+        EXE_B .. " --now=9000 chain test sync recv " .. REPO_C
+    )
+    assert (
+        Q~=0 and err=="ERROR : chain sync : incompatible genesis"
+        , "should fail: " .. tostring(err)
+    )
+
+    TEST "B's HEAD unchanged"
+    local after = exec("git -C " .. REPO_B .. " rev-parse HEAD")
+    assert(before == after, "B's HEAD changed: " .. before .. " vs " .. after)
 end
 
 print("<== ALL PASSED")
