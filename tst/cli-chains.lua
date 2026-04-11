@@ -67,9 +67,21 @@ do
             EXE .. " chains add x init " .. bad
         )
         assert (
-            Q~=0 and err=="ERROR : chains add : file must return a table"
+            Q~=0 and err=="ERROR : chains add : invalid genesis"
             , "should fail: " .. tostring(err)
         )
+    end
+
+    do
+        TEST "genesis file not found"
+        local _,Q,err = exec(true, EXE .. " chains add x init /nonexistent/genesis.lua")
+        assert(Q~=0 and err=="ERROR : chains add : invalid genesis")
+    end
+
+    do
+        TEST "git clone failed"
+        local _,Q,err = exec(true, EXE .. " chains add x clone /nonexistent/repo")
+        assert(Q~=0 and err=="ERROR : chains add : clone failed")
     end
 
     do

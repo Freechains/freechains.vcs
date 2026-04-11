@@ -39,10 +39,20 @@ if ARGS.add then
     end
 
     if ARGS.init then
-        local genesis = dofile(ARGS.path)
-        if type(genesis) ~= "table" then
-            -- TODO: check format
-            ERROR("chains add : file must return a table")
+        do
+            local err = true
+            local f = loadfile(ARGS.path)
+            if f then
+                local ok, ret = pcall(f)
+                if ok and (type(ret) == 'table') then
+                    if ret.version and ret.type and ret.name then
+                        err = false
+                    end
+                end
+            end
+            if err then
+                ERROR("chains add : invalid genesis")
+            end
         end
 
         local rand = math.random(0, 9999999999)
@@ -66,7 +76,7 @@ if ARGS.add then
             f:write(tostring(rand) .. "\n")
             f:close()
         end
-        exec (
+        exec ('stdout',
             "cp " .. ARGS.path .. " " .. tmp .. "/.freechains/genesis.lua"
             , "chains add : copy genesis failed"
         )
@@ -95,9 +105,9 @@ if ARGS.add then
     elseif ARGS.clone then
         exec("mkdir -p " .. DIR)
         local tmp = DIR .. "/" .. "_tmp" .. "/"
-        exec (
+        exec ('stdout',
             "git clone " .. ARGS.url .. " " .. tmp
-            , "chains add : git clone failed"
+            , "chains add : clone failed"
         )
         git_config(tmp)
         local hash = exec (

@@ -132,4 +132,13 @@ do
     assert(Q~=0 and err == "ERROR : chain sync : invalid post : invalid signature", "should fail: " .. tostring(err))
 end
 
+-- sync fetch failed
+do
+    print("==> sync fetch failed")
+
+    TEST "sync recv from nonexistent remote"
+    local _,Q,err = exec(true, EXE_A .. " chain err-forge sync recv /nonexistent/repo")
+    assert(Q~=0 and err=="ERROR : chain sync : fetch failed", "should fail: " .. tostring(err))
+end
+
 print("<== ALL PASSED")

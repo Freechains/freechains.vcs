@@ -7,7 +7,7 @@ Test coverage for all error paths in `src/`.
 | #  | Error Message                                | Source File        | Line     | Status  |
 |----|----------------------------------------------|--------------------|----------|---------|
 | 4  | sync replay: unsigned like (`ssh.pubkey` nil) | `chain/sync.lua`   | 35-37    | DONE (`err-like.lua` tests this) |
-| 12 | `chain post : copy failed: <path>`           | `chain/post.lua`   | 22-24    | PENDING (hard — needs unreadable file) |
+| 12 | `chain post : invalid path`                  | `chain/post.lua`   | 22-24    | DONE (`cli-post.lua`) |
 | 13 | `chain reps : post requires a hash`          | `chain/reps.lua`   | 13       | DONE (`cli-reps.lua`) |
 | 14 | `chain reps : author requires a pubkey`      | `chain/reps.lua`   | 29       | DONE (`cli-reps.lua`) |
 | 15 | `chain reps : invalid target : <target>`     | `chain/reps.lua`   | 44       | DONE (`cli-reps.lua`) |

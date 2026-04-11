@@ -91,9 +91,9 @@ if ARGS.send then
     )
 
 elseif ARGS.recv then
-    exec (
+    exec ('stdout',
         "git -C " .. REPO .. " fetch " .. ARGS.remote .. " main"
-        , "TODO : TEST : chain sync : fetch failed"
+        , "chain sync : fetch failed"
     )
 
     local loc = exec("git -C " .. REPO .. " rev-parse HEAD")
