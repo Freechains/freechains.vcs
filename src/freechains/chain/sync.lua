@@ -2,17 +2,24 @@ require "freechains.chain.common"
 local ssh = require "freechains.chain.ssh"
 
 -- Consensus: prefix reps from G_com decide winner
---  - sum G_com.authors[key].reps for authors in each tip
+--  - traverse com..tip, collect signed keys
+--  - sum G_com.authors[key].reps for each side
 --  - higher sum wins, hash tiebreaker (smaller wins)
 local function consensus (G_com, com, a, b)
-    local function load_authors (hash)
-        local src = exec("git -C " .. REPO .. " show " .. hash .. ":.freechains/state/authors.lua")
-        return load(src)()
+    local function collect_keys (tip)
+        local keys = {}
+        local out = exec("git -C " .. REPO .. " log --reverse --format=%H " .. com .. ".." .. tip)
+        for hash in out:gmatch("%x+") do
+            local key = ssh.verify(REPO, hash)
+            if key then
+                keys[key] = true
+            end
+        end
+        return keys
     end
-    local A, B = load_authors(a), load_authors(b)
-    local function sum_reps (authors)
+    local function sum_reps (keys)
         local total = 0
-        for key, _ in pairs(authors) do
+        for key, _ in pairs(keys) do
             local entry = G_com.authors[key]
             if entry then
                 total = total + entry.reps
@@ -20,7 +27,7 @@ local function consensus (G_com, com, a, b)
         end
         return total
     end
-    local sa, sb = sum_reps(A), sum_reps(B)
+    local sa, sb = sum_reps(collect_keys(a)), sum_reps(collect_keys(b))
     if sa > sb then
         return a, b
     elseif sb > sa then

@@ -48,10 +48,14 @@
 
 ### Step 4: Consensus / prefix reps (pending)
 - [ ] Replace timestamp comparison with prefix reps
-- [ ] Load G_a, G_b from tip state commits
-- [ ] Sum G_com.authors[key].reps for authors in each tip
+- [ ] Traverse com..tip, ssh.verify each commit
+- [ ] Collect unique signed keys per branch
+- [ ] Sum G_com.authors[key].reps for each key set
 - [ ] Higher sum wins, hash tiebreaker (smaller wins)
-- [ ] No commit traversal — state tables only
+- [ ] Test: loser invalidated by winner context
+  (author X has reps in prefix, remote winner removes
+  X's reps via dislike, local loser has valid post by X
+  → post revoked along with all subsequent loser posts)
 
 ### Step 5: State branch (pending)
 - [ ] Create `state` branch at genesis
@@ -394,23 +398,22 @@ local function consensus (G_com, com, a, b)
 
 ##### Algorithm
 
-1. Load G_a.authors from tip a state files
-2. Load G_b.authors from tip b state files
-3. Sum G_com.authors[key].reps for each key in
-   G_a.authors (0 if absent in G_com)
-4. Sum G_com.authors[key].reps for each key in
-   G_b.authors (0 if absent in G_com)
-5. Higher sum wins -> return that hash first
-6. Tie -> hash tiebreaker (smaller wins)
+1. Traverse `com..a` via `git log --format=%H`
+2. For each commit: `ssh.verify` → key or nil
+3. Collect unique signed keys for branch A
+4. Same for `com..b` → keys for branch B
+5. Sum `G_com.authors[key].reps` for each key set
+   (0 if absent in G_com)
+6. Higher sum wins → return that hash first
+7. Tie → hash tiebreaker (smaller wins)
 
-##### Rationale (no commit traversal)
+##### Why commit traversal is needed
 
-G_com is already consolidated (time_effects applied).
-The authors table at each tip contains exactly the
-authors who participated on that branch (or were
-inherited from the common prefix). Their prefix reps
-in G_com reflect their standing before the fork.
-No need to traverse commits with git log + ssh.verify.
+State tables (authors, posts) accumulate from genesis.
+Both tips contain the full pioneer set. Diffing state
+tables cannot identify which authors contributed to
+each branch. Only signed commits in `com..tip` reveal
+actual branch participation.
 
 ### 7.2. Nested merge scenario
 
