@@ -204,8 +204,25 @@ elseif ARGS.recv then
         end
         ok, merge, err = replay(G_end, com, fst, snd)
         if not ok then
-            -- TODO: warning / merge / err / list removed hashes
             io.stderr:write("ERROR : " .. err .. "\n")
+        end
+    end
+
+    -- list voided local commits (only when remote wins)
+    if fst==rem and merge~=loc then
+        local out = exec (
+            "git -C " .. REPO .. " " ..
+                "log --reverse --no-merges --format='%H' " ..
+                (merge .. ".." .. loc)
+        )
+        for hash in out:gmatch("%x+") do
+            local trailer = exec (
+                "git -C " .. REPO .. " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash
+            )
+            local kind = trailer:match("(%S+)") or ""
+            if kind ~= 'state' then
+                print("voided : " .. hash)
+            end
         end
     end
 
