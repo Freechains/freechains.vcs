@@ -296,9 +296,18 @@ to send.
 ## Current state
 
 - `src/freechains/chain/sync.lua`: recv with consensus
-  + validation + merge. Send is TODO.
+  + validation + per-commit trial merge + conflict
+  handling (both local-wins and remote-wins). Voided
+  commit listing on stderr. Send is TODO.
 - `src/freechains/chain/common.lua`: shared apply, write
-- `tst/cli-sync.lua`: steps 1-3 pass
+- `tst/cli-sync.lua`: steps 1-6b pass (7 tests)
+- Consensus uses tip author-date (earlier wins)
+- replay() uses detached HEAD trial merge (merge
+  --no-commit + commit -m 'x') per loser commit
+- Loser=local handled: reset HEAD to winner, merge
+  last non-conflicting loser commit
+- `<close>` variable ensures checkout main on any
+  return path from replay()
 
 ## Done
 
@@ -311,11 +320,17 @@ to send.
 - [x] Refactor: `freechains/chain/` dir with common.lua
 - [x] FF validates remote before accepting (replay
   runs before FF check)
+- [x] Step 4: recv unrelated histories (incompatible
+  genesis check via rev-list --max-parents=0)
+- [x] Step 5: recv conflict (both loser=remote and
+  loser=local; per-commit trial merge on detached
+  HEAD; voided commit listing; --no-commit merge
+  folded with state commit)
+- [x] Consensus changed from lexicographic tip hash
+  to tip author-date compare
 
 ## TODO
 
-- [ ] Step 4: recv unrelated histories
-- [ ] Step 5: recv conflict
 - [ ] Step 6: recv begs + registration
 - [ ] Step 7: recv begs + cross-host like
 - [ ] Step 8: recv beg pruning
