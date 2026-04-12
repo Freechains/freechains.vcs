@@ -209,7 +209,7 @@ elseif ARGS.recv then
         end
     end
 
-    -- reset HEAD to winner tip, merge last non-conflicting loser
+    -- reset HEAD to winner tip, merge last non-conflicting loser + state
     do
         if fst ~= loc then
             exec ("git -C " .. REPO .. " reset --hard " .. fst)
@@ -217,7 +217,7 @@ elseif ARGS.recv then
 
         if merge ~= com then
             exec ('stdout',
-                "git -C " .. REPO .. " merge " .. merge
+                "git -C " .. REPO .. " merge --no-commit " .. merge
             )
         end
 
@@ -225,7 +225,7 @@ elseif ARGS.recv then
         exec("git -C " .. REPO .. " add .freechains/state/")
         exec (
             CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
-            .. " --trailer 'Freechains: state'"
+            .. " --no-edit --trailer 'Freechains: state'"
         )
     end
 
