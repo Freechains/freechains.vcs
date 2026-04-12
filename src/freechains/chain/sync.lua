@@ -37,7 +37,7 @@ local function replay (G, com, fst, snd)
             "git -C " .. REPO .. " checkout --detach " .. fst
         )
     end
-    local _ = setmetatable({}, {__close=function()
+    local _ <close> = setmetatable({}, {__close=function()
         if fst then
             exec ('stdout',
                 "git -C " .. REPO .. " checkout main"
@@ -219,14 +219,13 @@ elseif ARGS.recv then
             exec ('stdout',
                 "git -C " .. REPO .. " merge --no-commit " .. merge
             )
+            write(G_end)
+            exec("git -C " .. REPO .. " add .freechains/state/")
+            exec (
+                CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
+                .. " --no-edit --trailer 'Freechains: state'"
+            )
         end
-
-        write(G_end)
-        exec("git -C " .. REPO .. " add .freechains/state/")
-        exec (
-            CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
-            .. " --no-edit --trailer 'Freechains: state'"
-        )
     end
 
     ::RECV::
