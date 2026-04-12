@@ -8,7 +8,9 @@ local ssh = require "freechains.chain.ssh"
 local function consensus (G_com, com, a, b)
     local function collect_keys (tip)
         local keys = {}
-        local out = exec("git -C " .. REPO .. " log --reverse --format=%H " .. com .. ".." .. tip)
+        local out = exec (
+            "git -C " .. REPO .. " log --reverse --format=%H " .. com .. ".." .. tip
+        )
         for hash in out:gmatch("%x+") do
             local key = ssh.verify(REPO, hash)
             if key then
@@ -17,17 +19,17 @@ local function consensus (G_com, com, a, b)
         end
         return keys
     end
-    local function sum_reps (keys)
-        local total = 0
-        for key, _ in pairs(keys) do
-            local entry = G_com.authors[key]
-            if entry then
-                total = total + entry.reps
+    local function reps (keys)
+        local n = 0
+        for key in pairs(keys) do
+            local T = G_com.authors[key]
+            if T then
+                n = n + T.reps
             end
         end
-        return total
+        return n
     end
-    local sa, sb = sum_reps(collect_keys(a)), sum_reps(collect_keys(b))
+    local sa, sb = reps(collect_keys(a)), reps(collect_keys(b))
     if sa > sb then
         return a, b
     elseif sb > sa then
