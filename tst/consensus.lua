@@ -113,4 +113,59 @@ do
     assert(n == 2, "expected 2 posts (seed+beta), got " .. n)
 end
 
+-- 3. loser invalidated by winner context
+-- GEN_4: KEY1=7500, KEY2=7500, KEY3=7500, KEY4=7500
+-- Remote: KEY1,KEY2,KEY3 each dislike KEY4 author by 3 → KEY4 ≤ 0
+-- Local: KEY4 posts P1, KEY2 posts P2
+-- Remote wins (22500 > 15000)
+-- Loser replay: P1 by KEY4 fails → P2 by KEY2 also voided (cascade)
+do
+    print("==> Test 3: loser invalidated by winner context")
+
+    TEST "A creates chain"
+    exec(EXE_A .. " --now=1000 chains add cons-c init " .. GEN_4)
+
+    TEST "B clones cons-c"
+    exec(EXE_B .. " chains add cons-c clone " .. ROOT_A .. "/chains/cons-c/")
+
+    TEST "B: KEY1 dislikes KEY4 author by 3"
+    exec (
+        EXE_B .. " --now=2000 chain cons-c dislike 3 author '" .. PUB4 .. "' --sign " .. KEY1
+    )
+
+    TEST "B: KEY2 dislikes KEY4 author by 3"
+    exec (
+        EXE_B .. " --now=2000 chain cons-c dislike 3 author '" .. PUB4 .. "' --sign " .. KEY2
+    )
+
+    TEST "B: KEY3 dislikes KEY4 author by 3"
+    exec (
+        EXE_B .. " --now=2000 chain cons-c dislike 3 author '" .. PUB4 .. "' --sign " .. KEY3
+    )
+
+    TEST "A: KEY4 posts P1"
+    exec (
+        EXE_A .. " --now=2000 chain cons-c post inline 'P1\n' --sign " .. KEY4
+    )
+
+    TEST "A: KEY2 posts P2"
+    exec (
+        EXE_A .. " --now=2000 chain cons-c post inline 'P2\n' --sign " .. KEY2
+    )
+
+    TEST "A recvs from B (B wins, P1+P2 voided)"
+    local out = exec (
+        EXE_A .. " --now=3000 chain cons-c sync recv " .. ROOT_B .. "/chains/cons-c/"
+    )
+    local voided = 0
+    for _ in out:gmatch("voided") do voided = voided + 1 end
+    assert(voided == 2, "expected 2 voided, got " .. voided)
+
+    TEST "A's posts.lua is empty (no posts survived)"
+    local posts = dofile(ROOT_A .. "/chains/cons-c/.freechains/state/posts.lua")
+    local n = 0
+    for _ in pairs(posts) do n = n + 1 end
+    assert(n == 0, "expected 0 posts, got " .. n)
+end
+
 print("<== ALL PASSED")
