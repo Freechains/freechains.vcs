@@ -21,8 +21,8 @@ end
 
 -- Replay commits from range onto state G.
 -- In case of error, partial replay has been applied.
--- winner_ref: if provided, dry-merge each non-state commit against it.
--- Returns: ok, err, last_good_hash
+-- fst: if provided, trial-merge each non-state commit (detached HEAD).
+-- Returns: ok, last, err
 
 local function replay (G, com, fst, snd)
     local last = com
@@ -31,6 +31,20 @@ local function replay (G, com, fst, snd)
             " log --reverse --no-merges --format='%H %at' " ..
             (com .. ".." .. snd)
     )
+
+    if fst then
+        exec ('stdout',
+            "git -C " .. REPO .. " checkout --detach " .. fst
+        )
+    end
+    local _ = setmetatable({}, {__close=function()
+        if fst then
+            exec ('stdout',
+                "git -C " .. REPO .. " checkout main"
+            )
+        end
+    end})
+
     for line in out:gmatch("[^\n]+") do
         local hash, time = line:match("^(%S+) (%S+)")
         local key, err = ssh.verify(REPO, hash)
@@ -45,14 +59,17 @@ local function replay (G, com, fst, snd)
         end
 
         if fst and kind~='state' then
-            local tree = exec (true,
-                "git -C " .. REPO .. " merge-tree --write-tree --merge-base=" .. hash .. "^1 " .. fst .. " " .. hash
+            local ok = exec (true, 'stdout',
+                "git -C " .. REPO .. " merge --no-commit " .. hash
             )
-            if tree == false then
+            if not ok then
+                exec (true, 'stdout',
+                    "git -C " .. REPO .. " merge --abort"
+                )
                 return false, last, "content conflict"
             end
-            fst = exec (
-                "git -C " .. REPO .. " commit-tree " .. tree .. " -p " .. fst .. " -m ''"
+            exec ('stdout',
+                "git -C " .. REPO .. " commit -m 'x'"
             )
         end
 
@@ -102,6 +119,7 @@ local function replay (G, com, fst, snd)
         end
         last = hash
     end
+
     return true, last, nil
 end
 
@@ -171,10 +189,9 @@ elseif ARGS.recv then
     end
 
     -- final state: consensus + replay loser
+    local fst, snd = consensus(com, loc, rem)
     local G_end, merge
     do
-        -- fst wins, use it as base, replay snd looser
-        local fst, snd = consensus(com, loc, rem)
         local ok, err
         if fst == loc then
             G_end = {
@@ -192,14 +209,24 @@ elseif ARGS.recv then
         end
     end
 
-    -- merge + write state + commit
-    if merge ~= com then
-        exec (
-            "git -C " .. REPO .. " merge --no-commit --no-edit " .. merge
-        )
+    -- reset HEAD to winner tip, merge last non-conflicting loser
+    do
+        if fst ~= loc then
+            exec ("git -C " .. REPO .. " reset --hard " .. fst)
+        end
+
+        if merge ~= com then
+            exec ('stdout',
+                "git -C " .. REPO .. " merge " .. merge
+            )
+        end
+
         write(G_end)
         exec("git -C " .. REPO .. " add .freechains/state/")
-        exec(CMD.git .. "git -C " .. REPO .. " commit --no-edit")
+        exec (
+            CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
+            .. " --trailer 'Freechains: state'"
+        )
     end
 
     ::RECV::
