@@ -42,30 +42,30 @@
 ### Pending issues
 - [x] ~~Sync test Step 3 failure~~: resolved, step 3
   passes (bit-equal diff between peers).
-- [ ] Like replay not integrated in sync.lua
-  (`error "TODO: replay likes via apply"`).
-  Design exists in rec-replay.md (diff-tree + git show).
+- [x] Like replay integrated in sync.lua
 
-### Step 4: Consensus / prefix reps (pending)
+### Step 4: Consensus / prefix reps (done)
 - [x] Replace timestamp comparison with prefix reps
 - [x] Traverse com..tip, ssh.verify each commit
 - [x] Collect unique signed keys per branch
 - [x] Sum G_com.authors[key].reps for each key set
 - [x] Higher sum wins, hash tiebreaker (smaller wins)
-- [ ] Test: loser invalidated by winner context
+- [x] Test: loser invalidated by winner context
   (author X has reps in prefix, remote winner removes
   X's reps via dislike, local loser has valid post by X
   → post revoked along with all subsequent loser posts)
 
-### Step 5: State branch (pending)
-- [ ] Create `state` branch at genesis
-- [ ] Pre-sync: commit state to `state` branch
-- [ ] Sync operates on `state` branch
+### Step 5: State branch (obsolete)
+State branch is unnecessary — git trees are cumulative,
+so state files are accessible from any commit via
+`git show`. Every post is followed by a state commit,
+so HEAD always has up-to-date state files.
 
-### Step 6: Unified merge pipeline (pending)
-- [ ] Rewrite sync recv (FF + non-FF)
+### Step 6: Unified merge pipeline (mostly obsolete)
+- [x] ~~Rewrite sync recv~~ (current porcelain works)
 - [ ] Recursive replay for nested merges
-- [ ] State loading from state commits (no walk+replay)
+- [x] ~~State loading from state commits~~ (G_com loads
+  directly from merge-base, subsumed by current design)
 
 ## 1. State Directory
 
