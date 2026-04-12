@@ -143,17 +143,22 @@ do
         EXE_B .. " --now=2000 chain cons-c dislike 3 author '" .. PUB4 .. "' --sign " .. KEY3
     )
 
-    TEST "A: KEY4 posts P1"
+    TEST "A: KEY2 posts P1 (survives)"
     exec (
-        EXE_A .. " --now=2000 chain cons-c post inline 'P1\n' --sign " .. KEY4
+        EXE_A .. " --now=2000 chain cons-c post inline 'P1\n' --sign " .. KEY2
     )
 
-    TEST "A: KEY2 posts P2"
+    TEST "A: KEY4 posts P2 (fails in winner context)"
     exec (
-        EXE_A .. " --now=2000 chain cons-c post inline 'P2\n' --sign " .. KEY2
+        EXE_A .. " --now=2100 chain cons-c post inline 'P2\n' --sign " .. KEY4
     )
 
-    TEST "A recvs from B (B wins, P1+P2 voided)"
+    TEST "A: KEY2 posts P3 (valid but voided by cascade)"
+    exec (
+        EXE_A .. " --now=2200 chain cons-c post inline 'P3\n' --sign " .. KEY2
+    )
+
+    TEST "A recvs from B (B wins, P2+P3 voided, P1 survives)"
     local out = exec (
         EXE_A .. " --now=3000 chain cons-c sync recv " .. ROOT_B .. "/chains/cons-c/"
     )
@@ -161,11 +166,11 @@ do
     for _ in out:gmatch("voided") do voided = voided + 1 end
     assert(voided == 2, "expected 2 voided, got " .. voided)
 
-    TEST "A's posts.lua is empty (no posts survived)"
+    TEST "A's posts.lua has 1 post (P1 survived)"
     local posts = dofile(ROOT_A .. "/chains/cons-c/.freechains/state/posts.lua")
     local n = 0
     for _ in pairs(posts) do n = n + 1 end
-    assert(n == 0, "expected 0 posts, got " .. n)
+    assert(n == 1, "expected 1 post (P1), got " .. n)
 end
 
 print("<== ALL PASSED")
