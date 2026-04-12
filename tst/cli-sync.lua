@@ -356,9 +356,10 @@ do
     )
 
     TEST "A recvs from B (B wins, A's conflicting post discarded)"
-    exec (
+    local out = exec (
         EXE_A .. " --now=12000 chain conflict-b sync recv " .. ROOT_B .. "/chains/conflict-b/"
     )
+    assert(out == "ERROR : content conflict")
 
     TEST "A's shared.txt has beta, not alpha"
     local h = io.open(ROOT_A .. "/chains/conflict-b/shared.txt")

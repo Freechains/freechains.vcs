@@ -26,6 +26,7 @@ build = {
         ["freechains.chain.like"]   = "src/freechains/chain/like.lua",
         ["freechains.chain.post"]   = "src/freechains/chain/post.lua",
         ["freechains.chain.reps"]   = "src/freechains/chain/reps.lua",
+        ["freechains.chain.ssh"]    = "src/freechains/chain/ssh.lua",
         ["freechains.chain.sync"]   = "src/freechains/chain/sync.lua",
         ["freechains.chains"]       = "src/freechains/chains.lua",
     },
