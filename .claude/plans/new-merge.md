@@ -46,10 +46,12 @@
   (`error "TODO: replay likes via apply"`).
   Design exists in rec-replay.md (diff-tree + git show).
 
-### Step 4: Consensus / branch_compare (pending)
-- [ ] Replace hash comparison with prefix reps
-- [ ] Collect author sets from git log
-- [ ] Sum prefix reps, higher wins, hash tiebreaker
+### Step 4: Consensus / prefix reps (pending)
+- [ ] Replace timestamp comparison with prefix reps
+- [ ] Load G_a, G_b from tip state commits
+- [ ] Sum G_com.authors[key].reps for authors in each tip
+- [ ] Higher sum wins, hash tiebreaker (smaller wins)
+- [ ] No commit traversal — state tables only
 
 ### Step 5: State branch (pending)
 - [ ] Create `state` branch at genesis
@@ -379,31 +381,36 @@ and `branch_compare` depends on `G`. A discarded
 commit changes the ongoing state, which can affect
 nested `branch_compare` results.
 
-#### 7.1.2. branch_compare
+#### 7.1.2. consensus (prefix reps)
 
 ```lua
 -- Returns winner_hash, loser_hash
--- G:     ongoing state at the fork point (live table)
--- left:  left tip state commit hash
--- right: right tip state commit hash
-local function branch_compare (G, left, right)
+-- G_com: state at the merge-base (prefix reps)
+-- com:   merge-base commit hash
+-- a:     left tip commit hash
+-- b:     right tip commit hash
+local function consensus (G_com, com, a, b)
 ```
 
 ##### Algorithm
 
-1. Collect author sets from git log of each branch
-   (signing keys)
-2. Sum prefix reps from `G` for each author set
-3. Higher sum wins -> return that hash first
-4. Tie -> hash tiebreaker (lexicographic)
+1. Load G_a.authors from tip a state files
+2. Load G_b.authors from tip b state files
+3. Sum G_com.authors[key].reps for each key in
+   G_a.authors (0 if absent in G_com)
+4. Sum G_com.authors[key].reps for each key in
+   G_b.authors (0 if absent in G_com)
+5. Higher sum wins -> return that hash first
+6. Tie -> hash tiebreaker (smaller wins)
 
-##### Author collection rules
+##### Rationale (no commit traversal)
 
-- **Posts (signed)**: signer key counts
-- **Posts (unsigned/beg)**: skipped (no key)
-- **Likes**: signer key counts (not the target)
-- **State commits**: skipped (both common and tips)
-- An author in **both** branches counts for both sums
+G_com is already consolidated (time_effects applied).
+The authors table at each tip contains exactly the
+authors who participated on that branch (or were
+inherited from the common prefix). Their prefix reps
+in G_com reflect their standing before the fork.
+No need to traverse commits with git log + ssh.verify.
 
 ### 7.2. Nested merge scenario
 
@@ -456,68 +463,15 @@ skipped when collecting authors. The full DAG between
 merge-base and each tip is walked, including content
 merged in by previous merges.
 
-### 7.3. Recursive replay
+### 7.3. Recursive replay (NOT YET — future scope)
 
-#### Updated signature
+Recursive replay is deferred. Current implementation
+handles only top-level consensus (no nested merges).
 
-```lua
--- G:     ongoing state at the fork point (live table,
---        not loaded from a commit)
--- left:  left tip state commit hash
--- right: right tip state commit hash
-local function branch_compare (G, left, right)
-```
-
-The first argument is the ongoing `G` table, not a
-commit hash. This is because during replay, the state
-at a fork point may differ from what was stored at
-the original merge-base commit.
-
-#### Why nested consensus can change
-
-In the 7.2 scenario, suppose Dave's branch (remote)
-wins at M2 level. The loser (local, G..S4) is replayed
-on top of Dave's state. When the replay reaches M1's
-fork point, the ongoing `G` includes Dave's effects.
-Prefix reps are different from when M1 was originally
-created -> `branch_compare` may pick a different
-winner for M1's sub-branches.
-
-Therefore S3 (the stored state after M1) cannot be
-reused as a checkpoint. The nested merge must be
-fully re-evaluated.
-
-#### Replay algorithm (recursive)
-
-1. Replay loser branch from merge-base to loser tip
-2. When a merge commit (M1) is encountered:
-   a. Find M1's two parents and their merge-base
-   b. Run `branch_compare(G_ongoing, parent1, parent2)`
-      with the current live state
-   c. Replay M1's loser on M1's winner (recurse —
-      deeper merges may exist)
-   d. Continue replay after M1
-3. Only the **top-level winner** state is loaded
-   directly (no replay needed). All loser branches
-   require full recursive replay.
-
-#### order.lua reliability
-
-`order.lua` in a nested state commit (e.g. S3 after
-M1) is only reliable without an outer branch/consensus.
-When replayed as a loser, the outer context changes
-`G`, so `branch_compare` may produce a different order.
-Only the **top-level winner's** `order.lua` is
-reliable.
-
-#### What changed vs old design
-
-| Aspect              | Old                    | New                    |
-|---------------------|------------------------|------------------------|
-| branch_compare arg  | commit hash (G_com)    | live G table           |
-| Nested consensus    | immutable (reuse S3)   | re-evaluated (may change) |
-| Checkpoint reuse    | yes (state commits)    | only for top-level winner |
-| collect/replay      | needed for loser       | still needed, recursive |
+When implemented, the `consensus()` function signature
+will change to accept a live G table instead of G_com,
+so nested merges can re-evaluate with ongoing state.
+See rec-replay.md for the full design.
 
 ### 7.4. Validation failure propagation
 
@@ -604,15 +558,13 @@ needed).
 4. Detect FF or non-FF
 
 5. Load G_com from merge-base state files
-6. Save prefix_authors from G_com.authors
-7. Validate remote: replay remote commits on G_com
+6. Validate remote: replay remote commits on G_com
    via apply. Any failure -> blacklist, stop.
-8. `branch_compare(prefix_authors, local_tip,
-   remote_tip)` -> winner, loser
-9. Load G_winner from winner's state commit
-10. Replay loser commits on G_winner via apply
-    (recursive for nested merges, using
-    G_winner.authors for nested branch_compare)
+7. `consensus(G_com, com, loc, rem)` -> winner, loser
+   (loads G_a, G_b from tip state files, sums prefix
+   reps, higher wins, hash tiebreaker)
+8. Load G_winner from winner's state commit
+9. Replay loser commits on G_winner via apply
     Failures -> discard commit + subsequent
 11. `git merge`
 12. Append merge + state commit hashes to G.order

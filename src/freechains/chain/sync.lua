@@ -1,21 +1,34 @@
 require "freechains.chain.common"
 local ssh = require "freechains.chain.ssh"
 
--- Consensus (common, left, right)
---  - earlier tip author date wins
-local function consensus (com, a, b)
-    local function T (h)
-        return tonumber((
-            exec("git -C " .. REPO .. " log -1 --format=%at " .. h)
-        ))
+-- Consensus: prefix reps from G_com decide winner
+--  - sum G_com.authors[key].reps for authors in each tip
+--  - higher sum wins, hash tiebreaker (smaller wins)
+local function consensus (G_com, com, a, b)
+    local function load_authors (hash)
+        local src = exec("git -C " .. REPO .. " show " .. hash .. ":.freechains/state/authors.lua")
+        return load(src)()
     end
-    local ta, tb = T(a), T(b)
-    if ta < tb then
+    local A, B = load_authors(a), load_authors(b)
+    local function sum_reps (authors)
+        local total = 0
+        for key, _ in pairs(authors) do
+            local entry = G_com.authors[key]
+            if entry then
+                total = total + entry.reps
+            end
+        end
+        return total
+    end
+    local sa, sb = sum_reps(A), sum_reps(B)
+    if sa > sb then
         return a, b
-    elseif tb < ta then
+    elseif sb > sa then
         return b, a
+    elseif a < b then
+        return a, b
     else
-        error "bug found"
+        return b, a
     end
 end
 
@@ -189,7 +202,7 @@ elseif ARGS.recv then
     end
 
     -- final state: consensus + replay loser
-    local fst, snd = consensus(com, loc, rem)
+    local fst, snd = consensus(G_com, com, loc, rem)
     local G_end, merge
     do
         local ok, err
