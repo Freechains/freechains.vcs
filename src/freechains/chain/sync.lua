@@ -2,11 +2,17 @@ require "freechains.chain.common"
 local ssh = require "freechains.chain.ssh"
 
 -- Consensus (common, left, right)
---  - tip hash as simplest criteria
+--  - earlier tip author date wins
 local function consensus (com, a, b)
-    if a < b then
+    local function T (h)
+        return tonumber((
+            exec("git -C " .. REPO .. " log -1 --format=%at " .. h)
+        ))
+    end
+    local ta, tb = T(a), T(b)
+    if ta < tb then
         return a, b
-    elseif b < a then
+    elseif tb < ta then
         return b, a
     else
         error "bug found"
@@ -15,12 +21,15 @@ end
 
 -- Replay commits from range onto state G.
 -- In case of error, partial replay has been applied.
+-- winner_ref: if provided, dry-merge each non-state commit against it.
+-- Returns: ok, err, last_good_hash
 
-local function replay (G, old, new)
+local function replay (G, com, fst, snd)
+    local last = com
     local out = exec (
         "git -C " .. REPO ..
             " log --reverse --no-merges --format='%H %at' " ..
-            (old .. ".." .. new)
+            (com .. ".." .. snd)
     )
     for line in out:gmatch("[^\n]+") do
         local hash, time = line:match("^(%S+) (%S+)")
@@ -32,12 +41,24 @@ local function replay (G, old, new)
         local kind = trailer:match("(%S+)") or ""
 
         if (not key) and (err == 'forged') then
-            return false, "invalid " .. kind .. " : invalid signature"
+            return false, last, "invalid " .. kind .. " : invalid signature"
+        end
+
+        if fst and kind~='state' then
+            local tree = exec (true,
+                "git -C " .. REPO .. " merge-tree --write-tree --merge-base=" .. hash .. "^1 " .. fst .. " " .. hash
+            )
+            if tree == false then
+                return false, last, "content conflict"
+            end
+            fst = exec (
+                "git -C " .. REPO .. " commit-tree " .. tree .. " -p " .. fst .. " -m ''"
+            )
         end
 
         if kind == 'like' then
             if not key then
-                return false, "invalid like : missing sign key"
+                return false, last, "invalid like : missing sign key"
             end
 
             local file = exec (
@@ -45,18 +66,18 @@ local function replay (G, old, new)
             )
             file = file:match("(%S+)")
             if not file then
-                return false, "invalid like : missing metadata file"
+                return false, last, "invalid like : missing metadata file"
             end
             local src = exec (
                 "git -C " .. REPO .. " show " .. hash .. ":" .. file
             )
             local f = load(src)
             if not f then
-                return false, "invalid like : invalid lua metadata"
+                return false, last, "invalid like : invalid lua metadata"
             end
             local ok, like = pcall(f)
             if (not ok) or type(like)~='table' then
-                return false, "invalid like : invalid lua metadata"
+                return false, last, "invalid like : invalid lua metadata"
             end
             local ok, err = apply(G, 'like', tonumber(time), {
                 sign   = key,
@@ -65,7 +86,7 @@ local function replay (G, old, new)
                 id     = like.id,
             })
             if not ok then
-                return false, "invalid like : " .. err
+                return false, last, "invalid like : " .. err
             end
         elseif kind == 'post' then
             local ok, err = apply(G, 'post', tonumber(time), {
@@ -74,13 +95,14 @@ local function replay (G, old, new)
                 beg  = (key == nil),
             })
             if not ok then
-                return false, "invalid post : " .. err
+                return false, last, "invalid post : " .. err
             end
         else
             assert(kind == 'state')
         end
+        last = hash
     end
-    return true
+    return true, last, nil
 end
 
 if ARGS.send then
@@ -137,7 +159,7 @@ elseif ARGS.recv then
     -- verify remote: replay remote branch from G_com
     local G_rem = G_com -- (G_com no longer required)
     do
-        local ok, err = replay(G_rem, com, rem)
+        local ok, _, err = replay(G_rem, com, nil, rem)
         if not ok then
             ERROR("chain sync : " .. err)
         end
@@ -148,8 +170,8 @@ elseif ARGS.recv then
         goto RECV
     end
 
-    -- final state: consensus + replay looser
-    local G_end
+    -- final state: consensus + replay loser
+    local G_end, merge
     do
         -- fst wins, use it as base, replay snd looser
         local fst, snd = consensus(com, loc, rem)
@@ -160,29 +182,21 @@ elseif ARGS.recv then
                 posts   = dofile(FC .. "state/posts.lua"),
                 now     = NOW(loc),
             }
-            ok, err = replay(G_end, com, rem)
         else
             G_end = G_rem
-            ok, err = replay(G_end, com, loc)
         end
+        ok, merge, err = replay(G_end, com, fst, snd)
         if not ok then
-            -- TODO: replay returns the failing hash, but we need the last successful hash
-            -- use that to merge winner with last-successful-commit instead of full branch tip
-            -- if loser is local, signal "removal" for commits after last successful
-            error("TODO : replay fail : " .. err)
+            -- TODO: warning / merge / err / list removed hashes
+            io.stderr:write("ERROR : " .. err .. "\n")
         end
     end
 
     -- merge + write state + commit
-    do
-        local _, code = exec(true,
-            "git -C " .. REPO .. " merge --no-commit --no-edit FETCH_HEAD"
+    if merge ~= com then
+        exec (
+            "git -C " .. REPO .. " merge --no-commit --no-edit " .. merge
         )
-        if code ~= 0 then
-            exec(true, "git -C " .. REPO .. " merge --abort")
-            error("TODO : merge conflict (content)")
-        end
-
         write(G_end)
         exec("git -C " .. REPO .. " add .freechains/state/")
         exec(CMD.git .. "git -C " .. REPO .. " commit --no-edit")
