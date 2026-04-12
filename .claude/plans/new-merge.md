@@ -47,11 +47,11 @@
   Design exists in rec-replay.md (diff-tree + git show).
 
 ### Step 4: Consensus / prefix reps (pending)
-- [ ] Replace timestamp comparison with prefix reps
-- [ ] Traverse com..tip, ssh.verify each commit
-- [ ] Collect unique signed keys per branch
-- [ ] Sum G_com.authors[key].reps for each key set
-- [ ] Higher sum wins, hash tiebreaker (smaller wins)
+- [x] Replace timestamp comparison with prefix reps
+- [x] Traverse com..tip, ssh.verify each commit
+- [x] Collect unique signed keys per branch
+- [x] Sum G_com.authors[key].reps for each key set
+- [x] Higher sum wins, hash tiebreaker (smaller wins)
 - [ ] Test: loser invalidated by winner context
   (author X has reps in prefix, remote winner removes
   X's reps via dislike, local loser has valid post by X
