@@ -214,20 +214,20 @@ elseif ARGS.recv then
 
     -- final state: consensus + replay loser
     local fst, snd = consensus(G_com, com, loc, rem)
-    local G_end, merge
+    local G_fst, merge
     do
         local ok, err
         if fst == loc then
-            G_end = {
+            G_fst = {
                 authors = dofile(FC .. "state/authors.lua"),
                 posts   = dofile(FC .. "state/posts.lua"),
                 order   = dofile(FC .. "state/order.lua"),
                 now     = NOW(loc),
             }
         else
-            G_end = G_rem
+            G_fst = G_rem
         end
-        ok, merge, err = replay(G_end, com, fst, snd)
+        ok, merge, err = replay(G_fst, com, fst, snd)
         if not ok then
             io.stderr:write("ERROR : " .. err .. "\n")
         end
@@ -261,7 +261,7 @@ elseif ARGS.recv then
             exec ('stdout',
                 "git -C " .. REPO .. " merge --no-commit " .. merge
             )
-            write(G_end)
+            write(G_fst)
             exec("git -C " .. REPO .. " add .freechains/state/")
             exec (
                 CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
