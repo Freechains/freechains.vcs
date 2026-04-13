@@ -140,17 +140,17 @@ do
     exec(EXE_B .. " chains add cons-c clone " .. ROOT_A .. "/chains/cons-c/")
 
     TEST "B: KEY1 dislikes KEY4 author by 3"
-    exec (
+    local X1 = exec (
         EXE_B .. " --now=2000 chain cons-c dislike 3 author '" .. PUB4 .. "' --sign " .. KEY1
     )
 
     TEST "B: KEY2 dislikes KEY4 author by 3"
-    exec (
+    local X2 = exec (
         EXE_B .. " --now=2000 chain cons-c dislike 3 author '" .. PUB4 .. "' --sign " .. KEY2
     )
 
     TEST "B: KEY3 dislikes KEY4 author by 3"
-    exec (
+    local X3 = exec (
         EXE_B .. " --now=2000 chain cons-c dislike 3 author '" .. PUB4 .. "' --sign " .. KEY3
     )
 
@@ -192,12 +192,31 @@ do
     for _ in pairs(posts) do n = n + 1 end
     assert(n == 1, "expected 1 post (P1), got " .. n)
 
-    TEST "order after merge: P2, P3 revoked"
+    TEST "A order after merge: X1,X2,X3,P1 present; P2,P3 revoked"
     do
         local O, S = order(EXE_A, "cons-c")
+        assert(#O == 4, "expected 4 entries, got " .. #O)
+        assert(S[X1], "X1 should be in order")
+        assert(S[X2], "X2 should be in order")
+        assert(S[X3], "X3 should be in order")
         assert(S[P1], "P1 should survive in order")
         assert(not S[P2], "P2 should be revoked from order")
         assert(not S[P3], "P3 should be revoked from order")
+    end
+
+    TEST "B recvs from A"
+    exec (
+        EXE_B .. " --now=3000 chain cons-c sync recv " .. ROOT_A .. "/chains/cons-c/"
+    )
+
+    TEST "B order matches A"
+    do
+        local OA = order(EXE_A, "cons-c")
+        local OB = order(EXE_B, "cons-c")
+        assert(#OA == #OB, "length mismatch: A=" .. #OA .. " B=" .. #OB)
+        for i = 1, #OA do
+            assert(OA[i] == OB[i], "order mismatch at " .. i)
+        end
     end
 end
 
