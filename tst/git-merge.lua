@@ -27,6 +27,50 @@ local function dry_merge (dir)
     return code == 0
 end
 
+local function graph (dir, fr, to)
+    local log = exec (
+        "git -C " .. dir .. " rev-list --topo-order --reverse --parents " ..
+            fr .. ".." .. to
+    )
+    local pars = {}
+    local order = {}
+    for line in log:gmatch("[^\n]+") do
+        local hashes = {}
+        for h in line:gmatch("%x+") do
+            hashes[#hashes+1] = h
+        end
+        local commit = hashes[1]
+        order[#order+1] = commit
+        pars[commit] = {}
+        for i = 2, #hashes do
+            pars[commit][#pars[commit]+1] = hashes[i]
+        end
+    end
+    local children = {}
+    children[fr] = {}
+    for _, h in ipairs(order) do
+        children[h] = children[h] or {}
+    end
+    for _, h in ipairs(order) do
+        for _, p in ipairs(pars[h]) do
+            if children[p] then
+                children[p][#children[p]+1] = h
+            end
+        end
+    end
+    local nodes = {}
+    local function build (hash)
+        if nodes[hash] then return nodes[hash] end
+        local node = { hash = hash }
+        nodes[hash] = node
+        for _, child in ipairs(children[hash]) do
+            node[#node+1] = build(child)
+        end
+        return node
+    end
+    return build(fr)
+end
+
 local function read_file (path)
     local f = io.open(path)
     if not f then return nil end
@@ -200,10 +244,10 @@ end
 -- SCENARIO 4: nested merge DAG lab
 --
 -- pre → H1 → a1 → a2 → M1 → a4 → a5 → M2 → H2 → post
---         \           /                 /
---          b1 → b2 ──                 /
---           \                        /
---            c1 ──────── c2 ────────
+--         \    \       /              /
+--          \    b1 → b2              /
+--           \                       /
+--            c1 ──────── c2 ───────
 --
 -- H1..H2 contains M2 (outer) which contains M1 (inner)
 do
@@ -222,19 +266,22 @@ do
     post(DIR, "h1.txt", "h1")
     local H1 = exec("git -C " .. DIR .. " rev-parse HEAD")
 
-    -- branch-b from H1: b1, b2
+    -- branch-c from H1: c1, c2
+    exec("git -C " .. DIR .. " checkout -b branch-c")
+    post(DIR, "c1.txt", "c1")
+    post(DIR, "c2.txt", "c2")
+
+    -- back to main: a1
+    exec("git -C " .. DIR .. " checkout main")
+    post(DIR, "a1.txt", "a1")
+
+    -- branch-b from a1: b1, b2
     exec("git -C " .. DIR .. " checkout -b branch-b")
     post(DIR, "b1.txt", "b1")
     post(DIR, "b2.txt", "b2")
 
-    -- branch-c from H1: c1, c2
-    exec("git -C " .. DIR .. " checkout -b branch-c " .. H1)
-    post(DIR, "c1.txt", "c1")
-    post(DIR, "c2.txt", "c2")
-
-    -- back to main: a1, a2
+    -- back to main: a2
     exec("git -C " .. DIR .. " checkout main")
-    post(DIR, "a1.txt", "a1")
     post(DIR, "a2.txt", "a2")
 
     -- M1: merge branch-b into main
@@ -265,8 +312,7 @@ do
     print("--- H1..H2 ---")
     print(exec("git -C " .. DIR .. " log --oneline --graph " .. H1 .. ".." .. H2))
     print()
-    print(("git -C " .. DIR .. " log --oneline --graph " .. H1 .. ".." .. H2))
-error'ok'
+    print("git -C " .. DIR .. " log --oneline --graph " .. H1 .. ".." .. H2)
 
     print("H1 = " .. H1:sub(1,7))
     print("H2 = " .. H2:sub(1,7))
@@ -304,6 +350,42 @@ error'ok'
     local last = exec("git -C " .. DIR .. " rev-list --topo-order --merges --max-count=1 " .. H1 .. ".." .. H2)
     print(last:sub(1,7) .. " (should be M2)")
     assert(last == M2, "last merge should be M2")
+
+    -- graph tests
+    do
+        local G = graph(DIR, H1, H2)
+
+        TEST "graph root is H1"
+        assert(G.hash == H1)
+
+        TEST "graph: H1 has 2 children (a1, c1)"
+        assert(#G == 2)
+
+        TEST "graph: fork at a1 (2 children: a2, b1)"
+        local a1 = G[1]
+        assert(#a1 == 2)
+
+        TEST "graph: M1 is shared ref"
+        local a2 = a1[1]
+        local b2 = a1[2][1]  -- b1 -> b2
+        assert(#a2 == 1 and #b2 == 1)
+        assert(a2[1] == b2[1], "M1 should be shared")
+        assert(a2[1].hash == M1)
+
+        TEST "graph: M2 is shared ref"
+        local m1 = a2[1]
+        local a5 = m1[1][1]  -- M1 -> a4 -> a5
+        local c2 = G[2][1]   -- c1 -> c2
+        assert(#a5 == 1 and #c2 == 1)
+        assert(a5[1] == c2[1], "M2 should be shared")
+        assert(a5[1].hash == M2)
+
+        TEST "graph: H2 is leaf"
+        local m2 = a5[1]
+        assert(#m2 == 1)
+        assert(m2[1].hash == H2)
+        assert(#m2[1] == 0)
+    end
 end
 
 print("<== ALL PASSED")
