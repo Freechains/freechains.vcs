@@ -68,6 +68,34 @@ so HEAD always has up-to-date state files.
 - [ ] Recursive replay for nested merges
 - [ ] Failing 3-peer test (see below)
 
+#### Why recursive replay is needed
+
+Flat `git log --no-merges` replay is broken for ranges
+that contain merge commits from previous syncs:
+
+1. **Non-determinism**: two peers replaying the same
+   range get different traversal orderings through
+   merges → different `order.lua` vectors → peers
+   diverge on state.
+
+2. **Broken consensus rules**: flat replay ignores
+   winner/loser ordering at inner merge points:
+   - A loser's dislike may be applied **before** the
+     winner's post, zeroing an author's reps and
+     voiding a post that should survive.
+   - An inner loser's validation failure **cascades**
+     and kills valid commits in the tail after the
+     merge.
+   - Inner consensus inversion (where live G changes
+     which side wins a nested merge) never happens —
+     flat replay does not re-evaluate consensus.
+
+The cascade problem is the concrete rule violation:
+a post valid under correct consensus ordering gets
+voided because flat replay processes commits in the
+wrong order. That is not just different state — it
+is wrong state.
+
 #### 3-peer failing test design
 
 Goal: demonstrate that flat `git log --no-merges`
