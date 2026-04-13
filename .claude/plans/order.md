@@ -16,8 +16,8 @@ commit hashes in consensus order — and a read-only CLI command.
 | 1    | G.order field + load   | [x] done |
 | 2    | Track in apply         | [x] done |
 | 3    | write(G) persists      | [x] done |
-| 4    | CLI `order` command    | [ ] pending |
-| 5    | Sync integration       | [ ] pending |
+| 4    | CLI `order` command    | [x] done |
+| 5    | Sync integration       | [x] done (steps 1–3) |
 | 6    | Test                   | [x] done |
 
 ## File format (state/order.lua)

@@ -18,7 +18,9 @@ else
         now     = NOW("HEAD"),
     }
 
-    if ARGS.reps then
+    if ARGS.order then
+        require "freechains.chain.order"
+    elseif ARGS.reps then
         apply(G, 'reps', CMD.now, nil)
         require "freechains.chain.reps"
     elseif ARGS.post then

@@ -45,6 +45,7 @@ local cmd = {
     },
     chain = {
         _ = parser:command("chain"),
+        order = {},
         reps = {},
         post = {
             file = {},
@@ -82,6 +83,9 @@ end
 -- cmd.chain
 do
     cmd.chain._:argument("alias")
+
+    -- cmd.chain.order
+    cmd.chain.order._ = cmd.chain._:command("order")
 
     -- cmd.chain.reps
     cmd.chain.reps._ = cmd.chain._:command("reps")
