@@ -65,7 +65,11 @@ so HEAD always has up-to-date state files.
 - [x] ~~Rewrite sync recv~~ (current porcelain works)
 - [x] ~~State loading from state commits~~ (G_com loads
   directly from merge-base, subsumed by current design)
-- [ ] Recursive replay for nested merges
+- [x] `graph(dir, fr, to)` — builds forward DAG from
+  `git rev-list --topo-order --reverse --parents`.
+  Returns flat table `G = { root=fr, [hash]={hash,childs} }`.
+  Single-pass, zero conditionals. Tests in scenario 4.
+- [ ] Recursive replay using `graph()` traversal
 - [ ] Failing 3-peer test (see below)
 
 #### Why recursive replay is needed
