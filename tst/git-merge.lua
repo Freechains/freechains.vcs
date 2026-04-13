@@ -335,33 +335,20 @@ do
     do
         local G = graph(DIR, H1, H2)
 
-        local function find_parents (G, target)
-            local pars = {}
-            for h, node in pairs(G) do
-                if type(node) == "table" and node.childs then
-                    for _, c in ipairs(node.childs) do
-                        if c == target then pars[#pars+1] = h end
-                    end
-                end
-            end
-            return pars
-        end
-
         TEST "graph root is H1"
         assert(G.root == H1)
 
-        TEST "graph: H1 has 2 children"
+        TEST "graph: H1 is fork (2 children)"
         assert(#G[H1].childs == 2)
 
-        TEST "graph: M1 has 2 parents"
-        assert(#find_parents(G, M1) == 2)
+        TEST "graph: M1 has 1 child (linear after merge)"
+        assert(#G[M1].childs == 1)
 
-        TEST "graph: M2 has 2 parents"
-        assert(#find_parents(G, M2) == 2)
-
-        TEST "graph: H2 is leaf under M2"
+        TEST "graph: M2 has 1 child (H2)"
         assert(#G[M2].childs == 1)
         assert(G[M2].childs[1] == H2)
+
+        TEST "graph: H2 is leaf"
         assert(#G[H2].childs == 0)
     end
 end
