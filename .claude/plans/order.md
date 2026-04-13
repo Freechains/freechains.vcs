@@ -18,7 +18,7 @@ commit hashes in consensus order — and a read-only CLI command.
 | 3    | write(G) persists      | [ ] pending |
 | 4    | CLI `order` command    | [ ] pending |
 | 5    | Sync integration       | [ ] pending |
-| 6    | Test                   | [ ] pending |
+| 6    | Test                   | [x] done |
 
 ## File format (state/order.lua)
 

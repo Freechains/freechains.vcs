@@ -12,6 +12,17 @@ local EXE_B  = ENV .. " ../src/freechains.lua --root " .. ROOT_B
 exec("mkdir -p " .. ROOT_A)
 exec("mkdir -p " .. ROOT_B)
 
+local function order (exe, chain)
+    local out = exec(exe .. " chain " .. chain .. " order")
+    local T = {}
+    local S = {}
+    for line in out:gmatch("[^\n]+") do
+        T[#T+1] = line
+        S[line] = true
+    end
+    return T, S
+end
+
 -- 1. local wins by prefix reps
 -- GEN_2: KEY1=15, KEY2=15
 -- Before fork: KEY2 likes seed → KEY2 loses reps → KEY1 > KEY2
@@ -144,19 +155,28 @@ do
     )
 
     TEST "A: KEY2 posts P1 (survives)"
-    exec (
+    local P1 = exec (
         EXE_A .. " --now=2000 chain cons-c post inline 'P1\n' --sign " .. KEY2
     )
 
     TEST "A: KEY4 posts P2 (fails in winner context)"
-    exec (
+    local P2 = exec (
         EXE_A .. " --now=2100 chain cons-c post inline 'P2\n' --sign " .. KEY4
     )
 
     TEST "A: KEY2 posts P3 (valid but voided by cascade)"
-    exec (
+    local P3 = exec (
         EXE_A .. " --now=2200 chain cons-c post inline 'P3\n' --sign " .. KEY2
     )
+
+    TEST "order before merge: P1, P2, P3 present"
+    do
+        local O, S = order(EXE_A, "cons-c")
+        assert(#O == 3, "expected 3 entries, got " .. #O)
+        assert(S[P1], "P1 should be in order")
+        assert(S[P2], "P2 should be in order")
+        assert(S[P3], "P3 should be in order")
+    end
 
     TEST "A recvs from B (B wins, P2+P3 voided, P1 survives)"
     local out = exec (
@@ -171,6 +191,14 @@ do
     local n = 0
     for _ in pairs(posts) do n = n + 1 end
     assert(n == 1, "expected 1 post (P1), got " .. n)
+
+    TEST "order after merge: P2, P3 revoked"
+    do
+        local O, S = order(EXE_A, "cons-c")
+        assert(S[P1], "P1 should survive in order")
+        assert(not S[P2], "P2 should be revoked from order")
+        assert(not S[P3], "P3 should be revoked from order")
+    end
 end
 
 print("<== ALL PASSED")
