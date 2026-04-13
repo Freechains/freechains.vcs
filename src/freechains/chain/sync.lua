@@ -119,6 +119,7 @@ local function replay (G, com, fst, snd)
                 return false, last, "invalid like : invalid lua metadata"
             end
             local ok, err = apply(G, 'like', tonumber(time), {
+                hash   = hash,
                 sign   = key,
                 num    = like.number,
                 target = like.target,
@@ -192,6 +193,7 @@ elseif ARGS.recv then
         G_com = {
             authors = F(".freechains/state/authors.lua"),
             posts   = F(".freechains/state/posts.lua"),
+            order   = F(".freechains/state/order.lua"),
             now     = NOW(com),
         }
     end
@@ -219,6 +221,7 @@ elseif ARGS.recv then
             G_end = {
                 authors = dofile(FC .. "state/authors.lua"),
                 posts   = dofile(FC .. "state/posts.lua"),
+                order   = dofile(FC .. "state/order.lua"),
                 now     = NOW(loc),
             }
         else

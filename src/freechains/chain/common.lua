@@ -19,6 +19,7 @@ function write (G)
 
     f(G.authors, FC .. "state/authors.lua")
     f(G.posts,   FC .. "state/posts.lua")
+    f(G.order,   FC .. "state/order.lua")
 end
 
 function apply (G, kind, time, T)
@@ -158,6 +159,11 @@ function apply (G, kind, time, T)
             G.authors[T.id] = G.authors[T.id] or { reps=0 }
             G.authors[T.id].reps = G.authors[T.id].reps + num
         end
+    end
+
+    -- track consensus order
+    if T and T.hash then
+        G.order[#G.order+1] = T.hash
     end
 
     -- cap all authors at max

@@ -74,6 +74,7 @@ end
 -- apply
 do
     local T = {
+        hash   = hash,
         sign   = ssh.pubkey(REPO, hash),
         num    = num,
         target = ARGS.target,

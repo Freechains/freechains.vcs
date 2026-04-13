@@ -13,9 +13,9 @@ commit hashes in consensus order — and a read-only CLI command.
 
 | Step | Description            | Status      |
 |------|------------------------|-------------|
-| 1    | G.order field + load   | [ ] pending |
-| 2    | Track in apply         | [ ] pending |
-| 3    | write(G) persists      | [ ] pending |
+| 1    | G.order field + load   | [x] done |
+| 2    | Track in apply         | [x] done |
+| 3    | write(G) persists      | [x] done |
 | 4    | CLI `order` command    | [ ] pending |
 | 5    | Sync integration       | [ ] pending |
 | 6    | Test                   | [x] done |

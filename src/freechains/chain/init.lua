@@ -14,6 +14,7 @@ else
     G = {
         authors = dofile(FC .. "state/authors.lua"),
         posts   = dofile(FC .. "state/posts.lua"),
+        order   = dofile(FC .. "state/order.lua"),
         now     = NOW("HEAD"),
     }
 
