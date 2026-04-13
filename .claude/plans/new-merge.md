@@ -61,11 +61,45 @@ so state files are accessible from any commit via
 `git show`. Every post is followed by a state commit,
 so HEAD always has up-to-date state files.
 
-### Step 6: Unified merge pipeline (mostly obsolete)
+### Step 6: Recursive replay (pending)
 - [x] ~~Rewrite sync recv~~ (current porcelain works)
-- [ ] Recursive replay for nested merges
 - [x] ~~State loading from state commits~~ (G_com loads
   directly from merge-base, subsumed by current design)
+- [ ] Recursive replay for nested merges
+- [ ] Failing 3-peer test (see below)
+
+#### 3-peer failing test design
+
+Goal: demonstrate that flat `git log --no-merges`
+replay produces wrong state when nested merges exist.
+The outer winner's effects invert the inner consensus,
+resurrecting previously-revoked commits.
+
+**Setup** (GEN_4: KEY1-4 = 7500 each):
+
+1. A creates chain. Clone to B and C.
+2. A: KEY2 posts P1, KEY4 posts P2, KEY2 posts P3
+3. C syncs with A → C has P1, P2, P3
+4. B: KEY1, KEY2, KEY3 each dislike KEY4 by 3
+5. A recvs B → inner merge. B wins (22500 > 15000).
+   P2 fails (KEY4=0), P2+P3 voided. P1 survives.
+   Rejected P2, P3 orphaned on A but still on C.
+6. C: dislikes KEY1 and KEY3 heavily (inverts inner
+   consensus — makes A's side > B's side)
+7. C recvs A → outer merge. C's branch wins.
+8. C recvs B → gets B's dislikes.
+9. With recursive replay: C re-evaluates inner merge
+   using live G (after C's effects). Inner consensus
+   inverts (A wins). B's dislikes are the loser.
+   KEY4 never zeroed → P2, P3 are valid.
+
+**Assertion**: C's state has P2 and P3 as valid posts.
+With flat replay: P2 rejected (KEY4=0 from B's
+dislikes applied in arbitrary order). Test FAILS.
+
+**Depends on**: recursive replay implementation
+(consensus with live G at nested merge points,
+rec-replay.md algorithm).
 
 ## 1. State Directory
 
