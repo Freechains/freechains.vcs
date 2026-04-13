@@ -32,43 +32,23 @@ local function graph (dir, fr, to)
         "git -C " .. dir .. " rev-list --topo-order --reverse --parents " ..
             fr .. ".." .. to
     )
-    local pars = {}
-    local order = {}
-    for line in log:gmatch("[^\n]+") do
-        local hashes = {}
-        for h in line:gmatch("%x+") do
-            hashes[#hashes+1] = h
+    local G = {
+        root = fr,
+        [fr] = { hash=fr, childs={} },
+    }
+    for l in log:gmatch("[^\n]+") do
+        local hs = {}
+        for h in l:gmatch("%x+") do
+            hs[#hs+1] = h
         end
-        local commit = hashes[1]
-        order[#order+1] = commit
-        pars[commit] = {}
-        for i = 2, #hashes do
-            pars[commit][#pars[commit]+1] = hashes[i]
-        end
-    end
-    local children = {}
-    children[fr] = {}
-    for _, h in ipairs(order) do
-        children[h] = children[h] or {}
-    end
-    for _, h in ipairs(order) do
-        for _, p in ipairs(pars[h]) do
-            if children[p] then
-                children[p][#children[p]+1] = h
-            end
+        local me = hs[1]
+        G[me] = { hash=me, childs={} }
+        for i=2, #hs do
+            local up = G[hs[i]].childs
+            up[#up+1] = me
         end
     end
-    local nodes = {}
-    local function build (hash)
-        if nodes[hash] then return nodes[hash] end
-        local node = { hash = hash }
-        nodes[hash] = node
-        for _, child in ipairs(children[hash]) do
-            node[#node+1] = build(child)
-        end
-        return node
-    end
-    return build(fr)
+    return G
 end
 
 local function read_file (path)
@@ -355,36 +335,34 @@ do
     do
         local G = graph(DIR, H1, H2)
 
+        local function find_parents (G, target)
+            local pars = {}
+            for h, node in pairs(G) do
+                if type(node) == "table" and node.childs then
+                    for _, c in ipairs(node.childs) do
+                        if c == target then pars[#pars+1] = h end
+                    end
+                end
+            end
+            return pars
+        end
+
         TEST "graph root is H1"
-        assert(G.hash == H1)
+        assert(G.root == H1)
 
-        TEST "graph: H1 has 2 children (a1, c1)"
-        assert(#G == 2)
+        TEST "graph: H1 has 2 children"
+        assert(#G[H1].childs == 2)
 
-        TEST "graph: fork at a1 (2 children: a2, b1)"
-        local a1 = G[1]
-        assert(#a1 == 2)
+        TEST "graph: M1 has 2 parents"
+        assert(#find_parents(G, M1) == 2)
 
-        TEST "graph: M1 is shared ref"
-        local a2 = a1[1]
-        local b2 = a1[2][1]  -- b1 -> b2
-        assert(#a2 == 1 and #b2 == 1)
-        assert(a2[1] == b2[1], "M1 should be shared")
-        assert(a2[1].hash == M1)
+        TEST "graph: M2 has 2 parents"
+        assert(#find_parents(G, M2) == 2)
 
-        TEST "graph: M2 is shared ref"
-        local m1 = a2[1]
-        local a5 = m1[1][1]  -- M1 -> a4 -> a5
-        local c2 = G[2][1]   -- c1 -> c2
-        assert(#a5 == 1 and #c2 == 1)
-        assert(a5[1] == c2[1], "M2 should be shared")
-        assert(a5[1].hash == M2)
-
-        TEST "graph: H2 is leaf"
-        local m2 = a5[1]
-        assert(#m2 == 1)
-        assert(m2[1].hash == H2)
-        assert(#m2[1] == 0)
+        TEST "graph: H2 is leaf under M2"
+        assert(#G[M2].childs == 1)
+        assert(G[M2].childs[1] == H2)
+        assert(#G[H2].childs == 0)
     end
 end
 
