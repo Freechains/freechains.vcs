@@ -111,6 +111,7 @@ local function replay_remote (G, com, rem)
         else
             assert(kind == 'state')
         end
+        G.order[#G.order+1] = hash
         last = hash
     end
 
@@ -212,6 +213,7 @@ local function replay_loser (G, com, fst, snd)
         else
             assert(kind == 'state')
         end
+        G.order[#G.order+1] = hash
         last = hash
     end
 
@@ -268,6 +270,7 @@ elseif ARGS.recv then
             order   = F(".freechains/state/order.lua"),
             now     = NOW(com),
         }
+        G_com.order[#G_com.order+1] = com
     end
 
     -- verify remote: replay remote branch from G_com
@@ -296,6 +299,7 @@ elseif ARGS.recv then
                 order   = dofile(FC .. "state/order.lua"),
                 now     = NOW(loc),
             }
+            G_fst.order[#G_fst.order+1] = loc
         else
             G_fst = G_rem
         end

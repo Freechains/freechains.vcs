@@ -161,11 +161,6 @@ function apply (G, kind, time, T)
         end
     end
 
-    -- track consensus order
-    if T and T.hash then
-        G.order[#G.order+1] = T.hash
-    end
-
     -- cap all authors at max
     for k, v in pairs(G.authors) do
         if v.reps > C.reps.max then

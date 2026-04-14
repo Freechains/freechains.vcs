@@ -17,6 +17,9 @@ else
         order   = dofile(FC .. "state/order.lua"),
         now     = NOW("HEAD"),
     }
+    G.order[#G.order+1] = exec (
+        "git -C " .. REPO .. " rev-parse HEAD"
+    )
 
     if ARGS.order then
         require "freechains.chain.order"

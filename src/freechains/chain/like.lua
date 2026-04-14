@@ -86,6 +86,7 @@ do
         exec("git -C " .. REPO .. " reset --hard HEAD~1")
         ERROR("chain like : " .. err)
     end
+    G.order[#G.order+1] = hash
 end
 
 -- commit state

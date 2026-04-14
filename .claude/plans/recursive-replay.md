@@ -44,6 +44,8 @@ the consensus call.
 
 ## Files to modify
 
+### Split refactor
+
 | File             | Place        | Change                         |
 |------------------|--------------|--------------------------------|
 | `chain/sync.lua` | line 49-147  | Remove old `replay()`          |
@@ -52,22 +54,76 @@ the consensus call.
 | `chain/sync.lua` | line 204     | `replay(G_rem, com, nil, rem)` → `replay_remote(G_rem, com, rem)` |
 | `chain/sync.lua` | line 218-230 | `G_end` → `G_fst`; `replay(...)` → `replay_loser(...)` |
 
+### Semantic change (after split passes)
+
+| File               | Place             | Change                  |
+|--------------------|-------------------|-------------------------|
+| `chain/common.lua` | `apply()` line 165-167 | Remove `if T and T.hash then G.order[...]` |
+| `chain/post.lua`   | after `apply` succeeds, before state commit | `G.order[#G.order+1] = hash` |
+| `chain/like.lua`   | after `apply` succeeds, before state commit | `G.order[#G.order+1] = hash` |
+| `chain/sync.lua`   | `replay_remote` per-commit loop | `G.order[#G.order+1] = hash` after apply |
+| `chain/sync.lua`   | `replay_loser` body | Rewrite: iterate `G_snd.order` from divergence with `G_fst.order`; apply each hash; append to `G_fst.order` |
+| `chain/sync.lua`   | before replay_loser call | Load `G_snd = dofile/F` from snd state commit (local or git show) |
+
 ## Implementation Steps
 
-| Step | Description                    | Status      |
-|------|--------------------------------|-------------|
-| 1    | Add replay_remote              | [x] done    |
-| 2    | Add replay_loser               | [x] done    |
-| 3    | Wire replay_remote at line 204 | [x] done    |
-| 4    | Wire replay_loser at line 230  | [x] done    |
-| 5    | Rename G_end → G_fst           | [x] done    |
-| 6    | Remove old replay()            | [x] done    |
-| 7    | Test: make test T=cli-sync     | [ ] pending |
+| Step | Description                        | Status      |
+|------|------------------------------------|-------------|
+| 1    | Add replay_remote                  | [x] done    |
+| 2    | Add replay_loser                   | [x] done    |
+| 3    | Wire replay_remote at line 204     | [x] done    |
+| 4    | Wire replay_loser at line 230      | [x] done    |
+| 5    | Rename G_end → G_fst               | [x] done    |
+| 6    | Remove old replay()                | [x] done    |
+| 7    | Test: split refactor passes        | [x] done    |
+| 8    | Extract G.order append from apply  | [x] done    |
+| 9    | Append hash in post.lua            | [x] done    |
+| 10   | Append hash in like.lua            | [x] done    |
+| 11   | Append hash in replay + merge      | [x] done    |
+| 11b  | Append HEAD/com/loc on load        | [x] done    |
+| 12   | Rewrite replay_loser via G.order   | [ ] pending |
+| 13   | Test: semantic change passes       | [ ] pending |
 
-## Follow-up (separate plan)
+## Semantic change: replay_loser via G.order
 
-Semantic changes deferred:
-- Enhanced `graph()` with parents/nparents/time
-- `walk()` for independent consensus in replay_remote
-- G.order-based fast path for replay_loser
-- Rename file / move to a new plan when started
+### Rationale
+
+Every post/like commit is immediately followed by a
+state commit (post.lua:60-69, like.lua). HEAD is
+therefore always a state commit, and
+`git show snd:state/order.lua` is always the
+complete consensus-ordered sequence — no linear
+tail needed.
+
+Loser's order shares a prefix with `G_com.order`
+(everything before the merge-base). Commits to
+replay are `G_snd.order[i..end]` where `i` is the
+first index after the common prefix.
+
+### Algorithm
+
+```
+G_snd = load state from snd (local disk if
+        snd == loc, else git show snd:state/*)
+-- linear search for divergence with G_fst.order
+-- (both orders contain only post/like hashes)
+i = find last common hash
+for j = i+1, #G_snd.order do
+    hash = G_snd.order[j]
+    -- signature check, trailer, like metadata,
+    -- trial-merge, apply (same per-commit logic)
+    G_fst.order[#G_fst.order+1] = hash
+end
+```
+
+### Order append extracted from apply
+
+`apply()` at common.lua:165-167 currently appends to
+G.order. This is a replay-level concern, not a
+state-mutation concern. `apply(G, 'reps', ...)`
+already skips it (no T.hash), so removal is safe.
+Callers handle their own append:
+
+- post.lua, like.lua: append after successful apply
+- replay_remote: append in the per-commit loop
+- replay_loser: append as it iterates G_snd.order
