@@ -26,7 +26,7 @@ that contain merge commits from previous syncs:
    different `order.lua` vectors →
    peers diverge on state.
 
-2. **Broken consensus rules**:
+2. **Broken winner-first rule**:
    flat replay ignores winner/loser ordering at inner
    merge points:
     - A loser's dislike may be applied **before** the
@@ -35,14 +35,16 @@ that contain merge commits from previous syncs:
     - An inner loser's validation failure **cascades**
       and kills valid commits in the tail after the
       merge.
-    - Inner consensus inversion
-      (where live G changes which side wins a nested
-      merge)
-      never happens — flat replay does not re-evaluate
-      consensus.
+
+Consensus itself is **immutable**: it is a pure
+function of each merge's own common ancestor state
+(`G_com`), so inner winners never flip under live G.
+Recursion is needed only to produce the deterministic
+winner-first traversal order, not to re-decide
+consensus.
 
 The cascade problem is the concrete rule violation:
-a post valid under correct consensus ordering gets
+a post valid under correct winner-first ordering gets
 voided because flat replay processes commits in the
 wrong order.
 That is not just different state — it is wrong state.
@@ -101,14 +103,12 @@ walk(list, G, node, stop):
             -- both fork branches as parents)
             join = find_join(G, node)
             p1, p2 = parents_of(join)
-            fst, snd = consensus(G_live, node,
+            fst, snd = consensus(G_com, node,
                                   p1, p2)
             walk(list, G, fst_child_of(node, fst),
                   join)                 -- winner
-            collect_loser(list, node, snd)
-                                        -- loser
-                                        -- (trial
-                                        -- merge)
+            walk(list, G, fst_child_of(node, snd),
+                  join)                 -- loser
             append(list, join)
             node = join
 
@@ -155,17 +155,16 @@ replay(G, old, new):
 - `replay_remote`:
   validates remote in memory only, no git merges.
   Becomes recursive by driving traversal with
-  `graph()`.
+  `graph()` so inner merges produce a deterministic
+  winner-first order.
 - `replay_loser`:
   per-commit trial-merge into detached HEAD of
   winner tip, as today (`sync.lua:126`).
-  Becomes recursive by driving traversal with
-  `graph()` so inner merges re-evaluate consensus
-  under live `G_fst`.
-
-Both replays share the `walk()` kernel;
-they differ only in the per-entry action
-(pure `apply` vs `merge --no-commit` + `apply`).
+  Iterates `O_snd` in order — no graph walk, no
+  consensus re-run.
+  `O_snd` is already deterministic (built by
+  `replay_remote` or taken from local order) and
+  consensus of inner merges cannot change.
 
 ## Consensus
 
@@ -184,9 +183,11 @@ Algorithm (matches current `sync.lua:8-42`):
 6. Higher sum wins → return that hash first.
 7. Tie → hash tiebreaker (smaller wins).
 
-At nested merges the caller passes the **live `G`**
-(not `G_com`), so inner consensus re-evaluates with
-ongoing state.
+At nested merges the caller passes the merge's own
+**`G_com`** (state at its common ancestor), never live
+G.
+Since `G_com` is immutable, inner consensus is
+immutable too — it cannot invert.
 
 ## Determinism proof
 
@@ -195,8 +196,8 @@ Both peers:
 - build the same `graph()` (immutable git objects),
 - visit the same root, same `childs` order
   (sorted by hash),
-- resolve every fork via the same `consensus(G,
-  com, p1, p2)` on the same live `G`,
+- resolve every fork via the same `consensus(G_com,
+  com, p1, p2)` on the same immutable `G_com`,
 - recurse winner before loser in the same order,
 - walk linear segments identically.
 
@@ -219,45 +220,40 @@ linear segments iterate.
 | No previous syncs             | graph is purely linear            |
 | Nested merges                 | recursion descends per fork       |
 | State commits in linear path  | skipped by trailer check at apply |
-| Inner consensus inversion     | live G at fork re-decides         |
 
 ## 3-peer failing test design
 
 Goal:
 demonstrate that flat `git log --no-merges` replay
 produces wrong state when nested merges exist.
-The outer winner's effects invert the inner
-consensus, resurrecting previously-revoked commits.
+Flat traversal interleaves inner winner and inner
+loser commits, letting loser dislikes void winner
+posts (cascade), while recursive replay applies all
+inner-winner commits before any inner-loser commits.
 
 **Setup** (GEN_4: KEY1..KEY4 = 7500 each):
 
 1. A creates chain. Clone to B and C.
-2. A: KEY2 posts P1, KEY4 posts P2, KEY2 posts P3.
-3. C syncs with A → C has P1, P2, P3.
-4. B: KEY1, KEY2, KEY3 each dislike KEY4 by 3.
-5. A recvs B → inner merge.
-   B wins (22500 > 15000).
-   P2 fails (KEY4=0), P2+P3 voided.
-   P1 survives.
-   Rejected P2, P3 orphaned on A but still on C.
-6. C: dislikes KEY1 and KEY3 heavily
-   (inverts inner consensus — makes A's side >
-    B's side).
-7. C recvs A → outer merge.
-   C's branch wins.
-8. C recvs B → gets B's dislikes.
-9. With recursive replay:
-   C re-evaluates inner merge using live G
-   (after C's effects).
-   Inner consensus inverts (A wins).
-   B's dislikes are the loser.
-   KEY4 never zeroed → P2, P3 are valid.
+2. A: KEY1 posts P1 (inner A side).
+3. B: KEY2 dislikes KEY1 by 3 (inner B side).
+4. C recvs A, C recvs B → inner merge on C.
+   A wins (KEY1 reps 7500 > KEY2's 0 after own
+   dislike cost) — P1 is inner winner.
+5. B: KEY3 posts P2, KEY4 posts P3 (after step 3).
+6. A recvs B → outer merge.
+   Suppose B wins outer.
+   A's branch (with inner merge from step 4) is
+   the outer loser.
+7. A re-applies outer loser via `replay_loser`.
+   Inner winner-first order: P1 applies before
+   KEY2's dislike → P1 survives.
+   Flat order: dislike may apply first → P1 voided.
 
 **Assertion**:
-C's state has P2 and P3 as valid posts.
+A's state has P1 as a valid post after step 7.
 With flat replay:
-P2 rejected (KEY4=0 from B's dislikes applied in
-arbitrary order).
+P1 may be voided (KEY1 reps zeroed by KEY2's
+dislike applied out of order).
 Test FAILS under flat, PASSES under recursive.
 
 ## Files to Modify
@@ -266,7 +262,8 @@ Test FAILS under flat, PASSES under recursive.
 |----------------------------------|--------------------------------|
 | `src/freechains/chain/sync.lua`  | add `graph()` local            |
 | `src/freechains/chain/sync.lua`  | rewrite `replay_remote` on graph|
-| `src/freechains/chain/sync.lua`  | rewrite `replay_loser` on graph |
+| `src/freechains/chain/sync.lua`  | `replay_loser` stays flat,      |
+|                                  | iterates `O_snd`                |
 | `tst/cli-sync.lua`               | add 3-peer nested merge test    |
 
 ## Verification
@@ -380,12 +377,15 @@ Acceptance:
 make test T=cli-sync       -- all green
 ```
 
-### Step 5 — rewrite `replay_loser` on `walk()`
+### Step 5 — keep `replay_loser` flat, driven by `O_snd`
 
-- [ ] Replace the flat loop in `replay_loser`
-  (`sync.lua:126-207`) with the same `walk()`
-  driver,
-  using `action_loser`:
+- [ ] `replay_loser` does **not** need `walk()` or
+  `graph()`.
+  Consensus is immutable (pure function of each
+  merge's `G_com`), so inner ordering on the loser
+  branch is already fixed by `O_snd`.
+- [ ] Iterate `O_snd` in order
+  (`sync.lua:126-207` pattern):
     - `git merge --no-commit <hash>` for every
       non-state commit (as today `sync.lua:157-168`).
     - On conflict: `merge --abort`, return error.
@@ -394,8 +394,8 @@ make test T=cli-sync       -- all green
 - [ ] Keep the detached-HEAD setup and the
   `__close`-based `checkout main` cleanup
   (`sync.lua:129-136`).
-- [ ] Drop the `O_snd[]` index hunt
-  (`sync.lua:138-145`) — graph walk replaces it.
+- [ ] Simplify the `O_snd[]` index hunt
+  (`sync.lua:138-145`) if still needed.
 
 Acceptance:
 
