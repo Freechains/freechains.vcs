@@ -236,34 +236,53 @@ do
     local EXE_C  = ENV .. " ../src/freechains.lua --root " .. ROOT_C
     exec("mkdir -p " .. ROOT_C)
 
+    -- A: G
     TEST "A creates chain"
     exec(EXE_A .. " --now=1000 chains add cons-d init " .. GEN_4)
 
+    -- A: G
+    -- B: G
     TEST "B clones cons-d"
     exec (
         EXE_B .. " chains add cons-d clone " .. ROOT_A .. "/chains/cons-d/"
     )
 
+    -- A: G -- D1
+    -- B: G
     TEST "A: KEY1 dislikes KEY4 author by 3"
     exec (
         EXE_A .. " --now=2000 chain cons-d dislike 3 author '" .. PUB4 .. "' --sign " .. KEY1
     )
 
+    -- A: G -- D1 -- D2
+    -- B: G
     TEST "A: KEY2 dislikes KEY4 author by 3"
     exec (
         EXE_A .. " --now=2000 chain cons-d dislike 3 author '" .. PUB4 .. "' --sign " .. KEY2
     )
 
+    -- A: G -- D1 -- D2
+    -- B: G -- P_c
     TEST "B: KEY4 posts P_c"
     local P_c = exec (
         EXE_B .. " --now=2100 chain cons-d post inline 'P_c\n' --sign " .. KEY4
     )
 
+    --         D1 -- D2 --\
+    --        /            M -- S
+    -- A:    G             /
+    --        \           /
+    --         P_c* -----/      (* voided by cascade)
+    --
+    -- B: G -- P_c
     TEST "A recvs B (inner merge; A wins; P_c voided on A)"
     exec (
         EXE_A .. " --now=3000 chain cons-d sync recv " .. ROOT_B .. "/chains/cons-d/"
     )
 
+    -- C: (same DAG as A) — replay walks com..A_tip, encounters M
+    --   Flat:      interleaves D1,D2,P_c → P_c may survive
+    --   Recursive: winner-first at M → D1,D2 first → P_c voided
     TEST "C clones from A (replay walks range containing inner merge)"
     exec (
         EXE_C .. " chains add cons-d clone " .. ROOT_A .. "/chains/cons-d/"
