@@ -300,11 +300,21 @@ make test T=git-merge
   payload (`sync.lua:74-98`, `sync.lua:171-189`)
 - [x] Top-level consensus uses `consensus()`
   (`sync.lua:277`)
+- [x] `replay_remote` recursive design frozen
+  (see § Algorithm, § Fork anatomy)
+- [x] Test 4 `nested cascade` added to
+  `tst/consensus.lua` and **confirmed failing**
+  under current flat replay (driver test)
 
 ## Next steps
 
 Sequential; do not start step N+1 until step N is
 green.
+
+**▶ Resume here**: Step 1 — move `graph()` into
+`src/freechains/chain/sync.lua`.
+Test 4 in `tst/consensus.lua` is the driver
+(currently failing, must pass after Step 2).
 
 ### Step 1 — move `graph()` into src
 
