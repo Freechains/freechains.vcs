@@ -123,13 +123,8 @@ end
 -- In case of error, partial replay has been applied.
 -- Returns: ok, last, err
 
-local function replay_loser (G, com, fst, snd)
+local function replay_loser (G_fst, O_snd, com, fst)
     local last = com
-    local out = exec (
-        "git -C " .. REPO ..
-            " log --reverse --no-merges --format='%H %at' " ..
-            (com .. ".." .. snd)
-    )
 
     exec ('stdout',
         "git -C " .. REPO .. " checkout --detach " .. fst
@@ -140,8 +135,17 @@ local function replay_loser (G, com, fst, snd)
         )
     end})
 
-    for line in out:gmatch("[^\n]+") do
-        local hash, time = line:match("^(%S+) (%S+)")
+    -- find O_snd[I] = first hash after com
+    local I = 0
+    for i,h in ipairs(O_snd) do
+        if h == com then
+            I = i + 1
+        end
+    end
+
+    for i=I, #O_snd do
+        local hash = O_snd[i]
+        local time = NOW(hash)
         local key, err = ssh.verify(REPO, hash)
 
         local trailer = exec (
@@ -191,7 +195,7 @@ local function replay_loser (G, com, fst, snd)
             if (not ok) or type(like)~='table' then
                 return false, last, "invalid like : invalid lua metadata"
             end
-            local ok, err = apply(G, 'like', tonumber(time), {
+            local ok, err = apply(G_fst, 'like', time, {
                 hash   = hash,
                 sign   = key,
                 num    = like.number,
@@ -202,7 +206,7 @@ local function replay_loser (G, com, fst, snd)
                 return false, last, "invalid like : " .. err
             end
         elseif kind == 'post' then
-            local ok, err = apply(G, 'post', tonumber(time), {
+            local ok, err = apply(G_fst, 'post', time, {
                 hash = hash,
                 sign = key,
                 beg  = (key == nil),
@@ -213,7 +217,7 @@ local function replay_loser (G, com, fst, snd)
         else
             assert(kind == 'state')
         end
-        G.order[#G.order+1] = hash
+        G_fst.order[#G_fst.order+1] = hash
         last = hash
     end
 
@@ -289,7 +293,7 @@ elseif ARGS.recv then
 
     -- final state: consensus + replay loser
     local fst, snd = consensus(G_com, com, loc, rem)
-    local G_fst, merge
+    local G_fst, O_snd, merge
     do
         local ok, err
         if fst == loc then
@@ -300,10 +304,13 @@ elseif ARGS.recv then
                 now     = NOW(loc),
             }
             G_fst.order[#G_fst.order+1] = loc
+            O_snd = G_rem.order
         else
             G_fst = G_rem
+            O_snd = dofile(FC .. "state/order.lua")
+            O_snd[#O_snd+1] = loc
         end
-        ok, merge, err = replay_loser(G_fst, com, fst, snd)
+        ok, merge, err = replay_loser(G_fst, O_snd, com, fst)
         if not ok then
             io.stderr:write("ERROR : " .. err .. "\n")
         end

@@ -81,7 +81,7 @@ the consensus call.
 | 10   | Append hash in like.lua            | [x] done    |
 | 11   | Append hash in replay + merge      | [x] done    |
 | 11b  | Append HEAD/com/loc on load        | [x] done    |
-| 12   | Rewrite replay_loser via G.order   | [ ] pending |
+| 12   | Rewrite replay_loser via G.order   | [x] done    |
 | 13   | Test: semantic change passes       | [ ] pending |
 
 ## Semantic change: replay_loser via G.order
