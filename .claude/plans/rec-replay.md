@@ -119,6 +119,96 @@ merge levels, not by commit count.
   `replay_remote` or taken from local order) and
   consensus of inner merges cannot change.
 
+## Fork anatomy
+
+```
+                          left branch
+              ┌── l1 ── ... ── l2 ──┐
+              │  (first)    (tip)  │
+              │                    │
+      node ───┤                    ├─── join ───▶
+       ↑      │                    │     ↑
+      (fork)  │                    │   (merge)
+              │  (first)    (tip)  │
+              └── r1 ── ... ── r2 ──┘
+                          right branch
+```
+
+| Name        | Role                                          |
+|-------------|-----------------------------------------------|
+| `node`      | fork point (already applied)                  |
+| `l1` / `r1` | first children of `node` — branch entries     |
+| `l2` / `r2` | branch tips — parents of `join`               |
+| `join`      | merge commit                                  |
+
+## Algorithm
+
+### Signature
+
+```lua
+local function replay_remote (G_rem, H, start, stop)
+```
+
+| Arg     | Role                                    |
+|---------|-----------------------------------------|
+| `G_rem` | state being built (starts as `G_com`)   |
+| `H`     | graph (shared, immutable)               |
+| `start` | node to begin walking from              |
+| `stop`  | end node (nil = walk to leaf)           |
+
+### Invariant
+
+`start` is already applied
+(or is `com`, the base state `G_rem` starts from).
+Callee applies all nodes from `start`'s children up to
+`stop` (exclusive).
+
+### Pseudocode
+
+```
+node = start
+while node ~= stop:
+    k = #childs(node)
+    if k == 0: return                     -- leaf
+    if k == 1:
+        c = only_child
+        if c == stop: return
+        apply(G_rem, c)
+        node = c
+    else:
+        l1, l2, r1, r2, join = walk(H, node)
+        w, _ = consensus(G_rem, node, l2, r2)
+        cw, cl = (w == l2) and (l1, r1)
+                               or (r1, l1)
+        apply(G_rem, cw)
+        replay_remote(G_rem, H, cw, join)
+        apply(G_rem, cl)
+        replay_remote(G_rem, H, cl, join)
+        if join == stop: return
+        apply(G_rem, join)
+        node = join
+```
+
+### Top-level call
+
+```
+replay_remote(G_rem, H, com, nil)
+```
+
+### Helpers
+
+| Helper              | Status   | Purpose                           |
+|---------------------|----------|-----------------------------------|
+| `walk(H, node)`     | new      | returns `l1, l2, r1, r2, join`    |
+| `consensus()`       | exists   | `sync.lua:8-42`                   |
+| `apply(G_rem, c)`   | exists   | current `replay_remote` body      |
+
+### Error paths
+
+Bad signature / invalid like metadata / etc:
+`apply()` returns error → abort recursion, propagate
+error to top-level caller (same as today's flat loop).
+
 ## Consensus
 
 ```lua
@@ -230,7 +320,30 @@ make test T=cli-sync       -- still green
 
 ### Step 2 — adapt `replay_remote` for recursion
 
-TBD — approach will be discussed before implementation.
+- [ ] Add local `walk(H, node)` in `sync.lua`:
+  returns `l1, l2, r1, r2, join` for a fork at `node`
+  (see § Fork anatomy).
+- [ ] Rewrite `replay_remote` (`sync.lua:48-119`) with
+  the signature and pseudocode in § Algorithm:
+
+    ```lua
+    local function replay_remote (G_rem, H, start, stop)
+    ```
+
+- [ ] Top-level caller:
+  build `H = graph(REPO, com, rem)` once, then call
+  `replay_remote(G_rem, H, com, nil)`.
+- [ ] Preserve existing error paths
+  (invalid signature, invalid like metadata, etc.) —
+  abort recursion and propagate upward.
+- [ ] Keep `apply` logic unchanged;
+  factor out of the flat loop into a helper if needed.
+
+Acceptance:
+
+```
+make test T=cli-sync       -- all green
+```
 
 ### Step 3 — keep `replay_loser` flat, driven by `O_snd`
 
