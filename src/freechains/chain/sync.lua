@@ -41,12 +41,88 @@ local function consensus (G_com, com, a, b)
     end
 end
 
--- Replay commits from range onto state G.
+-- Replay remote commits from range onto state G.
 -- In case of error, partial replay has been applied.
--- fst: if provided, trial-merge each non-state commit (detached HEAD).
 -- Returns: ok, last, err
 
-local function replay (G, com, fst, snd)
+local function replay_remote (G, com, rem)
+    local last = com
+    local out = exec (
+        "git -C " .. REPO ..
+            " log --reverse --no-merges --format='%H %at' " ..
+            (com .. ".." .. rem)
+    )
+
+    for line in out:gmatch("[^\n]+") do
+        local hash, time = line:match("^(%S+) (%S+)")
+        local key, err = ssh.verify(REPO, hash)
+
+        local trailer = exec (
+            "git -C " .. REPO .. " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash
+        )
+        local kind = trailer:match("(%S+)") or ""
+
+        if (not key) and (err == 'forged') then
+            return false, last, "invalid " .. kind .. " : invalid signature"
+        end
+
+        if kind == 'like' then
+            if not key then
+                return false, last, "invalid like : missing sign key"
+            end
+
+            local file = exec (
+                "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash .. " -- .freechains/likes/"
+            )
+            file = file:match("(%S+)")
+            if not file then
+                return false, last, "invalid like : missing metadata file"
+            end
+            local src = exec (
+                "git -C " .. REPO .. " show " .. hash .. ":" .. file
+            )
+            local f = load(src)
+            if not f then
+                return false, last, "invalid like : invalid lua metadata"
+            end
+            local ok, like = pcall(f)
+            if (not ok) or type(like)~='table' then
+                return false, last, "invalid like : invalid lua metadata"
+            end
+            local ok, err = apply(G, 'like', tonumber(time), {
+                hash   = hash,
+                sign   = key,
+                num    = like.number,
+                target = like.target,
+                id     = like.id,
+            })
+            if not ok then
+                return false, last, "invalid like : " .. err
+            end
+        elseif kind == 'post' then
+            local ok, err = apply(G, 'post', tonumber(time), {
+                hash = hash,
+                sign = key,
+                beg  = (key == nil),
+            })
+            if not ok then
+                return false, last, "invalid post : " .. err
+            end
+        else
+            assert(kind == 'state')
+        end
+        last = hash
+    end
+
+    return true, last, nil
+end
+
+-- Replay loser commits from range onto state G.
+-- Trial-merges each non-state commit against fst (detached HEAD).
+-- In case of error, partial replay has been applied.
+-- Returns: ok, last, err
+
+local function replay_loser (G, com, fst, snd)
     local last = com
     local out = exec (
         "git -C " .. REPO ..
@@ -54,17 +130,13 @@ local function replay (G, com, fst, snd)
             (com .. ".." .. snd)
     )
 
-    if fst then
-        exec ('stdout',
-            "git -C " .. REPO .. " checkout --detach " .. fst
-        )
-    end
+    exec ('stdout',
+        "git -C " .. REPO .. " checkout --detach " .. fst
+    )
     local _ <close> = setmetatable({}, {__close=function()
-        if fst then
-            exec ('stdout',
-                "git -C " .. REPO .. " checkout main"
-            )
-        end
+        exec ('stdout',
+            "git -C " .. REPO .. " checkout main"
+        )
     end})
 
     for line in out:gmatch("[^\n]+") do
@@ -80,7 +152,7 @@ local function replay (G, com, fst, snd)
             return false, last, "invalid " .. kind .. " : invalid signature"
         end
 
-        if fst and kind~='state' then
+        if kind~='state' then
             local ok = exec (true, 'stdout',
                 "git -C " .. REPO .. " merge --no-commit " .. hash
             )
@@ -201,7 +273,7 @@ elseif ARGS.recv then
     -- verify remote: replay remote branch from G_com
     local G_rem = G_com -- (G_com no longer required)
     do
-        local ok, _, err = replay(G_rem, com, nil, rem)
+        local ok, _, err = replay_remote(G_rem, com, rem)
         if not ok then
             ERROR("chain sync : " .. err)
         end
@@ -227,7 +299,7 @@ elseif ARGS.recv then
         else
             G_fst = G_rem
         end
-        ok, merge, err = replay(G_fst, com, fst, snd)
+        ok, merge, err = replay_loser(G_fst, com, fst, snd)
         if not ok then
             io.stderr:write("ERROR : " .. err .. "\n")
         end
