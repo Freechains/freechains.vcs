@@ -84,53 +84,6 @@ two state commits the DAG is **linear**.
 So recursion depth is bounded by the number of
 merge levels, not by commit count.
 
-## Algorithm
-
-Forward walk of `G`, starting at `G.root`, following
-`childs`:
-
-```
-walk(list, G, node, stop):
-    while node ~= stop:
-        k = #G[node].childs
-        if k == 0:
-            return                      -- leaf
-        if k == 1:
-            append(list, child)
-            node = child
-        else:
-            -- fork: find the join (merge with
-            -- both fork branches as parents)
-            join = find_join(G, node)
-            p1, p2 = parents_of(join)
-            fst, snd = consensus(G_com, node,
-                                  p1, p2)
-            walk(list, G, fst_child_of(node, fst),
-                  join)                 -- winner
-            walk(list, G, fst_child_of(node, snd),
-                  join)                 -- loser
-            append(list, join)
-            node = join
-
-replay(G, old, new):
-    g = graph(REPO, old, new)
-    list = []
-    walk(list, g, g.root, nil)
-    for each entry in list:
-        apply(G, entry)
-```
-
-- `find_join(G, fork)`:
-  merge commit reachable from `fork` whose parents
-  are both descendants of `fork`
-  (the matching merge for this fork).
-- `fst_child_of(node, tip)`:
-  the child of `node` that is an ancestor of `tip`.
-- Linear segments between forks/joins walk iteratively.
-- State commits (`Freechains: state` trailer) are
-  skipped at `apply` time
-  but kept in `G.order`.
-
 ## Two-path pipeline (kept side by side)
 
 ```
@@ -188,38 +141,6 @@ At nested merges the caller passes the merge's own
 G.
 Since `G_com` is immutable, inner consensus is
 immutable too — it cannot invert.
-
-## Determinism proof
-
-Both peers:
-
-- build the same `graph()` (immutable git objects),
-- visit the same root, same `childs` order
-  (sorted by hash),
-- resolve every fork via the same `consensus(G_com,
-  com, p1, p2)` on the same immutable `G_com`,
-- recurse winner before loser in the same order,
-- walk linear segments identically.
-
-Therefore both peers produce the same `apply` call
-sequence and the same `order.lua`.
-
-## Recursion depth
-
-Bounded by the number of nested merge levels in the
-range, not by commit count.
-Each fork adds one recursive call for the winner
-subgraph and one for the loser subgraph;
-linear segments iterate.
-
-## Edge cases
-
-| Case                          | Handling                          |
-|-------------------------------|-----------------------------------|
-| Fast-forward (com == loc)     | graph has only linear nodes       |
-| No previous syncs             | graph is purely linear            |
-| Nested merges                 | recursion descends per fork       |
-| State commits in linear path  | skipped by trailer check at apply |
 
 ## 3-peer failing test design
 
@@ -307,77 +228,11 @@ make test T=git-merge      -- still green
 make test T=cli-sync       -- still green
 ```
 
-### Step 2 — graph helpers
+### Step 2 — adapt `replay_remote` for recursion
 
-- [ ] Add local `find_join(G, fork)` in `sync.lua`:
-  walk `childs` from `fork`,
-  return the first merge node whose two parents are
-  both descendants of `fork`.
-- [ ] Add local `fst_child_of(G, node, tip)`:
-  return the child of `node` that is an ancestor of
-  `tip`.
-- [ ] Extend `tst/git-merge.lua` scenario 4:
-  assert `find_join(G, H1) == M2`
-  and `find_join(G, fork_at_a1) == M1`.
+TBD — approach will be discussed before implementation.
 
-Acceptance:
-
-```
-make test T=git-merge      -- new asserts pass
-```
-
-### Step 3 — `walk()` kernel
-
-- [ ] Add local
-  `walk(list, g, node, stop, action)` in `sync.lua`.
-    - Linear (`#childs == 1`):
-      `action(list, child)`,
-      advance `node`.
-    - Fork (`#childs > 1`):
-      `join = find_join(g, node)`;
-      read `join`'s two parents `p1, p2`;
-      `fst, snd = consensus(G_live, node, p1, p2)`;
-      recurse winner side
-      (`walk` from `fst_child_of(node, fst)`
-       to `join`);
-      recurse loser side
-      (same shape, different `action`);
-      `action(list, join)`;
-      `node = join`.
-    - Leaf (`#childs == 0`):
-      return.
-- [ ] No callers yet; exercise indirectly through
-  step 4 and step 5.
-
-Acceptance:
-compiles, no callers broken
-(`make test T=cli-sync` still green).
-
-### Step 4 — rewrite `replay_remote` on `walk()`
-
-- [ ] Replace the flat loop in `replay_remote`
-  (`sync.lua:48-119`) with:
-
-    ```
-    g = graph(REPO, com, rem)
-    walk(list, g, g.root, nil, action_remote)
-    for each entry in list: apply(G, entry)
-    ```
-
-- [ ] `action_remote`:
-  pure — no git merges,
-  just `apply(G, entry)` with the same `post` / `like`
-  / `state` dispatch as today.
-- [ ] Preserve existing error paths
-  (invalid signature, invalid like metadata, etc.).
-
-Acceptance:
-
-```
-make test T=cli-sync       -- all green
-```
-
-### Step 5 — keep `replay_loser` flat, driven by `O_snd`
+### Step 3 — keep `replay_loser` flat, driven by `O_snd`
 
 - [ ] `replay_loser` does **not** need `walk()` or
   `graph()`.
@@ -403,7 +258,7 @@ Acceptance:
 make test T=cli-sync       -- all green
 ```
 
-### Step 6 — 3-peer nested merge test
+### Step 4 — 3-peer nested merge test
 
 - [ ] Add a new section in `tst/cli-sync.lua`
   that reproduces §3-peer failing test design
@@ -419,10 +274,10 @@ Acceptance:
 make test T=cli-sync       -- new test passes
 ```
 
-### Step 7 — final verification
+### Step 5 — final verification
 
 - [ ] `make test T=git-merge`
 - [ ] `make test T=cli-sync`
 - [ ] Full suite: `make test`
 - [ ] Update `## Done` section:
-  mark steps 1–6 as `[x]`.
+  mark steps 1–4 as `[x]`.
