@@ -232,40 +232,45 @@ G.
 Since `G_com` is immutable, inner consensus is
 immutable too — it cannot invert.
 
-## 3-peer failing test design
+## Nested-cascade failing test design
 
 Goal:
 demonstrate that flat `git log --no-merges` replay
-produces wrong state when nested merges exist.
+produces wrong state when a range being replayed
+contains a nested merge.
 Flat traversal interleaves inner winner and inner
-loser commits, letting loser dislikes void winner
-posts (cascade), while recursive replay applies all
-inner-winner commits before any inner-loser commits.
+loser commits, letting the loser's post apply before
+the winner's dislikes (cascade), while recursive
+replay applies all inner-winner commits before any
+inner-loser commit.
 
 **Setup** (GEN_4: KEY1..KEY4 = 7500 each):
 
-1. A creates chain. Clone to B and C.
-2. A: KEY1 posts P1 (inner A side).
-3. B: KEY2 dislikes KEY1 by 3 (inner B side).
-4. C recvs A, C recvs B → inner merge on C.
-   A wins (KEY1 reps 7500 > KEY2's 0 after own
-   dislike cost) — P1 is inner winner.
-5. B: KEY3 posts P2, KEY4 posts P3 (after step 3).
-6. A recvs B → outer merge.
-   Suppose B wins outer.
-   A's branch (with inner merge from step 4) is
-   the outer loser.
-7. A re-applies outer loser via `replay_loser`.
-   Inner winner-first order: P1 applies before
-   KEY2's dislike → P1 survives.
-   Flat order: dislike may apply first → P1 voided.
+1. A creates chain.  B, C clone from A.
+2. A: KEY1 dislikes KEY4 by 3 (inner A side).
+3. A: KEY2 dislikes KEY4 by 3 (inner A side).
+4. B: KEY4 posts `P_c` (inner B side).
+5. A recvs B → inner merge M1 on A.
+   A wins inner (sum 15000 > 7500).
+   Under correct consensus `P_c` is voided on A.
+6. C clones from A.
+   C's replay walks `com..A_tip`, which contains M1.
 
 **Assertion**:
-A's state has P1 as a valid post after step 7.
-With flat replay:
-P1 may be voided (KEY1 reps zeroed by KEY2's
-dislike applied out of order).
-Test FAILS under flat, PASSES under recursive.
+C's `posts.lua` does **not** contain `P_c`,
+and C's order matches A's order.
+
+Under flat replay:
+`P_c` may be applied before A's dislikes
+(KEY4 still had 7500 reps at that point) →
+`P_c` survives on C → test FAILS.
+
+Under recursive replay:
+winner-first at M1 → dislikes apply first →
+`P_c` voided on C → test PASSES.
+
+Implementation lives in `tst/consensus.lua`
+(§ `Test 4: nested cascade`).
 
 ## Files to Modify
 
@@ -371,20 +376,16 @@ Acceptance:
 make test T=cli-sync       -- all green
 ```
 
-### Step 4 — 3-peer nested merge test
+### Step 4 — nested-cascade test
 
-- [ ] Add a new section in `tst/cli-sync.lua`
-  that reproduces §3-peer failing test design
-  verbatim (GEN_4, 9 steps).
-- [ ] Assert on C:
-  P2 and P3 appear as valid posts in `posts.lua`,
-  KEY4 reps > 0,
-  diff against A is bit-equal.
+- [x] Added `Test 4: nested cascade` to
+  `tst/consensus.lua` per § Nested-cascade failing
+  test design.
 
 Acceptance:
 
 ```
-make test T=cli-sync       -- new test passes
+make test T=consensus      -- Test 4 passes
 ```
 
 ### Step 5 — final verification

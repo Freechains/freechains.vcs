@@ -220,4 +220,71 @@ do
     end
 end
 
+-- 4. nested cascade (fails under flat replay, passes under recursive)
+-- GEN_4: KEY1..KEY4 = 7500 each.
+-- A side (inner winner): KEY1+KEY2 dislike KEY4 by 3 (sum 15000).
+-- B side (inner loser):  KEY4 posts P_c (sum 7500).
+-- A recvs B → inner merge M1 on A. A wins. P_c voided.
+-- C clones A (gets M1). C's replay_remote walks com..A_tip,
+--   which contains M1.
+-- Flat: P_c may be applied before the dislikes → P_c survives.
+-- Recursive: winner-first at M1 → dislikes apply first → P_c voided.
+do
+    print("==> Test 4: nested cascade")
+
+    local ROOT_C = ROOT .. "/consensus/C/"
+    local EXE_C  = ENV .. " ../src/freechains.lua --root " .. ROOT_C
+    exec("mkdir -p " .. ROOT_C)
+
+    TEST "A creates chain"
+    exec(EXE_A .. " --now=1000 chains add cons-d init " .. GEN_4)
+
+    TEST "B clones cons-d"
+    exec (
+        EXE_B .. " chains add cons-d clone " .. ROOT_A .. "/chains/cons-d/"
+    )
+
+    TEST "A: KEY1 dislikes KEY4 author by 3"
+    exec (
+        EXE_A .. " --now=2000 chain cons-d dislike 3 author '" .. PUB4 .. "' --sign " .. KEY1
+    )
+
+    TEST "A: KEY2 dislikes KEY4 author by 3"
+    exec (
+        EXE_A .. " --now=2000 chain cons-d dislike 3 author '" .. PUB4 .. "' --sign " .. KEY2
+    )
+
+    TEST "B: KEY4 posts P_c"
+    local P_c = exec (
+        EXE_B .. " --now=2100 chain cons-d post inline 'P_c\n' --sign " .. KEY4
+    )
+
+    TEST "A recvs B (inner merge; A wins; P_c voided on A)"
+    exec (
+        EXE_A .. " --now=3000 chain cons-d sync recv " .. ROOT_B .. "/chains/cons-d/"
+    )
+
+    TEST "C clones from A (replay walks range containing inner merge)"
+    exec (
+        EXE_C .. " chains add cons-d clone " .. ROOT_A .. "/chains/cons-d/"
+    )
+
+    TEST "C's posts.lua should not contain P_c"
+    local posts = dofile (
+        ROOT_C .. "/chains/cons-d/.freechains/state/posts.lua"
+    )
+    assert (
+        posts[P_c] == nil,
+        "P_c should be voided by nested cascade"
+    )
+
+    TEST "C order matches A"
+    local OA = order(EXE_A, "cons-d")
+    local OC = order(EXE_C, "cons-d")
+    assert(#OA == #OC, "length mismatch: A=" .. #OA .. " C=" .. #OC)
+    for i = 1, #OA do
+        assert(OA[i] == OC[i], "order mismatch at " .. i)
+    end
+end
+
 print("<== ALL PASSED")
