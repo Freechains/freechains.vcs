@@ -59,11 +59,16 @@ the consensus call.
 | File               | Place             | Change                  |
 |--------------------|-------------------|-------------------------|
 | `chain/common.lua` | `apply()` line 165-167 | Remove `if T and T.hash then G.order[...]` |
-| `chain/post.lua`   | after `apply` succeeds, before state commit | `G.order[#G.order+1] = hash` |
-| `chain/like.lua`   | after `apply` succeeds, before state commit | `G.order[#G.order+1] = hash` |
-| `chain/sync.lua`   | `replay_remote` per-commit loop | `G.order[#G.order+1] = hash` after apply |
-| `chain/sync.lua`   | `replay_loser` body | Rewrite: iterate `G_snd.order` from divergence with `G_fst.order`; apply each hash; append to `G_fst.order` |
-| `chain/sync.lua`   | before replay_loser call | Load `G_snd = dofile/F` from snd state commit (local or git show) |
+| `chain/post.lua`   | after `apply` succeeds | `G.order[#G.order+1] = hash` |
+| `chain/like.lua`   | after `apply` succeeds | `G.order[#G.order+1] = hash` |
+| `chain/init.lua`   | after G load | Append `HEAD` (state commit invariant) |
+| `chain/sync.lua`   | after G_com load | Append `com` |
+| `chain/sync.lua`   | after G_fst disk load (fst==loc) | Append `loc` |
+| `chain/sync.lua`   | `replay_remote` end of loop | `G.order[#G.order+1] = hash` |
+| `chain/sync.lua`   | `replay_loser` end of loop | `G.order[#G.order+1] = hash` (step 13 will rewrite via G.order) |
+| `chain/sync.lua`   | `replay_loser` body | **Step 13**: iterate `G_snd.order` from divergence; apply each hash; append to `G_fst.order` |
+| `chain/sync.lua`   | before replay_loser call | **Step 13**: Load `G_snd` from snd state commit (local or git show) + append snd |
+| `tst/cli-order.lua` | assertions | **Step 12**: new semantics — order includes genesis + post/like + state. After N posts: length = 1 + 2N. Positions: genesis at 1, P1 at 2, state_P1 at 3, P2 at 4, state_P2 at 5, ... |
 
 ## Implementation Steps
 
@@ -79,10 +84,12 @@ the consensus call.
 | 8    | Extract G.order append from apply  | [x] done    |
 | 9    | Append hash in post.lua            | [x] done    |
 | 10   | Append hash in like.lua            | [x] done    |
-| 11   | Append hash in replay + merge      | [x] done    |
+| 11   | Append hash in replay loops        | [x] done    |
 | 11b  | Append HEAD/com/loc on load        | [x] done    |
-| 12   | Rewrite replay_loser via G.order   | [ ] pending |
-| 13   | Test: semantic change passes       | [ ] pending |
+| 11c  | Remove redundant post-state appends| [x] done    |
+| 12   | Update cli-order.lua expectations  | [ ] pending |
+| 13   | Rewrite replay_loser via G.order   | [ ] pending |
+| 14   | Test: semantic change passes       | [ ] pending |
 
 ## Semantic change: replay_loser via G.order
 
