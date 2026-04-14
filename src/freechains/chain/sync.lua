@@ -41,11 +41,11 @@ local function consensus (G_com, com, a, b)
     end
 end
 
--- Replay remote commits from range onto state G.
+-- Replay remote commits from range onto state G_rem.
 -- In case of error, partial replay has been applied.
 -- Returns: ok, last, err
 
-local function replay_remote (G, com, rem)
+local function replay_remote (G_rem, com, rem)
     local last = com
     local out = exec (
         "git -C " .. REPO ..
@@ -89,7 +89,7 @@ local function replay_remote (G, com, rem)
             if (not ok) or type(like)~='table' then
                 return false, last, "invalid like : invalid lua metadata"
             end
-            local ok, err = apply(G, 'like', tonumber(time), {
+            local ok, err = apply(G_rem, 'like', tonumber(time), {
                 hash   = hash,
                 sign   = key,
                 num    = like.number,
@@ -100,7 +100,7 @@ local function replay_remote (G, com, rem)
                 return false, last, "invalid like : " .. err
             end
         elseif kind == 'post' then
-            local ok, err = apply(G, 'post', tonumber(time), {
+            local ok, err = apply(G_rem, 'post', tonumber(time), {
                 hash = hash,
                 sign = key,
                 beg  = (key == nil),
@@ -111,25 +111,20 @@ local function replay_remote (G, com, rem)
         else
             assert(kind == 'state')
         end
-        G.order[#G.order+1] = hash
+        G_rem.order[#G_rem.order+1] = hash
         last = hash
     end
 
     return true, last, nil
 end
 
--- Replay loser commits from range onto state G.
+-- Replay loser commits from range onto state G_fst.
 -- Trial-merges each non-state commit against fst (detached HEAD).
 -- In case of error, partial replay has been applied.
 -- Returns: ok, last, err
 
-local function replay_loser (G, com, fst, snd)
+local function replay_loser (G_fst, O_snd, com, fst)
     local last = com
-    local out = exec (
-        "git -C " .. REPO ..
-            " log --reverse --no-merges --format='%H %at' " ..
-            (com .. ".." .. snd)
-    )
 
     exec ('stdout',
         "git -C " .. REPO .. " checkout --detach " .. fst
@@ -140,18 +135,23 @@ local function replay_loser (G, com, fst, snd)
         )
     end})
 
-    for line in out:gmatch("[^\n]+") do
-        local hash, time = line:match("^(%S+) (%S+)")
-        local key, err = ssh.verify(REPO, hash)
+    -- find O_snd[I] = first hash after com
+    local I = 0
+    for i,h in ipairs(O_snd) do
+        if h == com then
+            I = i + 1
+        end
+    end
+
+    for i=I, #O_snd do
+        local hash = O_snd[i]
+        local time = NOW(hash)
+        local key  = ssh.pubkey(REPO, hash)
 
         local trailer = exec (
             "git -C " .. REPO .. " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash
         )
         local kind = trailer:match("(%S+)") or ""
-
-        if (not key) and (err == 'forged') then
-            return false, last, "invalid " .. kind .. " : invalid signature"
-        end
 
         if kind~='state' then
             local ok = exec (true, 'stdout',
@@ -169,29 +169,15 @@ local function replay_loser (G, com, fst, snd)
         end
 
         if kind == 'like' then
-            if not key then
-                return false, last, "invalid like : missing sign key"
-            end
-
             local file = exec (
                 "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash .. " -- .freechains/likes/"
             )
-            file = file:match("(%S+)")
-            if not file then
-                return false, last, "invalid like : missing metadata file"
-            end
+            file = assert(file:match("(%S+)"))
             local src = exec (
                 "git -C " .. REPO .. " show " .. hash .. ":" .. file
             )
-            local f = load(src)
-            if not f then
-                return false, last, "invalid like : invalid lua metadata"
-            end
-            local ok, like = pcall(f)
-            if (not ok) or type(like)~='table' then
-                return false, last, "invalid like : invalid lua metadata"
-            end
-            local ok, err = apply(G, 'like', tonumber(time), {
+            local like = assert(assert(load(src))())
+            local ok, err = apply(G_fst, 'like', time, {
                 hash   = hash,
                 sign   = key,
                 num    = like.number,
@@ -202,7 +188,7 @@ local function replay_loser (G, com, fst, snd)
                 return false, last, "invalid like : " .. err
             end
         elseif kind == 'post' then
-            local ok, err = apply(G, 'post', tonumber(time), {
+            local ok, err = apply(G_fst, 'post', time, {
                 hash = hash,
                 sign = key,
                 beg  = (key == nil),
@@ -213,7 +199,7 @@ local function replay_loser (G, com, fst, snd)
         else
             assert(kind == 'state')
         end
-        G.order[#G.order+1] = hash
+        G_fst.order[#G_fst.order+1] = hash
         last = hash
     end
 
@@ -289,7 +275,7 @@ elseif ARGS.recv then
 
     -- final state: consensus + replay loser
     local fst, snd = consensus(G_com, com, loc, rem)
-    local G_fst, merge
+    local G_fst, O_snd, merge
     do
         local ok, err
         if fst == loc then
@@ -300,10 +286,13 @@ elseif ARGS.recv then
                 now     = NOW(loc),
             }
             G_fst.order[#G_fst.order+1] = loc
+            O_snd = G_rem.order
         else
             G_fst = G_rem
+            O_snd = dofile(FC .. "state/order.lua")
+            O_snd[#O_snd+1] = loc
         end
-        ok, merge, err = replay_loser(G_fst, com, fst, snd)
+        ok, merge, err = replay_loser(G_fst, O_snd, com, fst)
         if not ok then
             io.stderr:write("ERROR : " .. err .. "\n")
         end

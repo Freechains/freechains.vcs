@@ -1,155 +1,407 @@
-# Recursive DAG Replay for Consensus-Ordered Traversal
+# Recursive DAG Replay via graph()
 
 ## Context
 
-The current `replay(G, old, new)` in `sync.lua` uses
-`git log --reverse --no-merges old..new` to walk commits.
-This is wrong when the range contains merge commits from
-previous syncs with other peers. At each merge, two
-parent branches exist -- their traversal order must follow
-the consensus rule (earlier first-commit wins, hash
-tie-breaker). The current flat traversal has undefined
-order through merges, causing peers to compute different
-state due to order-dependent cap interactions in `apply()`.
+The current `replay_remote` and `replay_loser` in
+`src/freechains/chain/sync.lua` walk commits with
+`git log --reverse --no-merges old..new`.
+This is flat traversal:
+order through previous-sync merges is undefined,
+so two peers replaying the same range can produce
+different `order.lua` vectors and diverge on state.
 
-## Approach
+The fix is a recursive decomposition that respects
+consensus ordering at every merge point in the DAG,
+driven by a forward graph built with
+`git rev-list --topo-order --reverse --parents`.
 
-Replace `replay()` with a recursive decomposition that
-respects consensus ordering at every merge point in the
-DAG.
+## Why recursive replay is needed
+
+Flat `git log --no-merges` replay is broken for ranges
+that contain merge commits from previous syncs:
+
+1. **Non-determinism**:
+   two peers replaying the same range get different
+   traversal orderings through merges →
+   different `order.lua` vectors →
+   peers diverge on state.
+
+2. **Broken winner-first rule**:
+   flat replay ignores winner/loser ordering at inner
+   merge points:
+    - A loser's dislike may be applied **before** the
+      winner's post, zeroing an author's reps and
+      voiding a post that should survive.
+    - An inner loser's validation failure **cascades**
+      and kills valid commits in the tail after the
+      merge.
+
+Consensus itself is **immutable**: it is a pure
+function of each merge's own common ancestor state
+(`G_com`), so inner winners never flip under live G.
+Recursion is needed only to produce the deterministic
+winner-first traversal order, not to re-decide
+consensus.
+
+The cascade problem is the concrete rule violation:
+a post valid under correct winner-first ordering gets
+voided because flat replay processes commits in the
+wrong order.
+That is not just different state — it is wrong state.
+
+## Graph helper
+
+`graph(dir, fr, to)` builds a forward DAG from
+`git rev-list --topo-order --reverse --parents fr..to`.
+
+```lua
+-- Returns flat table:
+--   G = { root=fr, [hash] = { hash=hash, childs={...} } }
+local function graph (dir, fr, to)
+```
+
+Properties:
+
+| Property      | Value                                      |
+|---------------|--------------------------------------------|
+| Direction     | forward (parent → child via `childs`)      |
+| Root          | `G.root == fr`                             |
+| Node shape    | `{ hash, childs }`                         |
+| Linear node   | `#childs == 1`                             |
+| Fork node     | `#childs > 1`                              |
+| Leaf          | `#childs == 0` (tip, `to`)                 |
+| Pass          | single, zero conditionals                  |
+
+Reference implementation and tests live in
+`tst/git-merge.lua` (scenario 4, nested merge lab).
+Target location in production:
+`src/freechains/chain/sync.lua` (local function).
 
 ### Key Guarantee
 
-State commits after every merge ensure that between any
-two merge points, the DAG is **linear**. This bounds
-recursion depth to the number of merge levels (not
-commit count).
+State commits after every merge ensure that between
+two state commits the DAG is **linear**.
+So recursion depth is bounded by the number of
+merge levels, not by commit count.
 
-### Algorithm
+## Two-path pipeline (kept side by side)
 
 ```
-replay(G, old, new):
-    list = []
-    collect(list, old, new)
-    for each entry in list:
-        apply(G, entry)
-
-collect(list, old, new):
-    if old == new: return
-
-    merge = find last merge in old..new
-        (git rev-list --topo-order --merges
-         --max-count=1 old..new)
-
-    if no merge:
-        collect_linear(list, old, new)
-        return
-
-    p1, p2 = parents of merge
-    base = merge-base(p1, p2)
-    eff = base
-    if base is ancestor of old:
-        eff = old               -- skip prefix
-
-    collect(list, old, eff)           -- shared prefix
-
-    fst, snd = consensus(base, p1, p2)
-    collect(list, eff, fst)           -- winner branch
-    collect(list, eff, snd)           -- loser branch
-
-    collect_linear(list, merge, new)  -- linear tail
-                                      -- (skips state)
-
-collect_linear(list, old, new):
-    git log --reverse --no-merges old..new
-    skip trailer == "state"
-    append post/like entries to list
-
-consensus(com, a, b):
-    tip hash comparison (smaller wins)
+       replay_remote (in-memory, no git merges)
+               |
+               v
+       consensus(G_com, com, loc, rem)
+               |
+   +-----------+-----------+
+   | loc wins              | rem wins
+   v                       v
+ G_fst := live G_loc     G_fst := G_rem
+ O_snd := G_rem.order    O_snd := local order
+               |
+               v
+       replay_loser (trial-merge per commit)
+               |
+               v
+         merge + state commit
 ```
 
-### Checkpoint walk (chk..com)
+- `replay_remote`:
+  validates remote in memory only, no git merges.
+  Becomes recursive by driving traversal with
+  `graph()` so inner merges produce a deterministic
+  winner-first order.
+- `replay_loser`:
+  per-commit trial-merge into detached HEAD of
+  winner tip, as today (`sync.lua:126`).
+  Iterates `O_snd` in order — no graph walk, no
+  consensus re-run.
+  `O_snd` is already deterministic (built by
+  `replay_remote` or taken from local order) and
+  consensus of inner merges cannot change.
 
-Stays as-is (linear). The state commit barrier guarantees
-no merges in this range.
+## Fork anatomy
 
-### Winner/loser paths
+```
+                          left branch
+              ┌── l1 ── ... ── l2 ──┐
+              │  (first)    (tip)  │
+              │                    │
+      node ───┤                    ├─── join ───▶
+       ↑      │                    │     ↑
+      (fork)  │                    │   (merge)
+              │  (first)    (tip)  │
+              └── r1 ── ... ── r2 ──┘
+                          right branch
+```
 
-Keep two paths:
-- **local wins**: G = G_com, replay(G, com, loc),
-  replay(G, com, rem)
-- **remote wins**: G = G_rem (deep copy + remote replay),
-  replay(G, com, loc)
+| Name        | Role                                          |
+|-------------|-----------------------------------------------|
+| `node`      | fork point (already applied)                  |
+| `l1` / `r1` | first children of `node` — branch entries     |
+| `l2` / `r2` | branch tips — parents of `join`               |
+| `join`      | merge commit                                  |
 
-G_rem is built as deep copy of G_com + replay remote.
-Both paths use recursive replay (not disk state).
+## Algorithm
+
+### Signature
+
+```lua
+local function replay_remote (G_rem, H, start, stop)
+```
+
+| Arg     | Role                                    |
+|---------|-----------------------------------------|
+| `G_rem` | state being built (starts as `G_com`)   |
+| `H`     | graph (shared, immutable)               |
+| `start` | node to begin walking from              |
+| `stop`  | end node (nil = walk to leaf)           |
+
+### Invariant
+
+`start` is already applied
+(or is `com`, the base state `G_rem` starts from).
+Callee applies all nodes from `start`'s children up to
+`stop` (exclusive).
+
+### Pseudocode
+
+```
+node = start
+while node ~= stop:
+    k = #childs(node)
+    if k == 0: return                     -- leaf
+    if k == 1:
+        c = only_child
+        if c == stop: return
+        apply(G_rem, c)
+        node = c
+    else:
+        l1, l2, r1, r2, join = walk(H, node)
+        w, _ = consensus(G_rem, node, l2, r2)
+        cw, cl = (w == l2) and (l1, r1)
+                               or (r1, l1)
+        apply(G_rem, cw)
+        replay_remote(G_rem, H, cw, join)
+        apply(G_rem, cl)
+        replay_remote(G_rem, H, cl, join)
+        if join == stop: return
+        apply(G_rem, join)
+        node = join
+```
+
+### Top-level call
+
+```
+replay_remote(G_rem, H, com, nil)
+```
+
+### Helpers
+
+| Helper              | Status   | Purpose                           |
+|---------------------|----------|-----------------------------------|
+| `walk(H, node)`     | new      | returns `l1, l2, r1, r2, join`    |
+| `consensus()`       | exists   | `sync.lua:8-42`                   |
+| `apply(G_rem, c)`   | exists   | current `replay_remote` body      |
+
+### Error paths
+
+Bad signature / invalid like metadata / etc:
+`apply()` returns error → abort recursion, propagate
+error to top-level caller (same as today's flat loop).
+
+## Consensus
+
+```lua
+local function consensus (G, com, a, b)
+```
+
+Algorithm (matches current `sync.lua:8-42`):
+
+1. Traverse `com..a` via `git log --format=%H`.
+2. For each commit: `ssh.verify` → key or nil.
+3. Collect unique signed keys for branch `a`.
+4. Same for `com..b` → keys for branch `b`.
+5. Sum `G.authors[key].reps` for each key set
+   (0 if absent in `G`).
+6. Higher sum wins → return that hash first.
+7. Tie → hash tiebreaker (smaller wins).
+
+At nested merges the caller passes the merge's own
+**`G_com`** (state at its common ancestor), never live
+G.
+Since `G_com` is immutable, inner consensus is
+immutable too — it cannot invert.
+
+## Nested-cascade failing test design
+
+Goal:
+demonstrate that flat `git log --no-merges` replay
+produces wrong state when a range being replayed
+contains a nested merge.
+Flat traversal interleaves inner winner and inner
+loser commits, letting the loser's post apply before
+the winner's dislikes (cascade), while recursive
+replay applies all inner-winner commits before any
+inner-loser commit.
+
+**Setup** (GEN_4: KEY1..KEY4 = 7500 each):
+
+1. A creates chain.  B, C clone from A.
+2. A: KEY1 dislikes KEY4 by 3 (inner A side).
+3. A: KEY2 dislikes KEY4 by 3 (inner A side).
+4. B: KEY4 posts `P_c` (inner B side).
+5. A recvs B → inner merge M1 on A.
+   A wins inner (sum 15000 > 7500).
+   Under correct consensus `P_c` is voided on A.
+6. C clones from A.
+   C's replay walks `com..A_tip`, which contains M1.
+
+**Assertion**:
+C's `posts.lua` does **not** contain `P_c`,
+and C's order matches A's order.
+
+Under flat replay:
+`P_c` may be applied before A's dislikes
+(KEY4 still had 7500 reps at that point) →
+`P_c` survives on C → test FAILS.
+
+Under recursive replay:
+winner-first at M1 → dislikes apply first →
+`P_c` voided on C → test PASSES.
+
+Implementation lives in `tst/consensus.lua`
+(§ `Test 4: nested cascade`).
 
 ## Files to Modify
 
-| File | Change |
-|------|--------|
-| `src/freechains/chain/sync.lua` | Replace `replay()` with recursive `collect` + `collect_linear` + `consensus` helper |
-
-## Determinism Proof
-
-Both peers find the same merge commits (immutable git
-objects), compute the same merge-base, apply the same
-consensus rule (timestamps + hashes are immutable),
-recurse into the same sub-ranges in the same order,
-and collect the same linear segments. Therefore both
-peers produce the same `apply()` call sequence.
-
-## Recursion Depth
-
-Bounded by number of nested merge levels in the range,
-not by commit count. Each merge adds 3 recursive calls
-(prefix, winner, loser) + one `collect_linear`. Linear
-segments are handled iteratively via `git log`.
-
-## Edge Cases
-
-- **Fast-forward (com == loc)**: no merges in range,
-  falls through to `collect_linear`
-- **No previous syncs**: purely linear, `collect_linear`
-  handles it
-- **Nested merges**: recursive decomposition peels off
-  outermost merge first, recurses into sub-ranges
-- **State commits in linear segment**: skipped by
-  trailer check in `collect_linear`
+| File                             | Change                         |
+|----------------------------------|--------------------------------|
+| `src/freechains/chain/sync.lua`  | add `graph()` local            |
+| `src/freechains/chain/sync.lua`  | rewrite `replay_remote` on graph|
+| `src/freechains/chain/sync.lua`  | `replay_loser` stays flat,      |
+|                                  | iterates `O_snd`                |
+| `tst/cli-sync.lua`               | add 3-peer nested merge test    |
 
 ## Verification
 
 ```
 make test T=cli-sync
+make test T=git-merge
 ```
 
-Step 3 (divergent + bilateral sync) validates that both
-sides converge to identical state (bit-equal diff).
+## Done
 
-Future: add a test with 3 peers (A syncs with C, then
-A syncs with B) to exercise nested merge replay.
+- [x] `consensus(G, com, a, b)` — reps-sum +
+  hash tiebreaker
+  (`src/freechains/chain/sync.lua:8-42`)
+- [x] `graph(dir, fr, to)` — forward DAG builder
+  (`tst/git-merge.lua:30-52`, scenario 4 tests)
+- [x] Like replay via `diff-tree` + `git show`
+  payload (`sync.lua:74-98`, `sync.lua:171-189`)
+- [x] Top-level consensus uses `consensus()`
+  (`sync.lua:277`)
+- [x] `replay_remote` recursive design frozen
+  (see § Algorithm, § Fork anatomy)
+- [x] Test 4 `nested cascade` added to
+  `tst/consensus.lua` and **confirmed failing**
+  under current flat replay (driver test)
 
-## Done (designed, NOT yet integrated into sync.lua)
+## Next steps
 
-The functions below are designed and specified but
-sync.lua still uses the flat `git log --no-merges`
-replay. Integration is pending.
+Sequential; do not start step N+1 until step N is
+green.
 
-- [x] `consensus(com, a, b)` — tip hash comparison
-- [x] `collect_linear(list, old, new)` — linear segment
-  walk (post + like entries, skips state)
-- [x] `collect(list, old, new)` — recursive DAG
-  decomposition at merge points
-- [x] `eff` cutoff in `collect` — when merge-base is
-  ancestor of `old`, use `old` as branch cutoff
-- [x] `replay(G, old, new)` — collect then apply (with
-  beg detection for likes)
-- [x] Top-level consensus replaced with `consensus()` call
-- [x] Like replay via `diff-tree` + `git show` payload
+**▶ Resume here**: Step 1 — move `graph()` into
+`src/freechains/chain/sync.lua`.
+Test 4 in `tst/consensus.lua` is the driver
+(currently failing, must pass after Step 2).
 
-## TODO
+### Step 1 — move `graph()` into src
 
-- [ ] Integrate into sync.lua (replace flat replay)
-- [ ] Verify: `make test T=cli-sync`
-- [ ] Test: 3-peer nested merge replay
+- [ ] Copy `graph(dir, fr, to)`
+  from `tst/git-merge.lua:30-52`
+  into `src/freechains/chain/sync.lua`
+  as a file-local function (above `consensus`).
+- [ ] Keep the copy in `tst/git-merge.lua` untouched
+  (its scenario 4 tests must still pass).
+- [ ] Touch no call sites yet.
+
+Acceptance:
+
+```
+make test T=git-merge      -- still green
+make test T=cli-sync       -- still green
+```
+
+### Step 2 — adapt `replay_remote` for recursion
+
+- [ ] Add local `walk(H, node)` in `sync.lua`:
+  returns `l1, l2, r1, r2, join` for a fork at `node`
+  (see § Fork anatomy).
+- [ ] Rewrite `replay_remote` (`sync.lua:48-119`) with
+  the signature and pseudocode in § Algorithm:
+
+    ```lua
+    local function replay_remote (G_rem, H, start, stop)
+    ```
+
+- [ ] Top-level caller:
+  build `H = graph(REPO, com, rem)` once, then call
+  `replay_remote(G_rem, H, com, nil)`.
+- [ ] Preserve existing error paths
+  (invalid signature, invalid like metadata, etc.) —
+  abort recursion and propagate upward.
+- [ ] Keep `apply` logic unchanged;
+  factor out of the flat loop into a helper if needed.
+
+Acceptance:
+
+```
+make test T=cli-sync       -- all green
+```
+
+### Step 3 — keep `replay_loser` flat, driven by `O_snd`
+
+- [ ] `replay_loser` does **not** need `walk()` or
+  `graph()`.
+  Consensus is immutable (pure function of each
+  merge's `G_com`), so inner ordering on the loser
+  branch is already fixed by `O_snd`.
+- [ ] Iterate `O_snd` in order
+  (`sync.lua:126-207` pattern):
+    - `git merge --no-commit <hash>` for every
+      non-state commit (as today `sync.lua:157-168`).
+    - On conflict: `merge --abort`, return error.
+    - Otherwise `commit -m 'x'`, then
+      `apply(G_fst, entry)`.
+- [ ] Keep the detached-HEAD setup and the
+  `__close`-based `checkout main` cleanup
+  (`sync.lua:129-136`).
+- [ ] Simplify the `O_snd[]` index hunt
+  (`sync.lua:138-145`) if still needed.
+
+Acceptance:
+
+```
+make test T=cli-sync       -- all green
+```
+
+### Step 4 — nested-cascade test
+
+- [x] Added `Test 4: nested cascade` to
+  `tst/consensus.lua` per § Nested-cascade failing
+  test design.
+
+Acceptance:
+
+```
+make test T=consensus      -- Test 4 passes
+```
+
+### Step 5 — final verification
+
+- [ ] `make test T=git-merge`
+- [ ] `make test T=cli-sync`
+- [ ] Full suite: `make test`
+- [ ] Update `## Done` section:
+  mark steps 1–4 as `[x]`.
