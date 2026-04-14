@@ -41,11 +41,11 @@ local function consensus (G_com, com, a, b)
     end
 end
 
--- Replay remote commits from range onto state G.
+-- Replay remote commits from range onto state G_rem.
 -- In case of error, partial replay has been applied.
 -- Returns: ok, last, err
 
-local function replay_remote (G, com, rem)
+local function replay_remote (G_rem, com, rem)
     local last = com
     local out = exec (
         "git -C " .. REPO ..
@@ -89,7 +89,7 @@ local function replay_remote (G, com, rem)
             if (not ok) or type(like)~='table' then
                 return false, last, "invalid like : invalid lua metadata"
             end
-            local ok, err = apply(G, 'like', tonumber(time), {
+            local ok, err = apply(G_rem, 'like', tonumber(time), {
                 hash   = hash,
                 sign   = key,
                 num    = like.number,
@@ -100,7 +100,7 @@ local function replay_remote (G, com, rem)
                 return false, last, "invalid like : " .. err
             end
         elseif kind == 'post' then
-            local ok, err = apply(G, 'post', tonumber(time), {
+            local ok, err = apply(G_rem, 'post', tonumber(time), {
                 hash = hash,
                 sign = key,
                 beg  = (key == nil),
@@ -111,14 +111,14 @@ local function replay_remote (G, com, rem)
         else
             assert(kind == 'state')
         end
-        G.order[#G.order+1] = hash
+        G_rem.order[#G_rem.order+1] = hash
         last = hash
     end
 
     return true, last, nil
 end
 
--- Replay loser commits from range onto state G.
+-- Replay loser commits from range onto state G_fst.
 -- Trial-merges each non-state commit against fst (detached HEAD).
 -- In case of error, partial replay has been applied.
 -- Returns: ok, last, err
