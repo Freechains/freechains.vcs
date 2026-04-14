@@ -146,16 +146,12 @@ local function replay_loser (G_fst, O_snd, com, fst)
     for i=I, #O_snd do
         local hash = O_snd[i]
         local time = NOW(hash)
-        local key, err = ssh.verify(REPO, hash)
+        local key  = ssh.pubkey(REPO, hash)
 
         local trailer = exec (
             "git -C " .. REPO .. " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash
         )
         local kind = trailer:match("(%S+)") or ""
-
-        if (not key) and (err == 'forged') then
-            return false, last, "invalid " .. kind .. " : invalid signature"
-        end
 
         if kind~='state' then
             local ok = exec (true, 'stdout',
@@ -173,28 +169,14 @@ local function replay_loser (G_fst, O_snd, com, fst)
         end
 
         if kind == 'like' then
-            if not key then
-                return false, last, "invalid like : missing sign key"
-            end
-
             local file = exec (
                 "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash .. " -- .freechains/likes/"
             )
-            file = file:match("(%S+)")
-            if not file then
-                return false, last, "invalid like : missing metadata file"
-            end
+            file = assert(file:match("(%S+)"))
             local src = exec (
                 "git -C " .. REPO .. " show " .. hash .. ":" .. file
             )
-            local f = load(src)
-            if not f then
-                return false, last, "invalid like : invalid lua metadata"
-            end
-            local ok, like = pcall(f)
-            if (not ok) or type(like)~='table' then
-                return false, last, "invalid like : invalid lua metadata"
-            end
+            local like = assert(assert(load(src))())
             local ok, err = apply(G_fst, 'like', time, {
                 hash   = hash,
                 sign   = key,
