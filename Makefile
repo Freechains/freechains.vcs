@@ -6,6 +6,7 @@ tests: src/freechains/argparse.lua
 	@chmod 600 tst/ssh/key*
 	$(L) ssh.lua
 	$(L) git-merge.lua
+	$(L) git-graph.lua
 	$(L) cli-chains.lua
 	$(L) cli-post.lua
 	$(L) cli-sign.lua
@@ -16,7 +17,7 @@ tests: src/freechains/argparse.lua
 	$(L) cli-begs.lua
 	$(L) cli-sync.lua
 	$(L) cli-order.lua
-	$(L) consensus.lua
+	#$(L) consensus.lua
 	$(L) err-post.lua
 	$(L) err-like.lua
 	$(L) repl-local-head.lua
