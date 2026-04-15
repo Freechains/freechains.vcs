@@ -135,13 +135,18 @@ do
     end
 
     local function BFS (G, H, fr, to)
-        if fr == to then return end
+        local cur
         local childs = H[fr].childs
-        if #childs == 0 then return end
-        local c = childs[1]
-        if c == to then return end
-        F(G, c)
-        return BFS(G, H, c, to)
+        if #childs == 0 then
+            return
+        else
+            cur = childs[1]
+            if cur == to then
+                return
+            end
+        end
+        F(G, cur)
+        return BFS(G, H, cur, to)
     end
 
     replay_remote = function (G_rem, H, com)
