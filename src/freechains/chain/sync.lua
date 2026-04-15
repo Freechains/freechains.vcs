@@ -71,92 +71,82 @@ end
 -- In case of error, partial replay has been applied.
 -- Returns: ok, last, err
 
-local function F (G, hash)
-    local key, err = ssh.verify(REPO, hash)
+local replay_remote
+do
+    local function F (G, hash)
+        local key, err = ssh.verify(REPO, hash)
 
-    local out = exec (
-        "git -C " .. REPO .. " log -1 --format='%at %(trailers:key=Freechains,valueonly)' " .. hash
-    )
-    local time,kind = out:match("(%S+)%s+(%S+)")
-
-    if (not key) and (err == 'forged') then
-        return false, "invalid " .. kind .. " : invalid signature"
-    end
-
-    if kind == 'like' then
-        if not key then
-            return false, "invalid like : missing sign key"
-        end
-
-        local file = exec (
-            "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash .. " -- .freechains/likes/"
+        local out = exec (
+            "git -C " .. REPO .. " log -1 --format='%at %(trailers:key=Freechains,valueonly)' " .. hash
         )
-        file = file:match("(%S+)")
-        if not file then
-            return false, "invalid like : missing metadata file"
-        end
-        local src = exec (
-            "git -C " .. REPO .. " show " .. hash .. ":" .. file
-        )
-        local f = load(src)
-        if not f then
-            return false, "invalid like : invalid lua metadata"
-        end
-        local ok, like = pcall(f)
-        if (not ok) or type(like)~='table' then
-            return false, "invalid like : invalid lua metadata"
-        end
-        local ok, err = apply(G, 'like', tonumber(time), {
-            hash   = hash,
-            sign   = key,
-            num    = like.number,
-            target = like.target,
-            id     = like.id,
-        })
-        if not ok then
-            return false, "invalid like : " .. err
-        end
-    elseif kind == 'post' then
-        local ok, err = apply(G, 'post', tonumber(time), {
-            hash = hash,
-            sign = key,
-            beg  = (key == nil),
-        })
-        if not ok then
-            return false, "invalid post : " .. err
-        end
-    else
-        assert(kind == 'state')
-    end
-    G.order[#G.order+1] = hash
-    return true
-end
+        local time,kind = out:match("(%S+)%s+(%S+)")
 
---[[
-local function rec (G, H, fr, to, f)
-end
-
-local function replay_remote(G_rem, H, com)
-    rec(G_rem, H, com, nil, f)
-end
-]]
-
-local function replay_remote (G_rem, com, rem)
-    local last = com
-    local out = exec (
-        "git -C " .. REPO ..
-            " log --reverse --no-merges --format='%H' " .. (com .. ".." .. rem)
-    )
-
-    for hash in out:gmatch("[^\n]+") do
-        local ok,err = F(G_rem, hash)
-        if not ok then
-            return ok, last, err
+        if (not key) and (err == 'forged') then
+            return false, "invalid " .. kind .. " : invalid signature"
         end
-        last = hash
+
+        if kind == 'like' then
+            if not key then
+                return false, "invalid like : missing sign key"
+            end
+
+            local file = exec (
+                "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash .. " -- .freechains/likes/"
+            )
+            file = file:match("(%S+)")
+            if not file then
+                return false, "invalid like : missing metadata file"
+            end
+            local src = exec (
+                "git -C " .. REPO .. " show " .. hash .. ":" .. file
+            )
+            local f = load(src)
+            if not f then
+                return false, "invalid like : invalid lua metadata"
+            end
+            local ok, like = pcall(f)
+            if (not ok) or type(like)~='table' then
+                return false, "invalid like : invalid lua metadata"
+            end
+            local ok, err = apply(G, 'like', tonumber(time), {
+                hash   = hash,
+                sign   = key,
+                num    = like.number,
+                target = like.target,
+                id     = like.id,
+            })
+            if not ok then
+                return false, "invalid like : " .. err
+            end
+        elseif kind == 'post' then
+            local ok, err = apply(G, 'post', tonumber(time), {
+                hash = hash,
+                sign = key,
+                beg  = (key == nil),
+            })
+            if not ok then
+                return false, "invalid post : " .. err
+            end
+        else
+            assert(kind == 'state')
+        end
+        G.order[#G.order+1] = hash
+        return true
     end
 
-    return true, last, nil
+    local function BFS (G, H, fr, to)
+        if fr == to then return end
+        local childs = H[fr].childs
+        if #childs == 0 then return end
+        local c = childs[1]
+        if c == to then return end
+        F(G, c)
+        return BFS(G, H, c, to)
+    end
+
+    replay_remote = function (G_rem, H, com)
+        return pcall(BFS, G_rem, H, com, nil)
+    end
 end
 
 -- Replay loser commits from range onto state G_fst.
@@ -303,9 +293,8 @@ elseif ARGS.recv then
     -- verify remote: replay remote branch from G_com
     local G_rem = G_com -- (G_com no longer required)
     do
-        --local H = graph(REPO, com, rem)
-        --local ok, err = replay_remote(G_rem, H, com, nil)
-        local ok, _, err = replay_remote(G_rem, com, rem)
+        local H = graph(REPO, com, rem)
+        local ok, err = replay_remote(G_rem, H, com)
         if not ok then
             ERROR("chain sync : " .. err)
         end
