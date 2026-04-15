@@ -82,12 +82,12 @@ do
         local time,kind = out:match("(%S+)%s+(%S+)")
 
         if (not key) and (err == 'forged') then
-            return false, "invalid " .. kind .. " : invalid signature"
+            error("invalid " .. kind .. " : invalid signature", 0)
         end
 
         if kind == 'like' then
             if not key then
-                return false, "invalid like : missing sign key"
+                error("invalid like : missing sign key", 0)
             end
 
             local file = exec (
@@ -95,18 +95,18 @@ do
             )
             file = file:match("(%S+)")
             if not file then
-                return false, "invalid like : missing metadata file"
+                error("invalid like : missing metadata file", 0)
             end
             local src = exec (
                 "git -C " .. REPO .. " show " .. hash .. ":" .. file
             )
             local f = load(src)
             if not f then
-                return false, "invalid like : invalid lua metadata"
+                error("invalid like : invalid lua metadata", 0)
             end
             local ok, like = pcall(f)
             if (not ok) or type(like)~='table' then
-                return false, "invalid like : invalid lua metadata"
+                error("invalid like : invalid lua metadata", 0)
             end
             local ok, err = apply(G, 'like', tonumber(time), {
                 hash   = hash,
@@ -116,7 +116,7 @@ do
                 id     = like.id,
             })
             if not ok then
-                return false, "invalid like : " .. err
+                error("invalid like : " .. err, 0)
             end
         elseif kind == 'post' then
             local ok, err = apply(G, 'post', tonumber(time), {
@@ -125,13 +125,12 @@ do
                 beg  = (key == nil),
             })
             if not ok then
-                return false, "invalid post : " .. err
+                error("invalid post : " .. err, 0)
             end
         else
             assert(kind == 'state')
         end
         G.order[#G.order+1] = hash
-        return true
     end
 
     local function BFS (G, H, fr, to)
