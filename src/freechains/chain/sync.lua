@@ -1,6 +1,32 @@
 require "freechains.chain.common"
 local ssh = require "freechains.chain.ssh"
 
+-- Forward DAG builder: parent -> child via childs
+-- G = { root=fr, [hash] = { hash=hash, childs={...} } }
+local function graph (dir, fr, to)
+    local log = exec (
+        "git -C " .. dir .. " rev-list --topo-order --reverse --parents " ..
+            fr .. ".." .. to
+    )
+    local G = {
+        root = fr,
+        [fr] = { hash=fr, childs={} },
+    }
+    for l in log:gmatch("[^\n]+") do
+        local hs = {}
+        for h in l:gmatch("%x+") do
+            hs[#hs+1] = h
+        end
+        local me = hs[1]
+        G[me] = { hash=me, childs={} }
+        for i=2, #hs do
+            local up = G[hs[i]].childs
+            up[#up+1] = me
+        end
+    end
+    return G
+end
+
 -- Consensus: prefix reps from G_com decide winner
 --  - traverse com..tip, collect signed keys
 --  - sum G_com.authors[key].reps for each side

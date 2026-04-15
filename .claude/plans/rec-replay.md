@@ -311,20 +311,19 @@ make test T=git-merge
 Sequential; do not start step N+1 until step N is
 green.
 
-**▶ Resume here**: Step 1 — move `graph()` into
-`src/freechains/chain/sync.lua`.
-Test 4 in `tst/consensus.lua` is the driver
-(currently failing, must pass after Step 2).
+**▶ Resume here**: Step 3 — keep `replay_loser` flat,
+driven by `O_snd`. Test 4 in `tst/consensus.lua` is the
+driver (must pass after Step 2).
 
 ### Step 1 — move `graph()` into src
 
-- [ ] Copy `graph(dir, fr, to)`
+- [x] Copy `graph(dir, fr, to)`
   from `tst/git-merge.lua:30-52`
   into `src/freechains/chain/sync.lua`
   as a file-local function (above `consensus`).
-- [ ] Keep the copy in `tst/git-merge.lua` untouched
+- [x] Keep the copy in `tst/git-merge.lua` untouched
   (its scenario 4 tests must still pass).
-- [ ] Touch no call sites yet.
+- [x] Touch no call sites yet.
 
 Acceptance:
 
@@ -335,24 +334,24 @@ make test T=cli-sync       -- still green
 
 ### Step 2 — adapt `replay_remote` for recursion
 
-- [ ] Add local `walk(H, node)` in `sync.lua`:
+- [x] Add local `walk(H, node)` in `sync.lua`:
   returns `l1, l2, r1, r2, join` for a fork at `node`
   (see § Fork anatomy).
-- [ ] Rewrite `replay_remote` (`sync.lua:48-119`) with
-  the signature and pseudocode in § Algorithm:
+- [x] Rewrite `replay_remote` with the signature and
+  pseudocode in § Algorithm:
 
     ```lua
     local function replay_remote (G_rem, H, start, stop)
     ```
 
-- [ ] Top-level caller:
+- [x] Top-level caller:
   build `H = graph(REPO, com, rem)` once, then call
   `replay_remote(G_rem, H, com, nil)`.
-- [ ] Preserve existing error paths
+- [x] Preserve existing error paths
   (invalid signature, invalid like metadata, etc.) —
   abort recursion and propagate upward.
-- [ ] Keep `apply` logic unchanged;
-  factor out of the flat loop into a helper if needed.
+- [x] Factor commit-apply into `apply_commit(G_rem, hash)`
+  helper (shared by linear and fork branches).
 
 Acceptance:
 
