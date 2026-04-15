@@ -39,52 +39,55 @@ local function graph (dir, fr, to)
     return G
 end
 
--- Walk fork at node: returns l1, l2, r1, r2, join
--- Branches are linear (state-commit invariant) up to join.
+-- Walk fork at `node`: returns l1, l2, r1, r2, join
+-- l1, r1 = two branch entries (children of node)
+-- join   = first common forward-descendant of l1 and r1
+-- l2, r2 = parents of join on left/right side respectively
+-- General: works even when branches contain nested sub-forks.
 local function walk (H, node)
     local l1 = H[node].childs[1]
     local r1 = H[node].childs[2]
-    local left = {}
+    local L, Lpred = { [l1]=true }, {}
     do
-        local cur = l1
-        while true do
-            left[cur] = true
-            if #H[cur].childs == 0 then
-                break
-            else
-                cur = H[cur].childs[1]
-            end
-        end
-    end
-    local r2, join
-    do
-        local cur = r1
-        while true do
-            if left[cur] then
-                join = cur
-                break
-            else
-                r2 = cur
-                if #H[cur].childs == 0 then
-                    break
+        local stack = { l1 }
+        while #stack > 0 do
+            local cur = table.remove(stack)
+            for _, c in ipairs(H[cur].childs) do
+                if not L[c] then
+                    L[c] = true
+                    Lpred[c] = cur
+                    stack[#stack+1] = c
                 else
-                    cur = H[cur].childs[1]
+                    -- already seen
                 end
             end
         end
     end
-    local l2
+    local join, Rpred = nil, {}
     do
-        local cur = l1
-        while cur ~= join do
-            l2 = cur
-            cur = H[cur].childs[1]
+        local stack = { r1 }
+        local seen = { [r1]=true }
+        while #stack > 0 and not join do
+            local cur = table.remove(stack)
+            for _, c in ipairs(H[cur].childs) do
+                if L[c] then
+                    join = c
+                    Rpred[c] = cur
+                    break
+                elseif not seen[c] then
+                    seen[c] = true
+                    Rpred[c] = cur
+                    stack[#stack+1] = c
+                else
+                    -- already seen
+                end
+            end
         end
     end
-    return l1, l2, r1, r2, join
+    return l1, Lpred[join], r1, Rpred[join], join
 end
 
--- SCENARIO 4: nested merge DAG lab
+-- SCENARIO 1: nested merge DAG lab
 --
 -- pre → H1 → a1 → a2 → M1 → a4 → a5 → M2 → H2 → post
 --         \    \       /              /
@@ -94,7 +97,7 @@ end
 --
 -- H1..H2 contains M2 (outer) which contains M1 (inner)
 do
-    print("==> Scenario 4: nested merge DAG lab")
+    print("==> Scenario 1: nested merge DAG lab")
 
     local DIR = ROOT .. "/git-graph/lab/"
     exec("rm -rf " .. DIR)
@@ -112,20 +115,26 @@ do
     -- branch-c from H1: c1, c2
     exec("git -C " .. DIR .. " checkout -b branch-c")
     post(DIR, "c1.txt", "c1")
+    local c1 = exec("git -C " .. DIR .. " rev-parse HEAD")
     post(DIR, "c2.txt", "c2")
+    local c2 = exec("git -C " .. DIR .. " rev-parse HEAD")
 
     -- back to main: a1
     exec("git -C " .. DIR .. " checkout main")
     post(DIR, "a1.txt", "a1")
+    local a1 = exec("git -C " .. DIR .. " rev-parse HEAD")
 
     -- branch-b from a1: b1, b2
     exec("git -C " .. DIR .. " checkout -b branch-b")
     post(DIR, "b1.txt", "b1")
+    local b1 = exec("git -C " .. DIR .. " rev-parse HEAD")
     post(DIR, "b2.txt", "b2")
+    local b2 = exec("git -C " .. DIR .. " rev-parse HEAD")
 
     -- back to main: a2
     exec("git -C " .. DIR .. " checkout main")
     post(DIR, "a2.txt", "a2")
+    local a2 = exec("git -C " .. DIR .. " rev-parse HEAD")
 
     -- M1: merge branch-b into main
     exec("git -C " .. DIR .. " merge --no-edit branch-b")
@@ -134,6 +143,7 @@ do
     -- a4, a5
     post(DIR, "a4.txt", "a4")
     post(DIR, "a5.txt", "a5")
+    local a5 = exec("git -C " .. DIR .. " rev-parse HEAD")
 
     -- M2: merge branch-c into main
     exec("git -C " .. DIR .. " merge --no-edit branch-c")
@@ -213,6 +223,30 @@ do
 
         TEST "graph: H2 is leaf"
         assert(#G[H2].childs == 0)
+
+        TEST "walk: outer fork at H1 joins at M2"
+        do
+            local l1, l2, r1, r2, join = walk(G, H1)
+            assert(join == M2)
+            assert((l1==a1 and r1==c1) or (l1==c1 and r1==a1))
+            if l1 == a1 then
+                assert(l2==a5 and r2==c2)
+            else
+                assert(l2==c2 and r2==a5)
+            end
+        end
+
+        TEST "walk: inner fork at a1 joins at M1"
+        do
+            local l1, l2, r1, r2, join = walk(G, a1)
+            assert(join == M1)
+            assert((l1==a2 and r1==b1) or (l1==b1 and r1==a2))
+            if l1 == a2 then
+                assert(l2==a2 and r2==b2)
+            else
+                assert(l2==b2 and r2==a2)
+            end
+        end
     end
 end
 
