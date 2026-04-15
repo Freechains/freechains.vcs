@@ -288,7 +288,8 @@ elseif ARGS.recv then
     -- verify remote: replay remote branch from G_com
     local G_rem = G_com -- (G_com no longer required)
     do
-        local ok, _, err = replay_remote(G_rem, com, rem)
+        local H = graph(REPO, com, rem)
+        local ok, err = replay_remote(G_rem, H, com, nil)
         if not ok then
             ERROR("chain sync : " .. err)
         end
