@@ -1,32 +1,6 @@
 require "freechains.chain.common"
 local ssh = require "freechains.chain.ssh"
 
--- Forward DAG builder: parent -> child via childs
--- G = { root=fr, [hash] = { hash=hash, childs={...} } }
-local function graph (dir, fr, to)
-    local log = exec (
-        "git -C " .. dir .. " rev-list --topo-order --reverse --parents " ..
-            fr .. ".." .. to
-    )
-    local G = {
-        root = fr,
-        [fr] = { hash=fr, childs={} },
-    }
-    for l in log:gmatch("[^\n]+") do
-        local hs = {}
-        for h in l:gmatch("%x+") do
-            hs[#hs+1] = h
-        end
-        local me = hs[1]
-        G[me] = { hash=me, childs={} }
-        for i=2, #hs do
-            local up = G[hs[i]].childs
-            up[#up+1] = me
-        end
-    end
-    return G
-end
-
 -- Consensus: prefix reps from G_com decide winner
 --  - traverse com..tip, collect signed keys
 --  - sum G_com.authors[key].reps for each side
@@ -73,6 +47,18 @@ end
 
 local replay_remote
 do
+    local function parents (tip)
+        local out = exec (
+            "git -C " .. REPO .. " rev-list --parents -1 " .. tip
+        )
+        local ps = {}
+        for h in out:gmatch("%x+") do
+            ps[#ps+1] = h
+        end
+        assert(#ps <= 3, "bug: >2 parents")
+        return ps[2], ps[3]
+    end
+
     local function F (G, hash)
         local key, err = ssh.verify(REPO, hash)
 
@@ -133,48 +119,34 @@ do
         G.order[#G.order+1] = hash
     end
 
-    -- Walk fork at `node`: returns l1, l2, r1, r2, join
-    -- l1, r1 = two branch entries (children of node)
-    -- join   = first common forward-descendant of l1 and r1
-    -- l2, r2 = parents of join on left/right side respectively
-    -- General: works even when branches contain nested sub-forks.
-    local function walk (H, node)
-    end
-
-    local function BFS (G, H, fr, to)
-        local cs = H[fr].childs
-        if #cs == 0 then
-            -- nothing to do
-        elseif #cs == 1 then
-            local nxt = cs[1]
-            if nxt ~= to then
-                F(G, nxt)
-                return BFS(G, H, nxt, to)
-            end
-        elseif #cs == 2 then
-            local l1, l2, r1, r2, join = walk(H, fr)
-            local w, _ = consensus(G, fr, l2, r2)
-            local cw, cl
-            if w == l2 then
-                cw, cl = l1, r1
-            else
-                cw, cl = r1, l1
-            end
-            F(G, cw)
-            BFS(G, H, cw, join)
-            F(G, cl)
-            BFS(G, H, cl, join)
-            if join ~= to then
-                F(G, join)
-                return BFS(G, H, join, to)
-            end
+    local function rec (G, base, tip)
+        if tip == base then
+            return
         else
-            error "bug found"
+            local p1, p2 = parents(tip)
+            if p2 == nil then
+                rec(G, base, p1)
+                F(G, tip)
+            else
+                local B = exec (
+                    "git -C " .. REPO .. " merge-base " .. p1 .. " " .. p2
+                )
+                rec(G, base, B)
+                local w = consensus(G, B, p1, p2)
+                if w == p1 then
+                    rec(G, B, p1)
+                    rec(G, B, p2)
+                else
+                    rec(G, B, p2)
+                    rec(G, B, p1)
+                end
+                F(G, tip)
+            end
         end
     end
 
-    replay_remote = function (G_rem, H, com)
-        return pcall(BFS, G_rem, H, com, nil)
+    replay_remote = function (G_rem, com, rem)
+        return pcall(rec, G_rem, com, rem)
     end
 end
 
@@ -322,8 +294,7 @@ elseif ARGS.recv then
     -- verify remote: replay remote branch from G_com
     local G_rem = G_com -- (G_com no longer required)
     do
-        local H = graph(REPO, com, rem)
-        local ok, err = replay_remote(G_rem, H, com)
+        local ok, err = replay_remote(G_rem, com, rem)
         if not ok then
             ERROR("chain sync : " .. err)
         end
