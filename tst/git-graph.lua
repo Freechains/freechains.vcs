@@ -39,6 +39,51 @@ local function graph (dir, fr, to)
     return G
 end
 
+-- Walk fork at node: returns l1, l2, r1, r2, join
+-- Branches are linear (state-commit invariant) up to join.
+local function walk (H, node)
+    local l1 = H[node].childs[1]
+    local r1 = H[node].childs[2]
+    local left = {}
+    do
+        local cur = l1
+        while true do
+            left[cur] = true
+            if #H[cur].childs == 0 then
+                break
+            else
+                cur = H[cur].childs[1]
+            end
+        end
+    end
+    local r2, join
+    do
+        local cur = r1
+        while true do
+            if left[cur] then
+                join = cur
+                break
+            else
+                r2 = cur
+                if #H[cur].childs == 0 then
+                    break
+                else
+                    cur = H[cur].childs[1]
+                end
+            end
+        end
+    end
+    local l2
+    do
+        local cur = l1
+        while cur ~= join do
+            l2 = cur
+            cur = H[cur].childs[1]
+        end
+    end
+    return l1, l2, r1, r2, join
+end
+
 -- SCENARIO 4: nested merge DAG lab
 --
 -- pre → H1 → a1 → a2 → M1 → a4 → a5 → M2 → H2 → post
