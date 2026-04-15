@@ -133,19 +133,44 @@ do
         G.order[#G.order+1] = hash
     end
 
+    -- Walk fork at `node`: returns l1, l2, r1, r2, join
+    -- l1, r1 = two branch entries (children of node)
+    -- join   = first common forward-descendant of l1 and r1
+    -- l2, r2 = parents of join on left/right side respectively
+    -- General: works even when branches contain nested sub-forks.
+    local function walk (H, node)
+    end
+
     local function BFS (G, H, fr, to)
-        local cur
-        local childs = H[fr].childs
-        if #childs == 0 then
-            return
-        else
-            cur = childs[1]
-            if cur == to then
-                return
+        local cs = H[fr].childs
+        if #cs == 0 then
+            -- nothing to do
+        elseif #cs == 1 then
+            local nxt = cs[1]
+            if nxt ~= to then
+                F(G, nxt)
+                return BFS(G, H, nxt, to)
             end
+        elseif #cs == 2 then
+            local l1, l2, r1, r2, join = walk(H, fr)
+            local w, _ = consensus(G, fr, l2, r2)
+            local cw, cl
+            if w == l2 then
+                cw, cl = l1, r1
+            else
+                cw, cl = r1, l1
+            end
+            F(G, cw)
+            BFS(G, H, cw, join)
+            F(G, cl)
+            BFS(G, H, cl, join)
+            if join ~= to then
+                F(G, join)
+                return BFS(G, H, join, to)
+            end
+        else
+            error "bug found"
         end
-        F(G, cur)
-        return BFS(G, H, cur, to)
     end
 
     replay_remote = function (G_rem, H, com)
