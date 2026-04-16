@@ -5,48 +5,48 @@ local ssh = require "freechains.chain.ssh"
 --  - traverse com..tip, collect signed keys
 --  - sum G_com.authors[key].reps for each side
 --  - higher sum wins, hash tiebreaker (smaller wins)
-local function consensus (G_com, com, a, b)
-    local function collect_keys (tip)
-        local keys = {}
-        local out = exec (
-            "git -C " .. REPO .. " log --reverse --format=%H " .. com .. ".." .. tip
-        )
-        for hash in out:gmatch("%x+") do
-            local key = ssh.verify(REPO, hash)
-            if key then
-                keys[key] = true
-            end
-        end
-        return keys
-    end
-    local function reps (keys)
-        local n = 0
-        for key in pairs(keys) do
-            local T = G_com.authors[key]
-            if T then
-                n = n + T.reps
-            end
-        end
-        return n
-    end
-    local sa, sb = reps(collect_keys(a)), reps(collect_keys(b))
-    if sa > sb then
-        return a, b
-    elseif sb > sa then
-        return b, a
-    elseif a < b then
-        return a, b
-    else
-        return b, a
-    end
-end
-
 -- Replay remote commits from range onto state G_rem.
 -- In case of error, partial replay has been applied.
 -- Returns: ok, last, err
 
 local rec_climb, rec_meet
 do
+    local function consensus (G_com, com, a, b)
+        local function collect_keys (tip)
+            local keys = {}
+            local out = exec (
+                "git -C " .. REPO .. " log --reverse --format=%H " .. com .. ".." .. tip
+            )
+            for hash in out:gmatch("%x+") do
+                local key = ssh.verify(REPO, hash)
+                if key then
+                    keys[key] = true
+                end
+            end
+            return keys
+        end
+        local function reps (keys)
+            local n = 0
+            for key in pairs(keys) do
+                local T = G_com.authors[key]
+                if T then
+                    n = n + T.reps
+                end
+            end
+            return n
+        end
+        local sa, sb = reps(collect_keys(a)), reps(collect_keys(b))
+        if sa > sb then
+            return a, b
+        elseif sb > sa then
+            return b, a
+        elseif a < b then
+            return a, b
+        else
+            return b, a
+        end
+    end
+
     local function parents (tip)
         local out = exec (
             "git -C " .. REPO .. " rev-list --parents -1 " .. tip
@@ -59,7 +59,7 @@ do
         return ps[2], ps[3]
     end
 
-    local function F (G, hash, merge)
+    local function commit (G, hash, merge)
         local key, err = ssh.verify(REPO, hash)
 
         local out = exec (
@@ -144,7 +144,7 @@ do
             else
                 rec_meet(G, com, p1, p2)
             end
-            F(G, cur)
+            commit(G, cur)
         end
     end
 
