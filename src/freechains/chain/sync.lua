@@ -254,8 +254,14 @@ elseif ARGS.recv then
     local loc = exec("git -C " .. REPO .. " rev-parse HEAD")
     local rem = exec("git -C " .. REPO .. " rev-parse FETCH_HEAD")
 
-    if loc == rem then
-        goto RECV
+    -- remote has nothing new: skip replay
+    do
+        local ok = exec (true, 'stdout',
+            "git -C " .. REPO .. " merge-base --is-ancestor " .. rem .. " " .. loc
+        )
+        if ok then
+            goto RECV
+        end
     end
 
     -- reject unrelated histories (different genesis)
