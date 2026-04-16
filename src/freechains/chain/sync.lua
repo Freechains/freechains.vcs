@@ -314,9 +314,15 @@ elseif ARGS.recv then
         end
     end
 
-    if com == loc then
-        exec("git -C " .. REPO .. " merge --ff-only FETCH_HEAD")
-        goto RECV
+    -- fast-forward: local is ancestor of remote
+    do
+        local ff = exec (true, 'stdout',
+            "git -C " .. REPO .. " merge-base --is-ancestor " .. loc .. " " .. rem
+        )
+        if ff then
+            exec("git -C " .. REPO .. " merge --ff-only FETCH_HEAD")
+            goto RECV
+        end
     end
 
     -- final state: consensus + replay loser
