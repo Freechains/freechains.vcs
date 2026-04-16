@@ -279,9 +279,17 @@ elseif ARGS.recv then
 
     local com, G_com
     do
-        com = exec (
-            "git -C " .. REPO .. " merge-base " .. loc .. " " .. rem
-        )
+        -- outer-merge-base
+        do
+            local list = exec (
+                "git -C " .. REPO ..  " rev-list --topo-order --reverse " ..
+                    loc .. ".." .. rem
+            )
+            local oldest = list:match("%x+")
+            com = exec (
+                "git -C " .. REPO .. " rev-parse " .. oldest .. "^"
+            )
+        end
         local function F (path)
             local src = exec (
                 "git -C " .. REPO .. " show " .. com .. ":" .. path
