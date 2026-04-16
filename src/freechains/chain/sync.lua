@@ -121,29 +121,32 @@ do
 
     local climb, meet
 
-    climb = function (G, base, tip)
-        if tip == base then return end
-        local p1, p2 = parents(tip)
-        if p2 == nil then
-            climb(G, base, p1)
+    climb = function (G, com, cur)
+        if cur == com then
+            return
         else
-            meet(G, base, p1, p2)
+            local p1, p2 = parents(cur)
+            if p2 == nil then
+                climb(G, com, p1)
+            else
+                meet(G, com, p1, p2)
+            end
+            F(G, cur)
         end
-        F(G, tip)
     end
 
-    meet = function (G, base, p1, p2)
-        local B = exec (
-            "git -C " .. REPO .. " merge-base " .. p1 .. " " .. p2
+    meet = function (G, com, left, right)
+        local up = exec (
+            "git -C " .. REPO .. " merge-base " .. left .. " " .. right
         )
-        climb(G, base, B)
-        local w = consensus(G, B, p1, p2)
-        if w == p1 then
-            climb(G, B, p1)
-            climb(G, B, p2)
+        climb(G, com, up)
+        local w = consensus(G, up, left, right)
+        if w == left then
+            climb(G, up, left)
+            climb(G, up, right)
         else
-            climb(G, B, p2)
-            climb(G, B, p1)
+            climb(G, up, right)
+            climb(G, up, left)
         end
     end
 
