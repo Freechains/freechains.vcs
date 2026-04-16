@@ -267,94 +267,111 @@ make test T=consensus
 ## Done
 
 - [x] `consensus(G, com, a, b)` — reps-sum +
-  hash tiebreaker
-  (`src/freechains/chain/sync.lua`)
-- [x] Like replay via `diff-tree` + `git show`
-  payload
-- [x] Top-level consensus uses `consensus()`
-- [x] Test 4 `nested cascade` added to
-  `tst/consensus.lua` (driver test, failing under
-  flat replay — confirmed)
-- [x] `F(G, hash)` — per-commit apply helper,
-  throws via `error(msg, 0)` on validation failure
+  hash tiebreaker, scoped inside the recv block's
+  do-block
 - [x] `parents(tip)` — git `rev-list --parents -1`
   wrapper, returns `p1, p2`
-- [x] `rec(G, base, tip)` — backward recursion,
-  apply-on-return (first draft, no in-range guard)
-- [x] `replay_remote(G_rem, com, rem)` — thin `pcall`
-  wrapper around `rec`
-- [x] Top-level call site updated (no `H`)
-- [x] `graph()` / `walk()` / forward `BFS()` all
-  removed from `sync.lua`
+- [x] `commit(G, hash, merge)` — per-commit helper
+  (renamed from `F`); throws on validation failure;
+  `merge` flag controls per-commit `git merge
+  --no-commit` for the loser-side tree walk
+- [x] `rec_climb(G, com, cur)` — single-tip backward
+  walker; delegates merges to `rec_meet`
+- [x] `rec_meet(G, com, left, right)` — merge-point
+  helper: walks shared history, runs consensus,
+  recurses winner-then-loser
+- [x] Backward recursion replaces forward BFS; no
+  graph/H/walk structures
+- [x] `outer_merge_base` logic inlined in main:
+  parent of oldest commit in `loc..rem`
+- [x] Fast-forward check uses
+  `git merge-base --is-ancestor loc rem` (no longer
+  compares `com == loc`)
+- [x] Cases 1, 2, 3 complete in main:
+  1. unrelated genesis → ERROR
+  2. rem ancestor of loc → early-out
+  3. loc ancestor of rem → `pcall(rec_climb)` +
+     `git merge --ff-only`
+- [x] `replay_loser` removed — its per-commit merge
+  logic is subsumed by `commit(merge=true)`
+- [x] Test 4 `nested cascade` added to
+  `tst/consensus.lua`
 
 ## Known bugs
 
-- `rec` crashes when an inner merge's `merge-base` is
-  outside `com..rem` (cli-sync step 3 "recv
-  divergent"). Needs Step A fix.
-- Consensus at inner merges uses live G, not a
-  snapshot at `B`. Correct for freechains today (no
-  pre-com dislikes), but not general.
+- `rec_climb` / `rec_meet` don't accept or forward
+  the `merge` flag to `commit` — loser-side tree
+  walks can't trigger per-commit git-merge yet.
+- Case 4 post-`rec_meet` block still references
+  `fst` / `merge` / `G_fst` from the old
+  `replay_loser`-era code — undefined now; whole
+  block needs rewrite.
+- Inner `rec_meet` whose `merge-base(p1, p2)` is an
+  ancestor of the current `com` still overshoots
+  (e.g. `AB`'s `merge-base(a1, b1) = G` when current
+  base is `b1`). `rec_climb(G, com, G)` walks past
+  genesis and hits nil parent.
 
 ## Next steps
 
 Sequential; do not start step N+1 until step N is
 green.
 
-**▶ Resume here**: Step A — in-range guard.
+**▶ Resume here**: Step A — propagate `merge` flag
+through `rec_climb` / `rec_meet`.
 
-### Step A — `in_range` set guard in `rec`
+### Step A — propagate `merge` flag
 
-Fix the crash on cli-sync step 3.
-
-- [ ] Compute `R = { [h] = true for h in rev-list com..rem }`
-  in `replay_remote` before calling `rec`.
-- [ ] Pass `R` as parameter to `rec`.
-- [ ] At `rec` entry: `if not R[tip] then return end;
-  R[tip] = nil` (consume).
-- [ ] Drop `base` parameter (in-range set replaces
-  the `tip == base` stop condition).
-- [ ] Inner merges whose `B` is outside range: skip
-  the shared-history `rec(G, B, R)` call silently —
-  consensus still uses `B` as the common ancestor
-  for `git log B..tip` walks.
+- [ ] Add `merge` parameter to `rec_climb(G, com,
+  cur, merge)` and `rec_meet(G, com, left, right,
+  merge)`.
+- [ ] Forward the flag through every internal call.
+- [ ] `rec_climb` passes `merge` to `commit(G, cur,
+  merge)`.
+- [ ] Case 3 call (fast-forward): `pcall(rec_climb,
+  G, com, rem, false)` — explicit false.
+- [ ] Case 4 call: still `pcall(rec_meet, G, com,
+  loc, rem, false)` for now; Step B restructures.
 
 Acceptance:
 
 ```
-make test T=cli-sync       -- step 3 no longer crashes
+make test T=cli-sync       -- still green (no
+                              behavior change yet)
 ```
 
-### Step B — `com = rec-merge-base` for determinism
+### Step B — rewire case 4 tree-side
 
-Fix non-determinism for scenarios where `b1`-like
-commits (local-only posts before any sync) must be
-reordered under consensus.
+Option picked: bundle the detach into `rec_meet` via
+a `top` flag.
 
-- [ ] New helper `rec_merge_base(loc, rem)`:
-  iterate until stable — for each merge in the
-  current `com..rem`, push `com` back to
-  `merge-base(M.p1, M.p2)` if that's an ancestor of
-  `com`.
-- [ ] Call site: replace `com = merge-base(loc, rem)`
-  with `com = rec_merge_base(loc, rem)`.
-- [ ] Fast-forward check: swap `com == loc` for
-  `git merge-base --is-ancestor loc rem`.
-- [ ] `G_com` loading: state files exist at every
-  state commit in freechains, so loading at the
-  deeper `com` still works unchanged.
+- [ ] `rec_meet(G, com, left, right, merge, top)`:
+  at top-level, run winner rec with `merge=false`,
+  `git checkout --detach winner`, `<close>` cleanup
+  `checkout main`, then loser rec with `merge=true`.
+- [ ] Inner `rec_meet` (top=false) keeps uniform
+  `merge` flag for both sub-recs (inherits caller's).
+- [ ] Main case 4: single call
+  `pcall(rec_meet, G, com, loc, rem, false, true)`.
+- [ ] Replace the old fst/merge/G_fst block with a
+  final merge commit + state commit.
 
 Acceptance:
 
 ```
 make test T=cli-sync       -- all green
-make test T=consensus      -- Test 4 passes
 ```
 
-### Step C — nested-cascade test green
+### Step C — inner merge-base escape
 
-- [x] Test 4 added to `tst/consensus.lua`.
-- [ ] Verify it passes after Steps A + B.
+Fix the overshoot when an inner `merge-base(p1, p2)`
+is ancestor of current `com`.
+
+- [ ] At `rec_meet`: `if is-ancestor(up, com) and
+  up ~= com then up = com end` — use current base as
+  effective up.
+- [ ] Or: pre-compute in_range set and gate
+  `rec_climb`.
 
 Acceptance:
 
