@@ -59,7 +59,7 @@ do
         return ps[2], ps[3]
     end
 
-    local function F (G, hash)
+    local function F (G, hash, merge)
         local key, err = ssh.verify(REPO, hash)
 
         local out = exec (
@@ -69,6 +69,21 @@ do
 
         if (not key) and (err == 'forged') then
             error("invalid " .. kind .. " : invalid signature", 0)
+        end
+
+        if merge and kind ~= 'state' then
+            local ok = exec (true, 'stdout',
+                "git -C " .. REPO .. " merge --no-commit " .. hash
+            )
+            if not ok then
+                exec (true, 'stdout',
+                    "git -C " .. REPO .. " merge --abort"
+                )
+                error("content conflict : " .. hash, 0)
+            end
+            exec ('stdout',
+                "git -C " .. REPO .. " commit -m 'x'"
+            )
         end
 
         if kind == 'like' then
