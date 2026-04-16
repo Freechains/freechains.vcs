@@ -45,7 +45,7 @@ end
 -- In case of error, partial replay has been applied.
 -- Returns: ok, last, err
 
-local replay_remote
+local rec_climb, rec_meet
 do
     local function parents (tip)
         local out = exec (
@@ -119,39 +119,33 @@ do
         G.order[#G.order+1] = hash
     end
 
-    local climb, meet
-
-    climb = function (G, com, cur)
+    rec_climb = function (G, com, cur)
         if cur == com then
             return
         else
             local p1, p2 = parents(cur)
             if p2 == nil then
-                climb(G, com, p1)
+                rec_climb(G, com, p1)
             else
-                meet(G, com, p1, p2)
+                rec_meet(G, com, p1, p2)
             end
             F(G, cur)
         end
     end
 
-    meet = function (G, com, left, right)
+    rec_meet = function (G, com, left, right)
         local up = exec (
             "git -C " .. REPO .. " merge-base " .. left .. " " .. right
         )
-        climb(G, com, up)
+        rec_climb(G, com, up)
         local w = consensus(G, up, left, right)
         if w == left then
-            climb(G, up, left)
-            climb(G, up, right)
+            rec_climb(G, up, left)
+            rec_climb(G, up, right)
         else
-            climb(G, up, right)
-            climb(G, up, left)
+            rec_climb(G, up, right)
+            rec_climb(G, up, left)
         end
-    end
-
-    replay_remote = function (G_rem, com, rem)
-        return pcall(climb, G_rem, com, rem)
     end
 end
 
@@ -259,17 +253,21 @@ elseif ARGS.recv then
     local loc = exec("git -C " .. REPO .. " rev-parse HEAD")
     local rem = exec("git -C " .. REPO .. " rev-parse FETCH_HEAD")
 
-    -- remote has nothing new: skip replay
-    do
-        local ok = exec (true, 'stdout',
-            "git -C " .. REPO .. " merge-base --is-ancestor " .. rem .. " " .. loc
-        )
-        if ok then
-            goto RECV
-        end
-    end
+    --[[
+    -- Four cases:
+    --  1. unrelated histories (different genesis)
+    --      - ERROR
+    --  2. remote within local (remote ancestor of local)
+    --      - DONE
+    --  3. local within remote (local ancestor of remote)
+    --      - need to verify remote
+    --      - rec_climb(rem)
+    --      - fast-forward
+    --  4. local and remote diverge
+    --      - rec_meet(loc,rem)
+    ]]
 
-    -- reject unrelated histories (different genesis)
+    -- 1. reject unrelated histories
     do
         local loc_root = exec (
             "git -C " .. REPO .. " rev-list --max-parents=0 " .. loc
@@ -282,9 +280,20 @@ elseif ARGS.recv then
         end
     end
 
-    local com, G_com
+    -- 2. remote has nothing new
     do
-        -- outer-merge-base
+        local ok = exec (true, 'stdout',
+            "git -C " .. REPO .. " merge-base --is-ancestor " .. rem .. " " .. loc
+        )
+        if ok then
+            goto RECV
+        end
+    end
+
+    -- 3,4: need common ancestor
+
+    local G, com
+    do
         do
             local list = exec (
                 "git -C " .. REPO ..  " rev-list --topo-order --reverse " ..
@@ -301,59 +310,38 @@ elseif ARGS.recv then
             )
             return load(src)()
         end
-        G_com = {
+        G = {
             authors = F(".freechains/state/authors.lua"),
             posts   = F(".freechains/state/posts.lua"),
             order   = F(".freechains/state/order.lua"),
             now     = NOW(com),
         }
-        G_com.order[#G_com.order+1] = com
+        G.order[#G.order+1] = com
     end
 
-    -- verify remote: replay remote branch from G_com
-    local G_rem = G_com -- (G_com no longer required)
-    do
-        local ok, err = replay_remote(G_rem, com, rem)
-        if not ok then
-            ERROR("chain sync : " .. err)
-        end
-    end
-
-    -- fast-forward: local is ancestor of remote
+    -- 3. local has nothing new
     do
         local ff = exec (true, 'stdout',
             "git -C " .. REPO .. " merge-base --is-ancestor " .. loc .. " " .. rem
         )
         if ff then
+            local ok, err = pcall(rec_climb, G, com, rem)
+            if not ok then
+                ERROR("chain sync : " .. err)
+            end
             exec("git -C " .. REPO .. " merge --ff-only FETCH_HEAD")
             goto RECV
         end
     end
 
-    -- final state: consensus + replay loser
-    local fst, snd = consensus(G_com, com, loc, rem)
-    local G_fst, O_snd, merge
-    do
-        local ok, err
-        if fst == loc then
-            G_fst = {
-                authors = dofile(FC .. "state/authors.lua"),
-                posts   = dofile(FC .. "state/posts.lua"),
-                order   = dofile(FC .. "state/order.lua"),
-                now     = NOW(loc),
-            }
-            G_fst.order[#G_fst.order+1] = loc
-            O_snd = G_rem.order
-        else
-            G_fst = G_rem
-            O_snd = dofile(FC .. "state/order.lua")
-            O_snd[#O_snd+1] = loc
-        end
-        ok, merge, err = replay_loser(G_fst, O_snd, com, fst)
-        if not ok then
-            io.stderr:write("ERROR : " .. err .. "\n")
-        end
+    --  4. local and remote diverge
+
+    local ok, err = pcall(rec_meet, G, com, loc, rem)
+    if not ok then
+        ERROR("chain sync : " .. err)
     end
+
+    -- TODO: missing pieces here
 
     -- list voided local commits (only when remote wins)
     if fst==rem and merge~=loc then
