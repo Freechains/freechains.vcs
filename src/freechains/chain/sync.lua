@@ -9,161 +9,6 @@ local ssh = require "freechains.chain.ssh"
 -- In case of error, partial replay has been applied.
 -- Returns: ok, last, err
 
-local rec_climb, rec_meet
-do
-    local function consensus (G_com, com, a, b)
-        local function collect_keys (tip)
-            local keys = {}
-            local out = exec (
-                "git -C " .. REPO .. " log --reverse --format=%H " .. com .. ".." .. tip
-            )
-            for hash in out:gmatch("%x+") do
-                local key = ssh.verify(REPO, hash)
-                if key then
-                    keys[key] = true
-                end
-            end
-            return keys
-        end
-        local function reps (keys)
-            local n = 0
-            for key in pairs(keys) do
-                local T = G_com.authors[key]
-                if T then
-                    n = n + T.reps
-                end
-            end
-            return n
-        end
-        local sa, sb = reps(collect_keys(a)), reps(collect_keys(b))
-        if sa > sb then
-            return a, b
-        elseif sb > sa then
-            return b, a
-        elseif a < b then
-            return a, b
-        else
-            return b, a
-        end
-    end
-
-    local function parents (tip)
-        local out = exec (
-            "git -C " .. REPO .. " rev-list --parents -1 " .. tip
-        )
-        local ps = {}
-        for h in out:gmatch("%x+") do
-            ps[#ps+1] = h
-        end
-        assert(#ps <= 3, "bug: >2 parents")
-        return ps[2], ps[3]
-    end
-
-    local function commit (G, hash, merge)
-        local key, err = ssh.verify(REPO, hash)
-
-        local out = exec (
-            "git -C " .. REPO .. " log -1 --format='%at %(trailers:key=Freechains,valueonly)' " .. hash
-        )
-        local time,kind = out:match("(%S+)%s+(%S+)")
-
-        if (not key) and err=='forged' then
-            error("invalid " .. kind .. " : invalid signature", 0)
-        end
-
-        if merge and kind~='state' then
-            local ok = exec (true, 'stdout',
-                "git -C " .. REPO .. " merge --no-commit " .. hash
-            )
-            if not ok then
-                exec (true, 'stdout',
-                    "git -C " .. REPO .. " merge --abort"
-                )
-                error("content conflict : " .. hash, 0)
-            end
-            exec ('stdout',
-                "git -C " .. REPO .. " commit -m 'x'"
-            )
-        end
-
-        if kind == 'like' then
-            if not key then
-                error("invalid like : missing sign key", 0)
-            end
-
-            local file = exec (
-                "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash .. " -- .freechains/likes/"
-            )
-            file = file:match("(%S+)")
-            if not file then
-                error("invalid like : missing metadata file", 0)
-            end
-            local src = exec (
-                "git -C " .. REPO .. " show " .. hash .. ":" .. file
-            )
-            local f = load(src)
-            if not f then
-                error("invalid like : invalid lua metadata", 0)
-            end
-            local ok, like = pcall(f)
-            if (not ok) or type(like)~='table' then
-                error("invalid like : invalid lua metadata", 0)
-            end
-            local ok, err = apply(G, 'like', tonumber(time), {
-                hash   = hash,
-                sign   = key,
-                num    = like.number,
-                target = like.target,
-                id     = like.id,
-            })
-            if not ok then
-                error("invalid like : " .. err, 0)
-            end
-        elseif kind == 'post' then
-            local ok, err = apply(G, 'post', tonumber(time), {
-                hash = hash,
-                sign = key,
-                beg  = (key == nil),
-            })
-            if not ok then
-                error("invalid post : " .. err, 0)
-            end
-        else
-            assert(kind == 'state')
-        end
-        G.order[#G.order+1] = hash
-    end
-
-    rec_climb = function (G, com, cur)
-        if cur == com then
-            return
-        else
-            local p1, p2 = parents(cur)
-            if p2 == nil then
-                rec_climb(G, com, p1)
-            else
-                rec_meet(G, com, p1, p2)
-            end
-            commit(G, cur)
-        end
-    end
-
-    rec_meet = function (G, com, left, right)
-        local up = exec (
-            "git -C " .. REPO .. " merge-base " .. left .. " " .. right
-        )
-        rec_climb(G, com, up)
-        local w = consensus(G, up, left, right)
-        if w == left then
-            rec_climb(G, up, left)
-            rec_climb(G, up, right)
-        else
-            rec_climb(G, up, right)
-            rec_climb(G, up, left)
-        end
-    end
-end
-
 if ARGS.send then
     error "TODO: not implemented"
     exec (
@@ -244,6 +89,164 @@ elseif ARGS.recv then
             now     = NOW(com),
         }
         G.order[#G.order+1] = com
+    end
+
+    ---------------------------------------------------------------------------
+    ---------------------------------------------------------------------------
+
+    local rec_climb, rec_meet
+    do
+        local function consensus (G_com, com, a, b)
+            local function collect_keys (tip)
+                local keys = {}
+                local out = exec (
+                    "git -C " .. REPO .. " log --reverse --format=%H " .. com .. ".." .. tip
+                )
+                for hash in out:gmatch("%x+") do
+                    local key = ssh.verify(REPO, hash)
+                    if key then
+                        keys[key] = true
+                    end
+                end
+                return keys
+            end
+            local function reps (keys)
+                local n = 0
+                for key in pairs(keys) do
+                    local T = G_com.authors[key]
+                    if T then
+                        n = n + T.reps
+                    end
+                end
+                return n
+            end
+            local sa, sb = reps(collect_keys(a)), reps(collect_keys(b))
+            if sa > sb then
+                return a, b
+            elseif sb > sa then
+                return b, a
+            elseif a < b then
+                return a, b
+            else
+                return b, a
+            end
+        end
+
+        local function parents (tip)
+            local out = exec (
+                "git -C " .. REPO .. " rev-list --parents -1 " .. tip
+            )
+            local ps = {}
+            for h in out:gmatch("%x+") do
+                ps[#ps+1] = h
+            end
+            assert(#ps <= 3, "bug: >2 parents")
+            return ps[2], ps[3]
+        end
+
+        local function commit (G, hash, merge)
+            local key, err = ssh.verify(REPO, hash)
+
+            local out = exec (
+                "git -C " .. REPO .. " log -1 --format='%at %(trailers:key=Freechains,valueonly)' " .. hash
+            )
+            local time,kind = out:match("(%S+)%s+(%S+)")
+
+            if (not key) and err=='forged' then
+                error("invalid " .. kind .. " : invalid signature", 0)
+            end
+
+            if merge and kind~='state' then
+                local ok = exec (true, 'stdout',
+                    "git -C " .. REPO .. " merge --no-commit " .. hash
+                )
+                if not ok then
+                    exec (true, 'stdout',
+                        "git -C " .. REPO .. " merge --abort"
+                    )
+                    error("content conflict : " .. hash, 0)
+                end
+                exec ('stdout',
+                    "git -C " .. REPO .. " commit -m 'x'"
+                )
+            end
+
+            if kind == 'like' then
+                if not key then
+                    error("invalid like : missing sign key", 0)
+                end
+
+                local file = exec (
+                    "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash .. " -- .freechains/likes/"
+                )
+                file = file:match("(%S+)")
+                if not file then
+                    error("invalid like : missing metadata file", 0)
+                end
+                local src = exec (
+                    "git -C " .. REPO .. " show " .. hash .. ":" .. file
+                )
+                local f = load(src)
+                if not f then
+                    error("invalid like : invalid lua metadata", 0)
+                end
+                local ok, like = pcall(f)
+                if (not ok) or type(like)~='table' then
+                    error("invalid like : invalid lua metadata", 0)
+                end
+                local ok, err = apply(G, 'like', tonumber(time), {
+                    hash   = hash,
+                    sign   = key,
+                    num    = like.number,
+                    target = like.target,
+                    id     = like.id,
+                })
+                if not ok then
+                    error("invalid like : " .. err, 0)
+                end
+            elseif kind == 'post' then
+                local ok, err = apply(G, 'post', tonumber(time), {
+                    hash = hash,
+                    sign = key,
+                    beg  = (key == nil),
+                })
+                if not ok then
+                    error("invalid post : " .. err, 0)
+                end
+            else
+                assert(kind == 'state')
+            end
+            G.order[#G.order+1] = hash
+        end
+
+        rec_climb = function (G, com, cur)
+            if cur == com then
+                return
+            else
+                local p1, p2 = parents(cur)
+                if p2 == nil then
+                    rec_climb(G, com, p1)
+                else
+                    rec_meet(G, com, p1, p2)
+                end
+                commit(G, cur)
+            end
+        end
+
+        rec_meet = function (G, com, left, right)
+            local up = exec (
+                "git -C " .. REPO .. " merge-base " .. left .. " " .. right
+            )
+            rec_climb(G, com, up)
+            local w = consensus(G, up, left, right)
+            if w == left then
+                rec_climb(G, up, left)
+                rec_climb(G, up, right)
+            else
+                rec_climb(G, up, right)
+                rec_climb(G, up, left)
+            end
+        end
     end
 
     -- 3. local has nothing new
