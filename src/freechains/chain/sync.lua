@@ -67,11 +67,11 @@ do
         )
         local time,kind = out:match("(%S+)%s+(%S+)")
 
-        if (not key) and (err == 'forged') then
+        if (not key) and err=='forged' then
             error("invalid " .. kind .. " : invalid signature", 0)
         end
 
-        if merge and kind ~= 'state' then
+        if merge and kind~='state' then
             local ok = exec (true, 'stdout',
                 "git -C " .. REPO .. " merge --no-commit " .. hash
             )
@@ -162,94 +162,6 @@ do
             rec_climb(G, up, left)
         end
     end
-end
-
--- Replay loser commits from range onto state G_fst.
--- Trial-merges each non-state commit against fst (detached HEAD).
--- In case of error, partial replay has been applied.
--- Returns: ok, last, err
-
-local function replay_loser (G_fst, O_snd, com, fst)
-    local last = com
-
-    exec ('stdout',
-        "git -C " .. REPO .. " checkout --detach " .. fst
-    )
-    local _ <close> = setmetatable({}, {__close=function()
-        exec ('stdout',
-            "git -C " .. REPO .. " checkout main"
-        )
-    end})
-
-    -- find O_snd[I] = first hash after com
-    local I = 0
-    for i,h in ipairs(O_snd) do
-        if h == com then
-            I = i + 1
-        end
-    end
-
-    for i=I, #O_snd do
-        local hash = O_snd[i]
-        local time = NOW(hash)
-        local key  = ssh.pubkey(REPO, hash)
-
-        local trailer = exec (
-            "git -C " .. REPO .. " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash
-        )
-        local kind = trailer:match("(%S+)") or ""
-
-        if kind~='state' then
-            local ok = exec (true, 'stdout',
-                "git -C " .. REPO .. " merge --no-commit " .. hash
-            )
-            if not ok then
-                exec (true, 'stdout',
-                    "git -C " .. REPO .. " merge --abort"
-                )
-                return false, last, "content conflict"
-            end
-            exec ('stdout',
-                "git -C " .. REPO .. " commit -m 'x'"
-            )
-        end
-
-        if kind == 'like' then
-            local file = exec (
-                "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash .. " -- .freechains/likes/"
-            )
-            file = assert(file:match("(%S+)"))
-            local src = exec (
-                "git -C " .. REPO .. " show " .. hash .. ":" .. file
-            )
-            local like = assert(assert(load(src))())
-            local ok, err = apply(G_fst, 'like', time, {
-                hash   = hash,
-                sign   = key,
-                num    = like.number,
-                target = like.target,
-                id     = like.id,
-            })
-            if not ok then
-                return false, last, "invalid like : " .. err
-            end
-        elseif kind == 'post' then
-            local ok, err = apply(G_fst, 'post', time, {
-                hash = hash,
-                sign = key,
-                beg  = (key == nil),
-            })
-            if not ok then
-                return false, last, "invalid post : " .. err
-            end
-        else
-            assert(kind == 'state')
-        end
-        G_fst.order[#G_fst.order+1] = hash
-        last = hash
-    end
-
-    return true, last, nil
 end
 
 if ARGS.send then
