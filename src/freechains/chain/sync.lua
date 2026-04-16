@@ -119,34 +119,36 @@ do
         G.order[#G.order+1] = hash
     end
 
-    local function rec (G, base, tip)
-        if tip == base then
-            return
+    local climb, meet
+
+    climb = function (G, base, tip)
+        if tip == base then return end
+        local p1, p2 = parents(tip)
+        if p2 == nil then
+            climb(G, base, p1)
         else
-            local p1, p2 = parents(tip)
-            if p2 == nil then
-                rec(G, base, p1)
-                F(G, tip)
-            else
-                local B = exec (
-                    "git -C " .. REPO .. " merge-base " .. p1 .. " " .. p2
-                )
-                rec(G, base, B)
-                local w = consensus(G, B, p1, p2)
-                if w == p1 then
-                    rec(G, B, p1)
-                    rec(G, B, p2)
-                else
-                    rec(G, B, p2)
-                    rec(G, B, p1)
-                end
-                F(G, tip)
-            end
+            meet(G, base, p1, p2)
+        end
+        F(G, tip)
+    end
+
+    meet = function (G, base, p1, p2)
+        local B = exec (
+            "git -C " .. REPO .. " merge-base " .. p1 .. " " .. p2
+        )
+        climb(G, base, B)
+        local w = consensus(G, B, p1, p2)
+        if w == p1 then
+            climb(G, B, p1)
+            climb(G, B, p2)
+        else
+            climb(G, B, p2)
+            climb(G, B, p1)
         end
     end
 
     replay_remote = function (G_rem, com, rem)
-        return pcall(rec, G_rem, com, rem)
+        return pcall(climb, G_rem, com, rem)
     end
 end
 
