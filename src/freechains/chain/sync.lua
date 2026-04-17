@@ -17,11 +17,21 @@ elseif ARGS.recv then
     local loc = exec("git -C " .. REPO .. " rev-parse HEAD")
     local rem = exec("git -C " .. REPO .. " rev-parse FETCH_HEAD")
 
-    if loc == rem then
-        goto RECV
-    end
+    --[[
+    -- Four cases:
+    --  1. unrelated histories (different genesis)
+    --      - ERROR
+    --  2. remote within local (remote ancestor of local)
+    --      - DONE
+    --  3. local within remote (local ancestor of remote)
+    --      - need to verify remote
+    --      - rec_climb(rem)
+    --      - fast-forward
+    --  4. local and remote diverge
+    --      - rec_meet(loc,rem)
+    ]]
 
-    -- reject unrelated histories (different genesis)
+    -- 1. reject unrelated histories
     do
         local loc_root = exec (
             "git -C " .. REPO .. " rev-list --max-parents=0 " .. loc
@@ -34,11 +44,30 @@ elseif ARGS.recv then
         end
     end
 
+    -- 2. remote has nothing new
+    do
+        local ok = exec (true, 'stdout',
+            "git -C " .. REPO .. " merge-base --is-ancestor " .. rem .. " " .. loc
+        )
+        if ok then
+            goto RECV
+        end
+    end
+
+    -- 3,4: need common ancestor
+
     local com, G_com
     do
-        com = exec (
-            "git -C " .. REPO .. " merge-base " .. loc .. " " .. rem
-        )
+        do
+            local list = exec (
+                "git -C " .. REPO ..  " rev-list --topo-order --reverse " ..
+                    loc .. ".." .. rem
+            )
+            local oldest = list:match("%x+")
+            com = exec (
+                "git -C " .. REPO .. " rev-parse " .. oldest .. "^"
+            )
+        end
         local function F (path)
             local src = exec (
                 "git -C " .. REPO .. " show " .. com .. ":" .. path
@@ -53,6 +82,9 @@ elseif ARGS.recv then
         }
         G_com.order[#G_com.order+1] = com
     end
+
+    ---------------------------------------------------------------------------
+    ---------------------------------------------------------------------------
 
     -- verify remote: replay remote branch from G_com
     local G_rem = G_com -- (G_com no longer required)
