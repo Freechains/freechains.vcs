@@ -270,11 +270,6 @@ elseif ARGS.recv then
 
     --  4. local and remote diverge
 
-    -- Replay loser commits from range onto state G_fst.
-    -- Trial-merges each non-state commit against fst (detached HEAD).
-    -- In case of error, partial replay has been applied.
-    -- Returns: ok, last, err
-
     local function replay_loser (G_fst, fst, O_snd)
         local last = nil
 
@@ -319,16 +314,6 @@ elseif ARGS.recv then
         return true, last, nil
     end
 
-    local coms = {}
-    do
-        local out = exec (
-            "git -C " .. REPO .. " merge-base --all " .. loc .. " " ..  rem
-        )
-        for h in out:gmatch("%x+") do
-            coms[#coms+1] = h
-        end
-    end
-
     -- final state: consensus + replay loser
     local G_fst, merge
     do
@@ -348,7 +333,23 @@ elseif ARGS.recv then
             O_snd = dofile(FC .. "state/order.lua")
             O_snd[#O_snd+1] = loc
         end
-        -- TODO: keep on O_snd all unreachable from fst?
+        -- filter O_snd: keep only commits unreachable from fst
+        do
+            local keep = {}
+            local out = exec (
+                "git -C " .. REPO .. " rev-list " .. fst .. ".." .. snd
+            )
+            for h in out:gmatch("%x+") do
+                keep[h] = true
+            end
+            local filtered = {}
+            for _, h in ipairs(O_snd) do
+                if keep[h] then
+                    filtered[#filtered+1] = h
+                end
+            end
+            O_snd = filtered
+        end
         ok, merge, err = replay_loser(G_fst, fst, O_snd)
         if not ok then
             io.stderr:write("ERROR : " .. err .. "\n")
@@ -379,8 +380,7 @@ elseif ARGS.recv then
             exec ("git -C " .. REPO .. " reset --hard " .. fst)
         end
 
-        -- TODO: is it possible to be equal?
-        if merge ~= TODO then
+        if merge then
             exec ('stdout',
                 "git -C " .. REPO .. " merge --no-commit " .. merge
             )
