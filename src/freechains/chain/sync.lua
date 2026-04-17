@@ -258,6 +258,8 @@ elseif ARGS.recv then
         end
     end
 
+    --  4. local and remote diverge
+
     -- Replay loser commits from range onto state G_fst.
     -- Trial-merges each non-state commit against fst (detached HEAD).
     -- In case of error, partial replay has been applied.
@@ -285,8 +287,6 @@ elseif ARGS.recv then
 
         for i=I, #O_snd do
             local hash = O_snd[i]
-            local time = NOW(hash)
-            local key  = ssh.pubkey(REPO, hash)
 
             local trailer = exec (
                 "git -C " .. REPO .. " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash
@@ -308,38 +308,11 @@ elseif ARGS.recv then
                 )
             end
 
-            if kind == 'like' then
-                local file = exec (
-                    "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash .. " -- .freechains/likes/"
-                )
-                file = assert(file:match("(%S+)"))
-                local src = exec (
-                    "git -C " .. REPO .. " show " .. hash .. ":" .. file
-                )
-                local like = assert(assert(load(src))())
-                local ok, err = apply(G_fst, 'like', time, {
-                    hash   = hash,
-                    sign   = key,
-                    num    = like.number,
-                    target = like.target,
-                    id     = like.id,
-                })
-                if not ok then
-                    return false, last, "invalid like : " .. err
-                end
-            elseif kind == 'post' then
-                local ok, err = apply(G_fst, 'post', time, {
-                    hash = hash,
-                    sign = key,
-                    beg  = (key == nil),
-                })
-                if not ok then
-                    return false, last, "invalid post : " .. err
-                end
-            else
-                assert(kind == 'state')
+            local ok, err = pcall(G_fst, commit, hash)
+            if not ok then
+                return ok, last, err
             end
-            G_fst.order[#G_fst.order+1] = hash
+
             last = hash
         end
 
