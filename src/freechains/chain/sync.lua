@@ -1,45 +1,112 @@
 require "freechains.chain.common"
 local ssh = require "freechains.chain.ssh"
 
--- Consensus: prefix reps from G_com decide winner
---  - traverse com..tip, collect signed keys
---  - sum G_com.authors[key].reps for each side
---  - higher sum wins, hash tiebreaker (smaller wins)
-local function consensus (G_com, com, a, b)
-    local function collect_keys (tip)
-        local keys = {}
-        local out = exec (
-            "git -C " .. REPO .. " log --reverse --format=%H " .. com .. ".." .. tip
+if ARGS.send then
+    error "TODO: not implemented"
+    exec (
+        "git -C " .. REPO .. " push " .. ARGS.remote .. " main"
+        , "chain sync : push failed"
+    )
+
+elseif ARGS.recv then
+    exec ('stdout',
+        "git -C " .. REPO .. " fetch " .. ARGS.remote .. " main"
+        , "chain sync : fetch failed"
+    )
+
+    local loc = exec("git -C " .. REPO .. " rev-parse HEAD")
+    local rem = exec("git -C " .. REPO .. " rev-parse FETCH_HEAD")
+
+    if loc == rem then
+        goto RECV
+    end
+
+    -- reject unrelated histories (different genesis)
+    do
+        local loc_root = exec (
+            "git -C " .. REPO .. " rev-list --max-parents=0 " .. loc
         )
-        for hash in out:gmatch("%x+") do
-            local key = ssh.verify(REPO, hash)
-            if key then
-                keys[key] = true
-            end
+        local rem_root = exec (
+            "git -C " .. REPO .. " rev-list --max-parents=0 " .. rem
+        )
+        if loc_root ~= rem_root then
+            ERROR("chain sync : incompatible genesis")
         end
-        return keys
     end
-    local function reps (keys)
-        local n = 0
-        for key in pairs(keys) do
-            local T = G_com.authors[key]
-            if T then
-                n = n + T.reps
-            end
+
+    local com, G_com
+    do
+        com = exec (
+            "git -C " .. REPO .. " merge-base " .. loc .. " " .. rem
+        )
+        local function F (path)
+            local src = exec (
+                "git -C " .. REPO .. " show " .. com .. ":" .. path
+            )
+            return load(src)()
         end
-        return n
+        G_com = {
+            authors = F(".freechains/state/authors.lua"),
+            posts   = F(".freechains/state/posts.lua"),
+            order   = F(".freechains/state/order.lua"),
+            now     = NOW(com),
+        }
+        G_com.order[#G_com.order+1] = com
     end
-    local sa, sb = reps(collect_keys(a)), reps(collect_keys(b))
-    if sa > sb then
-        return a, b
-    elseif sb > sa then
-        return b, a
-    elseif a < b then
-        return a, b
-    else
-        return b, a
+
+    -- verify remote: replay remote branch from G_com
+    local G_rem = G_com -- (G_com no longer required)
+    do
+        local ok, _, err = replay_remote(G_rem, com, rem)
+        if not ok then
+            ERROR("chain sync : " .. err)
+        end
     end
-end
+
+    if com == loc then
+        exec("git -C " .. REPO .. " merge --ff-only FETCH_HEAD")
+        goto RECV
+    end
+
+    -- Consensus: prefix reps from G_com decide winner
+    --  - traverse com..tip, collect signed keys
+    --  - sum G_com.authors[key].reps for each side
+    --  - higher sum wins, hash tiebreaker (smaller wins)
+    local function consensus (G_com, com, a, b)
+        local function collect_keys (tip)
+            local keys = {}
+            local out = exec (
+                "git -C " .. REPO .. " log --reverse --format=%H " .. com .. ".." .. tip
+            )
+            for hash in out:gmatch("%x+") do
+                local key = ssh.verify(REPO, hash)
+                if key then
+                    keys[key] = true
+                end
+            end
+            return keys
+        end
+        local function reps (keys)
+            local n = 0
+            for key in pairs(keys) do
+                local T = G_com.authors[key]
+                if T then
+                    n = n + T.reps
+                end
+            end
+            return n
+        end
+        local sa, sb = reps(collect_keys(a)), reps(collect_keys(b))
+        if sa > sb then
+            return a, b
+        elseif sb > sa then
+            return b, a
+        elseif a < b then
+            return a, b
+        else
+            return b, a
+        end
+    end
 
 -- Replay remote commits from range onto state G_rem.
 -- In case of error, partial replay has been applied.
@@ -205,73 +272,6 @@ local function replay_loser (G_fst, O_snd, com, fst)
 
     return true, last, nil
 end
-
-if ARGS.send then
-    error "TODO: not implemented"
-    exec (
-        "git -C " .. REPO .. " push " .. ARGS.remote .. " main"
-        , "chain sync : push failed"
-    )
-
-elseif ARGS.recv then
-    exec ('stdout',
-        "git -C " .. REPO .. " fetch " .. ARGS.remote .. " main"
-        , "chain sync : fetch failed"
-    )
-
-    local loc = exec("git -C " .. REPO .. " rev-parse HEAD")
-    local rem = exec("git -C " .. REPO .. " rev-parse FETCH_HEAD")
-
-    if loc == rem then
-        goto RECV
-    end
-
-    -- reject unrelated histories (different genesis)
-    do
-        local loc_root = exec (
-            "git -C " .. REPO .. " rev-list --max-parents=0 " .. loc
-        )
-        local rem_root = exec (
-            "git -C " .. REPO .. " rev-list --max-parents=0 " .. rem
-        )
-        if loc_root ~= rem_root then
-            ERROR("chain sync : incompatible genesis")
-        end
-    end
-
-    local com, G_com
-    do
-        com = exec (
-            "git -C " .. REPO .. " merge-base " .. loc .. " " .. rem
-        )
-        local function F (path)
-            local src = exec (
-                "git -C " .. REPO .. " show " .. com .. ":" .. path
-            )
-            return load(src)()
-        end
-        G_com = {
-            authors = F(".freechains/state/authors.lua"),
-            posts   = F(".freechains/state/posts.lua"),
-            order   = F(".freechains/state/order.lua"),
-            now     = NOW(com),
-        }
-        G_com.order[#G_com.order+1] = com
-    end
-
-    -- verify remote: replay remote branch from G_com
-    local G_rem = G_com -- (G_com no longer required)
-    do
-        local ok, _, err = replay_remote(G_rem, com, rem)
-        if not ok then
-            ERROR("chain sync : " .. err)
-        end
-    end
-
-    if com == loc then
-        exec("git -C " .. REPO .. " merge --ff-only FETCH_HEAD")
-        goto RECV
-    end
 
     -- final state: consensus + replay loser
     local fst, snd = consensus(G_com, com, loc, rem)
