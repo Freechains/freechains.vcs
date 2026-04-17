@@ -81,18 +81,24 @@ ancestors → crash.
   M.merge-base(a, b) = R         ← strict ancestor of com, outside range
 ```
 
-Fix: `com` = **recursive merge-base** — push back
-iteratively until every merge in `com..rem` has both
-parents inside the range (or equal to `com`).
+Fix: `com` = **merge-base of the shared boundary**
+of the divergent region (single-shot, no iteration).
 
 ```
-iter 1: com = oldest^ (current code)
-iter n: for each merge M in com..rem:
-            B = merge-base(M.p1, M.p2)
-            if B is strict ancestor of com:
-                com = B
-        repeat until stable
+D = git rev-list loc...rem                -- divergent commits (sym-diff)
+B = { parents(d) : d in D } \ D           -- shared boundary parents
+com = git merge-base --octopus B...       -- deepest common ancestor of B
 ```
+
+Git gives `D` and `B` in one call:
+`git rev-list --boundary loc...rem` — lines starting
+with `-` are exactly the boundary commits `B`.
+
+Why it works: for any inner merge `M` in `com..rem`,
+both parents reach shared commits going up; those
+shared commits are in `B` (or ancestors thereof), so
+`merge-base(M.p1, M.p2)` ≥ `com` by construction —
+never escapes the range.
 
 ### U2. Double-apply of commits shared with loc history
 
@@ -297,7 +303,7 @@ Implementation lives in `tst/consensus.lua`
 |----------------------------------|---------------------------------|
 | `src/freechains/chain/sync.lua`  | backward `rec()` + `parents()`  |
 | `src/freechains/chain/sync.lua`  | `in_range` set gate             |
-| `src/freechains/chain/sync.lua`  | `com = rec-merge-base(loc, rem)`|
+| `src/freechains/chain/sync.lua`  | `com = boundary-merge-base via rev-list --boundary loc...rem + merge-base --octopus` |
 | `src/freechains/chain/sync.lua`  | `replay_loser` kept; delegates per-commit state to pure `commit` |
 | `tst/cli-sync.lua`               | add 3-peer nested merge test    |
 
@@ -361,18 +367,31 @@ green.
 **▶ Resume here**: Step U1 — recursive merge-base
 for `com`.
 
-### Step U1 — recursive merge-base for `com`
+### Step U1 — boundary merge-base for `com`
 
 Fix the oldest-is-merge overshoot (see `## Urgent`
 U1).
 
 - [ ] Replace the `com = oldest^` inline block with
-  an iterative push-back: for each merge `M` in
-  `com..rem`, if `merge-base(M.p1, M.p2)` is a
-  strict ancestor of `com`, set `com` to it; repeat
-  until stable.
-- [ ] Reload `G_com` from the new `com` after push
-  stabilizes.
+  single-shot boundary merge-base:
+
+```lua
+local out = exec (
+    "git -C " .. REPO .. " rev-list --boundary " ..
+    loc .. "..." .. rem
+)
+local boundary = {}
+for line in out:gmatch("[^\n]+") do
+    local h = line:match("^%-(%x+)")
+    if h then boundary[#boundary+1] = h end
+end
+com = exec (
+    "git -C " .. REPO .. " merge-base --octopus " ..
+    table.concat(boundary, " ")
+)
+```
+
+- [ ] Load `G_com` from this `com`.
 
 Acceptance:
 

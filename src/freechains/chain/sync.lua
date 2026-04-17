@@ -58,13 +58,20 @@ elseif ARGS.recv then
     local com, G_com
     do
         do
-            local list = exec (
-                "git -C " .. REPO ..  " rev-list --topo-order --reverse " ..
-                    loc .. ".." .. rem
+            local out = exec (
+                "git -C " .. REPO .. " rev-list --boundary " ..
+                    loc .. "..." .. rem
             )
-            local oldest = list:match("%x+")
+            local boundary = {}
+            for line in out:gmatch("[^\n]+") do
+                local h = line:match("^%-(%x+)")
+                if h then
+                    boundary[#boundary+1] = h
+                end
+            end
             com = exec (
-                "git -C " .. REPO .. " rev-parse " .. oldest .. "^"
+                "git -C " .. REPO .. " merge-base --octopus " ..
+                    table.concat(boundary, " ")
             )
         end
         local function F (path)
