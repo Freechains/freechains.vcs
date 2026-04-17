@@ -156,56 +156,6 @@ elseif ARGS.recv then
         G.order[#G.order+1] = hash
     end
 
-    local replay_remote
-    do
-        local function parents (tip)
-            local out = exec (
-                "git -C " .. REPO .. " rev-list --parents -1 " .. tip
-            )
-            local ps = {}
-            for h in out:gmatch("%x+") do
-                ps[#ps+1] = h
-            end
-            assert(#ps <= 3, "bug: >2 parents")
-            return ps[2], ps[3]
-        end
-
-        local climb, meet
-
-        climb = function (G, com, cur)
-            if cur == com then
-                return
-            else
-                local p1, p2 = parents(cur)
-                if p2 == nil then
-                    climb(G, com, p1)
-                else
-                    meet(G, com, p1, p2)
-                end
-                commit(G, cur)
-            end
-        end
-
-        meet = function (G, com, left, right)
-            local up = exec (
-                "git -C " .. REPO .. " merge-base " .. left .. " " .. right
-            )
-            climb(G, com, up)
-            local w = consensus(G, up, left, right)
-            if w == left then
-                climb(G, up, left)
-                climb(G, up, right)
-            else
-                climb(G, up, right)
-                climb(G, up, left)
-            end
-        end
-
-          replay_remote = function (G, com, rem)
-              return pcall(climb, G, com, rem)
-          end
-    end
-
     ---------------------------------------------------------------------------
     ---------------------------------------------------------------------------
 
@@ -251,7 +201,50 @@ elseif ARGS.recv then
     -- 3,4: need remote validation: replay remote branch from G_oct
     local G_rem = G_oct -- (G_oct no longer required)
     do
-        local ok, err = replay_remote(G_rem, oct, rem)
+        local function parents (tip)
+            local out = exec (
+                "git -C " .. REPO .. " rev-list --parents -1 " .. tip
+            )
+            local ps = {}
+            for h in out:gmatch("%x+") do
+                ps[#ps+1] = h
+            end
+            assert(#ps <= 3, "bug: >2 parents")
+            return ps[2], ps[3]
+        end
+
+        local climb, meet
+
+        climb = function (G, com, cur)
+            if cur == com then
+                return
+            else
+                local p1, p2 = parents(cur)
+                if p2 == nil then
+                    climb(G, com, p1)
+                else
+                    meet(G, com, p1, p2)
+                end
+                commit(G, cur)
+            end
+        end
+
+        meet = function (G, com, left, right)
+            local up = exec (
+                "git -C " .. REPO .. " merge-base " .. left .. " " .. right
+            )
+            climb(G, com, up)
+            local w = consensus(G, up, left, right)
+            if w == left then
+                climb(G, up, left)
+                climb(G, up, right)
+            else
+                climb(G, up, right)
+                climb(G, up, left)
+            end
+        end
+
+        local ok, err = pcall(climb, G_rem, oct, rem)
         if not ok then
             ERROR("chain sync : " .. err)
         end
@@ -270,55 +263,10 @@ elseif ARGS.recv then
 
     --  4. local and remote diverge
 
-    local function replay_loser (G_fst, fst, O_snd)
-        local last = nil
-
-        exec ('stdout',
-            "git -C " .. REPO .. " checkout --detach " .. fst
-        )
-        local _ <close> = setmetatable({}, {__close=function()
-            exec ('stdout',
-                "git -C " .. REPO .. " checkout main"
-            )
-        end})
-
-        for _, hash in ipairs(O_snd) do
-            local trailer = exec (
-                "git -C " .. REPO .. " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash
-            )
-            local kind = trailer:match("(%S+)") or ""
-
-            if kind~='state' then
-                local ok = exec (true, 'stdout',
-                    "git -C " .. REPO .. " merge --no-commit " .. hash
-                )
-                if not ok then
-                    exec (true, 'stdout',
-                        "git -C " .. REPO .. " merge --abort"
-                    )
-                    return false, last, "content conflict"
-                end
-                exec ('stdout',
-                    "git -C " .. REPO .. " commit -m 'x'"
-                )
-            end
-
-            local ok, err = pcall(commit, G_fst, hash)
-            if not ok then
-                return ok, last, err
-            end
-
-            last = hash
-        end
-
-        return true, last, nil
-    end
-
     -- final state: consensus + replay loser
     local G_fst, merge
     do
         local O_snd
-        local ok, err
         if fst == loc then
             G_fst = {
                 authors = dofile(FC .. "state/authors.lua"),
@@ -333,6 +281,7 @@ elseif ARGS.recv then
             O_snd = dofile(FC .. "state/order.lua")
             O_snd[#O_snd+1] = loc
         end
+
         -- filter O_snd: keep only commits unreachable from fst
         do
             local keep = {}
@@ -350,7 +299,49 @@ elseif ARGS.recv then
             end
             O_snd = filtered
         end
-        ok, merge, err = replay_loser(G_fst, fst, O_snd)
+
+        exec ('stdout',
+            "git -C " .. REPO .. " checkout --detach " .. fst
+        )
+
+        local ok  = true
+        local err = nil
+
+        for _, hash in ipairs(O_snd) do
+            local trailer = exec (
+                "git -C " .. REPO .. " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash
+            )
+            local kind = trailer:match("(%S+)") or ""
+
+            if kind~='state' then
+                ok = exec (true, 'stdout',
+                    "git -C " .. REPO .. " merge --no-commit " .. hash
+                )
+                if not ok then
+                    exec (true, 'stdout',
+                        "git -C " .. REPO .. " merge --abort"
+                    )
+                    err = "content conflict"
+                    goto DONE
+                end
+                exec ('stdout',
+                    "git -C " .. REPO .. " commit -m 'x'"
+                )
+            end
+
+            ok, err = pcall(commit, G_fst, hash)
+            if not ok then
+                goto DONE
+            end
+
+            merge = hash
+        end
+
+        ::DONE::
+
+        exec ('stdout',
+            "git -C " .. REPO .. " checkout main"
+        )
         if not ok then
             io.stderr:write("ERROR : " .. err .. "\n")
         end
