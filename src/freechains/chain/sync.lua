@@ -275,8 +275,8 @@ elseif ARGS.recv then
     -- In case of error, partial replay has been applied.
     -- Returns: ok, last, err
 
-    local function replay_loser (G_fst, O_snd, com, fst)
-        local last = com
+    local function replay_loser (G_fst, fst, O_snd)
+        local last = nil
 
         exec ('stdout',
             "git -C " .. REPO .. " checkout --detach " .. fst
@@ -287,17 +287,7 @@ elseif ARGS.recv then
             )
         end})
 
-        -- find O_snd[I] = first hash after com
-        local I = 0
-        for i,h in ipairs(O_snd) do
-            if h == com then
-                I = i + 1
-            end
-        end
-
-        for i=I, #O_snd do
-            local hash = O_snd[i]
-
+        for _, hash in ipairs(O_snd) do
             local trailer = exec (
                 "git -C " .. REPO .. " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash
             )
@@ -358,7 +348,8 @@ elseif ARGS.recv then
             O_snd = dofile(FC .. "state/order.lua")
             O_snd[#O_snd+1] = loc
         end
-        ok, merge, err = replay_loser(G_fst, O_snd, coms, fst)
+        -- TODO: keep on O_snd all unreachable from fst?
+        ok, merge, err = replay_loser(G_fst, fst, O_snd)
         if not ok then
             io.stderr:write("ERROR : " .. err .. "\n")
         end
