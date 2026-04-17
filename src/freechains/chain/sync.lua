@@ -1,14 +1,6 @@
 require "freechains.chain.common"
 local ssh = require "freechains.chain.ssh"
 
--- Consensus: prefix reps from G_com decide winner
---  - traverse com..tip, collect signed keys
---  - sum G_com.authors[key].reps for each side
---  - higher sum wins, hash tiebreaker (smaller wins)
--- Replay remote commits from range onto state G_rem.
--- In case of error, partial replay has been applied.
--- Returns: ok, last, err
-
 if ARGS.send then
     error "TODO: not implemented"
     exec (
@@ -94,6 +86,13 @@ elseif ARGS.recv then
     ---------------------------------------------------------------------------
     ---------------------------------------------------------------------------
 
+    -- Consensus: prefix reps from G_com decide winner
+    --  - traverse com..tip, collect signed keys
+    --  - sum G_com.authors[key].reps for each side
+    --  - higher sum wins, hash tiebreaker (smaller wins)
+    -- Replay remote commits from range onto state G_rem.
+    -- In case of error, partial replay has been applied.
+    -- Returns: ok, last, err
     local function consensus (G_com, com, a, b)
         local function collect_keys (tip)
             local keys = {}
