@@ -53,50 +53,14 @@ elseif ARGS.recv then
         end
     end
 
-    -- 3,4: need common ancestor
-
-    local com, G_com
-    do
-        do
-            local out = exec (
-                "git -C " .. REPO .. " rev-list --boundary " ..
-                    loc .. "..." .. rem
-            )
-            local boundary = {}
-            for line in out:gmatch("[^\n]+") do
-                local h = line:match("^%-(%x+)")
-                if h then
-                    boundary[#boundary+1] = h
-                end
-            end
-            com = exec (
-                "git -C " .. REPO .. " merge-base --octopus " ..
-                    table.concat(boundary, " ")
-            )
-        end
-        local function F (path)
-            local src = exec (
-                "git -C " .. REPO .. " show " .. com .. ":" .. path
-            )
-            return load(src)()
-        end
-        G_com = {
-            authors = F(".freechains/state/authors.lua"),
-            posts   = F(".freechains/state/posts.lua"),
-            order   = F(".freechains/state/order.lua"),
-            now     = NOW(com),
-        }
-        G_com.order[#G_com.order+1] = com
-    end
-
     ---------------------------------------------------------------------------
     ---------------------------------------------------------------------------
 
-    -- Consensus: prefix reps from G_com decide winner
+    -- Consensus: prefix reps from G decide winner
     --  - traverse com..tip, collect signed keys
-    --  - sum G_com.authors[key].reps for each side
+    --  - sum G.authors[key].reps for each side
     --  - higher sum wins, hash tiebreaker (smaller wins)
-    local function consensus (G_com, com, a, b)
+    local function consensus (G, com, a, b)
         local function collect_keys (tip)
             local keys = {}
             local out = exec (
@@ -113,7 +77,7 @@ elseif ARGS.recv then
         local function reps (keys)
             local n = 0
             for key in pairs(keys) do
-                local T = G_com.authors[key]
+                local T = G.authors[key]
                 if T then
                     n = n + T.reps
                 end
@@ -245,10 +209,49 @@ elseif ARGS.recv then
     ---------------------------------------------------------------------------
     ---------------------------------------------------------------------------
 
-    -- 3,4: need remote validation: replay remote branch from G_com
-    local G_rem = G_com -- (G_com no longer required)
+    -- 3,4: need common ancestor
+
+    local oct, G_oct
     do
-        local ok, err = replay_remote(G_rem, com, rem)
+        do
+            local out = exec (
+                "git -C " .. REPO .. " rev-list --boundary " ..
+                    loc .. "..." .. rem
+            )
+            local boundary = {}
+            for line in out:gmatch("[^\n]+") do
+                local h = line:match("^%-(%x+)")
+                if h then
+                    boundary[#boundary+1] = h
+                end
+            end
+            oct = exec (
+                "git -C " .. REPO .. " merge-base --octopus " ..
+                    table.concat(boundary, " ")
+            )
+        end
+        local function F (path)
+            local src = exec (
+                "git -C " .. REPO .. " show " .. oct .. ":" .. path
+            )
+            return load(src)()
+        end
+        G_oct = {
+            authors = F(".freechains/state/authors.lua"),
+            posts   = F(".freechains/state/posts.lua"),
+            order   = F(".freechains/state/order.lua"),
+            now     = NOW(oct),
+        }
+        G_oct.order[#G_oct.order+1] = oct
+    end
+
+    -- 4: needs fst/winner - snd/loser (do now b/c 3 mutates G_oct)
+    local fst, snd = consensus(G_oct, oct, loc, rem)
+
+    -- 3,4: need remote validation: replay remote branch from G_oct
+    local G_rem = G_oct -- (G_oct no longer required)
+    do
+        local ok, err = replay_remote(G_rem, oct, rem)
         if not ok then
             ERROR("chain sync : " .. err)
         end
@@ -315,7 +318,7 @@ elseif ARGS.recv then
                 )
             end
 
-            local ok, err = pcall(G_fst, commit, hash)
+            local ok, err = pcall(commit, G_fst, hash)
             if not ok then
                 return ok, last, err
             end
@@ -326,8 +329,9 @@ elseif ARGS.recv then
         return true, last, nil
     end
 
+    -- TODO: coms
+
     -- final state: consensus + replay loser
-    local fst, snd = consensus(G_com, com, loc, rem)
     local G_fst, O_snd, merge
     do
         local ok, err
@@ -345,7 +349,7 @@ elseif ARGS.recv then
             O_snd = dofile(FC .. "state/order.lua")
             O_snd[#O_snd+1] = loc
         end
-        ok, merge, err = replay_loser(G_fst, O_snd, com, fst)
+        ok, merge, err = replay_loser(G_fst, O_snd, coms, fst)
         if not ok then
             io.stderr:write("ERROR : " .. err .. "\n")
         end
@@ -375,7 +379,8 @@ elseif ARGS.recv then
             exec ("git -C " .. REPO .. " reset --hard " .. fst)
         end
 
-        if merge ~= com then
+        -- TODO: is it possible to be equal?
+        if merge ~= TODO then
             exec ('stdout',
                 "git -C " .. REPO .. " merge --no-commit " .. merge
             )
