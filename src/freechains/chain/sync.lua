@@ -349,10 +349,11 @@ elseif ARGS.recv then
 
     -- list voided local commits (only when remote wins)
     if fst==rem and merge~=loc then
+        local from = merge or fst
         local out = exec (
             "git -C " .. REPO .. " " ..
                 "log --reverse --no-merges --format='%H' " ..
-                (merge .. ".." .. loc)
+                (from .. ".." .. loc)
         )
         for hash in out:gmatch("%x+") do
             local trailer = exec (
