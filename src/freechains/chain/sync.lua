@@ -86,20 +86,6 @@ elseif ARGS.recv then
     ---------------------------------------------------------------------------
     ---------------------------------------------------------------------------
 
-    -- verify remote: replay remote branch from G_com
-    local G_rem = G_com -- (G_com no longer required)
-    do
-        local ok, _, err = replay_remote(G_rem, com, rem)
-        if not ok then
-            ERROR("chain sync : " .. err)
-        end
-    end
-
-    if com == loc then
-        exec("git -C " .. REPO .. " merge --ff-only FETCH_HEAD")
-        goto RECV
-    end
-
     -- Consensus: prefix reps from G_com decide winner
     --  - traverse com..tip, collect signed keys
     --  - sum G_com.authors[key].reps for each side
@@ -137,6 +123,73 @@ elseif ARGS.recv then
             return a, b
         else
             return b, a
+        end
+    end
+
+    local replay_remote
+    do
+        local function parents (tip)
+            local out = exec (
+                "git -C " .. REPO .. " rev-list --parents -1 " .. tip
+            )
+            local ps = {}
+            for h in out:gmatch("%x+") do
+                ps[#ps+1] = h
+            end
+            assert(#ps <= 3, "bug: >2 parents")
+            return ps[2], ps[3]
+        end
+
+        local function climb (G, com, cur)
+            if cur == com then
+                return
+            else
+                local p1, p2 = parents(cur)
+                if p2 == nil then
+                    rec_climb(G, com, p1)
+                else
+                    rec_meet(G, com, p1, p2)
+                end
+                commit(G, cur)
+            end
+        end
+
+        local function meet (G, com, left, right)
+            local up = exec (
+                "git -C " .. REPO .. " merge-base " .. left .. " " .. right
+            )
+            rec_climb(G, com, up)
+            local w = consensus(G, up, left, right)
+            if w == left then
+                rec_climb(G, up, left)
+                rec_climb(G, up, right)
+            else
+                rec_climb(G, up, right)
+                rec_climb(G, up, left)
+            end
+        end
+    end
+
+    ---------------------------------------------------------------------------
+    ---------------------------------------------------------------------------
+
+    -- 3,4: need remote verification: replay remote branch from G_com
+    local G_rem = G_com -- (G_com no longer required)
+    do
+        local ok, _, err = replay_remote(G_rem, com, rem)
+        if not ok then
+            ERROR("chain sync : " .. err)
+        end
+    end
+
+    -- 3. local has nothing new
+    do
+        local ff = exec (true, 'stdout',
+            "git -C " .. REPO .. " merge-base --is-ancestor " .. loc .. " " .. rem
+        )
+        if ff then
+            exec("git -C " .. REPO .. " merge --ff-only FETCH_HEAD")
+            goto RECV
         end
     end
 
