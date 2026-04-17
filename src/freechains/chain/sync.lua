@@ -329,11 +329,20 @@ elseif ARGS.recv then
         return true, last, nil
     end
 
-    -- TODO: coms
+    local coms = {}
+    do
+        local out = exec (
+            "git -C " .. REPO .. " merge-base --all " .. loc .. " " ..  rem
+        )
+        for h in out:gmatch("%x+") do
+            coms[#coms+1] = h
+        end
+    end
 
     -- final state: consensus + replay loser
-    local G_fst, O_snd, merge
+    local G_fst, merge
     do
+        local O_snd
         local ok, err
         if fst == loc then
             G_fst = {
