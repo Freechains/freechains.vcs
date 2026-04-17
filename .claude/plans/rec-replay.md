@@ -15,6 +15,75 @@ consensus ordering at every merge point in the DAG,
 driven by git's native parent/merge-base queries —
 no pre-built graph structure.
 
+## Urgent (blocks correctness)
+
+These two issues block case 4 (diverge) and edge
+diamonds.
+Must be fixed before Steps A/B in *Next steps*.
+
+### U1. Oldest-is-merge overshoot
+
+Current `com = oldest^` in `sync.lua` takes the
+*first parent only*.
+If the oldest commit in `loc..rem` is itself a merge,
+its second-parent chain leaks into `com..rem` but
+`com` sits above it on one side.
+`rec_meet` at the oldest merge calls `rec_climb` with
+`up = true merge-base`, which is a strict ancestor of
+`com` → `rec_climb` walks past `com` into its
+ancestors → crash.
+
+```
+              R                 ← true recursive merge-base
+             / \
+           a     b               ← both in com..rem if oldest=M
+           │\   /│
+           │ \ / │
+           │  X  │               ← X = loc  (merge(a, b))
+           │     │
+           └──M──┘               ← M = merge(a, b), oldest in loc..rem
+               │
+               c                 ← rem
+
+  loc..rem       = {c, M}
+  com = M^       = a             ← first parent only
+  range com..rem = {c, M, b}     ← b sneaks in
+  M.merge-base(a, b) = R         ← strict ancestor of com, outside range
+```
+
+Fix: `com` = **recursive merge-base** — push back
+iteratively until every merge in `com..rem` has both
+parents inside the range (or equal to `com`).
+
+```
+iter 1: com = oldest^ (current code)
+iter n: for each merge M in com..rem:
+            B = merge-base(M.p1, M.p2)
+            if B is strict ancestor of com:
+                com = B
+        repeat until stable
+```
+
+### U2. Double-apply of commits shared with loc history
+
+With `com` pushed deeper (e.g. `com = R` above),
+commits in `com..rem` may also be ancestors of `loc`
+(e.g. `a`, `b`).
+Remote replay applies them to `G_rem` starting at
+`com`;
+a subsequent loser walk over `G_rem.order` would
+re-apply them to `G_fst = live G_loc` → double count.
+
+Fix: precompute `R = in_range_set(com, rem)` once,
+then `rec_climb` gates on `R[tip]`:
+
+- `R[tip] == nil` → skip (out of range or already
+  consumed)
+- after visit: set `R[tip] = nil` (consume-on-visit)
+
+Loser walk reuses the same set so commits already in
+loc's history are skipped.
+
 ## Why recursive replay is needed
 
 Flat `git log --no-merges` replay is broken for ranges
@@ -101,63 +170,6 @@ replay_remote(G_rem, com, rem):
     R = in_range_set(com, rem)
     return pcall(rec, G_rem, rem, R)
 ```
-
-## The `com` problem: rec-merge-base
-
-`com = merge-base(loc, rem)` is too shallow in general.
-When `rem` contains a merge whose parents' own
-merge-base is *outside* `com..rem`, two problems arise:
-
-### Problem 1: rec overshoots
-
-```
-         G
-        / \
-      a1   b1 ◄── com
-        \ / \
-         AB  b2 ◄── loc
-         │
-         c1 ◄── rem
-```
-
-`com..rem = {a1, AB, c1}`. Inner merge `AB` has
-`merge-base(a1, b1) = G`, outside the range.
-`rec(G, B=G, R)` returns immediately (G not in R), but
-then `rec(G, b1, R)` via the loser subtree also hits
-`b1` which is com (already applied locally, must not
-be re-applied).
-
-With `R[tip] = nil` consume-on-visit, this is correct
-behavior — `b1` is simply absent from `R` and gets
-skipped.
-
-### Problem 2: determinism
-
-`b1` is already in `G.order` (loaded from com's state
-files). If AB's consensus picks `a1` as winner, the
-canonical order has `a1` *before* `b1` — but B's local
-order has `b1` fixed in place. Two peers produce
-different `order.lua` vectors.
-
-### Fix: deeper com
-
-Compute `com` as the **recursive merge-base** —
-deepest ancestor such that every merge in `com..rem`
-has both parents inside the range. Iteratively push
-`com` back through inner merge-bases until stable.
-
-```
-iter 1: com = merge-base(loc, rem)
-iter n: for each merge M in com..rem:
-            B = merge-base(M.p1, M.p2)
-            if B is strict ancestor of com:
-                com = B
-        repeat until stable
-```
-
-With `com = G` in the example above, range becomes
-`{a1, b1, AB, c1}`. Consensus at AB decides `a1`/`b1`
-order consistently across all peers.
 
 ## Two-path pipeline
 
@@ -271,10 +283,9 @@ make test T=consensus
   do-block
 - [x] `parents(tip)` — git `rev-list --parents -1`
   wrapper, returns `p1, p2`
-- [x] `commit(G, hash, merge)` — per-commit helper
-  (renamed from `F`); throws on validation failure;
-  `merge` flag controls per-commit `git merge
-  --no-commit` for the loser-side tree walk
+- [x] `commit(G, hash)` — per-commit helper
+  (renamed from `F`); throws on validation failure.
+  `merge` flag deferred (see Step A)
 - [x] `rec_climb(G, com, cur)` — single-tip backward
   walker; delegates merges to `rec_meet`
 - [x] `rec_meet(G, com, left, right)` — merge-point
@@ -292,33 +303,67 @@ make test T=consensus
   2. rem ancestor of loc → early-out
   3. loc ancestor of rem → `pcall(rec_climb)` +
      `git merge --ff-only`
-- [x] `replay_loser` removed — its per-commit merge
-  logic is subsumed by `commit(merge=true)`
 - [x] Test 4 `nested cascade` added to
   `tst/consensus.lua`
 
 ## Known bugs
 
+- See `## Urgent` — U1 (oldest-is-merge overshoot)
+  and U2 (double-apply) must be fixed first.
 - `rec_climb` / `rec_meet` don't accept or forward
   the `merge` flag to `commit` — loser-side tree
   walks can't trigger per-commit git-merge yet.
-- Case 4 post-`rec_meet` block still references
-  `fst` / `merge` / `G_fst` from the old
-  `replay_loser`-era code — undefined now; whole
-  block needs rewrite.
-- Inner `rec_meet` whose `merge-base(p1, p2)` is an
-  ancestor of the current `com` still overshoots
-  (e.g. `AB`'s `merge-base(a1, b1) = G` when current
-  base is `b1`). `rec_climb(G, com, G)` walks past
-  genesis and hits nil parent.
+- `replay_loser` still present in `sync.lua`;
+  not yet subsumed by `rec_meet(merge=true)`.
+- Case 4 tail still references `fst` / `merge` /
+  `G_fst` / `G_rem` / `replay_loser` from the flat
+  era — undefined / stale; whole block needs rewrite.
 
 ## Next steps
 
 Sequential; do not start step N+1 until step N is
 green.
 
-**▶ Resume here**: Step A — propagate `merge` flag
-through `rec_climb` / `rec_meet`.
+**▶ Resume here**: Step U1 — recursive merge-base
+for `com`.
+
+### Step U1 — recursive merge-base for `com`
+
+Fix the oldest-is-merge overshoot (see `## Urgent`
+U1).
+
+- [ ] Replace the `com = oldest^` inline block with
+  an iterative push-back: for each merge `M` in
+  `com..rem`, if `merge-base(M.p1, M.p2)` is a
+  strict ancestor of `com`, set `com` to it; repeat
+  until stable.
+- [ ] Reload `G_com` from the new `com` after push
+  stabilizes.
+
+Acceptance:
+
+```
+make test T=cli-sync       -- still green
+make test T=consensus      -- no regression
+```
+
+### Step U2 — in-range consume-on-visit set
+
+Fix the double-apply (see `## Urgent` U2).
+
+- [ ] Compute `R = in_range_set(com, rem)` =
+  `git rev-list com..rem` as a hash-set.
+- [ ] `rec_climb(G, com, cur, R)` gates on
+  `R[cur]`; after visit sets `R[cur] = nil`.
+- [ ] Threads `R` through `rec_meet` as well.
+- [ ] Loser walk reuses the same `R` so
+  loc-ancestor commits are skipped.
+
+Acceptance:
+
+```
+make test T=consensus      -- Test 4 passes
+```
 
 ### Step A — propagate `merge` flag
 
@@ -355,28 +400,12 @@ a `top` flag.
   `pcall(rec_meet, G, com, loc, rem, false, true)`.
 - [ ] Replace the old fst/merge/G_fst block with a
   final merge commit + state commit.
+- [ ] Delete `replay_loser`.
 
 Acceptance:
 
 ```
 make test T=cli-sync       -- all green
-```
-
-### Step C — inner merge-base escape
-
-Fix the overshoot when an inner `merge-base(p1, p2)`
-is ancestor of current `com`.
-
-- [ ] At `rec_meet`: `if is-ancestor(up, com) and
-  up ~= com then up = com end` — use current base as
-  effective up.
-- [ ] Or: pre-compute in_range set and gate
-  `rec_climb`.
-
-Acceptance:
-
-```
-make test T=consensus      -- Test 4 passes
 ```
 
 ### Step D — final verification
@@ -385,4 +414,4 @@ make test T=consensus      -- Test 4 passes
 - [ ] `make test T=consensus`
 - [ ] Full suite: `make test`
 - [ ] Update `## Done` section:
-  mark Steps A–C as `[x]`.
+  mark Steps U1, U2, A, B as `[x]`.
