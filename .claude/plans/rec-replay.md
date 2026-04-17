@@ -307,6 +307,27 @@ Implementation lives in `tst/consensus.lua`
 | `src/freechains/chain/sync.lua`  | `replay_loser` kept; delegates per-commit state to pure `commit` |
 | `tst/cli-sync.lua`               | add 3-peer nested merge test    |
 
+## Consensus & Mutable State (CRITICAL)
+
+If consensus ever moves from immutable git data (timestamps,
+hashes) to mutable state (e.g. prefix reputation), the
+recursive replay breaks determinism in the loser branch.
+
+**Scenario**: the loser branch contains internal merges
+from earlier syncs. To replay those, `collect()` calls
+`consensus()` to determine their sub-order. If consensus
+reads from live `G` (which already includes the winner's
+effects), the internal ordering depends on the winner —
+and two peers that chose different winners would compute
+different sub-orders → state divergence.
+
+**Constraint**: consensus input must be computable from
+the DAG alone (immutable commit data), never from replay
+state. If reputation-based ordering is desired, it must
+use state snapshotted at the merge-base of the internal
+merge (from state commits in git), not from the live `G`
+being replayed.
+
 ## Verification
 
 ```
