@@ -222,7 +222,7 @@ end
 
 -- 4. nested cascade (fails under flat replay, passes under recursive)
 -- GEN_4: KEY1..KEY4 = 7500 each.
--- A side (inner winner): KEY1+KEY2 dislike KEY4 by 3 (sum 15000).
+-- A side (inner winner): KEY1+KEY2+KEY3 dislike KEY4 by 3 (sum 22500).
 -- B side (inner loser):  KEY4 posts P_c (sum 7500).
 -- A recvs B → inner merge M1 on A. A wins. P_c voided.
 -- C clones A (gets M1). C's replay_remote walks com..A_tip,
@@ -249,6 +249,7 @@ do
 
     -- A: G -- D1
     -- B: G
+    -- K4: 7500 - 2700 = 4800
     TEST "A: KEY1 dislikes KEY4 author by 3"
     exec (
         EXE_A .. " --now=2000 chain cons-d dislike 3 author '" .. PUB4 .. "' --sign " .. KEY1
@@ -256,23 +257,32 @@ do
 
     -- A: G -- D1 -- D2
     -- B: G
+    -- K4: 4800 - 2700 = 2100
     TEST "A: KEY2 dislikes KEY4 author by 3"
     exec (
         EXE_A .. " --now=2000 chain cons-d dislike 3 author '" .. PUB4 .. "' --sign " .. KEY2
     )
 
-    -- A: G -- D1 -- D2
+    -- A: G -- D1 -- D2 -- D3
+    -- B: G
+    -- K4: 2100 - 2700 = -600
+    TEST "A: KEY3 dislikes KEY4 author by 3"
+    exec (
+        EXE_A .. " --now=2000 chain cons-d dislike 3 author '" .. PUB4 .. "' --sign " .. KEY3
+    )
+
+    -- A: G -- D1 -- D2 -- D3
     -- B: G -- P_c
     TEST "B: KEY4 posts P_c"
     local P_c = exec (
         EXE_B .. " --now=2100 chain cons-d post inline 'P_c\n' --sign " .. KEY4
     )
 
-    --         D1 -- D2 --\
-    --        /            M -- S
-    -- A:    G             /
-    --        \           /
-    --         P_c* -----/      (* voided by cascade)
+    --         D1 -- D2 -- D3 --\
+    --        /                  M -- S
+    -- A:    G                   /
+    --        \                 /
+    --         P_c* -----------/      (* voided by cascade)
     --
     -- B: G -- P_c
     TEST "A recvs B (inner merge; A wins; P_c voided on A)"
@@ -281,8 +291,8 @@ do
     )
 
     -- C: (same DAG as A) — replay walks com..A_tip, encounters M
-    --   Flat:      interleaves D1,D2,P_c → P_c may survive
-    --   Recursive: winner-first at M → D1,D2 first → P_c voided
+    --   Flat:      interleaves D1,D2,D3,P_c → P_c may survive
+    --   Recursive: winner-first at M → D1,D2,D3 first → P_c voided
     TEST "C clones from A (replay walks range containing inner merge)"
     exec (
         EXE_C .. " chains add cons-d clone " .. ROOT_A .. "/chains/cons-d/"
