@@ -96,7 +96,7 @@ elseif ARGS.recv then
                 "git -C " .. REPO .. " log --reverse --format=%H " .. com .. ".." .. tip
             )
             for hash in out:gmatch("%x+") do
-                local key = ssh.verify(REPO, hash)
+                local key = ssh.pubkey(REPO, hash)
                 if key then
                     keys[key] = true
                 end
