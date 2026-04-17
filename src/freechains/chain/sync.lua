@@ -21,14 +21,13 @@ elseif ARGS.recv then
     -- Four cases:
     --  1. unrelated histories (different genesis)
     --      - ERROR
-    --  2. remote within local (remote ancestor of local)
+    --  2. local contains remote (remote is ancestor of local)
     --      - DONE
-    --  3. local within remote (local ancestor of remote)
-    --      - need to verify remote
-    --      - rec_climb(rem)
-    --      - fast-forward
+    --  3,4: need common ancestor, remote validation/replay
+    --      - replay_remote: climb / meet
+    --  3. remote conains local (local is ancestor of remote)
+    --      - merge with fast-forward
     --  4. local and remote diverge
-    --      - rec_meet(loc,rem)
     ]]
 
     -- 1. reject unrelated histories
@@ -140,43 +139,49 @@ elseif ARGS.recv then
             return ps[2], ps[3]
         end
 
-        local function climb (G, com, cur)
+        local climb, meet
+
+        climb = function (G, com, cur)
             if cur == com then
                 return
             else
                 local p1, p2 = parents(cur)
                 if p2 == nil then
-                    rec_climb(G, com, p1)
+                    climb(G, com, p1)
                 else
-                    rec_meet(G, com, p1, p2)
+                    meet(G, com, p1, p2)
                 end
                 commit(G, cur)
             end
         end
 
-        local function meet (G, com, left, right)
+        meet = function (G, com, left, right)
             local up = exec (
                 "git -C " .. REPO .. " merge-base " .. left .. " " .. right
             )
-            rec_climb(G, com, up)
+            climb(G, com, up)
             local w = consensus(G, up, left, right)
             if w == left then
-                rec_climb(G, up, left)
-                rec_climb(G, up, right)
+                climb(G, up, left)
+                climb(G, up, right)
             else
-                rec_climb(G, up, right)
-                rec_climb(G, up, left)
+                climb(G, up, right)
+                climb(G, up, left)
             end
         end
+
+          replay_remote = function (G, com, rem)
+              return pcall(climb, G, com, rem)
+          end
     end
 
     ---------------------------------------------------------------------------
     ---------------------------------------------------------------------------
 
-    -- 3,4: need remote verification: replay remote branch from G_com
+    -- 3,4: need remote validation: replay remote branch from G_com
     local G_rem = G_com -- (G_com no longer required)
     do
-        local ok, _, err = replay_remote(G_rem, com, rem)
+        local ok, err = replay_remote(G_rem, com, rem)
         if not ok then
             ERROR("chain sync : " .. err)
         end
