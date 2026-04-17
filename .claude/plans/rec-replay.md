@@ -15,6 +15,36 @@ consensus ordering at every merge point in the DAG,
 driven by git's native parent/merge-base queries —
 no pre-built graph structure.
 
+## Design decision: V1 (keep replay_loser, pure commit)
+
+Two architectures were considered:
+
+- **V1** (chosen):
+  `commit(G, hash)` stays **pure** (memory-only);
+  `replay_remote` drives rec (`climb`/`meet`) for
+  validation; `replay_loser` keeps the flat
+  per-commit git trial-merge pass over `O_snd`.
+  Two traversal mechanisms, clean separation between
+  validation and integration.
+- V2 (rejected):
+  unified `commit(G, hash, merge)`; rec parameterized
+  by `merge`/`top` flags; `replay_loser` deleted.
+  Fewer lines, but `commit` becomes impure and
+  `rec_meet` gains flags.
+
+**Soundness of V1.**
+Correct because `O_snd` is already winner-first
+ordered (built by rec in the current sync or by past
+syncs in loc's `order.lua`). Flat iteration over
+`O_snd` reproduces the exact sequence of git
+operations V2 would emit via a second rec walk.
+No redundancy: rec builds G_rem; replay_loser
+integrates loser commits into `G_fst` (≠ G_rem when
+fst=loc) — these are two distinct passes either way.
+
+U1 and U2 still apply to V1 (same `com` issue; same
+need for consume-on-visit gating in the loser pass).
+
 ## Urgent (blocks correctness)
 
 These two issues block case 4 (diverge) and edge
@@ -198,9 +228,11 @@ replay_remote(G_rem, com, rem):
   `merge-base`.
 - `replay_loser`:
   per-commit trial-merge into detached HEAD of
-  winner tip, as today.
+  winner tip.
   Iterates `O_snd` in order — no graph walk, no
   consensus re-run.
+  Per-commit state update delegated to the pure
+  `commit(G_fst, hash)`.
 
 ## Consensus
 
@@ -266,7 +298,7 @@ Implementation lives in `tst/consensus.lua`
 | `src/freechains/chain/sync.lua`  | backward `rec()` + `parents()`  |
 | `src/freechains/chain/sync.lua`  | `in_range` set gate             |
 | `src/freechains/chain/sync.lua`  | `com = rec-merge-base(loc, rem)`|
-| `src/freechains/chain/sync.lua`  | `replay_loser` unchanged        |
+| `src/freechains/chain/sync.lua`  | `replay_loser` kept; delegates per-commit state to pure `commit` |
 | `tst/cli-sync.lua`               | add 3-peer nested merge test    |
 
 ## Verification
@@ -285,7 +317,10 @@ make test T=consensus
   wrapper, returns `p1, p2`
 - [x] `commit(G, hash)` — per-commit helper
   (renamed from `F`); throws on validation failure.
-  `merge` flag deferred (see Step A)
+  Kept pure (no `merge` flag) under V1.
+- [x] `replay_loser` delegates per-commit state to
+  pure `commit`; keeps its own flat O_snd iteration
+  + git trial-merge.
 - [x] `rec_climb(G, com, cur)` — single-tip backward
   walker; delegates merges to `rec_meet`
 - [x] `rec_meet(G, com, left, right)` — merge-point
@@ -310,14 +345,13 @@ make test T=consensus
 
 - See `## Urgent` — U1 (oldest-is-merge overshoot)
   and U2 (double-apply) must be fixed first.
-- `rec_climb` / `rec_meet` don't accept or forward
-  the `merge` flag to `commit` — loser-side tree
-  walks can't trigger per-commit git-merge yet.
-- `replay_loser` still present in `sync.lua`;
-  not yet subsumed by `rec_meet(merge=true)`.
+- `replay_loser` line ~312: `pcall(commit, hash)`
+  missing `G_fst` arg. Should be
+  `pcall(commit, G_fst, hash)`.
 - Case 4 tail still references `fst` / `merge` /
-  `G_fst` / `G_rem` / `replay_loser` from the flat
-  era — undefined / stale; whole block needs rewrite.
+  `G_fst` / `G_rem` from the flat era — variables
+  are live in scope but the block's post-replay_loser
+  logic needs review against V1 expectations.
 
 ## Next steps
 
@@ -365,42 +399,15 @@ Acceptance:
 make test T=consensus      -- Test 4 passes
 ```
 
-### Step A — propagate `merge` flag
+### Step B1 — finalize V1 case 4 wiring
 
-- [ ] Add `merge` parameter to `rec_climb(G, com,
-  cur, merge)` and `rec_meet(G, com, left, right,
-  merge)`.
-- [ ] Forward the flag through every internal call.
-- [ ] `rec_climb` passes `merge` to `commit(G, cur,
-  merge)`.
-- [ ] Case 3 call (fast-forward): `pcall(rec_climb,
-  G, com, rem, false)` — explicit false.
-- [ ] Case 4 call: still `pcall(rec_meet, G, com,
-  loc, rem, false)` for now; Step B restructures.
-
-Acceptance:
-
-```
-make test T=cli-sync       -- still green (no
-                              behavior change yet)
-```
-
-### Step B — rewire case 4 tree-side
-
-Option picked: bundle the detach into `rec_meet` via
-a `top` flag.
-
-- [ ] `rec_meet(G, com, left, right, merge, top)`:
-  at top-level, run winner rec with `merge=false`,
-  `git checkout --detach winner`, `<close>` cleanup
-  `checkout main`, then loser rec with `merge=true`.
-- [ ] Inner `rec_meet` (top=false) keeps uniform
-  `merge` flag for both sub-recs (inherits caller's).
-- [ ] Main case 4: single call
-  `pcall(rec_meet, G, com, loc, rem, false, true)`.
-- [ ] Replace the old fst/merge/G_fst block with a
-  final merge commit + state commit.
-- [ ] Delete `replay_loser`.
+- [ ] Fix `pcall(commit, hash)` →
+  `pcall(commit, G_fst, hash)` in `replay_loser`.
+- [ ] Remove dead `local key = ssh.pubkey(...)` in
+  `replay_loser` body.
+- [ ] Audit the case-4 post-block (voided list,
+  reset to fst, final merge + state commit) against
+  V1 variables in scope.
 
 Acceptance:
 
@@ -414,4 +421,4 @@ make test T=cli-sync       -- all green
 - [ ] `make test T=consensus`
 - [ ] Full suite: `make test`
 - [ ] Update `## Done` section:
-  mark Steps U1, U2, A, B as `[x]`.
+  mark Steps U1, U2, B1 as `[x]`.
