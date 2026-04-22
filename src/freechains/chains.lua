@@ -7,6 +7,7 @@ local function git_config (dir)
     exec("git -C " .. dir .. " config commit.gpgsign false")
     exec("git -C " .. dir .. " config pull.rebase false")
     exec("git -C " .. dir .. " config merge.ours.driver true")
+    exec("git -C " .. dir .. " config receive.denyCurrentBranch updateInstead")
 end
 
 local function pioneers (dir)
@@ -64,7 +65,7 @@ if ARGS.add then
         )
         git_config(tmp)
         exec (
-            "cp " .. HERE .. "/hooks/post-receive " .. tmp .. "/.git/hooks/post-receive"
+            "cp " .. HERE .. "/hooks/pre-receive " .. tmp .. "/.git/hooks/pre-receive"
         )
         exec (
             "cp -r " .. HERE .. "/skel/. " .. tmp .. "/"
@@ -111,7 +112,7 @@ if ARGS.add then
         )
         git_config(tmp)
         exec (
-            "cp " .. HERE .. "/hooks/post-receive " .. tmp .. "/.git/hooks/post-receive"
+            "cp " .. HERE .. "/hooks/pre-receive " .. tmp .. "/.git/hooks/pre-receive"
         )
         local hash = exec (
             "git -C " .. tmp .. " rev-list --max-parents=0 HEAD"
