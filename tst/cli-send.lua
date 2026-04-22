@@ -87,9 +87,9 @@ do
     )
 end
 
--- 1. B recv after 1st post
+-- 1. A send after 1st post
 do
-    print("==> Step 1: B recv after 1st post")
+    print("==> Step 1: A send after 1st post")
 
     TEST "A posts"
     local out = exec (
@@ -99,8 +99,8 @@ do
     -- A:  [state] genesis ── [post] P1 ── [state] S1
     -- B:  [state] genesis
 
-    TEST "B recvs from A"
-    exec(EXE_B .. " --now=2500 chain test sync recv " .. REPO_A)
+    TEST "A sends to B"
+    exec(EXE_A .. " --now=2500 chain test sync send " .. REPO_B)
 
     TEST "B has A's latest post"
     local A = exec("git -C " .. REPO_A .. " rev-parse HEAD")
