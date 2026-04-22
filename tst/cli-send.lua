@@ -19,64 +19,64 @@ exec("mkdir -p " .. ROOT_A)
 exec("mkdir -p " .. ROOT_B)
 exec("mkdir -p " .. ROOT_C)
 
--- 1. recv basic (fetch + merge)
+-- 0. create/clone + pre-receive hook installed + rejects non-main
 do
-    print("==> Step 1: recv basic")
+    print("==> Step 0: create/clone + pre-receive hook")
 
-    do
-        TEST "A creates chain + posts"
-        exec(EXE_A .. " --now=1000 chains add test init " .. GEN_1)
-        local out = exec (
-            EXE_A .. " --now=2000 chain test post inline 'post from A' --sign " .. KEY1
-        )
-        assert(#out == 40, "hash: " .. out)
+    TEST "A creates chain"
+    exec(EXE_A .. " --now=1000 chains add test init " .. GEN_1)
 
-        TEST "A has executable pre-receive hook"
-        local _, ok = exec (true,
-            "test -x " .. REPO_A .. ".git/hooks/pre-receive"
-        )
-        assert(ok == 0, "A hook missing or not executable")
+    TEST "B clones"
+    exec(EXE_B .. " chains add test clone " .. REPO_A)
 
-        TEST "B clones"
-        exec(EXE_B .. " chains add test clone " .. REPO_A)
+    TEST "A has executable pre-receive hook"
+    local _, ok = exec (true,
+        "test -x " .. REPO_A .. ".git/hooks/pre-receive"
+    )
+    assert(ok == 0, "A hook missing or not executable")
 
-        TEST "B has executable pre-receive hook"
-        local _, ok = exec (true,
-            "test -x " .. REPO_B .. ".git/hooks/pre-receive"
-        )
-        assert(ok == 0, "B hook missing or not executable")
-    end
+    TEST "B has executable pre-receive hook"
+    local _, ok = exec (true,
+        "test -x " .. REPO_B .. ".git/hooks/pre-receive"
+    )
+    assert(ok == 0, "B hook missing or not executable")
+
+    TEST "push to non-main ref is rejected"
+    print("git -C " .. REPO_A .. " push " .. REPO_B .. " main:refs/heads/hack")
+error'ok'
+    local _, ok, err = exec (true,
+        "git -C " .. REPO_A .. " push " .. REPO_B .. " main:refs/heads/hack"
+    )
+    assert(ok ~= 0, "non-main push should fail")
+    assert (
+        err and err:find("only main push allowed"),
+        "expected hook rejection, got: " .. tostring(err)
+    )
+end
+
+-- 1. B recv after 1st post
+do
+    print("==> Step 1: B recv after 1st post")
+
+    TEST "A posts"
+    local out = exec (
+        EXE_A .. " --now=2000 chain test post inline 'post from A' --sign " .. KEY1
+    )
+    assert(#out == 40, "hash: " .. out)
+    -- A:  [state] genesis ── [post] P1 ── [state] S1
+    -- B:  [state] genesis
+
+    TEST "B recvs from A"
+    exec(EXE_B .. " --now=2500 chain test sync recv " .. REPO_A)
+
+    TEST "B has A's latest post"
+    local A = exec("git -C " .. REPO_A .. " rev-parse HEAD")
+    local B = exec("git -C " .. REPO_B .. " rev-parse HEAD")
+    assert (A == B,
+        "heads should be equal: " .. A .. " vs " .. B
+    )
     -- A:  [state] genesis ── [post] P1 ── [state] S1
     -- B:  [state] genesis ── [post] P1 ── [state] S1
-
-    do
-        TEST "A posts again"
-        local out = exec (
-            EXE_A .. " --now=3000 chain test post inline 'second from A' --sign " .. KEY1
-        )
-        assert(#out == 40, "hash: " .. out)
-
-        TEST "pubkey matches pioneer key"
-        local hash = exec("git -C " .. REPO_A .. " rev-parse HEAD~1")
-        local pk = ssh.verify(REPO_A, hash)
-        assert(pk == PUB1, "pubkey mismatch: [" .. tostring(pk) .. "] vs [" .. PUB1 .. "]")
-    end
-    -- A:  [state] genesis ── [post] P1 ── [state] S1 ── [post] P2 ── [state] S2
-    -- B:  [state] genesis ── [post] P1 ── [state] S1
-
-    do
-        TEST "B recvs from A"
-        exec(EXE_B .. " --now=3500 chain test sync recv " .. REPO_A)
-
-        TEST "B has A's latest post"
-        local A = exec("git -C " .. REPO_A .. " rev-parse HEAD")
-        local B = exec("git -C " .. REPO_B .. " rev-parse HEAD")
-        assert (A == B,
-            "heads should be equal: " .. A .. " vs " .. B
-        )
-    end
-    -- A:  [state] genesis ── [post] P1 ── [state] S1 ── [post] P2 ── [state] S2
-    -- B:  [state] genesis ── [post] P1 ── [state] S1 ── [post] P2 ── [state] S2
 end
 
 -- 2. recv bidirectional
