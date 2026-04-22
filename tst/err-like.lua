@@ -53,7 +53,7 @@ do
         EXE_B .. " chain err-sign sync recv " .. REPO_A
     )
     assert (
-        Q~=0 and err=="ERROR : chain sync : invalid like : missing sign key"
+        Q~=0 and err=="ERROR : chain recv : invalid like : missing sign key"
         , "should fail: " .. tostring(err)
     )
 end
@@ -87,7 +87,7 @@ do
         EXE_B .. " chain err-payload sync recv " .. REPO_A2
     )
     assert (
-        Q~=0 and err=="ERROR : chain sync : invalid like : missing metadata file"
+        Q~=0 and err=="ERROR : chain recv : invalid like : missing metadata file"
         , "should fail: " .. tostring(err)
     )
 end
@@ -130,7 +130,7 @@ do
         EXE_B .. " chain err-lua sync recv " .. REPO_A3
     )
     assert (
-        Q~=0 and err=="ERROR : chain sync : invalid like : invalid lua metadata"
+        Q~=0 and err=="ERROR : chain recv : invalid like : invalid lua metadata"
         , "should fail: " .. tostring(err)
     )
 end
@@ -173,7 +173,7 @@ do
         EXE_B .. " chain err-table sync recv " .. REPO_A4
     )
     assert (
-        Q~=0 and err=="ERROR : chain sync : invalid like : invalid lua metadata"
+        Q~=0 and err=="ERROR : chain recv : invalid like : invalid lua metadata"
         , "should fail: " .. tostring(err)
     )
 end
@@ -216,7 +216,7 @@ do
         EXE_B .. " chain err-target sync recv " .. REPO_A5
     )
     assert (
-        Q~=0 and err=="ERROR : chain sync : invalid like : invalid target : expects 'post' or 'author'"
+        Q~=0 and err=="ERROR : chain recv : invalid like : invalid target : expects 'post' or 'author'"
         , "should fail: " .. tostring(err)
     )
 end
@@ -259,7 +259,7 @@ do
         EXE_B .. " chain err-post sync recv " .. REPO_A6
     )
     assert (
-        Q~=0 and err=="ERROR : chain sync : invalid like : invalid target : post not found"
+        Q~=0 and err=="ERROR : chain recv : invalid like : invalid target : post not found"
         , "should fail: " .. tostring(err)
     )
 end
@@ -302,7 +302,7 @@ do
         EXE_B .. " chain err-reps sync recv " .. REPO_A7
     )
     assert (
-        Q~=0 and err=="ERROR : chain sync : invalid like : insufficient reputation"
+        Q~=0 and err=="ERROR : chain recv : invalid like : insufficient reputation"
         , "should fail: " .. tostring(err)
     )
 end
@@ -345,7 +345,7 @@ do
         EXE_B .. " chain err-time sync recv " .. REPO_A8
     )
     assert (
-        Q~=0 and err=="ERROR : chain sync : invalid like : too old"
+        Q~=0 and err=="ERROR : chain recv : invalid like : too old"
         , "should fail: " .. tostring(err)
     )
 end
@@ -388,7 +388,7 @@ do
         EXE_B .. " chain err-frac sync recv " .. REPO_A9
     )
     assert (
-        Q~=0 and err=="ERROR : chain sync : invalid like : invalid number : expects non-zero integer"
+        Q~=0 and err=="ERROR : chain recv : invalid like : invalid number : expects non-zero integer"
         , "should fail: " .. tostring(err)
     )
 end
@@ -431,7 +431,7 @@ do
         EXE_B .. " chain err-zero sync recv " .. REPO_A10
     )
     assert (
-        Q~=0 and err=="ERROR : chain sync : invalid like : invalid number : expects non-zero integer"
+        Q~=0 and err=="ERROR : chain recv : invalid like : invalid number : expects non-zero integer"
         , "should fail: " .. tostring(err)
     )
 end
@@ -469,7 +469,7 @@ do
 
     TEST "B rejects forged like signature on sync"
     local _,Q,err = exec(true, EXE_B .. " chain err-forge-like sync recv " .. REPO_A11)
-    assert(Q~=0 and err == "ERROR : chain sync : invalid like : invalid signature", "should fail: " .. tostring(err))
+    assert(Q~=0 and err == "ERROR : chain recv : invalid like : invalid signature", "should fail: " .. tostring(err))
 end
 
 print("<== ALL PASSED")
