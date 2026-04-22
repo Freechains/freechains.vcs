@@ -41,16 +41,35 @@ do
     )
     assert(ok == 0, "B hook missing or not executable")
 
-    TEST "push to non-main ref is rejected"
-    print("git -C " .. REPO_A .. " push " .. REPO_B .. " main:refs/heads/hack")
-error'ok'
-    local _, ok, err = exec (true,
-        "git -C " .. REPO_A .. " push " .. REPO_B .. " main:refs/heads/hack"
-    )
-    assert(ok ~= 0, "non-main push should fail")
-    assert (
-        err and err:find("only main push allowed"),
-        "expected hook rejection, got: " .. tostring(err)
+    local function reject (refspec, why)
+        local _, ok, err = exec (true,
+            "git -C " .. REPO_A .. " push " .. REPO_B .. " " .. refspec
+        )
+        assert(ok ~= 0, why .. " : push should have failed")
+        assert (
+            err and err:find("only main push allowed"),
+            why .. " : unexpected stderr: " .. tostring(err)
+        )
+    end
+
+    TEST "reject push to refs/heads/hack"
+    reject("main:refs/heads/hack", "refs/heads/hack")
+
+    TEST "reject push to refs/tags/v1"
+    reject("main:refs/tags/v1", "refs/tags/v1")
+
+    TEST "reject push to refs/begs/foo"
+    reject("main:refs/begs/foo", "refs/begs/foo")
+
+    TEST "reject branch deletion"
+    reject(":refs/heads/main", "delete main")
+
+    TEST "reject multi-ref push when any non-main"
+    reject("main:refs/heads/main main:refs/heads/hack", "mixed refs")
+
+    TEST "accept main:main no-op"
+    exec (
+        "git -C " .. REPO_A .. " push " .. REPO_B .. " main:refs/heads/main"
     )
 end
 
