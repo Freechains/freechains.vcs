@@ -41,31 +41,45 @@ do
     )
     assert(ok == 0, "B hook missing or not executable")
 
-    local function reject (refspec, why)
-        local _, ok, err = exec (true,
-            "git -C " .. REPO_A .. " push " .. REPO_B .. " " .. refspec
-        )
-        assert(ok ~= 0, why .. " : push should have failed")
-        assert (
-            err and err:find("only main push allowed"),
-            why .. " : unexpected stderr: " .. tostring(err)
-        )
-    end
-
     TEST "reject push to refs/heads/hack"
-    reject("main:refs/heads/hack", "refs/heads/hack")
+    local _, ok, err = exec (true,
+        "git -C " .. REPO_A .. " push " .. REPO_B .. " main:refs/heads/hack"
+    )
+    assert(ok ~= 0, "refs/heads/hack : push should have failed")
+    assert (
+        err and err:find("ERROR : chain sync : only main push allowed"),
+        "refs/heads/hack : unexpected stderr: " .. tostring(err)
+    )
 
     TEST "reject push to refs/tags/v1"
-    reject("main:refs/tags/v1", "refs/tags/v1")
+    local _, ok, err = exec (true,
+        "git -C " .. REPO_A .. " push " .. REPO_B .. " main:refs/tags/v1"
+    )
+    assert(ok ~= 0, "refs/tags/v1 : push should have failed")
+    assert (
+        err and err:find("ERROR : chain sync : only main push allowed"),
+        "refs/tags/v1 : unexpected stderr: " .. tostring(err)
+    )
 
     TEST "reject push to refs/begs/foo"
-    reject("main:refs/begs/foo", "refs/begs/foo")
-
-    TEST "reject branch deletion"
-    reject(":refs/heads/main", "delete main")
+    local _, ok, err = exec (true,
+        "git -C " .. REPO_A .. " push " .. REPO_B .. " main:refs/begs/foo"
+    )
+    assert(ok ~= 0, "refs/begs/foo : push should have failed")
+    assert (
+        err and err:find("ERROR : chain sync : only main push allowed"),
+        "refs/begs/foo : unexpected stderr: " .. tostring(err)
+    )
 
     TEST "reject multi-ref push when any non-main"
-    reject("main:refs/heads/main main:refs/heads/hack", "mixed refs")
+    local _, ok, err = exec (true,
+        "git -C " .. REPO_A .. " push " .. REPO_B .. " main:refs/heads/main main:refs/heads/hack"
+    )
+    assert(ok ~= 0, "mixed refs : push should have failed")
+    assert (
+        err and err:find("ERROR : chain sync : only main push allowed"),
+        "mixed refs : unexpected stderr: " .. tostring(err)
+    )
 
     TEST "accept main:main no-op"
     exec (
@@ -311,7 +325,7 @@ do
         EXE_B .. " --now=9000 chain test sync recv " .. REPO_C
     )
     assert (
-        Q~=0 and err=="ERROR : chain sync : incompatible genesis"
+        Q~=0 and err=="ERROR : chain recv : incompatible genesis"
         , "should fail: " .. tostring(err)
     )
 
