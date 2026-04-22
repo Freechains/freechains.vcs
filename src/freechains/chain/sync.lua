@@ -2,10 +2,9 @@ require "freechains.chain.common"
 local ssh = require "freechains.chain.ssh"
 
 if ARGS.send then
-    error "TODO: not implemented"
     exec (
         "git -C " .. REPO .. " push " .. ARGS.remote .. " main"
-        , "chain sync : push failed"
+        , "chain send : push failed"
     )
 
 elseif ARGS.recv then

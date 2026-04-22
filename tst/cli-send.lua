@@ -19,9 +19,9 @@ exec("mkdir -p " .. ROOT_A)
 exec("mkdir -p " .. ROOT_B)
 exec("mkdir -p " .. ROOT_C)
 
--- 0. create/clone + pre-receive hook installed + rejects non-main
+-- 1. create/clone + pre-receive hook installed + rejects non-main
 do
-    print("==> Step 0: create/clone + pre-receive hook")
+    print("==> Step 1: create/clone + pre-receive hook")
 
     TEST "A creates chain"
     exec(EXE_A .. " --now=1000 chains add test init " .. GEN_1)
@@ -87,9 +87,62 @@ do
     )
 end
 
--- 1. A send after 1st post
+-- 2. send rejects like from author with insufficient reputation
+--    (based on tst/err-like.lua lines 268-308)
 do
-    print("==> Step 1: A send after 1st post")
+    print("==> Step 2: send rejects like with insufficient reps")
+
+    local ROOT_D  = ROOT .. "/cli-sync/D/"
+    local ROOT_E  = ROOT .. "/cli-sync/E/"
+    local EXE_D   = ENV .. " ../src/freechains.lua --root " .. ROOT_D
+    local EXE_E   = ENV .. " ../src/freechains.lua --root " .. ROOT_E
+    local REPO_D  = ROOT_D .. "/chains/err-reps/"
+    local REPO_E  = ROOT_E .. "/chains/err-reps/"
+
+    exec("mkdir -p " .. ROOT_D)
+    exec("mkdir -p " .. ROOT_E)
+
+    TEST "D creates chain + post"
+    exec(EXE_D .. " chains add err-reps init " .. GEN_1)
+    local post = exec (
+        EXE_D .. " chain err-reps post inline 'legit' --sign " .. KEY1
+    )
+
+    TEST "E clones from D"
+    exec(EXE_E .. " chains add err-reps clone " .. REPO_D)
+
+    TEST "D crafts like signed by non-pioneer (0 reps)"
+    exec("mkdir -p " .. REPO_D .. ".freechains/likes/")
+    local f = io.open(REPO_D .. ".freechains/likes/like-err.lua", "w")
+    f:write('return { target="post", id="'..post..'", number=1000 }\n')
+    f:close()
+    exec (
+        ENV .. " git -C " .. REPO_D
+        .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh"
+        .. " add .freechains/likes/like-err.lua"
+    )
+    exec (
+        ENV .. " git -C " .. REPO_D
+        .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh"
+        .. " commit -S -m 'x' --trailer 'Freechains: like'"
+    )
+    exec (
+        "git -C " .. REPO_D .. " commit -m 'x' --trailer 'Freechains: state' --allow-empty"
+    )
+
+    TEST "D sends to E: push should be rejected"
+    local _, Q, err = exec (true,
+        EXE_D .. " chain err-reps sync send " .. REPO_E
+    )
+    assert (
+        Q~=0 and err and err:find("insufficient reputation"),
+        "send should fail: " .. tostring(err)
+    )
+end
+
+-- 3. A send after 1st post
+do
+    print("==> Step 3: A send after 1st post")
 
     TEST "A posts"
     local out = exec (
@@ -112,9 +165,9 @@ do
     -- B:  [state] genesis ── [post] P1 ── [state] S1
 end
 
--- 2. recv bidirectional
+-- 4. recv bidirectional
 do
-    print("==> Step 2: recv bidirectional")
+    print("==> Step 4: recv bidirectional")
 
     do
         TEST "A posts"
@@ -153,9 +206,9 @@ do
     -- B:  genesis ── ... ── S3 ── [post] P4 ── [state] S4
 end
 
--- 3. recv divergent + consensus
+-- 5. recv divergent + consensus
 do
-    print("==> Step 3: recv divergent")
+    print("==> Step 5: recv divergent")
 
     local A, B
 
@@ -247,9 +300,9 @@ do
     -- B:  same as A (FF recv)
 end
 
--- 4. recv with like
+-- 6. recv with like
 do
-    print("==> Step 4: recv like")
+    print("==> Step 6: recv like")
 
     local A
     do
@@ -307,9 +360,9 @@ do
     end
 end
 
--- 5. recv unrelated histories
+-- 7. recv unrelated histories
 do
-    print("==> Step 5: recv unrelated histories")
+    print("==> Step 7: recv unrelated histories")
 
     TEST "C creates independent chain"
     exec(EXE_C .. " --now=1000 chains add test init " .. GEN_1)
