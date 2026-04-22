@@ -31,8 +31,20 @@ do
         )
         assert(#out == 40, "hash: " .. out)
 
+        TEST "A has executable post-receive hook"
+        local _, ok = exec (true,
+            "test -x " .. REPO_A .. ".git/hooks/post-receive"
+        )
+        assert(ok == 0, "A hook missing or not executable")
+
         TEST "B clones"
         exec(EXE_B .. " chains add test clone " .. REPO_A)
+
+        TEST "B has executable post-receive hook"
+        local _, ok = exec (true,
+            "test -x " .. REPO_B .. ".git/hooks/post-receive"
+        )
+        assert(ok == 0, "B hook missing or not executable")
     end
     -- A:  [state] genesis ── [post] P1 ── [state] S1
     -- B:  [state] genesis ── [post] P1 ── [state] S1
