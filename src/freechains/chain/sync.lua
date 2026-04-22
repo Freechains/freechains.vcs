@@ -11,7 +11,7 @@ if ARGS.send then
 elseif ARGS.recv then
     exec ('stdout',
         "git -C " .. REPO .. " fetch " .. ARGS.remote .. " main"
-        , "chain sync : fetch failed"
+        , "chain recv : fetch failed"
     )
 
     local loc = exec("git -C " .. REPO .. " rev-parse HEAD")
@@ -39,7 +39,7 @@ elseif ARGS.recv then
             "git -C " .. REPO .. " rev-list --max-parents=0 " .. rem
         )
         if loc_root ~= rem_root then
-            ERROR("chain sync : incompatible genesis")
+            ERROR("chain recv : incompatible genesis")
         end
     end
 
@@ -246,7 +246,7 @@ elseif ARGS.recv then
 
         local ok, err = pcall(climb, G_rem, oct, rem)
         if not ok then
-            ERROR("chain sync : " .. err)
+            ERROR("chain recv : " .. err)
         end
     end
 

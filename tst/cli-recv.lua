@@ -280,7 +280,7 @@ do
         EXE_B .. " --now=9000 chain test sync recv " .. REPO_C
     )
     assert (
-        Q~=0 and err=="ERROR : chain sync : incompatible genesis"
+        Q~=0 and err=="ERROR : chain recv : incompatible genesis"
         , "should fail: " .. tostring(err)
     )
 
