@@ -61,11 +61,14 @@ No new commits when state matches -> no cyclic garbage.
 serialized G_rem blobs via `git hash-object` and compare
 to `git ls-tree FETCH_HEAD:.freechains/state`.
 
-**C** (file byte compare) retained as fallback for the
-non-FF case (no committed tree to compare against yet).
+On mismatch: `ERROR "chain sync : remote state
+mismatch"`. No reset/rewrite — simpler, remote is
+rejected outright.
 
 **B** avoids reading files but introduces a new trailer
 and a hash algorithm dependency; skip.
+
+**C** skipped.
 
 ## Name: `state-hash`
 
@@ -76,16 +79,10 @@ If/when option B lands, trailer is:
 ## Scope
 
 - recv FF: currently trusts remote -> add compare
-- recv non-FF: already writes G_fst; make write
-  conditional on differ
 
-(send hook dropped from scope)
+(send hook, reset/rewrite, non-FF all dropped from scope)
 
 ## TODO
 
 - [x] recv FF: compare G_rem tree-hash vs FETCH_HEAD;
-  skip commit on match
-- [x] recv FF: on differ, reset past state tip + write +
-  commit
-- [x] recv non-FF: make write conditional (disk byte
-  compare)
+  ERROR on mismatch

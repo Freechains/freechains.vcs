@@ -257,6 +257,17 @@ elseif ARGS.recv then
         )
         if ff then
             exec("git -C " .. REPO .. " merge --ff-only FETCH_HEAD")
+            -- verify remote state: overwrite with G_rem, diff vs HEAD
+            do
+                write(G_rem)
+                local same = exec (true, 'stdout',
+                    "git -C " .. REPO ..  " diff --quiet HEAD -- .freechains/state/"
+                )
+                if not same then
+                    exec("git -C " .. REPO .. " reset --hard " .. loc)
+                    ERROR("chain recv : remote state mismatch")
+                end
+            end
             goto RECV
         end
     end
