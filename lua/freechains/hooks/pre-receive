@@ -4,5 +4,10 @@ while read old new ref; do
         echo "ERROR : chain sync : only main push allowed" 1>&2
         exit 1
     fi
+    GIT_DIR_ABS=$(cd "$GIT_DIR" && pwd)
+    REPO_DIR=$(dirname "$GIT_DIR_ABS")
+    FC_ROOT=$(dirname "$(dirname "$REPO_DIR")")
+    FC_CHAIN=$(basename "$REPO_DIR")
+    freechains --root="$FC_ROOT" chain "$FC_CHAIN" sync recv "$REPO_DIR" || exit 1
 done
 exit 0
