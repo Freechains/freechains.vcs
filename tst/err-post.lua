@@ -48,7 +48,7 @@ do
         EXE_B .. " chain err-reps sync recv " .. REPO_A1
     )
     assert (
-        Q~=0 and err=="ERROR : chain sync : invalid post : insufficient reputation"
+        Q~=0 and err=="ERROR : chain recv : invalid post : insufficient reputation"
         , "should fail: " .. tostring(err)
     )
 end
@@ -90,7 +90,7 @@ do
         EXE_B .. " chain err-time sync recv " .. REPO_A2
     )
     assert (
-        Q~=0 and err=="ERROR : chain sync : invalid post : too old"
+        Q~=0 and err=="ERROR : chain recv : invalid post : too old"
         , "should fail: " .. tostring(err)
     )
 end
@@ -129,7 +129,7 @@ do
 
     TEST "B rejects forged signature on sync"
     local _,Q,err = exec(true, EXE_B .. " chain err-forge sync recv " .. REPO_A3)
-    assert(Q~=0 and err == "ERROR : chain sync : invalid post : invalid signature", "should fail: " .. tostring(err))
+    assert(Q~=0 and err == "ERROR : chain recv : invalid post : invalid signature", "should fail: " .. tostring(err))
 end
 
 -- sync fetch failed
@@ -138,7 +138,7 @@ do
 
     TEST "sync recv from nonexistent remote"
     local _,Q,err = exec(true, EXE_A .. " chain err-forge sync recv /nonexistent/repo")
-    assert(Q~=0 and err=="ERROR : chain sync : fetch failed", "should fail: " .. tostring(err))
+    assert(Q~=0 and err=="ERROR : chain recv : fetch failed", "should fail: " .. tostring(err))
 end
 
 print("<== ALL PASSED")

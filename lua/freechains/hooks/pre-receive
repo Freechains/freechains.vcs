@@ -1,0 +1,8 @@
+#!/bin/sh
+while read old new ref; do
+    if [ "$ref" != "refs/heads/main" ]; then
+        echo "ERROR : chain sync : only main push allowed" 1>&2
+        exit 1
+    fi
+done
+exit 0

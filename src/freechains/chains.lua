@@ -1,5 +1,5 @@
 local C    = require "freechains.constants"
-local SKEL = debug.getinfo(1, "S").source:match("@(.*/)")  .. "skel/"
+local HERE = debug.getinfo(1, "S").source:match("@(.*/)")
 
 local function git_config (dir)
     exec("git -C " .. dir .. " config user.name  '-'")
@@ -7,6 +7,7 @@ local function git_config (dir)
     exec("git -C " .. dir .. " config commit.gpgsign false")
     exec("git -C " .. dir .. " config pull.rebase false")
     exec("git -C " .. dir .. " config merge.ours.driver true")
+    exec("git -C " .. dir .. " config receive.denyCurrentBranch updateInstead")
 end
 
 local function pioneers (dir)
@@ -64,7 +65,10 @@ if ARGS.add then
         )
         git_config(tmp)
         exec (
-            "cp -r " .. SKEL .. ". " .. tmp .. "/"
+            "cp " .. HERE .. "/hooks/pre-receive " .. tmp .. "/.git/hooks/pre-receive"
+        )
+        exec (
+            "cp -r " .. HERE .. "/skel/. " .. tmp .. "/"
         )
         do
             local f = io.open(tmp .. "/.freechains/random", "w")
@@ -107,6 +111,9 @@ if ARGS.add then
             , "chains add : clone failed"
         )
         git_config(tmp)
+        exec (
+            "cp " .. HERE .. "/hooks/pre-receive " .. tmp .. "/.git/hooks/pre-receive"
+        )
         local hash = exec (
             "git -C " .. tmp .. " rev-list --max-parents=0 HEAD"
         )
