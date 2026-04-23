@@ -6,18 +6,23 @@ local ssh = require "freechains.chain.ssh"
 local ROOT_A = ROOT .. "/cli-sync/A/"
 local ROOT_B = ROOT .. "/cli-sync/B/"
 local ROOT_C = ROOT .. "/cli-sync/C/"
+local ROOT_X = ROOT .. "/cli-sync/X/"
 
 local EXE_A  = ENV .. " ../src/freechains.lua --root " .. ROOT_A
 local EXE_B  = ENV .. " ../src/freechains.lua --root " .. ROOT_B
 local EXE_C  = ENV .. " ../src/freechains.lua --root " .. ROOT_C
+local EXE_X  = ENV .. " ../src/freechains.lua --root " .. ROOT_X
 
 local REPO_A = ROOT_A .. "/chains/test/"
 local REPO_B = ROOT_B .. "/chains/test/"
 local REPO_C = ROOT_C .. "/chains/test/"
+local REPO_X = ROOT_X .. "/chains/test/"
+
 
 exec("mkdir -p " .. ROOT_A)
 exec("mkdir -p " .. ROOT_B)
 exec("mkdir -p " .. ROOT_C)
+exec("mkdir -p " .. ROOT_X)
 
 -- 1. create/clone + pre-receive hook installed + rejects non-main
 do
@@ -92,47 +97,31 @@ end
 do
     print("==> Step 2: send rejects like with insufficient reps")
 
-    local ROOT_D  = ROOT .. "/cli-sync/D/"
-    local ROOT_E  = ROOT .. "/cli-sync/E/"
-    local EXE_D   = ENV .. " ../src/freechains.lua --root " .. ROOT_D
-    local EXE_E   = ENV .. " ../src/freechains.lua --root " .. ROOT_E
-    local REPO_D  = ROOT_D .. "/chains/err-reps/"
-    local REPO_E  = ROOT_E .. "/chains/err-reps/"
+    TEST "X clones from A"
+    exec(EXE_X .. " chains add test clone " .. REPO_A)
 
-    exec("mkdir -p " .. ROOT_D)
-    exec("mkdir -p " .. ROOT_E)
-
-    TEST "D creates chain + post"
-    exec(EXE_D .. " chains add err-reps init " .. GEN_1)
-    local post = exec (
-        EXE_D .. " chain err-reps post inline 'legit' --sign " .. KEY1
-    )
-
-    TEST "E clones from D"
-    exec(EXE_E .. " chains add err-reps clone " .. REPO_D)
-
-    TEST "D crafts like signed by non-pioneer (0 reps)"
-    exec("mkdir -p " .. REPO_D .. ".freechains/likes/")
-    local f = io.open(REPO_D .. ".freechains/likes/like-err.lua", "w")
-    f:write('return { target="post", id="'..post..'", number=1000 }\n')
+    TEST "X crafts malicious like signed by non-pioneer (0 reps)"
+    exec("mkdir -p " .. REPO_X .. ".freechains/likes/")
+    local f = io.open(REPO_X .. ".freechains/likes/like-err.lua", "w")
+    f:write('return { target="author", id="'..PUB1..'", number=1000 }\n')
     f:close()
     exec (
-        ENV .. " git -C " .. REPO_D
+        ENV .. " git -C " .. REPO_X
         .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh"
         .. " add .freechains/likes/like-err.lua"
     )
     exec (
-        ENV .. " git -C " .. REPO_D
+        ENV .. " git -C " .. REPO_X
         .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh"
         .. " commit -S -m 'x' --trailer 'Freechains: like'"
     )
     exec (
-        "git -C " .. REPO_D .. " commit -m 'x' --trailer 'Freechains: state' --allow-empty"
+        "git -C " .. REPO_X .. " commit -m 'x' --trailer 'Freechains: state' --allow-empty"
     )
 
-    TEST "D sends to E: push should be rejected"
+    TEST "X sends to B: push should be rejected"
     local _, Q, err = exec (true,
-        EXE_D .. " chain err-reps sync send " .. REPO_E
+        EXE_X .. " chain test sync send " .. REPO_B
     )
     assert (
         Q~=0 and err and err:find("insufficient reputation"),
