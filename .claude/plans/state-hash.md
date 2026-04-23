@@ -57,13 +57,16 @@ No new commits when state matches -> no cyclic garbage.
 
 ## Recommendation
 
-**A selected.** Reuse git's native tree hash: hash
-serialized G_rem blobs via `git hash-object` and compare
-to `git ls-tree FETCH_HEAD:.freechains/state`.
+**Shipped:** after FF merge, `write(G_rem)` to disk then
+`git diff --quiet HEAD -- .freechains/state/`. On diff:
+`git reset --hard loc` and `ERROR "chain recv : remote
+state mismatch"`.
 
-On mismatch: `ERROR "chain sync : remote state
-mismatch"`. No reset/rewrite — simpler, remote is
-rejected outright.
+One subtlety: `G_rem.order` trailing element is `rem`
+itself (replay appends every visited hash). A's stored
+state at rem never contains rem's own commit hash. Pop
+the trailing element before `write(G_rem)` so honest
+remotes don't trip the check.
 
 **B** avoids reading files but introduces a new trailer
 and a hash algorithm dependency; skip.
@@ -84,5 +87,13 @@ If/when option B lands, trailer is:
 
 ## TODO
 
-- [x] recv FF: compare G_rem tree-hash vs FETCH_HEAD;
-  ERROR on mismatch
+- [x] recv FF: verify remote state vs replayed G_rem;
+  ERROR + rollback on mismatch
+- [x] pop trailing `rem` from `G_rem.order` before
+  `write` (self-reference not stored by A)
+- [x] tst/cli-recv.lua step 6: tampered-FF test
+
+## Pending (outside scope)
+
+- [ ] cli-recv.lua step 5 expects `chain recv` but
+  sync.lua now emits `chain recv` — double-check

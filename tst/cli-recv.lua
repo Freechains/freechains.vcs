@@ -289,4 +289,37 @@ do
     assert(before == after, "B's HEAD changed: " .. before .. " vs " .. after)
 end
 
+-- 6. recv FF with tampered remote state
+do
+    print("==> Step 6: recv FF tampered state")
+
+    TEST "A writes tampered state commit"
+    local f = io.open(REPO_A .. ".freechains/state/authors.lua", "w")
+    f:write("return {}\n")
+    f:close()
+    exec("git -C " .. REPO_A .. " add .freechains/state/authors.lua")
+    exec (
+        "git -C " .. REPO_A .. " commit -m '(empty message)'"
+        .. " --no-edit --trailer 'Freechains: state'"
+    )
+
+    TEST "B's HEAD before recv"
+    local before = exec("git -C " .. REPO_B .. " rev-parse HEAD")
+
+    TEST "B recvs from A fails with state mismatch"
+    local _, Q, err = exec (true,
+        EXE_B .. " --now=10000 chain test sync recv " .. REPO_A
+    )
+    assert (
+        Q~=0 and err=="ERROR : chain recv : remote state mismatch",
+        "should fail: " .. tostring(err)
+    )
+
+    TEST "B's HEAD unchanged"
+    local after = exec("git -C " .. REPO_B .. " rev-parse HEAD")
+    assert(before == after,
+        "B's HEAD changed: " .. before .. " vs " .. after
+    )
+end
+
 print("<== ALL PASSED")

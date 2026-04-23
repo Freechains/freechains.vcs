@@ -258,6 +258,7 @@ elseif ARGS.recv then
             exec("git -C " .. REPO .. " merge --ff-only FETCH_HEAD")
             -- verify remote state: overwrite with G_rem, diff vs HEAD
             do
+                G_rem.order[#G_rem.order] = nil -- doesn't contain own hash yet
                 write(G_rem)
                 local same = exec (true, 'stdout',
                     "git -C " .. REPO ..  " diff --quiet HEAD -- .freechains/state/"
