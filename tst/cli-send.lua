@@ -186,9 +186,9 @@ do
     -- B:  [state] genesis ── [post] P1 ── [state] S1
 end
 
--- 4. recv bidirectional
+-- 4. send bidirectional
 do
-    print("==> Step 4: recv bidirectional")
+    print("==> Step 4: send bidirectional")
 
     do
         TEST "A posts"
@@ -197,8 +197,8 @@ do
         )
         assert(#out == 40, "hash: " .. out)
 
-        TEST "B recvs from A"
-        exec(EXE_B .. " --now=4500 chain test sync recv " .. REPO_A)
+        TEST "A sends to B"
+        exec(EXE_A .. " --now=4500 chain test sync send " .. REPO_B)
     end
     -- A:  genesis ── P1 ── S1 ── P2 ── S2 ── [post] P3 ── [state] S3
     -- B:  genesis ── P1 ── S1 ── P2 ── S2 ── [post] P3 ── [state] S3
@@ -210,8 +210,8 @@ do
         )
         assert(#out == 40, "hash: " .. out)
 
-        TEST "A recvs from B"
-        exec(EXE_A .. " --now=5500 chain test sync recv " .. REPO_B)
+        TEST "B sends to A"
+        exec(EXE_B .. " --now=5500 chain test sync send " .. REPO_A)
     end
     -- A:  genesis ── ... ── S3 ── [post] P4 ── [state] S4
     -- B:  genesis ── ... ── S3 ── [post] P4 ── [state] S4

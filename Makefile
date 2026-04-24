@@ -15,7 +15,7 @@ tests: src/freechains/argparse.lua
 	$(L) cli-time.lua
 	$(L) cli-begs.lua
 	$(L) cli-recv.lua
-	#$(L) cli-send.lua
+	$(L) cli-send.lua
 	$(L) cli-order.lua
 	$(L) consensus.lua
 	$(L) err-post.lua
