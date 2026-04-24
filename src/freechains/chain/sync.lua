@@ -2,6 +2,9 @@ require "freechains.chain.common"
 local ssh = require "freechains.chain.ssh"
 
 if ARGS.send then
+    local url = exec (
+        "git -C " .. REPO .. " config freechains.url"
+        , "chain send : freechains.url not set"
     exec (
         "git -C " .. REPO .. " push " .. ARGS.remote .. " main"
         , "chain send : push failed"

@@ -8,6 +8,7 @@ local function git_config (dir)
     exec("git -C " .. dir .. " config pull.rebase false")
     exec("git -C " .. dir .. " config merge.ours.driver true")
     exec("git -C " .. dir .. " config receive.denyCurrentBranch updateInstead")
+    exec("git -C " .. dir .. " config receive.advertisePushOptions true")
 end
 
 local function pioneers (dir)
@@ -96,6 +97,9 @@ if ARGS.add then
             ERROR("chains add : init failed")
         end
         exec (
+            "git -C " .. final .. " config freechains.url " .. final
+        )
+        exec (
             "ln -s " .. hash .. "/ " .. DIR .. "/" .. ARGS.alias
         )
         print(hash)
@@ -122,6 +126,9 @@ if ARGS.add then
             exec("rm -rf " .. tmp)
             ERROR("chains add : clone failed")
         end
+        exec (
+            "git -C " .. dir .. " config freechains.url " .. dir
+        )
         exec("ln -s " .. hash .. " " .. DIR .. "/" .. ARGS.alias)
         print(hash)
     end
