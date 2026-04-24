@@ -52,7 +52,7 @@ do
     )
     assert(ok ~= 0, "refs/heads/hack : push should have failed")
     assert (
-        err and err:find("ERROR : chain sync : only main push allowed"),
+        err and err:find("ERROR : chain send : expected main branch"),
         "refs/heads/hack : unexpected stderr: " .. tostring(err)
     )
 
@@ -62,7 +62,7 @@ do
     )
     assert(ok ~= 0, "refs/tags/v1 : push should have failed")
     assert (
-        err and err:find("ERROR : chain sync : only main push allowed"),
+        err and err:find("ERROR : chain send : expected main branch"),
         "refs/tags/v1 : unexpected stderr: " .. tostring(err)
     )
 
@@ -72,18 +72,18 @@ do
     )
     assert(ok ~= 0, "refs/begs/foo : push should have failed")
     assert (
-        err and err:find("ERROR : chain sync : only main push allowed"),
+        err and err:find("ERROR : chain send : expected main branch"),
         "refs/begs/foo : unexpected stderr: " .. tostring(err)
     )
 
-    TEST "reject multi-ref push when any non-main"
+    TEST "reject multi-ref push"
     local _, ok, err = exec (true,
-        "git -C " .. REPO_A .. " push " .. REPO_B .. " main:refs/heads/main main:refs/heads/hack"
+        "git -C " .. REPO_A .. " push " .. REPO_B .. " main:refs/heads/alpha main:refs/heads/beta"
     )
-    assert(ok ~= 0, "mixed refs : push should have failed")
+    assert(ok ~= 0, "multi-ref : push should have failed")
     assert (
-        err and err:find("ERROR : chain sync : only main push allowed"),
-        "mixed refs : unexpected stderr: " .. tostring(err)
+        err and err:find("ERROR : chain send : expected single branch"),
+        "multi-ref : unexpected stderr: " .. tostring(err)
     )
 
     TEST "accept main:main no-op"
