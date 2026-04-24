@@ -7,12 +7,12 @@ end
 
 local line = io.read("l")
 if io.read("l") then
-    die("expected single branch")
+    die "expected single branch"
 end
 
 local old, new, ref = line:match("(%S+) (%S+) (%S+)")
 if ref ~= "refs/heads/main" then
-    die("expected main branch")
+    die "expected main branch"
 end
 
 local freechains, url
@@ -28,10 +28,10 @@ for i = 0, n - 1 do
     end
 end
 if not freechains then
-    die("missing freechains push option")
+    die "missing freechains push option"
 end
 if not url then
-    die("missing url push option")
+    die "missing url push option"
 end
 
 local git_dir  = io.popen("cd " .. os.getenv("GIT_DIR") .. " && pwd"):read("l")
