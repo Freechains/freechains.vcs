@@ -3,9 +3,9 @@
 require "tests"
 local ssh = require "freechains.chain.ssh"
 
-local ROOT_A = ROOT .. "/cli-sync/A/"
-local ROOT_B = ROOT .. "/cli-sync/B/"
-local ROOT_C = ROOT .. "/cli-sync/C/"
+local ROOT_A = ROOT .. "/cli-recv/A/"
+local ROOT_B = ROOT .. "/cli-recv/B/"
+local ROOT_C = ROOT .. "/cli-recv/C/"
 
 local EXE_A  = ENV .. " ../src/freechains.lua --root " .. ROOT_A
 local EXE_B  = ENV .. " ../src/freechains.lua --root " .. ROOT_B
