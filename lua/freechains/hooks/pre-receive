@@ -43,8 +43,9 @@ local fc_root  = repo_dir:match("(.+)/[^/]+/[^/]+$")
 local fc_chain = repo_dir:match("([^/]+)$")
 
 local cmd = (
-    "freechains --root=" .. fc_root ..  " chain " .. fc_chain
-        .. " sync recv " .. url ..  " 1>&2"
+    "unset GIT_DIR GIT_QUARANTINE_PATH;" ..
+        "freechains --root=" .. fc_root ..  " chain " .. fc_chain ..
+        " sync recv " .. url ..  " 1>&2"
 )
 local ok = os.execute(cmd)
 if not ok then
