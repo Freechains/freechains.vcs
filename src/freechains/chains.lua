@@ -7,7 +7,6 @@ local function git_config (dir)
     exec("git -C " .. dir .. " config commit.gpgsign false")
     exec("git -C " .. dir .. " config pull.rebase false")
     exec("git -C " .. dir .. " config merge.ours.driver true")
-    exec("git -C " .. dir .. " config receive.denyCurrentBranch updateInstead")
     exec("git -C " .. dir .. " config receive.advertisePushOptions true")
 end
 

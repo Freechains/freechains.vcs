@@ -93,7 +93,6 @@ If/when option B lands, trailer is:
   `write` (self-reference not stored by A)
 - [x] tst/cli-recv.lua step 6: tampered-FF test
 
-## Pending (outside scope)
+## Pending
 
-- [ ] cli-recv.lua step 5 expects `chain recv` but
-  sync.lua now emits `chain recv` — double-check
+(none — error prefixes unified to `chain sync`)
