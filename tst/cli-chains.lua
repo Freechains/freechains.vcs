@@ -47,6 +47,12 @@ do
         TEST "no parent"
         local parent = exec("git -C " .. DIR .. " log --format=%P HEAD")
         assert(parent == "", "parent: " .. parent)
+
+        TEST "freechains.url points to own repo"
+        local url  = exec("git -C " .. DIR .. " config freechains.url")
+        local real = exec("realpath " .. url)
+        local want = exec("realpath " .. DIR)
+        assert(real == want, "url mismatch: " .. real .. " vs " .. want)
     end
 
     do
