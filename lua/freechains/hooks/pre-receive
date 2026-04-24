@@ -1,7 +1,7 @@
 #!/usr/bin/env lua5.4
 
 local function die (msg)
-    io.stderr:write("ERROR : chain send : " .. msg .. "\n")
+    io.stderr:write("ERROR : chain sync : " .. msg .. "\n")
     os.exit(1)
 end
 

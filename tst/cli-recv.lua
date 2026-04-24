@@ -280,7 +280,7 @@ do
         EXE_B .. " --now=9000 chain test sync recv " .. REPO_C
     )
     assert (
-        Q~=0 and err=="ERROR : chain recv : incompatible genesis"
+        Q~=0 and err=="ERROR : chain sync : incompatible genesis"
         , "should fail: " .. tostring(err)
     )
 
@@ -311,7 +311,7 @@ do
         EXE_B .. " --now=10000 chain test sync recv " .. REPO_A
     )
     assert (
-        Q~=0 and err=="ERROR : chain recv : remote state mismatch",
+        Q~=0 and err=="ERROR : chain sync : remote state mismatch",
         "should fail: " .. tostring(err)
     )
 

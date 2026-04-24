@@ -4,7 +4,7 @@ local ssh = require "freechains.chain.ssh"
 if ARGS.send then
     local url = exec (
         "git -C " .. REPO .. " config freechains.url"
-        , "chain send : freechains.url not set"
+        , "chain sync : freechains.url not set"
     )
     local _, Q, err = exec (true,
         "git -C " .. REPO ..  " push -o freechains=true -o url=" .. url .. " "
@@ -20,7 +20,7 @@ if ARGS.send then
 elseif ARGS.recv then
     exec ('stdout',
         "git -C " .. REPO .. " fetch " .. ARGS.remote .. " main"
-        , "chain recv : fetch failed"
+        , "chain sync : fetch failed"
     )
 
     local loc = exec("git -C " .. REPO .. " rev-parse HEAD")
@@ -48,7 +48,7 @@ elseif ARGS.recv then
             "git -C " .. REPO .. " rev-list --max-parents=0 " .. rem
         )
         if loc_root ~= rem_root then
-            ERROR("chain recv : incompatible genesis")
+            ERROR("chain sync : incompatible genesis")
         end
     end
 
@@ -255,7 +255,7 @@ elseif ARGS.recv then
 
         local ok, err = pcall(climb, G_rem, oct, rem)
         if not ok then
-            ERROR("chain recv : " .. err)
+            ERROR("chain sync : " .. err)
         end
     end
 
@@ -275,7 +275,7 @@ elseif ARGS.recv then
                 )
                 if not same then
                     exec("git -C " .. REPO .. " reset --hard " .. loc)
-                    ERROR("chain recv : remote state mismatch")
+                    ERROR("chain sync : remote state mismatch")
                 end
             end
             goto RECV

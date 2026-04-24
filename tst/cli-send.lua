@@ -52,7 +52,7 @@ do
     )
     assert(ok ~= 0, "refs/heads/hack : push should have failed")
     assert (
-        err and err:find("ERROR : chain send : expected main branch"),
+        err and err:find("ERROR : chain sync : expected main branch"),
         "refs/heads/hack : unexpected stderr: " .. tostring(err)
     )
 
@@ -62,7 +62,7 @@ do
     )
     assert(ok ~= 0, "refs/tags/v1 : push should have failed")
     assert (
-        err and err:find("ERROR : chain send : expected main branch"),
+        err and err:find("ERROR : chain sync : expected main branch"),
         "refs/tags/v1 : unexpected stderr: " .. tostring(err)
     )
 
@@ -72,7 +72,7 @@ do
     )
     assert(ok ~= 0, "refs/begs/foo : push should have failed")
     assert (
-        err and err:find("ERROR : chain send : expected main branch"),
+        err and err:find("ERROR : chain sync : expected main branch"),
         "refs/begs/foo : unexpected stderr: " .. tostring(err)
     )
 
@@ -82,7 +82,7 @@ do
     )
     assert(ok ~= 0, "multi-ref : push should have failed")
     assert (
-        err and err:find("ERROR : chain send : expected single branch"),
+        err and err:find("ERROR : chain sync : expected single branch"),
         "multi-ref : unexpected stderr: " .. tostring(err)
     )
 
@@ -97,7 +97,7 @@ do
     )
     assert(ok ~= 0, "push without options : should have failed")
     assert (
-        err and err:find("ERROR : chain send : missing freechains push option"),
+        err and err:find("ERROR : chain sync : missing freechains push option"),
         "no freechains option : unexpected stderr: " .. tostring(err)
     )
 
@@ -107,7 +107,7 @@ do
     )
     assert(ok ~= 0, "push without url : should have failed")
     assert (
-        err and err:find("ERROR : chain send : missing url push option"),
+        err and err:find("ERROR : chain sync : missing url push option"),
         "no url option : unexpected stderr: " .. tostring(err)
     )
 
@@ -156,7 +156,7 @@ do
         EXE_X .. " chain test sync send " .. REPO_B
     )
     assert (
-        Q~=0 and err and err:find("ERROR : chain send : invalid like : insufficient reputation"),
+        Q~=0 and err and err:find("ERROR : chain sync : invalid like : insufficient reputation"),
         "send should fail: " .. tostring(err)
     )
 end
@@ -399,7 +399,7 @@ do
         EXE_B .. " --now=9000 chain test sync recv " .. REPO_C
     )
     assert (
-        Q~=0 and err=="ERROR : chain recv : incompatible genesis"
+        Q~=0 and err=="ERROR : chain sync : incompatible genesis"
         , "should fail: " .. tostring(err)
     )
 
