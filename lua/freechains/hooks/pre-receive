@@ -15,23 +15,26 @@ if ref ~= "refs/heads/main" then
     die "expected main branch"
 end
 
-local freechains, url
-local n = tonumber(os.getenv("GIT_PUSH_OPTION_COUNT") or "0") or 0
-for i = 0, n - 1 do
-    local opt = os.getenv("GIT_PUSH_OPTION_" .. i) or ""
-    if opt == "freechains=true" then
-        freechains = true
+local url
+do
+    local freechains
+    local n = tonumber(os.getenv("GIT_PUSH_OPTION_COUNT") or "0") or 0
+    for i=0, n-1 do
+        local opt = os.getenv("GIT_PUSH_OPTION_" .. i) or ""
+        if opt == "freechains=true" then
+            freechains = true
+        end
+        local u = opt:match("^url=(.*)$")
+        if u then
+            url = u
+        end
     end
-    local u = opt:match("^url=(.*)$")
-    if u then
-        url = u
+    if not freechains then
+        die "missing freechains push option"
     end
-end
-if not freechains then
-    die "missing freechains push option"
-end
-if not url then
-    die "missing url push option"
+    if not url then
+        die "missing url push option"
+    end
 end
 
 local git_dir  = io.popen("cd " .. os.getenv("GIT_DIR") .. " && pwd"):read("l")
@@ -40,15 +43,13 @@ local fc_root  = repo_dir:match("(.+)/[^/]+/[^/]+$")
 local fc_chain = repo_dir:match("([^/]+)$")
 
 local cmd = (
-    "freechains --root=" .. fc_root ..
-    " chain " .. fc_chain ..
-    " sync recv " .. url ..
-    " 1>&2"
+    "freechains --root=" .. fc_root ..  " chain " .. fc_chain
+        .. " sync recv " .. url ..  " 1>&2"
 )
 local ok = os.execute(cmd)
 if not ok then
     os.exit(1)
 end
 
-io.stderr:write("Freechains-accepted\n")
+io.stderr:write("Freechains: OK\n")
 os.exit(1)
