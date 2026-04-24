@@ -1,13 +1,46 @@
 #!/bin/sh
-while read old new ref; do
-    if [ "$ref" != "refs/heads/main" ]; then
-        echo "ERROR : chain sync : only main push allowed" 1>&2
-        exit 1
-    fi
-    GIT_DIR_ABS=$(cd "$GIT_DIR" && pwd)
-    REPO_DIR=$(dirname "$GIT_DIR_ABS")
-    FC_ROOT=$(dirname "$(dirname "$REPO_DIR")")
-    FC_CHAIN=$(basename "$REPO_DIR")
-    freechains --root="$FC_ROOT" chain "$FC_CHAIN" sync recv "$REPO_DIR" || exit 1
+
+read old new ref
+
+if read extra; then
+    echo "ERROR : chain send : expected single branch" 1>&2
+    exit 1
+fi
+
+if [ "$ref" != "refs/heads/main" ]; then
+    echo "ERROR : chain send : expected main branch" 1>&2
+    exit 1
+fi
+
+freechains=""
+url=""
+i=0
+
+while [ $i -lt "${GIT_PUSH_OPTION_COUNT:-0}" ]; do
+    eval opt=\$GIT_PUSH_OPTION_$i
+    case "$opt" in
+    freechains=true) freechains=1 ;;
+    url=*)           url="${opt#url=}" ;;
+    esac
+    i=$((i + 1))
 done
-exit 0
+
+if [ -z "$freechains" ]; then
+    echo "ERROR : chain send : missing freechains push option" 1>&2
+    exit 1
+fi
+
+if [ -z "$url" ]; then
+    echo "ERROR : chain send : missing url push option" 1>&2
+    exit 1
+fi
+
+GIT_DIR_ABS=$(cd "$GIT_DIR" && pwd)
+REPO_DIR=$(dirname "$GIT_DIR_ABS")
+FC_ROOT=$(dirname "$(dirname "$REPO_DIR")")
+FC_CHAIN=$(basename "$REPO_DIR")
+
+freechains --root="$FC_ROOT" chain "$FC_CHAIN" sync recv "$url" 1>&2 || exit 1
+
+echo "Freechains-accepted" 1>&2
+exit 1
