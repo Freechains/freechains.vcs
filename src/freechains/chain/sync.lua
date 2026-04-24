@@ -19,7 +19,8 @@ if ARGS.send then
 
 elseif ARGS.recv then
     exec ('stdout',
-        "git -C " .. REPO .. " fetch " .. ARGS.remote .. " main"
+        "git -C " .. REPO .. " fetch " .. ARGS.remote ..
+            " main refs/begs/*:refs/begs/*"
         , "chain sync : fetch failed"
     )
 

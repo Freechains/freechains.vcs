@@ -26,7 +26,7 @@ end
 
 local function begs (repo)
     return exec (
-        "git -C " .. repo .. " for-each-ref refs/begs/ --format=%(refname)"
+        "git -C " .. repo .. " for-each-ref refs/begs/ --format='%(refname)'"
     )
 end
 
