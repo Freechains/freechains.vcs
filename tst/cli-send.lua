@@ -86,9 +86,41 @@ do
         "multi-ref : unexpected stderr: " .. tostring(err)
     )
 
+    -- temp commit on A so next pushes trigger the hook
+    exec (
+        "git -C " .. REPO_A .. " commit --allow-empty -m 'tmp'"
+    )
+
+    TEST "reject push without freechains option"
+    local _, ok, err = exec (true,
+        "git -C " .. REPO_A .. " push " .. REPO_B .. " main"
+    )
+    assert(ok ~= 0, "push without options : should have failed")
+    assert (
+        err and err:find("ERROR : chain send : missing freechains push option"),
+        "no freechains option : unexpected stderr: " .. tostring(err)
+    )
+
+    TEST "reject push without url option"
+    local _, ok, err = exec (true,
+        "git -C " .. REPO_A .. " push -o freechains=true " .. REPO_B .. " main"
+    )
+    assert(ok ~= 0, "push without url : should have failed")
+    assert (
+        err and err:find("ERROR : chain send : missing url push option"),
+        "no url option : unexpected stderr: " .. tostring(err)
+    )
+
+    -- drop the temp commit
+    exec (
+        "git -C " .. REPO_A .. " reset --hard HEAD~1"
+    )
+
     TEST "accept main:main no-op"
     exec (
-        "git -C " .. REPO_A .. " push " .. REPO_B .. " main:refs/heads/main"
+        "git -C " .. REPO_A ..
+        " push -o freechains=true -o url=" .. REPO_A .. " " ..
+        REPO_B .. " main:refs/heads/main"
     )
 end
 

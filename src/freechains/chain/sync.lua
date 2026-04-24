@@ -5,10 +5,16 @@ if ARGS.send then
     local url = exec (
         "git -C " .. REPO .. " config freechains.url"
         , "chain send : freechains.url not set"
-    exec (
-        "git -C " .. REPO .. " push " .. ARGS.remote .. " main"
-        , "chain send : push failed"
     )
+    local _, Q, err = exec (true,
+        "git -C " .. REPO ..  " push -o freechains=true -o url=" .. url .. " "
+            .. ARGS.remote .. " main"
+    )
+    if err and err:find("Freechains: OK") then
+        -- success: receiver's hook ran recv and rejected the push
+    elseif Q ~= 0 then
+        ERROR("chain send : " .. err)
+    end
 
 elseif ARGS.recv then
     exec ('stdout',
