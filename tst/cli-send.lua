@@ -156,7 +156,7 @@ do
         EXE_X .. " chain test sync send " .. REPO_B
     )
     assert (
-        Q~=0 and err and err:find("insufficient reputation"),
+        Q~=0 and err and err:find("ERROR : chain send : invalid like : insufficient reputation"),
         "send should fail: " .. tostring(err)
     )
 end

@@ -13,7 +13,8 @@ if ARGS.send then
     if err and err:find("Freechains: OK") then
         -- success: receiver's hook ran recv and rejected the push
     elseif Q ~= 0 then
-        ERROR("chain send : " .. err)
+        io.stderr:write(err)
+        os.exit(1)
     end
 
 elseif ARGS.recv then
