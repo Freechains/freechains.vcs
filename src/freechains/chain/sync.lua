@@ -8,7 +8,7 @@ if ARGS.send then
     )
     local _, Q, err = exec (true,
         "git -C " .. REPO ..  " push -o freechains=true -o url=" .. url .. " "
-            .. ARGS.remote .. " main"
+            .. ARGS.remote .. " main refs/begs/*:refs/begs/*"
     )
     if err and err:find("Freechains: OK") then
         -- success: receiver's hook ran recv and rejected the push

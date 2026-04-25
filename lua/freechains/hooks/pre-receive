@@ -5,14 +5,11 @@ local function die (msg)
     os.exit(1)
 end
 
-local line = io.read("l")
-if io.read("l") then
-    die "expected single branch"
-end
-
-local old, new, ref = line:match("(%S+) (%S+) (%S+)")
-if ref ~= "refs/heads/main" then
-    die "expected main branch"
+for line in io.lines() do
+    local _, _, ref = line:match("(%S+) (%S+) (%S+)")
+    if (ref ~= "refs/heads/main") and (not ref:match("^refs/begs/")) then
+        die("unexpected ref : " .. ref)
+    end
 end
 
 local url

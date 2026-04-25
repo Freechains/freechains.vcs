@@ -91,4 +91,32 @@ do
     assert(begs(REPO_B) == begs(REPO_A))
 end
 
+-- 4. send begs
+do
+    print("==> Step 4: send begs")
+
+    TEST "A creates another beg"
+    local BEG = exec (
+        EXE_A .. " --now=5000 chain test post inline 'help' --beg --sign " .. KEY3
+    )
+    assert(#BEG == 40)
+    -- A:  G ── P1 ── S1 ── P2 ── S2        refs/begs/{BEG1, BEG2}
+    --                           ├── BEG1
+    --                           └── BEG2
+    -- B:  G ── P1 ── S1 ── P2 ── S2        refs/begs/BEG1
+    --                           └── BEG1
+
+    TEST "A sends to B"
+    exec(EXE_A .. " chain test sync send " .. REPO_B)
+    -- A:  G ── P1 ── S1 ── P2 ── S2        refs/begs/{BEG1, BEG2}
+    --                           ├── BEG1
+    --                           └── BEG2
+    -- B:  G ── P1 ── S1 ── P2 ── S2        refs/begs/{BEG1, BEG2}
+    --                           ├── BEG1
+    --                           └── BEG2
+
+    TEST "B has both beg refs"
+    assert(begs(REPO_B) == begs(REPO_A))
+end
+
 print("<== ALL PASSED")
