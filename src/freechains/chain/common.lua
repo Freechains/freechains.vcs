@@ -112,7 +112,7 @@ function apply (G, kind, time, T)
         G.posts[T.hash] = {
             author = T.sign,
             time   = time,
-            state  = (T.beg and 'blocked') or (T.sign and '00-12') or 'blocked',
+            state  = (T.beg and 'beg') or (T.sign and '00-12') or 'beg',
             reps   = 0,
         }
         if T.sign then

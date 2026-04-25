@@ -12,7 +12,7 @@ if ARGS.target == "author" then
     end
 end
 
--- detect if like targets a blocked beg on refs/begs/
+-- detect if like targets a beg on refs/begs/
 local to_beg = (
     (ARGS.target == "post") and
         exec (true,
