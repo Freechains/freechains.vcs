@@ -114,7 +114,7 @@ elseif ARGS.recv then
         end
     end
 
-    local function commit (G, hash)
+    local function commit (G, hash, beg)
         local key, err = ssh.verify(REPO, hash)
 
         local out = exec (
@@ -168,7 +168,7 @@ elseif ARGS.recv then
             local ok, err = apply(G, 'post', tonumber(time), {
                 hash = hash,
                 sign = key,
-                beg  = (key == nil),
+                beg  = beg or (key == nil),
             })
             if not ok then
                 error("invalid post : " .. err, 0)
@@ -238,36 +238,37 @@ elseif ARGS.recv then
 
         local climb, meet
 
-        climb = function (G, com, cur)
+        climb = function (G, com, cur, beg)
             if cur == com then
                 return
             else
                 local p1, p2 = parents(cur)
                 if p2 == nil then
-                    climb(G, com, p1)
+                    climb(G, com, p1, beg)
                 else
-                    meet(G, com, p1, p2)
+                    local is_like_merge = (trailer(cur) == "like")
+                    meet(G, com, p1, p2, is_like_merge)
                 end
-                commit(G, cur)
+                commit(G, cur, beg)
             end
         end
 
-        meet = function (G, com, left, right)
+        meet = function (G, com, left, right, right_is_beg)
             local up = exec (
                 "git -C " .. REPO .. " merge-base " .. left .. " " .. right
             )
-            climb(G, com, up)
+            climb(G, com, up, false)
             local w = consensus(G, up, left, right)
             if w == left then
-                climb(G, up, left)
-                climb(G, up, right)
+                climb(G, up, left,  false)
+                climb(G, up, right, right_is_beg)
             else
-                climb(G, up, right)
-                climb(G, up, left)
+                climb(G, up, right, right_is_beg)
+                climb(G, up, left,  false)
             end
         end
 
-        local ok, err = pcall(climb, G_rem, oct, rem)
+        local ok, err = pcall(climb, G_rem, oct, rem, false)
         if not ok then
             ERROR("chain sync : " .. err)
         end
