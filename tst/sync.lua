@@ -119,4 +119,32 @@ do
     assert(begs(REPO_B) == begs(REPO_A))
 end
 
+-- 5. beg prune via recv
+do
+    print("==> Step 5: beg prune via recv")
+
+    TEST "A likes the first beg (promote + prune ref on A)"
+    local refs = begs(REPO_A)
+    local beg = refs:match("refs/begs/beg%-(%x+)")
+    exec (
+        EXE_A .. " --now=6000 chain test like 1 post " .. beg .. " --sign " .. KEY1
+    )
+    assert(not begs(REPO_A):match(beg), "A's beg ref should be pruned")
+    -- A:  G ── P1 ── S1 ── P2 ── S2 ── [like] L ── [state] S      refs/begs/{BEG2}
+    --                           └── BEG2
+    -- B:  G ── P1 ── S1 ── P2 ── S2                                refs/begs/{BEG1, BEG2}
+    --                           ├── BEG1
+    --                           └── BEG2
+
+    TEST "B recvs from A"
+    exec(EXE_B .. " chain test sync recv " .. REPO_A)
+    -- A:  G ── P1 ── S1 ── P2 ── S2 ── L ── S      refs/begs/{BEG2}
+    --                           └── BEG2
+    -- B:  G ── P1 ── S1 ── P2 ── S2 ── L ── S      refs/begs/{BEG2}
+    --                           └── BEG2
+
+    TEST "B's beg ref also pruned"
+    assert(not begs(REPO_B):match(beg), "B's beg ref should be pruned")
+end
+
 print("<== ALL PASSED")

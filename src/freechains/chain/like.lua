@@ -34,8 +34,14 @@ if to_beg then
         --exec("git -C " .. REPO .. " update-ref -d " .. ref)
         --ERROR("chain like : invalid target : beg post does not exist")
     end
-    exec("git -C " .. REPO .. " merge -X ours --no-commit --no-edit " .. ref)
-    local src = exec(
+    exec("git -C " .. REPO .. " merge -X ours --no-ff --no-commit --no-edit " .. ref)
+    G.order[#G.order+1] = exec (
+        "git -C " .. REPO .. " rev-parse " .. ref .. "~1"   -- beg post
+    )
+    G.order[#G.order+1] = exec (
+        "git -C " .. REPO .. " rev-parse " .. ref           -- beg state
+    )
+    local src = exec (
         "git -C " .. REPO .. " show " .. ref .. ":.freechains/state/posts.lua"
     )
     G.posts[ARGS.id] = load(src)()[ARGS.id]

@@ -19,7 +19,7 @@ if ARGS.send then
 
 elseif ARGS.recv then
     exec ('stdout',
-        "git -C " .. REPO .. " fetch " .. ARGS.remote ..
+        "git -C " .. REPO .. " fetch --prune " .. ARGS.remote ..
             " main refs/begs/*:refs/begs/*"
         , "chain sync : fetch failed"
     )
@@ -124,7 +124,7 @@ elseif ARGS.recv then
             end
 
             local file = exec (
-                "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash .. " -- .freechains/likes/"
+                "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash .. "^1 " .. hash .. " -- .freechains/likes/"
             )
             file = file:match("(%S+)")
             if not file then
@@ -141,12 +141,17 @@ elseif ARGS.recv then
             if (not ok) or type(like)~='table' then
                 error("invalid like : invalid lua metadata", 0)
             end
+            local to_beg = (
+                (like.target == "post") and
+                (G.posts[like.id] and G.posts[like.id].state=="beg")
+            )
             local ok, err = apply(G, 'like', tonumber(time), {
                 hash   = hash,
                 sign   = key,
                 num    = like.number,
                 target = like.target,
                 id     = like.id,
+                beg    = to_beg,
             })
             if not ok then
                 error("invalid like : " .. err, 0)
@@ -266,7 +271,7 @@ elseif ARGS.recv then
             "git -C " .. REPO .. " merge-base --is-ancestor " .. loc .. " " .. rem
         )
         if ff then
-            exec("git -C " .. REPO .. " merge --ff-only FETCH_HEAD")
+            exec("git -C " .. REPO .. " merge --ff-only " .. rem)
             -- verify remote state: overwrite with G_rem, diff vs HEAD
             do
                 G_rem.order[#G_rem.order] = nil -- doesn't contain own hash yet
