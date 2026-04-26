@@ -4,15 +4,19 @@ require "tests"
 
 local ROOT_A = ROOT .. "/sync/A/"
 local ROOT_B = ROOT .. "/sync/B/"
+local ROOT_X = ROOT .. "/sync/X/"
 
 local EXE_A  = ENV .. " ../src/freechains.lua --root " .. ROOT_A
 local EXE_B  = ENV .. " ../src/freechains.lua --root " .. ROOT_B
+local EXE_X  = ENV .. " ../src/freechains.lua --root " .. ROOT_X
 
 local REPO_A = ROOT_A .. "/chains/test/"
 local REPO_B = ROOT_B .. "/chains/test/"
+local REPO_X = ROOT_X .. "/chains/test/"
 
 exec("mkdir -p " .. ROOT_A)
 exec("mkdir -p " .. ROOT_B)
+exec("mkdir -p " .. ROOT_X)
 
 -- shared setup: A creates chain, B clones
 exec(EXE_A .. " --now=1000 chains add test init " .. GEN_1)
@@ -30,12 +34,14 @@ local function begs (repo)
     )
 end
 
+local P1  -- captured in Step 1, reused later
+
 -- 1. recv basic
 do
     print("==> Step 1: recv basic")
 
     TEST "A posts"
-    exec(EXE_A .. " --now=2000 chain test post inline 'p1' --sign " .. KEY1)
+    P1 = exec(EXE_A .. " --now=2000 chain test post inline 'p1' --sign " .. KEY1)
     -- A:  G ── [post] P1 ── [state] S1
     -- B:  G
 
@@ -145,6 +151,46 @@ do
 
     TEST "B's beg ref also pruned"
     assert(not begs(REPO_B):match(beg), "B's beg ref should be pruned")
+end
+
+-- 7. malicious like (liker has 0 reps) -> rejected
+do
+    print("==> Step 7: malicious like rejected")
+
+    TEST "X clones from B"
+    exec(EXE_X .. " chains add test clone " .. REPO_B)
+
+    TEST "X crafts a raw like signed by KEY3 (0 reps) targeting P1"
+    exec("mkdir -p " .. REPO_X .. ".freechains/likes/")
+    local f = io.open(REPO_X .. ".freechains/likes/like-bad.lua", "w")
+    f:write('return { target="post", id="'..P1..'", number=1 }\n')
+    f:close()
+    local now = 7000
+    local date = "GIT_AUTHOR_DATE=$(date -u -d @" .. now .. " --iso-8601=seconds) "
+        .. "GIT_COMMITTER_DATE=$(date -u -d @" .. now .. " --iso-8601=seconds) "
+    exec (
+        ENV .. " git -C " .. REPO_X
+        .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh"
+        .. " add .freechains/likes/like-bad.lua"
+    )
+    exec (
+        date .. ENV .. " git -C " .. REPO_X
+        .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh"
+        .. " commit -S -m 'bad' --trailer 'Freechains: like'"
+    )
+    exec (
+        date .. "git -C " .. REPO_X .. " commit -m 'x' --trailer 'Freechains: state' --allow-empty"
+    )
+
+    TEST "X sends to B: rejected"
+    local _, Q, err = exec (true,
+        EXE_X .. " chain test sync send " .. REPO_B
+    )
+    assert(Q ~= 0, "send should fail")
+    assert (
+        err and err:find("insufficient reputation"),
+        "expected reps error, got: " .. tostring(err)
+    )
 end
 
 print("<== ALL PASSED")
