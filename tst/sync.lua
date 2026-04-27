@@ -34,7 +34,7 @@ local function begs (repo)
     )
 end
 
-local P1  -- captured in Step 1, reused later
+local P1, BEG_K2, BEG_K3  -- captured in earlier steps, reused later
 
 -- 1. recv basic
 do
@@ -77,11 +77,11 @@ do
     print("==> Step 3: recv begs")
 
     TEST "A creates a beg"
-    local BEG = exec (
+    BEG_K2 = exec (
         EXE_A .. " --now=4000 chain test post inline 'please' --beg --sign " .. KEY2
     )
-    assert(#BEG == 40)
-    assert(begs(REPO_A):match("beg%-" .. BEG))
+    assert(#BEG_K2 == 40)
+    assert(begs(REPO_A):match("beg%-" .. BEG_K2))
     -- A:  G ── P1 ── S1 ── P2 ── S2        refs/begs/beg-BEG -> BEG
     --                           └── [beg] BEG
     -- B:  G ── P1 ── S1 ── P2 ── S2
@@ -102,10 +102,10 @@ do
     print("==> Step 4: send begs")
 
     TEST "A creates another beg"
-    local BEG = exec (
+    BEG_K3 = exec (
         EXE_A .. " --now=5000 chain test post inline 'help' --beg --sign " .. KEY3
     )
-    assert(#BEG == 40)
+    assert(#BEG_K3 == 40)
     -- A:  G ── P1 ── S1 ── P2 ── S2        refs/begs/{BEG1, BEG2}
     --                           ├── BEG1
     --                           └── BEG2
@@ -129,9 +129,8 @@ end
 do
     print("==> Step 5: beg prune via recv")
 
-    TEST "A likes the first beg (promote + prune ref on A)"
-    local refs = begs(REPO_A)
-    local beg = refs:match("refs/begs/beg%-(%x+)")
+    TEST "A likes BEG_K2 (promote + prune ref on A)"
+    local beg = BEG_K2
     exec (
         EXE_A .. " --now=6000 chain test like 1 post " .. beg .. " --sign " .. KEY1
     )
