@@ -192,4 +192,26 @@ do
     )
 end
 
+-- 8. beg prune via send
+do
+    print("==> Step 8: beg prune via send")
+
+    TEST "A likes BEG_K3 (promote + prune ref on A)"
+    exec (
+        EXE_A .. " --now=8000 chain test like 1 post " .. BEG_K3 .. " --sign " .. KEY1
+    )
+    assert(not begs(REPO_A):match(BEG_K3), "A's beg ref should be pruned")
+    -- A:  ... ── L_K2 ── S ── [like] L_K3 ── [state] S      refs/begs/{}
+    -- B:  ... ── L_K2 ── S                                  refs/begs/{BEG_K3}
+    --                              └── BEG_K3
+
+    TEST "A sends to B"
+    exec(EXE_A .. " chain test sync send " .. REPO_B)
+    -- A:  ... ── L_K2 ── S ── L_K3 ── S      refs/begs/{}
+    -- B:  ... ── L_K2 ── S ── L_K3 ── S      refs/begs/{}
+
+    TEST "B's beg ref also pruned"
+    assert(not begs(REPO_B):match(BEG_K3), "B's beg ref should be pruned")
+end
+
 print("<== ALL PASSED")
