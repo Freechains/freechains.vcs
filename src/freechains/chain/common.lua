@@ -112,17 +112,15 @@ function apply (G, kind, time, T)
         G.posts[T.hash] = {
             author = T.sign,
             time   = time,
-            state  = (T.beg and 'blocked') or (T.sign and '00-12') or 'blocked',
+            state  = (T.beg and 'beg') or (T.sign and '00-12') or 'beg',
             reps   = 0,
         }
         if T.sign then
             G.authors[T.sign] = G.authors[T.sign] or { reps=0 }
             if not T.beg then
                 G.authors[T.sign].reps = G.authors[T.sign].reps - C.reps.cost
-                if G.authors[T.sign].time == nil then
+                G.authors[T.sign].time = G.authors[T.sign].time or time
                     -- do not set for beg, bc not available to others
-                    G.authors[T.sign].time = time
-                end
             end
         end
 
@@ -154,6 +152,7 @@ function apply (G, kind, time, T)
             if T.beg then
                 G.posts[T.id].state = "00-12"
                 G.posts[T.id].time = time
+                G.authors[a].time = G.authors[a].time or time
             end
         else
             G.authors[T.id] = G.authors[T.id] or { reps=0 }

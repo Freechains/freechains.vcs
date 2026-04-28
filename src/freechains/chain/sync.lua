@@ -1,6 +1,14 @@
 require "freechains.chain.common"
 local ssh = require "freechains.chain.ssh"
 
+local function trailer (hash)
+    local out = exec (
+        "git -C " .. REPO ..
+            " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash
+    )
+    return out:match "(%S+)"
+end
+
 if ARGS.send then
     local url = exec (
         "git -C " .. REPO .. " config freechains.url"
@@ -8,7 +16,7 @@ if ARGS.send then
     )
     local _, Q, err = exec (true,
         "git -C " .. REPO ..  " push -o freechains=true -o url=" .. url .. " "
-            .. ARGS.remote .. " main"
+            .. ARGS.remote .. " main refs/begs/*:refs/begs/*"
     )
     if err and err:find("Freechains: OK") then
         -- success: receiver's hook ran recv and rejected the push
@@ -19,7 +27,8 @@ if ARGS.send then
 
 elseif ARGS.recv then
     exec ('stdout',
-        "git -C " .. REPO .. " fetch " .. ARGS.remote .. " main"
+        "git -C " .. REPO .. " fetch --prune " .. ARGS.remote ..
+            " main refs/begs/*:refs/begs/*"
         , "chain sync : fetch failed"
     )
 
@@ -105,7 +114,7 @@ elseif ARGS.recv then
         end
     end
 
-    local function commit (G, hash)
+    local function commit (G, hash, beg)
         local key, err = ssh.verify(REPO, hash)
 
         local out = exec (
@@ -123,7 +132,7 @@ elseif ARGS.recv then
             end
 
             local file = exec (
-                "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash .. " -- .freechains/likes/"
+                "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash .. "^1 " .. hash .. " -- .freechains/likes/"
             )
             file = file:match("(%S+)")
             if not file then
@@ -140,12 +149,17 @@ elseif ARGS.recv then
             if (not ok) or type(like)~='table' then
                 error("invalid like : invalid lua metadata", 0)
             end
+            local to_beg = (
+                (like.target == "post") and
+                (G.posts[like.id] and G.posts[like.id].state=="beg")
+            )
             local ok, err = apply(G, 'like', tonumber(time), {
                 hash   = hash,
                 sign   = key,
                 num    = like.number,
                 target = like.target,
                 id     = like.id,
+                beg    = to_beg,
             })
             if not ok then
                 error("invalid like : " .. err, 0)
@@ -154,7 +168,7 @@ elseif ARGS.recv then
             local ok, err = apply(G, 'post', tonumber(time), {
                 hash = hash,
                 sign = key,
-                beg  = (key == nil),
+                beg  = beg or (key == nil),
             })
             if not ok then
                 error("invalid post : " .. err, 0)
@@ -224,36 +238,37 @@ elseif ARGS.recv then
 
         local climb, meet
 
-        climb = function (G, com, cur)
+        climb = function (G, com, cur, beg)
             if cur == com then
                 return
             else
                 local p1, p2 = parents(cur)
                 if p2 == nil then
-                    climb(G, com, p1)
+                    climb(G, com, p1, beg)
                 else
-                    meet(G, com, p1, p2)
+                    local is_like_merge = (trailer(cur) == "like")
+                    meet(G, com, p1, p2, is_like_merge)
                 end
-                commit(G, cur)
+                commit(G, cur, beg)
             end
         end
 
-        meet = function (G, com, left, right)
+        meet = function (G, com, left, right, right_is_beg)
             local up = exec (
                 "git -C " .. REPO .. " merge-base " .. left .. " " .. right
             )
-            climb(G, com, up)
+            climb(G, com, up, false)
             local w = consensus(G, up, left, right)
             if w == left then
-                climb(G, up, left)
-                climb(G, up, right)
+                climb(G, up, left,  false)
+                climb(G, up, right, right_is_beg)
             else
-                climb(G, up, right)
-                climb(G, up, left)
+                climb(G, up, right, right_is_beg)
+                climb(G, up, left,  false)
             end
         end
 
-        local ok, err = pcall(climb, G_rem, oct, rem)
+        local ok, err = pcall(climb, G_rem, oct, rem, false)
         if not ok then
             ERROR("chain sync : " .. err)
         end
@@ -265,7 +280,7 @@ elseif ARGS.recv then
             "git -C " .. REPO .. " merge-base --is-ancestor " .. loc .. " " .. rem
         )
         if ff then
-            exec("git -C " .. REPO .. " merge --ff-only FETCH_HEAD")
+            exec("git -C " .. REPO .. " merge --ff-only " .. rem)
             -- verify remote state: overwrite with G_rem, diff vs HEAD
             do
                 G_rem.order[#G_rem.order] = nil -- doesn't contain own hash yet
@@ -329,10 +344,7 @@ elseif ARGS.recv then
         local err = nil
 
         for _, hash in ipairs(O_snd) do
-            local trailer = exec (
-                "git -C " .. REPO .. " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash
-            )
-            local kind = trailer:match("(%S+)") or ""
+            local kind = trailer(hash)
 
             if kind~='state' then
                 ok = exec (true, 'stdout',
@@ -377,11 +389,7 @@ elseif ARGS.recv then
                 (from .. ".." .. loc)
         )
         for hash in out:gmatch("%x+") do
-            local trailer = exec (
-                "git -C " .. REPO .. " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash
-            )
-            local kind = trailer:match("(%S+)") or ""
-            if kind ~= 'state' then
+            if trailer(hash) ~= 'state' then
                 print("voided : " .. hash)
             end
         end

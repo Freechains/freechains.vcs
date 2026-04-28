@@ -151,7 +151,7 @@ do
 
         TEST "like-beg-structure: BEG-S-LIKE"
         local like = exec("git -C " .. DIR4 .. " rev-parse HEAD~1")
-        local beg = exec("git -C " .. DIR4 .. " rev-parse " .. like .. "~2")
+        local beg = exec("git -C " .. DIR4 .. " rev-parse " .. like .. "^2~1")
         assert(beg == BEG, "beg: " .. beg .. " expected: " .. BEG)
 
         TEST "like-beg-ancestor-is-beg"
@@ -163,7 +163,7 @@ do
         TEST "like-beg-unblocks"
         local posts = dofile(DIR4 .. ".freechains/state/posts.lua")
         assert(posts[BEG], "post entry not found: " .. BEG)
-        assert(posts[BEG].state ~= "blocked", "state should no longer be blocked")
+        assert(posts[BEG].state ~= "beg", "state should no longer be beg")
     end
 
     do
@@ -218,9 +218,9 @@ do
     end
 end
 
--- 5. Merge structure (fast-forward)
+-- 5. Merge structure (always 2-parent via --no-ff)
 do
-    print("==> Merge structure (fast-forward)")
+    print("==> Merge structure (always 2-parent)")
 
     exec(ENV_EXE .. " chains add cli-begs-5 init " .. GEN_1)
 
@@ -233,14 +233,14 @@ do
     -- KEY1 likes the beg (triggers merge)
     exec(ENV_EXE .. " chain cli-begs-5 like 1 post " .. BEG .. " --sign " .. KEY1)
 
-    local MERGE = exec("git -C " .. DIR5 .. " rev-parse HEAD")
+    local MERGE = exec("git -C " .. DIR5 .. " rev-parse HEAD~1")
 
     do
-        TEST "merge-fast-forward"
+        TEST "merge-two-parents"
         local parents = exec("git -C " .. DIR5 .. " log -1 --format=%P " .. MERGE)
         local count = 0
         for _ in parents:gmatch("%x+") do count = count + 1 end
-        assert(count == 1, "fast-forward should have 1 parent, got: " .. count)
+        assert(count == 2, "merge should have 2 parents, got: " .. count)
     end
 
     do

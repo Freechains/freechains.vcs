@@ -17,6 +17,7 @@ tests: src/freechains/argparse.lua
 	$(L) cli-recv.lua
 	$(L) cli-send.lua
 	$(L) cli-order.lua
+	$(L) sync.lua
 	$(L) consensus.lua
 	$(L) err-post.lua
 	$(L) err-like.lua

@@ -52,7 +52,7 @@ do
     )
     assert(ok ~= 0, "refs/heads/hack : push should have failed")
     assert (
-        err and err:find("ERROR : chain sync : expected main branch"),
+        err and err:find("ERROR : chain sync : unexpected ref : refs/heads/hack"),
         "refs/heads/hack : unexpected stderr: " .. tostring(err)
     )
 
@@ -62,27 +62,28 @@ do
     )
     assert(ok ~= 0, "refs/tags/v1 : push should have failed")
     assert (
-        err and err:find("ERROR : chain sync : expected main branch"),
+        err and err:find("ERROR : chain sync : unexpected ref : refs/tags/v1"),
         "refs/tags/v1 : unexpected stderr: " .. tostring(err)
     )
 
-    TEST "reject push to refs/begs/foo"
+    TEST "refs/begs/foo without freechains option -> missing option"
     local _, ok, err = exec (true,
         "git -C " .. REPO_A .. " push " .. REPO_B .. " main:refs/begs/foo"
     )
     assert(ok ~= 0, "refs/begs/foo : push should have failed")
     assert (
-        err and err:find("ERROR : chain sync : expected main branch"),
+        err and err:find("ERROR : chain sync : missing freechains push option"),
         "refs/begs/foo : unexpected stderr: " .. tostring(err)
     )
 
-    TEST "reject multi-ref push"
+    TEST "reject multi-ref push with unexpected refs"
     local _, ok, err = exec (true,
         "git -C " .. REPO_A .. " push " .. REPO_B .. " main:refs/heads/alpha main:refs/heads/beta"
     )
     assert(ok ~= 0, "multi-ref : push should have failed")
     assert (
-        err and err:find("ERROR : chain sync : expected single branch"),
+        err and err:find("ERROR : chain sync : unexpected ref : refs/heads/alpha")
+            or err:find("ERROR : chain sync : unexpected ref : refs/heads/beta"),
         "multi-ref : unexpected stderr: " .. tostring(err)
     )
 
