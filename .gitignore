@@ -1,6 +1,5 @@
 .*.swp
 .*.swo
-src/argparse.lua
 
 .claude/ok
 .work/
