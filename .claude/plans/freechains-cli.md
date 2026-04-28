@@ -20,34 +20,42 @@ Subcommands: `chains add/rem/dir`, `chain post`.
 
 ```
 src/
-  freechains       executable Lua script (entry point + all logic)
-  argparse.lua     vendored from luarocks/argparse (MIT)
-Makefile           curl argparse + install to /usr/local/bin/
+  freechains.lua            entry point (CLI dispatcher)
+  freechains/
+    argparse.lua            vendored from luarocks/argparse (MIT)
+    common.lua              shared helpers
+    constants.lua           protocol constants
+    chains.lua              chains add/rem/dir
+    chain/
+      init.lua              chain dispatcher
+      common.lua            shared chain helpers
+      post.lua              chain post
+      like.lua              chain like / dislike
+      reps.lua              chain reps
+      ssh.lua               SSH signing helpers
+      sync.lua              chain sync send/recv
+freechains-0.20-1.rockspec  LuaRocks package definition
+Makefile                    test runner + `install` via luarocks
 tst/
-  common.lua       shared: EXE, TMP, GEN, ROOT, exec, TEST
-  genesis.lua      genesis file for tests
-  cli-chains.lua   tests for chains add/rem/dir
-  cli-chain.lua    tests for chain post
+  common.lua                shared: EXE, TMP, GEN, ROOT, exec, TEST
+  genesis.lua               genesis file for tests
+  cli-chains.lua            tests for chains add/rem/dir
+  cli-post.lua              tests for chain post
 ```
 
-## Makefile
+## Install
+
+Installation is delegated to LuaRocks via the rockspec
+(`freechains-0.20-1.rockspec`).
+The Makefile `install` target is a thin wrapper:
 
 ```makefile
-all: src/argparse.lua
-
-src/argparse.lua:
-	curl -sL -o $@ \
-	  https://raw.githubusercontent.com/luarocks/argparse/\
-0.7.1/src/argparse.lua
-
-install: src/argparse.lua
-	install -m 755 src/freechains /usr/local/bin/freechains
-	install -m 644 src/argparse.lua \
-	  /usr/local/share/lua/5.4/
-
-clean:
-	rm -f src/argparse.lua
+install:
+	sudo luarocks --lua-version=5.4 make freechains-0.20-1.rockspec
 ```
+
+The rockspec maps each Lua module under `src/freechains/`
+and installs `freechains` to the system bin path.
 
 ## CLI API
 
