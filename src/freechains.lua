@@ -2,8 +2,6 @@
 
 math.randomseed()
 
-local VERSION = "v0.20"
-
 local argparse = require "freechains.argparse"
 local common   = require "freechains.common"
 
@@ -21,7 +19,7 @@ For more information, please visit our website:
 parser
     :flag("-v --version", "Show version.")
     :action(function()
-        print("freechains " .. VERSION)
+        print("freechains " .. version())
         os.exit(0)
     end)
 

@@ -1,3 +1,9 @@
+VERSION = {0, 20, 0}
+
+function version ()
+    return "v" .. VERSION[1] .. "." .. VERSION[2] .. "." .. VERSION[3]
+end
+
 function ERROR (msg, out)
     io.stderr:write("ERROR : " .. msg .. "\n")
     if out then

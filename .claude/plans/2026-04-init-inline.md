@@ -15,7 +15,13 @@ type-prefixed `<name>` and the signing key.
 
 ## Status
 
-Not started.
+In progress.
+
+- [x] version: `VERSION` tuple + `version()` in `common.lua`
+- [ ] inline CLI grammar (`init file` / `init inline`)
+- [ ] inline `#` builds genesis; `@`, `@!`, `$` -> `assert(false, "TODO")`
+- [ ] rename `init <path>` -> `init file <path>` in tests/docs
+- [ ] new tests for inline form
 
 ## CLI
 
@@ -77,10 +83,11 @@ without shellout.
 
 ## Version
 
-Read `VERSION` constant from `freechains.lua`.
-Parse `"v0.20"` -> `{0, 20, 0}`.
-Patch component defaults to `0` until VERSION format
-includes it.
+`VERSION` lives in `src/freechains/common.lua` as a tuple
+global `{0, 20, 0}`.
+Function `version()` returns the string form `"v0.20.0"`.
+Inline genesis builder uses the tuple directly.
+The `--version` flag prints `version()`.
 
 ## Files to modify
 
