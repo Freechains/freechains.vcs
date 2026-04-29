@@ -73,7 +73,7 @@ do
             cmd.chains.add.init.file._:argument("path")
 
             cmd.chains.add.init.inline._ = cmd.chains.add.init._:command("inline")
-            cmd.chains.add.init.inline._:option("--sign"):count(1)
+            cmd.chains.add.init.inline._:option("--sign"):args("?"):default(SIGN):defmode("u")
         end
         cmd.chains.add.clone._ = cmd.chains.add._:command("clone")
         cmd.chains.add.clone._:argument("url")
@@ -101,7 +101,7 @@ do
 
     -- cmd.chain.post
     cmd.chain.post._ = cmd.chain._:command("post")
-    cmd.chain.post._:option("--sign")
+    cmd.chain.post._:option("--sign"):args("?"):default(SIGN):defmode("u")
     cmd.chain.post._:option("--why")
     cmd.chain.post._:flag("--beg")
     do
@@ -129,7 +129,7 @@ do
     cmd.chain.like._:argument("number"):convert(positive)
     cmd.chain.like._:argument("target")
     cmd.chain.like._:argument("id")
-    cmd.chain.like._:option("--sign"):count(1)
+    cmd.chain.like._:option("--sign"):args("?"):count(1):default(SIGN):defmode("u")
     cmd.chain.like._:option("--why")
 
     -- cmd.chain.dislike
@@ -137,7 +137,7 @@ do
     cmd.chain.dislike._:argument("number"):convert(positive)
     cmd.chain.dislike._:argument("target")
     cmd.chain.dislike._:argument("id")
-    cmd.chain.dislike._:option("--sign"):count(1)
+    cmd.chain.dislike._:option("--sign"):args("?"):count(1):default(SIGN):defmode("u")
     cmd.chain.dislike._:option("--why")
 
     -- cmd.chain.sync

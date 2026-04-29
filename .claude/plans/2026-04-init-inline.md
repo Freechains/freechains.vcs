@@ -28,7 +28,7 @@ In progress.
 | Form                                              | Behavior                                          |
 |---------------------------------------------------|---------------------------------------------------|
 | `chains add <alias> init file <path>`             | current behavior, just renamed                    |
-| `chains add <alias> init inline [--sign <key>]`   | auto-generate `#`-typed genesis from `<alias>`. `--sign` defaults to `$HOME/.ssh/id_ed25519` |
+| `chains add <alias> init inline [--sign[=<key>]]` | auto-generate `#`-typed genesis from `<alias>`. tristate `--sign`: absent → use default; bare → default; `=<key>` → that key. Default = `SIGN` (global in `common.lua` = `$HOME/.ssh/id_ed25519`) |
 | `chains add <alias> clone <url>`                  | unchanged                                         |
 
 For `inline`: genesis `name = <alias>`, `type = "#"` always.

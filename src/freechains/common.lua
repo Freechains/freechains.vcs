@@ -1,4 +1,5 @@
 VERSION = {0, 20, 0}
+SIGN    = os.getenv("HOME") .. "/.ssh/id_ed25519"
 
 function version ()
     return "v" .. VERSION[1] .. "." .. VERSION[2] .. "." .. VERSION[3]
