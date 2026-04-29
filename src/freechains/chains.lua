@@ -40,12 +40,11 @@ if ARGS.add then
     end
 
     if ARGS.init then
+        assert(ARGS.file or ARGS.inline, "bug found")
         if ARGS.file then
             -- existing path-based init below
         elseif ARGS.inline then
             assert(false, "TODO inline")
-        else
-            ERROR("chains add init : invalid command")
         end
 
         do

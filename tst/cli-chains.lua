@@ -85,6 +85,22 @@ do
     end
 
     do
+        TEST "init missing subcommand fails"
+        local _, Q, err = exec (true,
+            EXE .. " chains add x init"
+        )
+        assert(Q~=0 and err and err:match("TODO"), "should fail with TODO: " .. tostring(err))
+    end
+
+    do
+        TEST "init invalid subcommand fails"
+        local _, Q, err = exec (true,
+            EXE .. " chains add x init bogus"
+        )
+        assert(Q~=0 and err and err:match("TODO"), "should fail with TODO: " .. tostring(err))
+    end
+
+    do
         TEST "git init failed"
         local _,Q,err = exec(true, ENV .. " ../src/freechains.lua --root /dev/null chains add x init " .. GEN_0)
         assert(Q~=0 and err=="ERROR : chains add : init failed", "should fail: " .. tostring(err))
