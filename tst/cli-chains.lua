@@ -89,7 +89,10 @@ do
         local _, Q, err = exec (true,
             EXE .. " chains add x init"
         )
-        assert(Q~=0 and err and err:match("TODO"), "should fail with TODO: " .. tostring(err))
+        assert(Q~=0 and err and
+            err:match("Error: a command is required")
+            , "should fail with TODO: " .. tostring(err)
+        )
     end
 
     do
@@ -97,7 +100,10 @@ do
         local _, Q, err = exec (true,
             EXE .. " chains add x init bogus"
         )
-        assert(Q~=0 and err and err:match("TODO"), "should fail with TODO: " .. tostring(err))
+        assert(Q~=0 and err and
+            err:match("Error: unknown command 'bogus'")
+            , "should fail with TODO: " .. tostring(err)
+        )
     end
 
     do
