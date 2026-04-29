@@ -20,8 +20,8 @@ In progress.
 - [x] version: `VERSION` tuple + `version()` in `common.lua`
 - [x] inline CLI grammar (`init file` / `init inline`); chains.lua dispatch stub
 - [x] rename `init <path>` -> `init file <path>` in tests/docs
+- [x] failing tests for inline form (red until inline impl lands)
 - [ ] inline `#` builds genesis; `@`, `@!`, `$` -> `assert(false, "TODO")`
-- [ ] new tests for inline form
 
 ## CLI
 
