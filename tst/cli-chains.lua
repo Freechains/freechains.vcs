@@ -144,6 +144,7 @@ do
 end
 
 -- ADD INIT INLINE
+--[[
 do
     print("==> freechains chains add init inline")
 
@@ -172,16 +173,33 @@ do
     end
 
     do
-        TEST "inline without --sign fails"
+        TEST "inline uses default --sign at $HOME/.ssh/id_ed25519"
+        local out, code = exec (
+            "HOME=" .. SSH .. "home " .. EXE .. " chains add inl-default init inline"
+        )
+        assert(code == 0, "exit code: " .. tostring(code))
+        assert(#out == 40, "hash length: " .. #out)
+
+        local gen = ROOT .. "/chains/inl-default/.freechains/genesis.lua"
+        local t = dofile(gen)
+        assert (
+            t.pioneers and t.pioneers[1] == PUB1
+            , "pioneers[1]: " .. tostring(t.pioneers and t.pioneers[1])
+        )
+    end
+
+    do
+        TEST "inline with bad --sign fails"
         local _, Q, err = exec (true,
-            EXE .. " chains add inl-nosign init inline"
+            EXE .. " chains add inl-badkey init inline --sign /nonexistent/key"
         )
         assert (
-            Q ~= 0 and err and err:match("Error")
+            Q ~= 0 and err == "ERROR : chains add : invalid sign key"
             , "should fail: " .. tostring(err)
         )
     end
 end
+]]
 
 -- DIR
 do

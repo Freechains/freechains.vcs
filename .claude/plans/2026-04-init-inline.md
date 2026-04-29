@@ -28,7 +28,7 @@ In progress.
 | Form                                              | Behavior                                          |
 |---------------------------------------------------|---------------------------------------------------|
 | `chains add <alias> init file <path>`             | current behavior, just renamed                    |
-| `chains add <alias> init inline --sign <key>`     | auto-generate `#`-typed genesis from `<alias>`    |
+| `chains add <alias> init inline [--sign <key>]`   | auto-generate `#`-typed genesis from `<alias>`. `--sign` defaults to `$HOME/.ssh/id_ed25519` |
 | `chains add <alias> clone <url>`                  | unchanged                                         |
 
 For `inline`: genesis `name = <alias>`, `type = "#"` always.
@@ -107,9 +107,10 @@ New cases in `tst/cli-chains.lua`:
 | #  | Case                                                  | Expected                                |
 |----|-------------------------------------------------------|-----------------------------------------|
 | 1  | `chains add chat init inline --sign <key>`            | chain at `chains/chat`; genesis name=chat, type=`#`, pioneers=[pubkey] |
-| 2  | `chains add chat init inline` (no `--sign`)           | argparse error                          |
-| 3  | `chains add init` / `chains add x init bogus`         | argparse error (unchanged)              |
-| 4  | `init file <path>` (rename of existing tests)         | unchanged behavior                      |
+| 2  | `HOME=<fixture> chains add chat init inline`          | uses default `$HOME/.ssh/id_ed25519` (fixture symlink → key1) |
+| 3  | `chains add x init inline --sign /nonexistent/key`    | `ERROR : chains add : invalid sign key` |
+| 4  | `chains add init` / `chains add x init bogus`         | argparse error (unchanged)              |
+| 5  | `init file <path>` (rename of existing tests)         | unchanged behavior                      |
 
 ## Errors (per CLAUDE.md format)
 
