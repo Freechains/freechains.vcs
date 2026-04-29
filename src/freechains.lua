@@ -35,7 +35,10 @@ local cmd = {
     chains = {
         _ = parser:command("chains"),
         add = {
-            init  = {},
+            init  = {
+                file   = {},
+                inline = {},
+            },
             clone = {},
         },
         rem = {},
@@ -65,7 +68,14 @@ do
     do
         cmd.chains.add._:argument("alias")
         cmd.chains.add.init._ = cmd.chains.add._:command("init")
-        cmd.chains.add.init._:argument("path")
+        do
+            cmd.chains.add.init.file._ = cmd.chains.add.init._:command("file")
+            cmd.chains.add.init.file._:argument("path")
+
+            cmd.chains.add.init.inline._ = cmd.chains.add.init._:command("inline")
+            cmd.chains.add.init.inline._:argument("name")
+            cmd.chains.add.init.inline._:option("--sign"):count(1)
+        end
         cmd.chains.add.clone._ = cmd.chains.add._:command("clone")
         cmd.chains.add.clone._:argument("url")
     end

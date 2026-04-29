@@ -40,6 +40,14 @@ if ARGS.add then
     end
 
     if ARGS.init then
+        if ARGS.file then
+            -- existing path-based init below
+        elseif ARGS.inline then
+            assert(false, "TODO inline")
+        else
+            ERROR("chains add init : invalid command")
+        end
+
         do
             local err = true
             local f = loadfile(ARGS.path)
