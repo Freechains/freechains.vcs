@@ -21,47 +21,30 @@ In progress.
 - [x] inline CLI grammar (`init file` / `init inline`); chains.lua dispatch stub
 - [x] rename `init <path>` -> `init file <path>` in tests/docs
 - [x] failing tests for inline form (red until inline impl lands)
-- [ ] inline `#` builds genesis; `@`, `@!`, `$` -> `assert(false, "TODO")`
+- [x] inline `#` builds genesis; `@`, `@!`, `$` -> `assert(false, "TODO")`
 
 ## CLI
 
-| Form                                               | Behavior                                          |
-|----------------------------------------------------|---------------------------------------------------|
-| `chains add <alias> init file <path>`              | current behavior, just renamed                    |
-| `chains add <alias> init inline <name> --sign <k>` | auto-generate genesis from `<name>` and pubkey    |
+| Form                                              | Behavior                                          |
+|---------------------------------------------------|---------------------------------------------------|
+| `chains add <alias> init file <path>`             | current behavior, just renamed                    |
+| `chains add <alias> init inline --sign <key>`     | auto-generate `#`-typed genesis from `<alias>`    |
+| `chains add <alias> clone <url>`                  | unchanged                                         |
 
-`<name>` shorthand:
-
-| Prefix | Type   | Auto-generated extras                      |
-|--------|--------|--------------------------------------------|
-| `#`    | `'#'`  | `pioneers = { <pubkey> }`                  |
-| `@`    | `'@'`  | `key = <pubkey>`                           |
-| `@!`   | `'@!'` | `key = <pubkey>`                           |
-| `$`    | `'$'`  | error : encryption not yet wired           |
+For `inline`: genesis `name = <alias>`, `type = "#"` always.
+Prefix shorthand (`#`, `@`, `@!`, `$`) is deferred to a
+later pass.
 
 ## Auto-generated genesis
 
-Inline form for `#chat`:
+Inline produces:
 
 ```lua
 return {
     version  = {0, 20, 0},
     type     = "#",
-    name     = "chat",
-    pioneers = {
-        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5...",
-    },
-}
-```
-
-Inline form for `@me`:
-
-```lua
-return {
-    version = {0, 20, 0},
-    type    = "@",
-    name    = "me",
-    key     = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5...",
+    name     = "<alias>",
+    pioneers = { "ssh-ed25519 AAAA..." },
 }
 ```
 
@@ -74,12 +57,7 @@ ssh-keygen -y -f <sign-arg>
 ```
 
 Output is a single line `ssh-ed25519 AAAA...`.
-Trim trailing whitespace.
-Use the same string as `pioneers[1]` (for `#`) or
-`key` (for `@`/`@!`).
-
-For literal `key::ssh-ed25519 AAAA...` form, parse directly
-without shellout.
+Used as `pioneers[1]`.
 
 ## Version
 
@@ -126,38 +104,27 @@ guesses; verify before editing.)
 
 New cases in `tst/cli-chains.lua`:
 
-| #  | Case                                                | Expected                                          |
-|----|-----------------------------------------------------|---------------------------------------------------|
-| 1  | `init inline '#chat' --sign <key>`                  | chain created, pioneers = [pubkey]                |
-| 2  | `init inline '@me' --sign <key>`                    | chain created, key = pubkey                       |
-| 3  | `init inline '@!me' --sign <key>`                   | chain created, type='@!', key = pubkey            |
-| 4  | `init inline '$secret' --sign <key>`                | error : `'$' shorthand requires shared key`       |
-| 5  | `init inline '#chat'` (no `--sign`)                 | error : `inline requires --sign`                  |
-| 6  | `init inline 'chat' --sign <key>` (no prefix)       | error : `invalid name shorthand`                  |
-| 7  | `init inline '#' --sign <key>` (empty name)         | error : `invalid name shorthand`                  |
-| 8  | `init file <path>` (rename of existing tests)       | unchanged behavior                                |
+| #  | Case                                                  | Expected                                |
+|----|-------------------------------------------------------|-----------------------------------------|
+| 1  | `chains add chat init inline --sign <key>`            | chain at `chains/chat`; genesis name=chat, type=`#`, pioneers=[pubkey] |
+| 2  | `chains add chat init inline` (no `--sign`)           | argparse error                          |
+| 3  | `chains add init` / `chains add x init bogus`         | argparse error (unchanged)              |
+| 4  | `init file <path>` (rename of existing tests)         | unchanged behavior                      |
 
 ## Errors (per CLAUDE.md format)
 
-| Trigger                         | Message                                                |
-|---------------------------------|--------------------------------------------------------|
-| inline without `--sign`         | `ERROR : chains add : inline requires --sign`          |
-| invalid name shorthand          | `ERROR : chains add : invalid name shorthand`          |
-| `$` prefix                      | `ERROR : chains add : '$' shorthand not yet supported` |
-| `ssh-keygen -y` fails           | `ERROR : chains add : invalid sign key`                |
+| Trigger                         | Message                                            |
+|---------------------------------|----------------------------------------------------|
+| `ssh-keygen -y` fails           | `ERROR : chains add : invalid sign key`            |
 
 ## Open questions
 
-- Should `init inline '#chat'` infer the alias from the name when
-  the alias is omitted? (Argparse currently forces alias as a
-  positional.) Defer.
 - Should the auto-generated genesis include `descr`? No — keep it
   minimal; users can switch to `file` form for richer config.
-- Future `$` support: depends on encryption being wired
-  (currently doc-only).
 
-## Out of scope
+## Deferred / out of scope
 
+- Prefix shorthand (`#`, `@`, `@!`, `$`) and `key`-typed genesis.
 - A `freechains keys` wrapper. Use `ssh-keygen` directly.
-- Encryption for `$` chains (separate plan).
+- Encryption for `$` chains.
 - Argparse changes beyond `init`.

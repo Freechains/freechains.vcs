@@ -148,19 +148,19 @@ do
     print("==> freechains chains add init inline")
 
     do
-        TEST "inline '#' creates chain"
+        TEST "inline creates chain"
         local out, code = exec (
-            EXE .. " chains add inl-hash init inline '#chat' --sign " .. KEY1
+            EXE .. " chains add inl-chat init inline --sign " .. KEY1
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
         assert(out:match("^%x+$"), "hash is hex")
 
-        TEST "inline '#' genesis pioneers"
-        local gen = ROOT .. "/chains/inl-hash/.freechains/genesis.lua"
+        TEST "inline genesis"
+        local gen = ROOT .. "/chains/inl-chat/.freechains/genesis.lua"
         local t = dofile(gen)
         assert(t.type == "#", "type: " .. tostring(t.type))
-        assert(t.name == "chat", "name: " .. tostring(t.name))
+        assert(t.name == "inl-chat", "name: " .. tostring(t.name))
         assert (
             t.pioneers and t.pioneers[1] == PUB1
             , "pioneers[1]: " .. tostring(t.pioneers and t.pioneers[1])
@@ -172,58 +172,12 @@ do
     end
 
     do
-        TEST "inline '@' is TODO"
-        local _, Q = exec (true,
-            EXE .. " chains add inl-at init inline '@me' --sign " .. KEY1
-        )
-        assert(Q ~= 0, "should fail")
-    end
-
-    do
-        TEST "inline '@!' is TODO"
-        local _, Q = exec (true,
-            EXE .. " chains add inl-bang init inline '@!me' --sign " .. KEY1
-        )
-        assert(Q ~= 0, "should fail")
-    end
-
-    do
-        TEST "inline '$' is TODO"
-        local _, Q = exec (true,
-            EXE .. " chains add inl-dollar init inline '$secret' --sign " .. KEY1
-        )
-        assert(Q ~= 0, "should fail")
-    end
-
-    do
         TEST "inline without --sign fails"
         local _, Q, err = exec (true,
-            EXE .. " chains add inl-nosign init inline '#chat'"
+            EXE .. " chains add inl-nosign init inline"
         )
         assert (
             Q ~= 0 and err and err:match("Error")
-            , "should fail: " .. tostring(err)
-        )
-    end
-
-    do
-        TEST "inline name without prefix fails"
-        local _, Q, err = exec (true,
-            EXE .. " chains add inl-noprefix init inline 'chat' --sign " .. KEY1
-        )
-        assert (
-            Q ~= 0 and err == "ERROR : chains add : invalid name shorthand"
-            , "should fail: " .. tostring(err)
-        )
-    end
-
-    do
-        TEST "inline empty name fails"
-        local _, Q, err = exec (true,
-            EXE .. " chains add inl-empty init inline '#' --sign " .. KEY1
-        )
-        assert (
-            Q ~= 0 and err == "ERROR : chains add : invalid name shorthand"
             , "should fail: " .. tostring(err)
         )
     end

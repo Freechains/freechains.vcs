@@ -41,10 +41,27 @@ if ARGS.add then
 
     if ARGS.init then
         assert(ARGS.file or ARGS.inline, "bug found")
+
+        local rand = math.random(0, 9999999999)
+
         if ARGS.file then
             -- existing path-based init below
         elseif ARGS.inline then
-            assert(false, "TODO inline")
+            local pub = exec (
+                "ssh-keygen -y -f " .. ARGS.sign
+                , "chains add : invalid sign key"
+            )
+            local T = {
+                version  = VERSION,
+                type     = "#",
+                name     = ARGS.alias,
+                pioneers = { pub },
+            }
+            local tmp = "/tmp/fc-inline-" .. rand .. ".lua"
+            local f = io.open(tmp, "w")
+            f:write(serial(T))
+            f:close()
+            ARGS.path = tmp
         end
 
         do
@@ -63,7 +80,6 @@ if ARGS.add then
             end
         end
 
-        local rand = math.random(0, 9999999999)
         local tmp = DIR .. "/tmp-" .. rand .. "/"
 
         exec ('stdout',
