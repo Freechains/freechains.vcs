@@ -28,7 +28,7 @@ do
     print("==> Step 1: post order")
 
     TEST "A creates chain"
-    exec(EXE_A .. " --now=1000 chains add test init " .. GEN_1)
+    exec(EXE_A .. " --now=1000 chains add test init file " .. GEN_1)
 
     TEST "A posts P1"
     local P1 = exec(EXE_A .. " --now=2000 chain test post inline 'hello' --sign " .. KEY1)

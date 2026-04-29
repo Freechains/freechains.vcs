@@ -76,7 +76,7 @@ do
     do
         TEST "chain created"
         CHAIN_HASH = exec (
-            EXE_A .. " chains add test init " .. GEN_0
+            EXE_A .. " chains add test init file " .. GEN_0
         )
         assert(#CHAIN_HASH == 40, "hash: " .. CHAIN_HASH)
         assert(CHAIN_HASH:match("^%x+$"), "not hex")
@@ -309,7 +309,7 @@ do
     print("==> Unrelated histories rejected")
 
     local h = exec (
-        EXE_C .. " chains add test init " .. GEN_0
+        EXE_C .. " chains add test init file " .. GEN_0
     )
     assert(h ~= CHAIN_HASH, "should differ")
 
@@ -347,7 +347,7 @@ do
     daemon_start(PORT_B, PID_B, ROOT_B .. "/chains/")
     os.execute("sleep 0.3")
 
-    exec(EXE_A .. " chains add test init " .. GEN_0)
+    exec(EXE_A .. " chains add test init file " .. GEN_0)
 
     -- clone A to B
     exec (

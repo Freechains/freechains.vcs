@@ -3,7 +3,8 @@
 | Freechains Command | Git Equivalent | Match (1–5) | Notes |
 |---|---|---|---|
 | `freechains-host start <dir>` | `git init` + `git daemon` | 3 | init is close; daemon is a separate persistent process |
-| `freechains chains add <alias> init <genesis.lua>` | `git init` + genesis commit | 3 | create chain from genesis config file |
+| `freechains chains add <alias> init file <genesis.lua>` | `git init` + genesis commit | 3 | create chain from genesis config file |
+| `freechains chains add <alias> init inline <name> --sign <key>` | `git init` + auto-generated genesis | 3 | create chain from type-prefixed name and signing key |
 | `freechains chains add <alias> clone <url>` | `git clone` + local setup | 4 | clone existing chain from peer |
 | `freechains chains rem <alias>` | delete local repo + symlink | 3 | git has no single command for this |
 | `freechains chains list` | `ls` of symlinks in `chains/` | 3 | no native multi-repo listing in git |

@@ -11,7 +11,7 @@ do
     do
         TEST "success"
         local out, code = exec (
-            EXE .. " chains add cli-chains init " .. GEN_0
+            EXE .. " chains add cli-chains init file " .. GEN_0
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -57,7 +57,7 @@ do
 
     do
         TEST "duplicate alias fails"
-        local _,Q,err = exec(true, EXE .. " chains add cli-chains init " .. GEN_0)
+        local _,Q,err = exec(true, EXE .. " chains add cli-chains init file " .. GEN_0)
         assert(Q~=0 and err=="ERROR : chains add : alias already exists", "should fail: " .. tostring(err))
     end
 
@@ -70,7 +70,7 @@ do
             f:close()
         end
         local _, Q, err = exec (true,
-            EXE .. " chains add x init " .. bad
+            EXE .. " chains add x init file " .. bad
         )
         assert (
             Q~=0 and err=="ERROR : chains add : invalid genesis"
@@ -80,7 +80,7 @@ do
 
     do
         TEST "genesis file not found"
-        local _,Q,err = exec(true, EXE .. " chains add x init /nonexistent/genesis.lua")
+        local _,Q,err = exec(true, EXE .. " chains add x init file /nonexistent/genesis.lua")
         assert(Q~=0 and err=="ERROR : chains add : invalid genesis")
     end
 
@@ -102,7 +102,7 @@ do
 
     do
         TEST "git init failed"
-        local _,Q,err = exec(true, ENV .. " ../src/freechains.lua --root /dev/null chains add x init " .. GEN_0)
+        local _,Q,err = exec(true, ENV .. " ../src/freechains.lua --root /dev/null chains add x init file " .. GEN_0)
         assert(Q~=0 and err=="ERROR : chains add : init failed", "should fail: " .. tostring(err))
     end
 
@@ -153,7 +153,7 @@ do
     do
         TEST "dir two chains"
         exec (
-            EXE .. " chains add other init " .. GEN_0
+            EXE .. " chains add other init file " .. GEN_0
         )
         local out, code = exec(
             EXE .. " chains dir"

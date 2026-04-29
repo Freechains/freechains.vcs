@@ -29,7 +29,7 @@ do
     print("==> Step 1: create/clone + pre-receive hook")
 
     TEST "A creates chain"
-    exec(EXE_A .. " --now=1000 chains add test init " .. GEN_1)
+    exec(EXE_A .. " --now=1000 chains add test init file " .. GEN_1)
 
     TEST "B clones"
     exec(EXE_B .. " chains add test clone " .. REPO_A)
@@ -387,7 +387,7 @@ do
     print("==> Step 7: recv unrelated histories")
 
     TEST "C creates independent chain"
-    exec(EXE_C .. " --now=1000 chains add test init " .. GEN_1)
+    exec(EXE_C .. " --now=1000 chains add test init file " .. GEN_1)
     exec (
         EXE_C .. " --now=2000 chain test post inline 'post from C' --sign " .. KEY1
     )

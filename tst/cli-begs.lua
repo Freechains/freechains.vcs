@@ -13,7 +13,7 @@ local DIR6 = ROOT .. "/chains/cli-begs-6/"
 -- 1. Simple beg
 do
     print("==> Simple beg")
-    exec(ENV_EXE .. " chains add cli-begs-1 init " .. GEN_1)
+    exec(ENV_EXE .. " chains add cli-begs-1 init file " .. GEN_1)
 
     local HEAD = exec("git -C " .. DIR1 .. " rev-parse HEAD")
 
@@ -53,7 +53,7 @@ end
 -- 2. Multiple begs from HEAD
 do
     print("==> Multiple begs from HEAD")
-    exec(ENV_EXE .. " chains add cli-begs-2 init " .. GEN_1)
+    exec(ENV_EXE .. " chains add cli-begs-2 init file " .. GEN_1)
 
     local HEAD = exec("git -C " .. DIR2 .. " rev-parse HEAD")
 
@@ -85,7 +85,7 @@ end
 -- 3. Multiple begs from different heads
 do
     print("==> Multiple begs from different heads")
-    exec(ENV_EXE .. " chains add cli-begs-3 init " .. GEN_1)
+    exec(ENV_EXE .. " chains add cli-begs-3 init file " .. GEN_1)
 
     -- KEY1 posts normally (advances HEAD)
     exec(ENV_EXE .. " chain cli-begs-3 post inline 'normal post 1' --sign " .. KEY1)
@@ -119,7 +119,7 @@ end
 do
     print("==> Likes on begs")
 
-    exec(ENV_EXE .. " chains add cli-begs-4 init " .. GEN_1)
+    exec(ENV_EXE .. " chains add cli-begs-4 init file " .. GEN_1)
 
     -- KEY2 begs
     local BEG = exec (
@@ -222,7 +222,7 @@ end
 do
     print("==> Merge structure (always 2-parent)")
 
-    exec(ENV_EXE .. " chains add cli-begs-5 init " .. GEN_1)
+    exec(ENV_EXE .. " chains add cli-begs-5 init file " .. GEN_1)
 
     -- KEY2 begs
     local BEG = exec (
@@ -259,7 +259,7 @@ end
 do
     print("==> Merge structure (true merge)")
 
-    exec(ENV_EXE .. " chains add cli-begs-6 init " .. GEN_1)
+    exec(ENV_EXE .. " chains add cli-begs-6 init file " .. GEN_1)
 
     -- KEY2 begs
     local BEG = exec (

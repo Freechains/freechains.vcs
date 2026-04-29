@@ -45,7 +45,9 @@ reputation-based), private (encrypted, shared key),
 personal (1→N broadcast). Peers sync by genesis hash,
 not name. Local index maps human-readable aliases
 (`#`, `$`, `@`) to hashes. CLI:
-`chains add <alias> init <genesis.lua>` (create) and
+`chains add <alias> init file <genesis.lua>` (create from
+file) or `chains add <alias> init inline <name> --sign <key>`
+(create from shorthand) and
 `chains add <alias> clone <url>` (replicate).
 `common.lua` is minimal (ERROR, exec, serial);
 git_init/git_config logic lives in `chains.lua`.

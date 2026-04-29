@@ -32,7 +32,7 @@ do
     print("==> Test 1: local wins by prefix reps")
 
     TEST "A creates chain + seeds shared.txt"
-    exec(EXE_A .. " --now=1000 chains add cons-a init " .. GEN_2)
+    exec(EXE_A .. " --now=1000 chains add cons-a init file " .. GEN_2)
     local seed_a = exec (
         EXE_A .. " --now=1100 chain cons-a post inline 'seed\n' --file shared.txt --sign " .. KEY1
     )
@@ -81,7 +81,7 @@ do
     print("==> Test 2: remote wins by prefix reps")
 
     TEST "A creates chain + seeds shared.txt"
-    exec(EXE_A .. " --now=1000 chains add cons-b init " .. GEN_2)
+    exec(EXE_A .. " --now=1000 chains add cons-b init file " .. GEN_2)
     local seed_b = exec (
         EXE_A .. " --now=1100 chain cons-b post inline 'seed\n' --file shared.txt --sign " .. KEY1
     )
@@ -134,7 +134,7 @@ do
     print("==> Test 3: loser invalidated by winner context")
 
     TEST "A creates chain"
-    exec(EXE_A .. " --now=1000 chains add cons-c init " .. GEN_4)
+    exec(EXE_A .. " --now=1000 chains add cons-c init file " .. GEN_4)
 
     TEST "B clones cons-c"
     exec(EXE_B .. " chains add cons-c clone " .. ROOT_A .. "/chains/cons-c/")
@@ -238,7 +238,7 @@ do
 
     -- A: G
     TEST "A creates chain"
-    exec(EXE_A .. " --now=1000 chains add cons-d init " .. GEN_4)
+    exec(EXE_A .. " --now=1000 chains add cons-d init file " .. GEN_4)
 
     -- A: G
     -- B: G

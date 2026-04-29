@@ -19,7 +19,7 @@ exec("mkdir -p " .. ROOT_B)
 exec("mkdir -p " .. ROOT_X)
 
 -- shared setup: A creates chain, B clones
-exec(EXE_A .. " --now=1000 chains add test init " .. GEN_1)
+exec(EXE_A .. " --now=1000 chains add test init file " .. GEN_1)
 exec(EXE_B .. " chains add test clone " .. REPO_A)
 -- A:  [state] G
 -- B:  [state] G

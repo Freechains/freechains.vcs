@@ -1,7 +1,7 @@
 #!/usr/bin/env lua5.4
 require "tests"
 
-exec(ENV_EXE .. " chains add cli-reps init " .. GEN_1)
+exec(ENV_EXE .. " chains add cli-reps init file " .. GEN_1)
 
 -- BASIC QUERY
 do
@@ -95,7 +95,7 @@ exec(ENV_EXE .. " chains rem cli-reps")
 do
     print("==> After like/dislike")
 
-    exec(ENV_EXE .. " chains add cli-reps init " .. GEN_2)
+    exec(ENV_EXE .. " chains add cli-reps init file " .. GEN_2)
 
     do
         TEST "reps-liker-after-like"
@@ -163,7 +163,7 @@ do
     do
         TEST "reps-2-pioneers"
         exec (
-            ENV_EXE .. " chains add cli-reps init " .. GEN_2
+            ENV_EXE .. " chains add cli-reps init file " .. GEN_2
         )
         local out1 = exec (
             ENV_EXE .. " chain cli-reps reps author '" .. PUB1 .. "'"
@@ -179,7 +179,7 @@ do
         TEST "reps-3-pioneers"
         exec("rm -rf " .. TMP)
         exec("mkdir -p " .. ROOT)
-        exec(ENV_EXE .. " chains add cr7 init " .. GEN_3)
+        exec(ENV_EXE .. " chains add cr7 init file " .. GEN_3)
         local out = exec (
             ENV_EXE .. " chain cr7 reps author '" .. PUB1 .. "'"
         )
@@ -193,7 +193,7 @@ do
 
     exec("rm -rf " .. TMP)
     exec("mkdir -p " .. ROOT)
-    exec(ENV_EXE .. " chains add cli-reps init " .. GEN_1)
+    exec(ENV_EXE .. " chains add cli-reps init file " .. GEN_1)
 
     do
         TEST "gate-blocked-no-reps"
