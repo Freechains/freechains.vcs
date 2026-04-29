@@ -175,7 +175,7 @@ do
     do
         TEST "inline uses default --sign at $HOME/.ssh/id_ed25519"
         local out, code = exec (
-            "HOME=" .. SSH .. "home " .. EXE .. " chains add inl-default init inline"
+            "HOME=" .. SSH .. "home " .. EXE .. " chains add inl-default init inline --sign"
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
