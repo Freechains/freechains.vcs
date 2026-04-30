@@ -47,10 +47,11 @@ if ARGS.add then
         if ARGS.file then
             -- existing path-based init below
         elseif ARGS.inline then
-            local pub = exec (
+            local pub = exec ('stdout',
                 "ssh-keygen -y -f " .. ARGS.sign
                 , "chains add : invalid sign key"
             )
+            pub = assert(pub:match("^(%S+ %S+)"), "bug found")
             local T = {
                 version  = VERSION,
                 type     = "#",
