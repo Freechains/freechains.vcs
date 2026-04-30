@@ -5,6 +5,24 @@ math.randomseed()
 local argparse = require "freechains.argparse"
 local common   = require "freechains.common"
 
+local function sign (T, k, vs)
+    local v = os.getenv("HOME") .. "/.ssh/id_ed25519"
+    if vs == nil then
+        -- default
+    elseif type(vs) == "table" then
+        assert(#vs <= 1, "bug found")
+        if #vs == 0 then
+            -- default
+        else
+            v = vs[1]
+        end
+    else
+        assert(type(vs) == 'string')
+        v = vs
+    end
+    T[k] = v
+end
+
 local parser = argparse()
 
 parser
@@ -73,7 +91,7 @@ do
             cmd.chains.add.init.file._:argument("path")
 
             cmd.chains.add.init.inline._ = cmd.chains.add.init._:command("inline")
-            cmd.chains.add.init.inline._:option("--sign"):args("?"):count(1)
+            cmd.chains.add.init.inline._:option("--sign"):args("?"):count(1):action(sign)
         end
         cmd.chains.add.clone._ = cmd.chains.add._:command("clone")
         cmd.chains.add.clone._:argument("url")
@@ -101,7 +119,7 @@ do
 
     -- cmd.chain.post
     cmd.chain.post._ = cmd.chain._:command("post")
-    cmd.chain.post._:option("--sign"):args("?")
+    cmd.chain.post._:option("--sign"):args("?"):action(sign)
     cmd.chain.post._:option("--why")
     cmd.chain.post._:flag("--beg")
     do
@@ -129,7 +147,7 @@ do
     cmd.chain.like._:argument("number"):convert(positive)
     cmd.chain.like._:argument("target")
     cmd.chain.like._:argument("id")
-    cmd.chain.like._:option("--sign"):args("?"):count(1)
+    cmd.chain.like._:option("--sign"):args("?"):count(1):action(sign)
     cmd.chain.like._:option("--why")
 
     -- cmd.chain.dislike
@@ -137,7 +155,7 @@ do
     cmd.chain.dislike._:argument("number"):convert(positive)
     cmd.chain.dislike._:argument("target")
     cmd.chain.dislike._:argument("id")
-    cmd.chain.dislike._:option("--sign"):args("?"):count(1)
+    cmd.chain.dislike._:option("--sign"):args("?"):count(1):action(sign)
     cmd.chain.dislike._:option("--why")
 
     -- cmd.chain.sync
@@ -151,14 +169,6 @@ do
 end
 
 ARGS = parser:parse()
-
--- normalize --sign:
---  - absent:  nil
---  - no arg:  {}
---  - one arg: {key}
-if type(ARGS.sign) == "table" then
-    ARGS.sign = ARGS.sign[1] or (os.getenv("HOME") .. "/.ssh/id_ed25519")
-end
 
 CMD = { now=os.time(), git="" }
 if ARGS.now then
