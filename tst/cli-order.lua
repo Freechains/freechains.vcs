@@ -35,17 +35,17 @@ do
 
     TEST "order has P1"
     local O = order(EXE_A)
-    assert(#O == 3, "expected 3 entries, got " .. #O)
-    assert(O[2] == P1, "expected P1")
+    assert(#O == 1, "expected 1 entries, got " .. #O)
+    assert(O[1] == P1, "expected P1")
 
     TEST "A posts P2"
     local P2 = exec(EXE_A .. " --now=3000 chain test post inline 'world' --sign " .. KEY1)
 
     TEST "order has P1, P2"
     O = order(EXE_A)
-    assert(#O == 5, "expected 5 entries, got " .. #O)
-    assert(O[2] == P1, "expected P1 at index 2")
-    assert(O[4] == P2, "expected P2 at index 4")
+    assert(#O == 2, "expected 2 entries, got " .. #O)
+    assert(O[1] == P1, "expected P1 at index 1")
+    assert(O[2] == P2, "expected P2 at index 2")
 end
 
 -- 2. like order
@@ -53,18 +53,18 @@ do
     print("==> Step 2: like + order")
 
     local O = order(EXE_A)
-    local P1 = O[2]
-    local P2 = O[4]
+    local P1 = O[1]
+    local P2 = O[2]
 
     TEST "A likes P1"
     local L1 = exec(EXE_A .. " --now=4000 chain test like 1 post " .. P1 .. " --sign " .. KEY1)
 
     TEST "order has P1, P2, L1"
     O = order(EXE_A)
-    assert(#O == 7, "expected 7 entries, got " .. #O)
-    assert(O[2] == P1, "expected P1 at index 2")
-    assert(O[4] == P2, "expected P2 at index 4")
-    assert(O[6] == L1, "expected L1 at index 6")
+    assert(#O == 3, "expected 3 entries, got " .. #O)
+    assert(O[1] == P1, "expected P1 at index 1")
+    assert(O[2] == P2, "expected P2 at index 2")
+    assert(O[3] == L1, "expected L1 at index 3")
 end
 
 -- 3. sync preserves order
