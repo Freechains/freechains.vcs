@@ -7,28 +7,32 @@ subcommands, parallel to `chain post`:
 
 ```
 chains add <alias> init file   <path>
-chains add <alias> init inline <name> --sign <key>
+chains add <alias> init inline [--sign[=<key>]]
 ```
 
-The `inline` form auto-generates a minimal genesis from a
-type-prefixed `<name>` and the signing key.
+The `inline` form auto-generates a minimal `#`-typed genesis
+from `<alias>` (used as `name`) and the signing key's public part.
 
 ## Status
 
-In progress.
+Done.
 
 - [x] version: `VERSION` tuple + `version()` in `common.lua`
-- [x] inline CLI grammar (`init file` / `init inline`); chains.lua dispatch stub
+- [x] inline CLI grammar (`init file` / `init inline`); chains.lua dispatch
 - [x] rename `init <path>` -> `init file <path>` in tests/docs
-- [x] failing tests for inline form (red until inline impl lands)
-- [x] inline `#` builds genesis; `@`, `@!`, `$` -> `assert(false, "TODO")`
+- [x] inline `#` builds genesis; alias = name; pioneers = [pubkey]
+- [x] tristate `--sign` (extension): absent / bare / `=key`, default
+      `$HOME/.ssh/id_ed25519`, applied to all four `--sign` options
+      (init.inline, chain.post, chain.like, chain.dislike) via shared
+      `sign` action helper in `freechains.lua`
+- [x] full test suite green
 
 ## CLI
 
 | Form                                              | Behavior                                          |
 |---------------------------------------------------|---------------------------------------------------|
 | `chains add <alias> init file <path>`             | current behavior, just renamed                    |
-| `chains add <alias> init inline [--sign[=<key>]]` | auto-generate `#`-typed genesis from `<alias>`. tristate `--sign`: absent → use default; bare → default; `=<key>` → that key. Default = `SIGN` (global in `common.lua` = `$HOME/.ssh/id_ed25519`) |
+| `chains add <alias> init inline [--sign[=<key>]]` | auto-generate `#`-typed genesis from `<alias>`. tristate `--sign`: absent / bare / `=<key>`. Default key = `$HOME/.ssh/id_ed25519` (substituted by the `sign` action in `freechains.lua`) |
 | `chains add <alias> clone <url>`                  | unchanged                                         |
 
 For `inline`: genesis `name = <alias>`, `type = "#"` always.
@@ -67,38 +71,17 @@ Function `version()` returns the string form `"v0.20.0"`.
 Inline genesis builder uses the tuple directly.
 The `--version` flag prints `version()`.
 
-## Files to modify
+## Files modified
 
-| File                                | Place                          | Change                                                                                                          |
-|-------------------------------------|--------------------------------|-----------------------------------------------------------------------------------------------------------------|
-| `src/freechains.lua`                | `cmd.chains.add.init`          | replace `:argument("path")` with two subcommands `file` (positional `path`) and `inline` (positional `name`, option `--sign`) |
-| `src/freechains/chains.lua`         | `add` function                 | branch on `ARGS.file` vs `ARGS.inline`; for inline: parse `<name>`, build genesis Lua source, write to a temp file, then existing path-based code |
-| `tst/cli-chains.lua`                | every `init <path>` invocation | rename to `init file <path>`; add new tests for `init inline '#name' --sign ...` |
-| `tst/cli-post.lua`                  | `init <path>`                  | rename to `init file <path>` |
-| `tst/cli-like.lua`                  | `init <path>`                  | rename to `init file <path>` |
-| `tst/cli-sign.lua`                  | `init <path>`                  | rename to `init file <path>` |
-| `tst/cli-reps.lua`                  | `init <path>`                  | rename to `init file <path>` |
-| `tst/cli-now.lua`                   | `init <path>`                  | rename to `init file <path>` |
-| `tst/cli-time.lua`                  | `init <path>`                  | rename to `init file <path>` |
-| `tst/cli-begs.lua`                  | `init <path>`                  | rename to `init file <path>` |
-| `tst/cli-recv.lua`                  | `init <path>`                  | rename to `init file <path>` |
-| `tst/cli-send.lua`                  | `init <path>`                  | rename to `init file <path>` |
-| `tst/cli-order.lua`                 | `init <path>`                  | rename to `init file <path>` |
-| `tst/sync.lua`                      | `init <path>`                  | rename to `init file <path>` |
-| `tst/consensus.lua`                 | `init <path>`                  | rename to `init file <path>` |
-| `tst/err-post.lua`                  | `init <path>`                  | rename to `init file <path>` |
-| `tst/err-like.lua`                  | `init <path>`                  | rename to `init file <path>` |
-| `tst/repl-local-head.lua`           | `init <path>`                  | rename to `init file <path>` |
-| `tst/repl-remote-head.lua`          | `init <path>`                  | rename to `init file <path>` |
-| `tst/repl-local-begs.lua`           | `init <path>`                  | rename to `init file <path>` |
-| `tst/repl-remote-begs.lua`          | `init <path>`                  | rename to `init file <path>` |
-| `README.md`                         | walkthrough Step 5             | use `init inline '#chat' --sign ~/.ssh/id_ed25519` |
-| `.claude/plans/genesis.md`          | CLI section                    | document the two subcommands |
-| `.claude/plans/commands.md`         | `chains add` row               | document the two subcommands |
-| `.claude/plans/freechains-cli.md`   | scope section                  | reflect the new grammar |
-
-(Sweep `tst/` for stragglers — the list above is from `grep`-ed
-guesses; verify before editing.)
+| File                                | Change                                                  |
+|-------------------------------------|---------------------------------------------------------|
+| `src/freechains/common.lua`         | added `VERSION = {0, 20, 0}`, `version()` |
+| `src/freechains.lua`                | new subcommands `init file`/`init inline`; tristate `--sign` action `sign(T, k, vs)` applied to inline/post/like/dislike |
+| `src/freechains/chains.lua`         | `init` dispatch on `file`/`inline`; inline branch: ssh-keygen pubkey extraction, build genesis via `serial(T)`, write tmp, set `ARGS.path`, fall through to existing path-based init |
+| `tst/cli-chains.lua`                | rename `init <path>` -> `init file <path>`; new section `ADD INIT INLINE` (placed after `REM` so dir is empty) |
+| `tst/ssh/home/.ssh/id_ed25519`      | new symlink -> `../../key1` (HOME fixture for default-sign test) |
+| 18 other `tst/*.lua`                | rename `init <path>` -> `init file <path>` |
+| `.claude/plans/all.md`, `commands.md` | reflect new grammar |
 
 ## Tests
 
