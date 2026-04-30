@@ -64,3 +64,14 @@ All application data resides in `~/.freechains/`:
 ```
 ls ~/.freechains/chains/
 ```
+
+- Post some content:
+
+```
+freechains chain '#chat' post inline "Hello World!" --sign
+b52c62f...
+freechains chain '#chat' post inline "I am here!"   --sign
+d6568e4...
+```
+
+The output is each post's unique identifier.
