@@ -10,6 +10,14 @@ function NOW (hash)
     )
 end
 
+function trailer (hash)
+    local out = exec (
+        "git -C " .. REPO ..
+            " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash
+    )
+    return out:match "(%S+)"
+end
+
 function write (G)
     local function f (V, file)
         local f = io.open(file, "w")

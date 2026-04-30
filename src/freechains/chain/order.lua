@@ -1,3 +1,5 @@
 for _, hash in ipairs(G.order) do
-    print(hash)
+    if trailer(hash) ~= "state" then
+        print(hash)
+    end
 end

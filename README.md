@@ -75,3 +75,11 @@ d6568e4...
 ```
 
 The output is each post's unique identifier.
+
+- List posts in order:
+
+```
+freechains chain '#chat' order
+b52c62f...
+d6568e4...
+```

@@ -1,14 +1,6 @@
 require "freechains.chain.common"
 local ssh = require "freechains.chain.ssh"
 
-local function trailer (hash)
-    local out = exec (
-        "git -C " .. REPO ..
-            " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash
-    )
-    return out:match "(%S+)"
-end
-
 if ARGS.send then
     local url = exec (
         "git -C " .. REPO .. " config freechains.url"
