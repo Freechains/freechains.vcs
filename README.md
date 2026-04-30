@@ -57,7 +57,7 @@ freechains chains add '#chat' init inline --sign
 ```
 
 This creates the public chain `#chat`, with you as the sole pioneer.
-The output is the the chain's unique identifier across all peers.
+The output is the chain's unique identifier across all peers.
 
 All application data resides in `~/.freechains/`:
 
