@@ -4,7 +4,7 @@ require "tests"
 
 local DIR = ROOT .. "/chains/cli-post/"
 
-exec(ENV_EXE .. " chains add cli-post init file " .. GEN_1)
+exec(ENV_EXE .. " chains add cli-post init inline --sign " .. KEY1)
 
 -- POST FILE
 do

@@ -10,7 +10,7 @@ do
 
     do
         TEST "genesis with --now=0"
-        exec(ENV_EXE .. " --now=0 chains add cli-now init file " .. GEN_1)
+        exec("HOME=" .. SSH .. "home " .. ENV_EXE .. " --now=0 chains add cli-now init inline --sign")
         local ts = exec("git -C " .. DIR .. " log -1 --format=%at")
         assert(ts == "0", "genesis timestamp: " .. ts)
     end
