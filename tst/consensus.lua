@@ -172,7 +172,7 @@ do
     TEST "order before merge: P1, P2, P3 present"
     do
         local O, S = order(EXE_A, "cons-c")
-        assert(#O == 7, "expected 7 entries, got " .. #O)
+        assert(#O == 3, "expected 3 entries, got " .. #O)
         assert(S[P1], "P1 should be in order")
         assert(S[P2], "P2 should be in order")
         assert(S[P3], "P3 should be in order")
@@ -195,7 +195,7 @@ do
     TEST "A order after merge: X1,X2,X3,P1 present; P2,P3 revoked"
     do
         local O, S = order(EXE_A, "cons-c")
-        assert(#O == 10, "expected 10 entries, got " .. #O)
+        assert(#O == 4, "expected 4 entries, got " .. #O)
         assert(S[X1], "X1 should be in order")
         assert(S[X2], "X2 should be in order")
         assert(S[X3], "X3 should be in order")
