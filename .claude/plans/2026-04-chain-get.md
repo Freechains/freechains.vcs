@@ -18,7 +18,18 @@ freechains chain <alias> get payload <hash>
 
 ## Status
 
-Not started.
+In progress.
+
+| Step | Item                                                | State    |
+|------|-----------------------------------------------------|----------|
+| 0    | `tst/cli-get.lua` (test file)                       | done     |
+| 1    | CLI parse in `src/freechains.lua`                   | done     |
+| 2    | dispatch in `src/freechains/chain/init.lua`         | done     |
+| 3    | `src/freechains/chain/get.lua` (implementation)     | done     |
+| 4    | rockspec module entry                               | pending  |
+| 5    | `Makefile` test line                                | pending  |
+| 6    | README Step 8 walkthrough                           | pending  |
+| 7    | `.claude/plans/commands.md` rows                    | pending  |
 
 ## CLI
 
