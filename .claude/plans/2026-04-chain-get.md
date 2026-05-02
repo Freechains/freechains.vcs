@@ -35,8 +35,9 @@ In progress.
 | 0    | `tst/cli-get.lua` (test file)                       | needs rework — 10 cases per Tests table |
 | 1    | CLI parse in `src/freechains.lua`                   | done     |
 | 2    | dispatch in `src/freechains/chain/init.lua`         | done     |
-| 3a   | `src/freechains/chain/get.lua` — payload + scaffolding + block-TODO | this iteration |
-| 3b   | `src/freechains/chain/get.lua` — block branch implementation        | deferred       |
+| 3a   | `src/freechains/chain/get.lua` — payload + scaffolding + block-TODO | done           |
+| 3b   | `src/freechains/chain/get.lua` — block branch implementation        | done           |
+| 3c   | `src/freechains/chain/ssh.lua` — `M.gpgsig` helper                  | reverted (sign field is scalar pubkey only — proof dropped) |
 | 4    | rockspec module entry                               | pending  |
 | 5    | `Makefile` test line                                | pending  |
 | 6    | README Step 8 walkthrough                           | pending  |
@@ -80,7 +81,7 @@ Kotlin returns this serialized as JSON. Error on missing block:
 | `time`       | integer             | `git log -1 --format=%at <hash>` (author epoch)                   |
 | `pay.hash`   | string              | `git ls-tree <hash> <file>` blob hash                             |
 | `like`       | table or `false`    | for `like` commits: `{ n=<raw number>, target="post"|"author", id=<hash-or-pubkey> }`; for posts: `false` |
-| `sign`       | table or `false`    | signed: `{ hash=<sshsig-body-b64>, pub="ssh-ed25519 <b64>" }`; unsigned: `false` |
+| `sign`       | string or absent    | signed: `"ssh-ed25519 <b64>"`; unsigned: key omitted (raw signature is recoverable from `git cat-file commit <hash>` if needed) |
 | `backs`      | array of string     | parents from `git rev-list --parents -n 1 <hash>`                 |
 
 `pay.crypt` is omitted (always `false` in lua port).
@@ -149,8 +150,8 @@ KEY2 likes the post (→ `LIKE`). `STATE = HEAD`, `GENESIS = git rev-list --max-
 | 3  | `payload <state>`             | exit 1, `ERROR : chain get : unknown post`        |
 | 4  | `payload <genesis>`           | exit 1, `ERROR : chain get : unknown post`        |
 | 5  | `payload <unknown-hash>`      | exit 1, `ERROR : chain get : unknown post`        |
-| 6  | `block <post>`                | exit 1, `ERROR : chain get : TODO block`          |
-| 7  | `block <like>`                | exit 1, `ERROR : chain get : TODO block`          |
+| 6  | `block <post>`                | exit 0; loadable Lua: `hash`, `time` int, `pay.hash` 40-hex, `like == false`, `sign.pub` matches `ssh-ed25519 `, `backs` array len 1 |
+| 7  | `block <like>`                | exit 0; loadable Lua: `like.target == "post"`, `like.id == POST`, `like.n` int |
 | 8  | `block <state>`               | exit 1, `ERROR : chain get : unknown post`        |
 | 9  | `block <genesis>`             | exit 1, `ERROR : chain get : unknown post`        |
 | 10 | `block <unknown-hash>`        | exit 1, `ERROR : chain get : unknown post`        |
@@ -159,7 +160,6 @@ KEY2 likes the post (→ `LIKE`). `STATE = HEAD`, `GENESIS = git rev-list --max-
 
 ```
 ERROR : chain get : unknown post
-ERROR : chain get : TODO block       -- temporary, until block branch is implemented
 ```
 
 ## README impact
@@ -187,71 +187,30 @@ return {
     ["pay"]   = {
         ["hash"] = "<blob-hash>",
     },
-    ["sign"]  = {
-        ["hash"] = "<sshsig-b64>",
-        ["pub"]  = "ssh-ed25519 ...",
-    },
+    ["sign"]  = "ssh-ed25519 ...",
     ["time"]  = 1714560000,
+    ["why"]   = "(empty message)",
 }
 ```
 ````
 
-## Implementation sketch — `chain/get.lua`
+## Implementation summary — `chain/get.lua`
 
-This iteration: `payload` is implemented; `block` errors with TODO.
+- existence: `git merge-base --is-ancestor <hash> HEAD` (rejects any non-chain object: trees, blobs, dangling commits, beg-only refs, forged objects).
+- trailer: read once via `trailer(<hash>)`, then per-branch reject.
+- `payload` accepts `post` only; `block` accepts `post` and `like`.
+- block table fields built from:
+  - `pay.hash`  — `git ls-tree <hash> <file>` (3rd column)
+  - `backs`     — `git rev-list --parents -n 1 <hash>` (drop self)
+  - `sign`      — `ssh.pubkey(REPO, hash)` (string) or `nil` if unsigned (key omitted)
+  - `like`      — for `like` commits: `load(<file content>)()` then map `{n=L.number, target=L.target, id=L.id}`; `false` for posts
+  - `why`       — `git log -1 --format=%B` minus trailing `Freechains: <kind>` line
+  - `time`      — `git log -1 --format=%at`
+  - `hash`      — `ARGS.hash`
 
-```lua
-require "freechains.chain.common"
+Output via `serial(T)`.
 
--- existence + chain-membership in one shot: HEAD-reachability.
--- rejects: any non-commit object, dangling commits, beg-only refs,
--- forged objects from sync attacks.
-do
-    local _, code = exec(true, 'stdout',
-        "git -C " .. REPO .. " merge-base --is-ancestor " .. ARGS.hash .. " HEAD"
-    )
-    if code ~= 0 then
-        ERROR("chain get : unknown post")
-    end
-end
-
-local kind = trailer(ARGS.hash)
-
-if ARGS.payload then
-    if kind ~= "post" then
-        ERROR("chain get : unknown post")
-    else
-        -- continue
-    end
-    local files = exec (
-        "git -C " .. REPO ..
-        " diff-tree --no-commit-id -r --name-only " .. ARGS.hash
-    )
-    local file = files:match("^(%S+)")
-    local out = exec (
-        "git -C " .. REPO .. " show " .. ARGS.hash .. ":" .. file
-    )
-    io.write(out)
-
-elseif ARGS.block then
-    if kind ~= "post" and kind ~= "like" then
-        ERROR("chain get : unknown post")
-    else
-        -- continue
-    end
-    ERROR("chain get : TODO block")
-end
-```
-
-Future block branch (deferred): builds Lua table per the
-"`get block` → Lua table" spec above. Like-file format
-(from `chain/like.lua`):
-
-```lua
-return { target = "post"|"author", id = "<id>", number = ±N*reps.unit }
-```
-
-Will map 1:1 to `like = { n=number, target=target, id=id }`.
+No change to `ssh.lua` — only `M.pubkey` is consumed.
 
 ## Decisions (locked)
 
@@ -261,25 +220,19 @@ Will map 1:1 to `like = { n=number, target=target, id=id }`.
 | B | `like` field                                          | keep — populated for like commits, present-but-absent marker for posts |
 | C | `pay.crypt` field                                     | omit                                   |
 | D | `backs` shape                                         | array                                  |
-| E | `sign` when unsigned                                  | present-but-absent marker              |
-| F | `sign.hash` content                                   | raw base64 SSHSIG body (no armor)      |
+| E | `sign` when unsigned                                  | `nil` (key absent in output — proof is in repo, only pub is user-meaningful) |
+| F | `sign` shape                                          | scalar string `"ssh-ed25519 <b64>"` (was `{hash, pub}`; proof dropped — already in `gpgsig` header) |
 | G | Short hash acceptance                                 | accept (git resolves)                  |
 | H | `like` shape                                          | `{ n, target, id }` — `n` = raw `number` from like file (no rescaling by `C.reps.unit`) |
 
 ### Absence representation
 
-Lua tables cannot store `nil` values, and project's `serial()` helper
-omits absent keys. Per user requirement *"nil values should not be
-omitted"*, absent fields are rendered using a sentinel.
+Lua tables cannot store `nil` values; `serial()` omits absent keys.
 
-**Marker: `false`** (renders as `["like"] = false` in `serial()`).
-
-Applies to:
-
-| Field   | Value when absent                                |
-|---------|--------------------------------------------------|
-| `like`  | `false` for `post`-trailer commits               |
-| `sign`  | `false` for unsigned commits                     |
+| Field   | Absent value | Rendered in output? |
+|---------|--------------|---------------------|
+| `like`  | `false`      | yes — explicit sentinel for `post`-trailer commits (preserves type-discriminating field) |
+| `sign`  | `nil`        | no — key omitted for unsigned commits (proof and absence both visible via `gpgsig` in `git cat-file`) |
 
 ### Consequence
 
