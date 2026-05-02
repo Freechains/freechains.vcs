@@ -16,8 +16,15 @@ freechains chain <alias> get payload <hash>
 |           | (`hash`, `time`, `pay`, `like`, `sign`, `backs`)    |
 | `payload` | the file content added by the post commit           |
 
-Both variants accept `post` and `like` trailer commits.
-`state` (and genesis) commits are rejected with `unknown post`.
+Acceptance differs by command:
+
+| Command   | Accepts     | Rejects                       |
+|-----------|-------------|-------------------------------|
+| `block`   | post, like  | state, genesis (no payload concept) |
+| `payload` | post        | like, state, genesis           |
+
+All rejection cases share the single error `ERROR : chain get : unknown post`
+(this also covers an unknown/invalid hash — collapsed into the same error).
 
 ## Status
 
@@ -25,10 +32,11 @@ In progress.
 
 | Step | Item                                                | State    |
 |------|-----------------------------------------------------|----------|
-| 0    | `tst/cli-get.lua` (test file)                       | needs rework — assertions for new Lua-table output and "unknown post" error |
+| 0    | `tst/cli-get.lua` (test file)                       | needs rework — 10 cases per Tests table |
 | 1    | CLI parse in `src/freechains.lua`                   | done     |
 | 2    | dispatch in `src/freechains/chain/init.lua`         | done     |
-| 3    | `src/freechains/chain/get.lua` (implementation)     | needs rework — Lua-table output, single "unknown post" reject |
+| 3a   | `src/freechains/chain/get.lua` — payload + scaffolding + block-TODO | this iteration |
+| 3b   | `src/freechains/chain/get.lua` — block branch implementation        | deferred       |
 | 4    | rockspec module entry                               | pending  |
 | 5    | `Makefile` test line                                | pending  |
 | 6    | README Step 8 walkthrough                           | pending  |
@@ -105,14 +113,15 @@ Then two-step git extraction:
 
 ## Validation
 
-Single check applies to both `block` and `payload`:
+Unified rejection error: `ERROR : chain get : unknown post`.
 
-| Trigger                                                  | Error                                  |
-|----------------------------------------------------------|----------------------------------------|
-| `<hash>` not in repo                                     | `ERROR : chain get : invalid hash`     |
-| `<hash>` trailer is `state` (covers state + genesis)     | `ERROR : chain get : unknown post`     |
-
-Accepted trailers: `post`, `like`.
+| Trigger                                            | Command  | Result        |
+|----------------------------------------------------|----------|---------------|
+| `<hash>` does not exist                            | both     | unknown post  |
+| `<hash>` trailer is `state` (incl. genesis)        | both     | unknown post  |
+| `<hash>` trailer is `like`                         | payload  | unknown post  |
+| `<hash>` trailer is `like`                         | block    | (accepted)    |
+| `<hash>` trailer is `post`                         | both     | (accepted)    |
 
 ## Files to modify
 
@@ -130,24 +139,27 @@ Accepted trailers: `post`, `like`.
 
 ## Tests (`tst/cli-get.lua`)
 
-| #  | Case                                       | Expected                                                                                                                |
-|----|--------------------------------------------|-------------------------------------------------------------------------------------------------------------------------|
-| 1  | `get block <post-hash>`                    | loadable Lua: `hash`, `time`, `pay.hash` (40-hex), `like == false`, `sign.pub` starts with `ssh-ed25519 `, `backs` array |
-| 2  | `get block <genesis-hash>`                 | exit 1, `ERROR : chain get : unknown post`                                                                              |
-| 3  | `get block <state-hash>`                   | exit 1, `ERROR : chain get : unknown post`                                                                              |
-| 4  | `get block <like-hash>`                    | loadable Lua: `like.n` integer, `like.target == "post"`, `like.id` equals the target post hash                          |
-| 5  | `get payload <post-hash>`                  | output equals the original posted text                                                                                  |
-| 6  | `get payload <genesis-hash>`               | exit 1, `ERROR : chain get : unknown post`                                                                              |
-| 7  | `get payload <state-hash>`                 | exit 1, `ERROR : chain get : unknown post`                                                                              |
-| 8  | `get payload <like-hash>`                  | output is the like Lua source                                                                                           |
-| 9  | `get block <unknown-hash>`                 | exit 1, `ERROR : chain get : invalid hash`                                                                              |
-| 10 | `get payload <unknown-hash>`               | exit 1, `ERROR : chain get : invalid hash`                                                                              |
+Setup: GEN_2 (file genesis, two pioneers); KEY1 posts `'hello world'` (→ `POST`);
+KEY2 likes the post (→ `LIKE`). `STATE = HEAD`, `GENESIS = git rev-list --max-parents=0`.
+
+| #  | Case                          | Expected                                          |
+|----|-------------------------------|---------------------------------------------------|
+| 1  | `payload <post>`              | output == `"hello world"`                         |
+| 2  | `payload <like>`              | exit 1, `ERROR : chain get : unknown post`        |
+| 3  | `payload <state>`             | exit 1, `ERROR : chain get : unknown post`        |
+| 4  | `payload <genesis>`           | exit 1, `ERROR : chain get : unknown post`        |
+| 5  | `payload <unknown-hash>`      | exit 1, `ERROR : chain get : unknown post`        |
+| 6  | `block <post>`                | exit 1, `ERROR : chain get : TODO block`          |
+| 7  | `block <like>`                | exit 1, `ERROR : chain get : TODO block`          |
+| 8  | `block <state>`               | exit 1, `ERROR : chain get : unknown post`        |
+| 9  | `block <genesis>`             | exit 1, `ERROR : chain get : unknown post`        |
+| 10 | `block <unknown-hash>`        | exit 1, `ERROR : chain get : unknown post`        |
 
 ## Errors (per `.claude/CLAUDE.md` format)
 
 ```
-ERROR : chain get : invalid hash
 ERROR : chain get : unknown post
+ERROR : chain get : TODO block       -- temporary, until block branch is implemented
 ```
 
 ## README impact
@@ -186,140 +198,60 @@ return {
 
 ## Implementation sketch — `chain/get.lua`
 
+This iteration: `payload` is implemented; `block` errors with TODO.
+
 ```lua
 require "freechains.chain.common"
-local ssh = require "freechains.chain.ssh"
 
--- existence check
-local function exists (hash)
+-- existence + chain-membership in one shot: HEAD-reachability.
+-- rejects: any non-commit object, dangling commits, beg-only refs,
+-- forged objects from sync attacks.
+do
     local _, code = exec(true, 'stdout',
-        "git -C " .. REPO .. " cat-file -e " .. hash
+        "git -C " .. REPO .. " merge-base --is-ancestor " .. ARGS.hash .. " HEAD"
     )
-    return code == 0
+    if code ~= 0 then
+        ERROR("chain get : unknown post")
+    end
 end
 
-if not exists(ARGS.hash) then
-    ERROR("chain get : invalid hash")
-else
-    -- continue
-end
-
--- trailer check (accept post/like, reject state)
 local kind = trailer(ARGS.hash)
-if kind ~= "post" and kind ~= "like" then
-    ERROR("chain get : unknown post")
-else
-    -- continue
-end
 
--- find the single tracked file (one for post, one for like)
-local function payfile ()
+if ARGS.payload then
+    if kind ~= "post" then
+        ERROR("chain get : unknown post")
+    else
+        -- continue
+    end
     local files = exec (
         "git -C " .. REPO ..
         " diff-tree --no-commit-id -r --name-only " .. ARGS.hash
     )
-    return files:match("^(%S+)")
-end
-
-if ARGS.block then
-    local file = payfile()
-
-    -- pay.hash: blob hash from ls-tree
-    local blob = exec (
-        "git -C " .. REPO .. " ls-tree " .. ARGS.hash .. " " .. file
-    ):match("^%S+%s+%S+%s+(%S+)")
-
-    -- backs: parents
-    local backs = {}
-    local raw = exec (
-        "git -C " .. REPO .. " rev-list --parents -n 1 " .. ARGS.hash
-    )
-    local first = true
-    for h in raw:gmatch("%S+") do
-        if first then
-            first = false
-        else
-            backs[#backs+1] = h
-        end
-    end
-
-    -- sign: pubkey via ssh helper, raw sshsig body via gpgsig parse
-    local sign = false
-    local pub = ssh.pubkey(REPO, ARGS.hash)
-    if pub then
-        local commit = exec (
-            "git -C " .. REPO .. " cat-file commit " .. ARGS.hash
-        )
-        local body = ""
-        local in_sig = false
-        for line in (commit .. "\n"):gmatch("([^\n]*)\n") do
-            if in_sig then
-                if line:sub(1,1) == " " then
-                    local s = line:sub(2)
-                    if not s:match("^%-%-%-") then
-                        body = body .. s
-                    else
-                        -- skip armor
-                    end
-                else
-                    in_sig = false
-                end
-            else
-                if line:match("^gpgsig ") then
-                    in_sig = true
-                else
-                    -- skip
-                end
-            end
-        end
-        sign = { hash = body, pub = pub }
-    else
-        -- unsigned
-    end
-
-    -- like: only for like-trailer commits
-    local like = false
-    if kind == "like" then
-        local content = exec (
-            "git -C " .. REPO .. " show " .. ARGS.hash .. ":" .. file
-        )
-        local L = load(content, "like", "t", {})()
-        like = { n = L.number, target = L.target, id = L.id }
-    else
-        -- post: like stays false
-    end
-
-    local T = {
-        hash  = ARGS.hash,
-        time  = tonumber(exec (
-            "git -C " .. REPO .. " log -1 --format=%at " .. ARGS.hash
-        )),
-        pay   = { hash = blob },
-        like  = like,
-        sign  = sign,
-        backs = backs,
-    }
-    io.write(serial(T))
-
-elseif ARGS.payload then
-    local file = payfile()
+    local file = files:match("^(%S+)")
     local out = exec (
         "git -C " .. REPO .. " show " .. ARGS.hash .. ":" .. file
     )
     io.write(out)
+
+elseif ARGS.block then
+    if kind ~= "post" and kind ~= "like" then
+        ERROR("chain get : unknown post")
+    else
+        -- continue
+    end
+    ERROR("chain get : TODO block")
 end
 ```
 
-Helpers: `trailer()` from `chain.common`, `serial()` from `freechains.common`,
-`ssh.pubkey()` from `chain.ssh`.
-
-Like-file format (from `chain/like.lua`):
+Future block branch (deferred): builds Lua table per the
+"`get block` → Lua table" spec above. Like-file format
+(from `chain/like.lua`):
 
 ```lua
 return { target = "post"|"author", id = "<id>", number = ±N*reps.unit }
 ```
 
-Mapped 1:1 into `like = { n=number, target=target, id=id }`.
+Will map 1:1 to `like = { n=number, target=target, id=id }`.
 
 ## Decisions (locked)
 
