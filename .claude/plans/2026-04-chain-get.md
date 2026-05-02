@@ -71,7 +71,7 @@ Kotlin returns this serialized as JSON. Error on missing block:
 | `hash`       | string              | the commit hash itself (40-hex)                                   |
 | `time`       | integer             | `git log -1 --format=%at <hash>` (author epoch)                   |
 | `pay.hash`   | string              | `git ls-tree <hash> <file>` blob hash                             |
-| `like`       | table or `false`    | for `like` commits: `{ n=±N, hash=<target> }`; for posts: `false` |
+| `like`       | table or `false`    | for `like` commits: `{ n=<raw number>, target="post"|"author", id=<hash-or-pubkey> }`; for posts: `false` |
 | `sign`       | table or `false`    | signed: `{ hash=<sshsig-body-b64>, pub="ssh-ed25519 <b64>" }`; unsigned: `false` |
 | `backs`      | array of string     | parents from `git rev-list --parents -n 1 <hash>`                 |
 
@@ -135,7 +135,7 @@ Accepted trailers: `post`, `like`.
 | 1  | `get block <post-hash>`                    | loadable Lua: `hash`, `time`, `pay.hash` (40-hex), `like == false`, `sign.pub` starts with `ssh-ed25519 `, `backs` array |
 | 2  | `get block <genesis-hash>`                 | exit 1, `ERROR : chain get : unknown post`                                                                              |
 | 3  | `get block <state-hash>`                   | exit 1, `ERROR : chain get : unknown post`                                                                              |
-| 4  | `get block <like-hash>`                    | loadable Lua: `like.n` integer, `like.hash` is the target post hash                                                     |
+| 4  | `get block <like-hash>`                    | loadable Lua: `like.n` integer, `like.target == "post"`, `like.id` equals the target post hash                          |
 | 5  | `get payload <post-hash>`                  | output equals the original posted text                                                                                  |
 | 6  | `get payload <genesis-hash>`               | exit 1, `ERROR : chain get : unknown post`                                                                              |
 | 7  | `get payload <state-hash>`                 | exit 1, `ERROR : chain get : unknown post`                                                                              |
@@ -284,7 +284,7 @@ if ARGS.block then
             "git -C " .. REPO .. " show " .. ARGS.hash .. ":" .. file
         )
         local L = load(content, "like", "t", {})()
-        like = { n = L.n, hash = L.hash }
+        like = { n = L.number, target = L.target, id = L.id }
     else
         -- post: like stays false
     end
@@ -313,9 +313,13 @@ end
 Helpers: `trailer()` from `chain.common`, `serial()` from `freechains.common`,
 `ssh.pubkey()` from `chain.ssh`.
 
-Open: confirm the format of `.freechains/likes/like-*.lua` so
-the `like` extraction loads `n` and `hash` correctly. Need to
-inspect `chain/like.lua`.
+Like-file format (from `chain/like.lua`):
+
+```lua
+return { target = "post"|"author", id = "<id>", number = ±N*reps.unit }
+```
+
+Mapped 1:1 into `like = { n=number, target=target, id=id }`.
 
 ## Decisions (locked)
 
@@ -328,6 +332,7 @@ inspect `chain/like.lua`.
 | E | `sign` when unsigned                                  | present-but-absent marker              |
 | F | `sign.hash` content                                   | raw base64 SSHSIG body (no armor)      |
 | G | Short hash acceptance                                 | accept (git resolves)                  |
+| H | `like` shape                                          | `{ n, target, id }` — `n` = raw `number` from like file (no rescaling by `C.reps.unit`) |
 
 ### Absence representation
 
