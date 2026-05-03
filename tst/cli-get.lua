@@ -15,6 +15,15 @@ local LIKE = exec (
 local STATE   = exec("git -C " .. DIR .. " rev-parse HEAD")
 local GENESIS = exec("git -C " .. DIR .. " rev-list --max-parents=0 HEAD")
 
+-- unsigned post: --beg stores it in refs/begs/, then a like merges it
+-- back into the main chain so it becomes reachable from HEAD
+local UNSIGNED = exec (
+    ENV_EXE .. " chain cli-get post inline 'unsigned content' --beg"
+)
+exec (
+    ENV_EXE .. " chain cli-get like 1 post " .. UNSIGNED .. " --sign " .. KEY2
+)
+
 -- GET PAYLOAD
 do
     print("==> freechains chain get payload")
@@ -139,6 +148,17 @@ do
             Q ~= 0 and err == "ERROR : chain get : unknown post"
             , "should fail: " .. tostring(err)
         )
+    end
+
+    do
+        TEST "block of unsigned post"
+        local out, code = exec (
+            ENV_EXE .. " chain cli-get get block " .. UNSIGNED
+        )
+        assert(code == 0, "exit code: " .. tostring(code))
+        local T = load(out, "block", "t", {})()
+        assert(T.sign == false, "sign: " .. tostring(T.sign))
+        assert(type(T.post) == "table", "post type: " .. type(T.post))
     end
 end
 

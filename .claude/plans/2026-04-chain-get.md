@@ -159,21 +159,24 @@ KEY2 likes the post (→ `LIKE`). `STATE = HEAD`, `GENESIS = git rev-list --max-
 | 10 | `block <unknown-hash>`        | exit 1, `ERROR : chain get : unknown post`        |
 | 11 | `block <unsigned-post>`       | exit 0; loadable Lua: `T.sign == false`, `type(T.post) == "table"` |
 
-Setup for case 11: create an unsigned commit directly via raw git
-(not through `chain post`), with `Freechains: post` trailer:
+Setup for case 11: use the freechains commands themselves
+(no raw-git fakery). `chain post --beg` creates an unsigned post in
+`refs/begs/`. A subsequent `chain like` of the beg-post merges it
+into the main chain (`chain/like.lua:23-48`), making it reachable
+from HEAD:
 
 ```lua
-local f = io.open(DIR .. "unsigned.txt", "w")
-f:write("unsigned content\n")
-f:close()
-exec("git -C " .. DIR .. " add unsigned.txt")
-exec("git -C " .. DIR .. " commit -m '(empty message)' --trailer 'Freechains: post'")
-local UNSIGNED = exec("git -C " .. DIR .. " rev-parse HEAD")
+local UNSIGNED = exec (
+    ENV_EXE .. " chain cli-get post inline 'unsigned content' --beg"
+)
+exec (
+    ENV_EXE .. " chain cli-get like 1 post " .. UNSIGNED .. " --sign " .. KEY2
+)
 ```
 
-This bypasses `chain post`'s `--sign` requirement so the commit
-ends up signed by no key (no `gpgsig` header). Reachable from
-HEAD → `merge-base --is-ancestor` accepts.
+After this, `merge-base --is-ancestor UNSIGNED HEAD` succeeds and
+the post-trailer commit has no `gpgsig` header — `ssh.pubkey`
+returns `nil` → `sign = false`.
 
 ## Errors (per `.claude/CLAUDE.md` format)
 
