@@ -83,12 +83,7 @@ elseif ARGS.block then
         local f = exec (
             "git -C " .. REPO .. " show " .. ARGS.hash .. ":" .. file
         )
-        local L = assert(assert(load(f))())
-        like = {
-            target = L.target,
-            id = L.id,
-            n = L.number,
-        }
+        like = assert(assert(load(f))())
     end
 
     local T = {

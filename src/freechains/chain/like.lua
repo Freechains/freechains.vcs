@@ -52,9 +52,8 @@ local hash
 do
     local payload = [[
         return {
-            target = "]] .. ARGS.target .. [[",
-            id     = "]] .. ARGS.id     .. [[",
-            number = ]]  .. num         .. [[,
+            ]] .. ARGS.target .. [[ = "]] .. ARGS.id .. [[",
+            n      = ]] .. num .. [[,
         }
     ]]
     local rand = math.random(0, 9999999999)
@@ -80,12 +79,11 @@ end
 -- apply
 do
     local T = {
-        hash   = hash,
-        sign   = ssh.pubkey(REPO, hash),
-        num    = num,
-        target = ARGS.target,
-        id     = ARGS.id,
-        beg    = to_beg,
+        [ARGS.target] = ARGS.id,
+        hash = hash,
+        sign = ssh.pubkey(REPO, hash),
+        n    = num,
+        beg  = to_beg,
     }
     local ok, err = apply(G, 'like', CMD.now, T)
     if not ok then

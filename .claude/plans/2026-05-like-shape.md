@@ -19,15 +19,15 @@ shape self-describing. Aligns `n` with Kotlin `Like.n`.
 
 ## Status
 
-Tests updated; implementation pending.
+All steps complete; awaiting test run.
 
 | Step | Item                                                        | State    |
 |------|-------------------------------------------------------------|----------|
-| 1    | `chain/like.lua` — `payload` template (file format)         | pending  |
-| 2    | `chain/like.lua` — in-memory `T` build                      | pending  |
-| 3    | `chain/common.lua` — `apply(... 'like' ...)` reads           | pending  |
-| 4    | `chain/sync.lua` — like validation (if any)                 | pending  |
-| 5    | `chain/get.lua` — block branch like extraction              | pending  |
+| 1    | `chain/like.lua` — `payload` template (file format)         | done     |
+| 2    | `chain/like.lua` — in-memory `T` build                      | done     |
+| 3    | `chain/common.lua` — `apply(... 'like' ...)` reads           | done     |
+| 4    | `chain/sync.lua` — like validation (if any)                 | done     |
+| 5    | `chain/get.lua` — block branch like extraction              | done     |
 | 6    | `tst/cli-like.lua` — assertions                             | done     |
 | 7    | `tst/err-like.lua` — assertions                             | done     |
 

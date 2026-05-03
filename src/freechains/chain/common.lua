@@ -135,13 +135,13 @@ function apply (G, kind, time, T)
     elseif kind == 'like' and T then
         -- validation
         assert(T.sign, "bug found")
-        if math.type(T.num)~='integer' or T.num==0 then
+        if math.type(T.n)~='integer' or T.n==0 then
             return false, "invalid number : expects non-zero integer"
         end
-        if T.target~="post" and T.target~="author" then
+        if (T.post and T.author) or (not T.post and not T.author) then
             return false, "invalid target : expects 'post' or 'author'"
         end
-        if T.target=="post" and (not G.posts[T.id]) then
+        if T.post and (not G.posts[T.post]) then
             return false, "invalid target : post not found"
         end
         local reps = (G.authors[T.sign] and G.authors[T.sign].reps) or 0
@@ -150,27 +150,27 @@ function apply (G, kind, time, T)
         end
 
         -- mutation
-        G.authors[T.sign].reps = G.authors[T.sign].reps - math.abs(T.num)
-        local num = T.num * (100 - C.like.tax) // 100
-        if T.target == "post" then
-            local a = G.posts[T.id].author
+        G.authors[T.sign].reps = G.authors[T.sign].reps - math.abs(T.n)
+        local n = T.n * (100 - C.like.tax) // 100
+        if T.post then
+            local a = G.posts[T.post].author
             if a then
                 G.authors[a] = G.authors[a] or { reps=0 }
-                G.authors[a].reps = G.authors[a].reps + num//C.like.split
+                G.authors[a].reps = G.authors[a].reps + n//C.like.split
             else
                 assert(T.beg)
             end
-            G.posts[T.id].reps = G.posts[T.id].reps + num//C.like.split
+            G.posts[T.post].reps = G.posts[T.post].reps + n//C.like.split
             if T.beg then
-                G.posts[T.id].state = "00-12"
-                G.posts[T.id].time = time
+                G.posts[T.post].state = "00-12"
+                G.posts[T.post].time = time
                 if a then
                     G.authors[a].time = G.authors[a].time or time
                 end
             end
         else
-            G.authors[T.id] = G.authors[T.id] or { reps=0 }
-            G.authors[T.id].reps = G.authors[T.id].reps + num
+            G.authors[T.author] = G.authors[T.author] or { reps=0 }
+            G.authors[T.author].reps = G.authors[T.author].reps + n
         end
     end
 
