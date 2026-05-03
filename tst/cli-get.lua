@@ -82,17 +82,17 @@ do
     end
 end
 
--- GET BLOCK
+-- GET METADATA
 do
-    print("==> freechains chain get block")
+    print("==> freechains chain get metadata")
 
     do
-        TEST "block of post"
+        TEST "metadata of post"
         local out, code = exec (
-            ENV_EXE .. " chain cli-get get block " .. POST
+            ENV_EXE .. " chain cli-get get metadata " .. POST
         )
         assert(code == 0, "exit code: " .. tostring(code))
-        local T = load(out, "block", "t", {})()
+        local T = load(out, "metadata", "t", {})()
         assert(T.hash == POST, "hash: " .. tostring(T.hash))
         assert(math.type(T.time) == "integer", "time: " .. tostring(T.time))
         assert(type(T.post) == "string", "post type: " .. type(T.post))
@@ -105,12 +105,12 @@ do
     end
 
     do
-        TEST "block of like"
+        TEST "metadata of like"
         local out, code = exec (
-            ENV_EXE .. " chain cli-get get block " .. LIKE
+            ENV_EXE .. " chain cli-get get metadata " .. LIKE
         )
         assert(code == 0, "exit code: " .. tostring(code))
-        local T = load(out, "block", "t", {})()
+        local T = load(out, "metadata", "t", {})()
         assert(T.hash == LIKE, "hash: " .. tostring(T.hash))
         assert(type(T.like) == "table", "like type: " .. type(T.like))
         assert(T.like.target == "post", "like.target: " .. tostring(T.like.target))
@@ -119,9 +119,9 @@ do
     end
 
     do
-        TEST "block of state"
+        TEST "metadata of state"
         local _, Q, err = exec (true,
-            ENV_EXE .. " chain cli-get get block " .. STATE
+            ENV_EXE .. " chain cli-get get metadata " .. STATE
         )
         assert (
             Q ~= 0 and err == "ERROR : chain get : unknown post"
@@ -130,9 +130,9 @@ do
     end
 
     do
-        TEST "block of genesis"
+        TEST "metadata of genesis"
         local _, Q, err = exec (true,
-            ENV_EXE .. " chain cli-get get block " .. GENESIS
+            ENV_EXE .. " chain cli-get get metadata " .. GENESIS
         )
         assert (
             Q ~= 0 and err == "ERROR : chain get : unknown post"
@@ -141,9 +141,9 @@ do
     end
 
     do
-        TEST "block of unknown"
+        TEST "metadata of unknown"
         local _, Q, err = exec (true,
-            ENV_EXE .. " chain cli-get get block " .. UNKNOWN
+            ENV_EXE .. " chain cli-get get metadata " .. UNKNOWN
         )
         assert (
             Q ~= 0 and err == "ERROR : chain get : unknown post"
@@ -152,12 +152,12 @@ do
     end
 
     do
-        TEST "block of unsigned post"
+        TEST "metadata of unsigned post"
         local out, code = exec (
-            ENV_EXE .. " chain cli-get get block " .. UNSIGNED
+            ENV_EXE .. " chain cli-get get metadata " .. UNSIGNED
         )
         assert(code == 0, "exit code: " .. tostring(code))
-        local T = load(out, "block", "t", {})()
+        local T = load(out, "metadata", "t", {})()
         assert(T.sign == false, "sign: " .. tostring(T.sign))
         assert(type(T.post) == "string", "post type: " .. type(T.post))
     end

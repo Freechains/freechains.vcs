@@ -33,7 +33,7 @@ if ARGS.payload then
     )
     io.write(out)
 
-elseif ARGS.block then
+elseif ARGS.metadata then
     if kind~='post' and kind~='like' then
         ERROR("chain get : unknown post")
     end

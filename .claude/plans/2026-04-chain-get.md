@@ -1,4 +1,4 @@
-# Plan: `chain get block` / `chain get payload`
+# Plan: `chain get metadata` / `chain get payload`
 
 ## Goal
 
@@ -6,13 +6,13 @@ Add a `chain <alias> get` command with two variants, mirroring
 the Kotlin Freechains:
 
 ```
-freechains chain <alias> get block   <hash>
+freechains chain <alias> get metadata   <hash>
 freechains chain <alias> get payload <hash>
 ```
 
 | Variant   | Output                                              |
 |-----------|-----------------------------------------------------|
-| `block`   | Lua table mirroring Kotlin `Block_Get`              |
+| `metadata`   | Lua table mirroring Kotlin `Block_Get`              |
 |           | (`hash`, `time`, `post`, `like`, `sign`, `backs`, `why`) |
 | `payload` | the file content added by the post commit           |
 
@@ -20,7 +20,7 @@ Acceptance differs by command:
 
 | Command   | Accepts     | Rejects                       |
 |-----------|-------------|-------------------------------|
-| `block`   | post, like  | state, genesis (no payload concept) |
+| `metadata`   | post, like  | state, genesis (no payload concept) |
 | `payload` | post        | like, state, genesis           |
 
 All rejection cases share the single error `ERROR : chain get : unknown post`
@@ -35,20 +35,20 @@ In progress.
 | 0    | `tst/cli-get.lua` (test file)                       | needs rework — 10 cases per Tests table |
 | 1    | CLI parse in `src/freechains.lua`                   | done     |
 | 2    | dispatch in `src/freechains/chain/init.lua`         | done     |
-| 3a   | `src/freechains/chain/get.lua` — payload + scaffolding + block-TODO | done           |
-| 3b   | `src/freechains/chain/get.lua` — block branch implementation        | done           |
+| 3a   | `src/freechains/chain/get.lua` — payload + scaffolding + metadata-TODO | done           |
+| 3b   | `src/freechains/chain/get.lua` — metadata branch implementation        | done           |
 | 3c   | `src/freechains/chain/ssh.lua` — `M.gpgsig` helper                  | reverted (sign field is scalar pubkey only — proof dropped) |
 | 4    | rockspec module entry                               | done     |
 | 5    | `Makefile` test line                                | done     |
 | 6    | README Step 8 walkthrough                           | done     |
 | 7    | `.claude/plans/commands.md` rows                    | pending  |
-| 8    | unsigned-post block test (validates `sign = false`) | done — also fixed `apply('like')` nil-author crash; regression test added in `tst/cli-begs.lua` section 4 |
+| 8    | unsigned-post metadata test (validates `sign = false`) | done — also fixed `apply('like')` nil-author crash; regression test added in `tst/cli-begs.lua` section 4 |
 
 ## CLI
 
 | Form                                            | Behavior                                  |
 |-------------------------------------------------|-------------------------------------------|
-| `chain <alias> get block <hash>`                | print Lua-table view of the commit         |
+| `chain <alias> get metadata <hash>`                | print Lua-table view of the commit         |
 | `chain <alias> get payload <hash>`              | print the file added by `<hash>`           |
 
 No flags, no `--sign` (read-only command).
@@ -74,7 +74,7 @@ Kotlin returns this serialized as JSON. Error on missing block:
 
 ## Mapping to git (Lua port)
 
-### `get block` → Lua table
+### `get metadata` → Lua table
 
 | Field        | Type                | Source                                                            |
 |--------------|---------------------|-------------------------------------------------------------------|
@@ -98,7 +98,7 @@ Otherwise → `ERROR : chain get : unknown post`.
 
 ### `get payload`
 
-Same trailer reject as `block` (accepts `post` and `like`,
+Same trailer reject as `metadata` (accepts `post` and `like`,
 rejects `state`).
 Then two-step git extraction:
 
@@ -126,22 +126,22 @@ Unified rejection error: `ERROR : chain get : unknown post`.
 | `<hash>` does not exist                            | both     | unknown post  |
 | `<hash>` trailer is `state` (incl. genesis)        | both     | unknown post  |
 | `<hash>` trailer is `like`                         | payload  | unknown post  |
-| `<hash>` trailer is `like`                         | block    | (accepted)    |
+| `<hash>` trailer is `like`                         | metadata | (accepted)    |
 | `<hash>` trailer is `post`                         | both     | (accepted)    |
 
 ## Files to modify
 
 | File                              | Place                          | Change                                                                                                  |
 |-----------------------------------|--------------------------------|---------------------------------------------------------------------------------------------------------|
-| `src/freechains.lua`              | `cmd.chain` block              | add `get` subcommand with two children: `block` and `payload`, each takes positional `hash`             |
+| `src/freechains.lua`              | `cmd.chain` block              | add `get` subcommand with two children: `metadata` and `payload`, each takes positional `hash`             |
 | `src/freechains.lua`              | dispatch                       | nothing — `freechains.chain` init.lua already does require dispatch                                     |
 | `src/freechains/chain/init.lua`   | dispatch chain                 | add `elseif ARGS.get then require "freechains.chain.get"`                                               |
-| `src/freechains/chain/get.lua`    | new file                       | `if ARGS.block then ... elseif ARGS.payload then ... end`                                               |
+| `src/freechains/chain/get.lua`    | new file                       | `if ARGS.metadata then ... elseif ARGS.payload then ... end`                                               |
 | `freechains-0.20-1.rockspec`      | `build.modules`                | add `["freechains.chain.get"] = "src/freechains/chain/get.lua"`                                         |
-| `tst/cli-get.lua`                 | new file                       | tests: block of post, block of genesis, payload of post (text), payload of state errors, invalid hash    |
+| `tst/cli-get.lua`                 | new file                       | tests: metadata of post, metadata of genesis, payload of post (text), payload of state errors, invalid hash    |
 | `Makefile`                        | `tests` target                 | add `$(L) cli-get.lua` line                                                                             |
 | `README.md`                       | walkthrough Step 8             | replace pending `ls + cat` snippet with `chain get payload <hash>`                                      |
-| `.claude/plans/commands.md`       | row mapping                    | add `chain get block` and `chain get payload` rows (currently absent)                                   |
+| `.claude/plans/commands.md`       | row mapping                    | add `chain get metadata` and `chain get payload` rows (currently absent)                                   |
 
 ## Tests (`tst/cli-get.lua`)
 
@@ -155,12 +155,12 @@ KEY2 likes the post (→ `LIKE`). `STATE = HEAD`, `GENESIS = git rev-list --max-
 | 3  | `payload <state>`             | exit 1, `ERROR : chain get : unknown post`        |
 | 4  | `payload <genesis>`           | exit 1, `ERROR : chain get : unknown post`        |
 | 5  | `payload <unknown-hash>`      | exit 1, `ERROR : chain get : unknown post`        |
-| 6  | `block <post>`                | exit 0; loadable Lua: `hash`, `time` int, `pay.hash` 40-hex, `like == false`, `sign.pub` matches `ssh-ed25519 `, `backs` array len 1 |
-| 7  | `block <like>`                | exit 0; loadable Lua: `like.target == "post"`, `like.id == POST`, `like.n` int |
-| 8  | `block <state>`               | exit 1, `ERROR : chain get : unknown post`        |
-| 9  | `block <genesis>`             | exit 1, `ERROR : chain get : unknown post`        |
-| 10 | `block <unknown-hash>`        | exit 1, `ERROR : chain get : unknown post`        |
-| 11 | `block <unsigned-post>`       | exit 0; loadable Lua: `T.sign == false`, `type(T.post) == "table"` |
+| 6  | `metadata <post>`                | exit 0; loadable Lua: `hash`, `time` int, `pay.hash` 40-hex, `like == false`, `sign.pub` matches `ssh-ed25519 `, `backs` array len 1 |
+| 7  | `metadata <like>`                | exit 0; loadable Lua: `like.target == "post"`, `like.id == POST`, `like.n` int |
+| 8  | `metadata <state>`               | exit 1, `ERROR : chain get : unknown post`        |
+| 9  | `metadata <genesis>`             | exit 1, `ERROR : chain get : unknown post`        |
+| 10 | `metadata <unknown-hash>`        | exit 1, `ERROR : chain get : unknown post`        |
+| 11 | `metadata <unsigned-post>`       | exit 0; loadable Lua: `T.sign == false`, `type(T.post) == "table"` |
 
 Setup for case 11: use the freechains commands themselves
 (no raw-git fakery). `chain post --beg` creates an unsigned post in
@@ -201,10 +201,10 @@ freechains chain '#chat' get payload d6568e4...
 I am here!
 ```
 
-For the structured block view (post):
+For the structured metadata view (post):
 
 ```
-freechains chain '#chat' get block b52c62f...
+freechains chain '#chat' get metadata b52c62f...
 return {
     ["backs"] = { "<parent-hash>", },
     ["hash"]  = "b52c62f...",
@@ -221,8 +221,8 @@ return {
 
 - existence: `git merge-base --is-ancestor <hash> HEAD` (rejects any non-chain object: trees, blobs, dangling commits, beg-only refs, forged objects).
 - trailer: read once via `trailer(<hash>)`, then per-branch reject.
-- `payload` accepts `post` only; `block` accepts `post` and `like`.
-- block table fields built from:
+- `payload` accepts `post` only; `metadata` accepts `post` and `like`.
+- metadata table fields built from:
   - `post`      — for `post` commits: `commit_file()` (the payload filename); `false` for likes
   - `like`      — for `like` commits: `load(<file content>)()` then map `{n=L.number, target=L.target, id=L.id}`; `false` for posts
   - `sign`      — `ssh.pubkey(REPO, hash) or false` (string when signed)
@@ -266,7 +266,7 @@ record kind (post vs like) or the signed/unsigned status.
 
 ### Consequence
 
-`block` and `payload` accept both `post` and `like` trailer commits.
+`metadata` and `payload` accept both `post` and `like` trailer commits.
 Only `state` (incl. genesis) is rejected with `unknown post`.
 
 ## Out of scope
