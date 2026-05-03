@@ -41,7 +41,7 @@ In progress.
 | 4    | rockspec module entry                               | done     |
 | 5    | `Makefile` test line                                | done     |
 | 6    | README Step 8 walkthrough                           | done     |
-| 7    | `.claude/plans/commands.md` rows                    | pending  |
+| 7    | `.claude/plans/commands.md` rows                    | done     |
 | 8    | unsigned-post metadata test (validates `sign = false`) | done — also fixed `apply('like')` nil-author crash; regression test added in `tst/cli-begs.lua` section 4 |
 
 ## CLI
