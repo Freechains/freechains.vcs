@@ -70,6 +70,10 @@ local cmd = {
             file = {},
             inline = {},
         },
+        get = {
+            block = {},
+            payload = {},
+        },
         like = {},
         dislike = {},
         sync = {
@@ -140,6 +144,16 @@ do
         else
             return nil, "expected positive integer : got '" .. s .. "'"
         end
+    end
+
+    -- cmd.chain.get
+    cmd.chain.get._ = cmd.chain._:command("get")
+    do
+        cmd.chain.get.block._ = cmd.chain.get._:command("block")
+        cmd.chain.get.block._:argument("hash")
+
+        cmd.chain.get.payload._ = cmd.chain.get._:command("payload")
+        cmd.chain.get.payload._:argument("hash")
     end
 
     -- cmd.chain.like

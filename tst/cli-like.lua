@@ -62,9 +62,9 @@ do
         assert(file ~= "", "like payload file missing")
         local out = exec("git -C " .. DIR .. " show " .. LIKE .. ":" .. file)
         local tbl = load(out)()
-        assert(tbl.target == "post", "target: " .. tostring(tbl.target))
-        assert(tbl.id == POST, "id: " .. tostring(tbl.id))
-        assert(tbl.number == 1000, "number: " .. tostring(tbl.number))
+        assert(tbl.post == POST, "post: " .. tostring(tbl.post))
+        assert(tbl.author == nil, "author should be unset")
+        assert(tbl.n == 1000, "n: " .. tostring(tbl.n))
     end
 
     do

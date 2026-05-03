@@ -162,7 +162,7 @@ do
     TEST "X crafts a raw like signed by KEY3 (0 reps) targeting P1"
     exec("mkdir -p " .. REPO_X .. ".freechains/likes/")
     local f = io.open(REPO_X .. ".freechains/likes/like-bad.lua", "w")
-    f:write('return { target="post", id="'..P1..'", number=1 }\n')
+    f:write('return { post="'..P1..'", n=1 }\n')
     f:close()
     local now = 7000
     local date = "GIT_AUTHOR_DATE=$(date -u -d @" .. now .. " --iso-8601=seconds) "

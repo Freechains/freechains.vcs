@@ -10,6 +10,7 @@ tests:
 	$(L) cli-post.lua
 	$(L) cli-sign.lua
 	$(L) cli-like.lua
+	$(L) cli-get.lua
 	$(L) cli-reps.lua
 	$(L) cli-now.lua
 	$(L) cli-time.lua

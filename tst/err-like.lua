@@ -36,7 +36,7 @@ do
     TEST "A crafts unsigned like via raw git"
     exec("mkdir -p " .. REPO_A .. ".freechains/likes/")
     local f = io.open(REPO_A .. ".freechains/likes/like-forged.lua", "w")
-    f:write('return { target="post", id="'..POST..'", number=1000 }\n')
+    f:write('return { post="'..POST..'", n=1000 }\n')
     f:close()
     exec (
         "git -C " .. REPO_A .. " add .freechains/likes/like-forged.lua"
@@ -195,7 +195,7 @@ do
     TEST "A crafts like with bad target type"
     exec("mkdir -p " .. REPO_A5 .. ".freechains/likes/")
     local f = io.open(REPO_A5 .. ".freechains/likes/like-err.lua", "w")
-    f:write('return { target="xxx", id="'..post..'", number=1000 }\n')
+    f:write('return { xxx="'..post..'", n=1000 }\n')
     f:close()
     exec (
         ENV .. " git -C " .. REPO_A5
@@ -238,7 +238,7 @@ do
     TEST "A crafts like targeting nonexistent post"
     exec("mkdir -p " .. REPO_A6 .. ".freechains/likes/")
     local f = io.open(REPO_A6 .. ".freechains/likes/like-err.lua", "w")
-    f:write('return { target="post", id="0000000000000000000000000000000000000000", number=1000 }\n')
+    f:write('return { post="0000000000000000000000000000000000000000", n=1000 }\n')
     f:close()
     exec (
         ENV .. " git -C " .. REPO_A6
@@ -281,7 +281,7 @@ do
     TEST "A crafts like signed by non-pioneer (0 reps)"
     exec("mkdir -p " .. REPO_A7 .. ".freechains/likes/")
     local f = io.open(REPO_A7 .. ".freechains/likes/like-err.lua", "w")
-    f:write('return { target="post", id="'..post..'", number=1000 }\n')
+    f:write('return { post="'..post..'", n=1000 }\n')
     f:close()
     exec (
         ENV .. " git -C " .. REPO_A7
@@ -324,7 +324,7 @@ do
     TEST "A crafts like with old timestamp"
     exec("mkdir -p " .. REPO_A8 .. ".freechains/likes/")
     local f = io.open(REPO_A8 .. ".freechains/likes/like-err.lua", "w")
-    f:write('return { target="post", id="'..post..'", number=1000 }\n')
+    f:write('return { post="'..post..'", n=1000 }\n')
     f:close()
     exec (
         ENV .. " git -C " .. REPO_A8
@@ -367,7 +367,7 @@ do
     TEST "A crafts like with fractional number"
     exec("mkdir -p " .. REPO_A9 .. ".freechains/likes/")
     local f = io.open(REPO_A9 .. ".freechains/likes/like-err.lua", "w")
-    f:write('return { target="post", id="'..post..'", number=0.5 }\n')
+    f:write('return { post="'..post..'", n=0.5 }\n')
     f:close()
     exec (
         ENV .. " git -C " .. REPO_A9
@@ -410,7 +410,7 @@ do
     TEST "A crafts like with zero number"
     exec("mkdir -p " .. REPO_A10 .. ".freechains/likes/")
     local f = io.open(REPO_A10 .. ".freechains/likes/like-err.lua", "w")
-    f:write('return { target="post", id="'..post..'", number=0 }\n')
+    f:write('return { post="'..post..'", n=0 }\n')
     f:close()
     exec (
         ENV .. " git -C " .. REPO_A10

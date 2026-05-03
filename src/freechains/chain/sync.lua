@@ -142,15 +142,14 @@ elseif ARGS.recv then
                 error("invalid like : invalid lua metadata", 0)
             end
             local to_beg = (
-                (like.target == "post") and
-                (G.posts[like.id] and G.posts[like.id].state=="beg")
+                like.post and (G.posts[like.post] and G.posts[like.post].state=="beg")
             )
             local ok, err = apply(G, 'like', tonumber(time), {
                 hash   = hash,
                 sign   = key,
-                num    = like.number,
-                target = like.target,
-                id     = like.id,
+                n      = like.n,
+                post   = like.post,
+                author = like.author,
                 beg    = to_beg,
             })
             if not ok then

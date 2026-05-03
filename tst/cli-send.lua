@@ -136,7 +136,7 @@ do
     TEST "X crafts malicious like signed by non-pioneer (0 reps)"
     exec("mkdir -p " .. REPO_X .. ".freechains/likes/")
     local f = io.open(REPO_X .. ".freechains/likes/like-err.lua", "w")
-    f:write('return { target="author", id="'..PUB1..'", number=1000 }\n')
+    f:write('return { author="'..PUB1..'", n=1000 }\n')
     f:close()
     exec (
         ENV .. " git -C " .. REPO_X
