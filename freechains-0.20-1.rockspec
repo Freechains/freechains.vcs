@@ -23,6 +23,7 @@ build = {
         ["freechains.constants"]    = "src/freechains/constants.lua",
         ["freechains.chain"]        = "src/freechains/chain/init.lua",
         ["freechains.chain.common"] = "src/freechains/chain/common.lua",
+        ["freechains.chain.get"]    = "src/freechains/chain/get.lua",
         ["freechains.chain.like"]   = "src/freechains/chain/like.lua",
         ["freechains.chain.order"]  = "src/freechains/chain/order.lua",
         ["freechains.chain.post"]   = "src/freechains/chain/post.lua",

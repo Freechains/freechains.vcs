@@ -154,13 +154,19 @@ function apply (G, kind, time, T)
         local num = T.num * (100 - C.like.tax) // 100
         if T.target == "post" then
             local a = G.posts[T.id].author
-            G.authors[a] = G.authors[a] or { reps=0 }
-            G.authors[a].reps = G.authors[a].reps + num//C.like.split
+            if a then
+                G.authors[a] = G.authors[a] or { reps=0 }
+                G.authors[a].reps = G.authors[a].reps + num//C.like.split
+            else
+                assert(T.beg)
+            end
             G.posts[T.id].reps = G.posts[T.id].reps + num//C.like.split
             if T.beg then
                 G.posts[T.id].state = "00-12"
                 G.posts[T.id].time = time
-                G.authors[a].time = G.authors[a].time or time
+                if a then
+                    G.authors[a].time = G.authors[a].time or time
+                end
             end
         else
             G.authors[T.id] = G.authors[T.id] or { reps=0 }

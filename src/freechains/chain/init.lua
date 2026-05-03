@@ -30,5 +30,7 @@ else
         require "freechains.chain.post"
     elseif ARGS.like or ARGS.dislike then
         require "freechains.chain.like"
+    elseif ARGS.get then
+        require "freechains.chain.get"
     end
 end
