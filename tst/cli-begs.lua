@@ -216,6 +216,29 @@ do
             , "should fail: " .. tostring(err)
         )
     end
+
+    -- regression: nil-author when liking an unsigned --beg post
+    do
+        local UNSIGNED
+        do
+            TEST "unsigned-beg-post-succeeds"
+            local out, code = exec (
+                ENV_EXE .. " chain cli-begs-4 post inline 'unsigned beg' --beg"
+            )
+            assert(code == 0, "exit code: " .. tostring(code))
+            assert(#out == 40, "hash length: " .. #out)
+            UNSIGNED = out
+        end
+
+        do
+            TEST "like-unsigned-beg-succeeds"
+            local out, code = exec (
+                ENV_EXE .. " chain cli-begs-4 like 1 post " .. UNSIGNED .. " --sign " .. KEY1
+            )
+            assert(code == 0, "exit code: " .. tostring(code))
+            assert(#out == 40, "hash: " .. out)
+        end
+    end
 end
 
 -- 5. Merge structure (always 2-parent via --no-ff)
