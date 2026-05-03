@@ -48,6 +48,7 @@ must be present.
 return {
     version = {0, 11, 0},
     type    = '#',              -- '#' | '$' | '@' | '@!'
+    mode    = 'edit',           -- 'create' | 'append' | 'remove' | 'edit'
     -- shared = "x25519:def...",     -- '$' only
     -- key    = "ed25519:abc...",    -- '@'/'@!' only
     time = {
@@ -88,6 +89,23 @@ A character string defining the access policy of the chain.
 | `'@!'`| personal (writeable)    |
 
 See [Chains](chains.md) for details on each type.
+
+#### `mode`
+
+A string defining which file operations are allowed on the
+chain.
+Hierarchy: `create` < `append` < `remove` < `edit`.
+
+| Value      | Permits                                  |
+|------------|------------------------------------------|
+| `'create'` | new files only                           |
+| `'append'` | new + content extension (byte-prefix)    |
+| `'remove'` | append + path deletion                   |
+| `'edit'`   | full access (add, extend, delete, rewrite) |
+
+See [operations.md](operations.md) and
+[2026-05-operation-modes-4way.md](2026-05-operation-modes-4way.md)
+for enforcement details.
 
 #### `shared`
 

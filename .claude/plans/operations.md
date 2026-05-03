@@ -16,17 +16,26 @@ Only two primitive operations:
 
 Each chain has a mode that restricts which operations are
 allowed.
-Mode is set at chain creation time.
+Mode is set at chain creation time and is **immutable**.
+Modes form a strict hierarchy: `create` < `append` < `remove` <
+`edit`.
 
-| Mode      | add (new) | add (overwrite) | rem | Use case              |
-|-----------|-----------|-----------------|-----|-----------------------|
-| `create`  | yes       | no              | no  | Immutable publishing  |
-| `append`  | yes       | yes             | no  | Logs, feeds, wikis    |
-| `mutable` | yes       | yes             | yes | General purpose, full |
+| Mode     | new file | extend | delete path | rewrite content | Use case              |
+|----------|----------|--------|-------------|-----------------|-----------------------|
+| `create` | yes      | no     | no          | no              | Immutable publishing  |
+| `append` | yes      | yes    | no          | no              | Logs, feeds, wikis    |
+| `remove` | yes      | yes    | yes         | no              | Append-only + GC      |
+| `edit`   | yes      | yes    | yes         | yes             | General purpose, full |
 
-- `create`: only new files, no overwrites, no removals.
-- `append`: new files and overwrites, but no removals.
-- `mutable`: full access — add, overwrite, and remove.
+- `create`: only new files, no extends, no deletions, no rewrites.
+- `append`: new files and content extension (byte-prefix), no deletions.
+- `remove`: append + path deletion, no rewrites.
+- `edit`: full access — add, extend, delete, rewrite.
+
+`extend` means the new blob's bytes start with the parent
+blob's bytes (byte-prefix check).
+See [2026-05-operation-modes-4way.md](2026-05-operation-modes-4way.md)
+for schema, enforcement, and test matrix.
 
 ## Status
 

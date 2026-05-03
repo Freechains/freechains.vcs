@@ -31,7 +31,12 @@ one (oldest first) against the winner's state:
 - **File-op costs** — author can afford the operations
 - **Merge compatibility** — commit merges cleanly with
   winner's tree (dry-merge per commit)
-- **Genesis immutability** — genesis.lua never changes
+- **Genesis immutability** — `.freechains/config.lua` never
+  changes
+- **Mode enforcement** — per-commit tree diff vs parent;
+  every changed path's operation must be permitted by the
+  chain's `mode` field. See
+  [2026-05-operation-modes-4way.md](2026-05-operation-modes-4way.md).
 
 On first validation failure: discard that commit and
 all subsequent loser commits.
