@@ -38,11 +38,11 @@ In progress.
 | 3a   | `src/freechains/chain/get.lua` — payload + scaffolding + block-TODO | done           |
 | 3b   | `src/freechains/chain/get.lua` — block branch implementation        | done           |
 | 3c   | `src/freechains/chain/ssh.lua` — `M.gpgsig` helper                  | reverted (sign field is scalar pubkey only — proof dropped) |
-| 4    | rockspec module entry                               | pending  |
+| 4    | rockspec module entry                               | done     |
 | 5    | `Makefile` test line                                | pending  |
 | 6    | README Step 8 walkthrough                           | pending  |
 | 7    | `.claude/plans/commands.md` rows                    | pending  |
-| 8    | unsigned-post block test (validates `sign = false`) | pending  |
+| 8    | unsigned-post block test (validates `sign = false`) | done — also fixed `apply('like')` nil-author crash; regression test added in `tst/cli-begs.lua` section 4 |
 
 ## CLI
 
