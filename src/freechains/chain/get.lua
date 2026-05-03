@@ -66,17 +66,6 @@ elseif ARGS.block then
         assert(#backs==1 or #backs==2)
     end
 
-    local post = false
-    if kind == 'post' then
-        local hash = exec (
-            "git -C " .. REPO .. " ls-tree " .. ARGS.hash .. " " .. file
-        ):match("^%S+%s+%S+%s+(%S+)")
-        post = {
-            file = file,
-            hash = hash,
-        }
-    end
-
     -- like: only for like-trailer commits
     local like = false
     if kind == 'like' then
@@ -98,7 +87,7 @@ elseif ARGS.block then
         why   = why,
         backs = backs,
         --
-        post  = post,
+        post  = (kind=='post' and file) or false,
         like  = like,
     }
     io.write(serial(T))

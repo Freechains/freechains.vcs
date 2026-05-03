@@ -95,7 +95,8 @@ do
         local T = load(out, "block", "t", {})()
         assert(T.hash == POST, "hash: " .. tostring(T.hash))
         assert(math.type(T.time) == "integer", "time: " .. tostring(T.time))
-        assert(T.post.hash:match("^%x+$"), "pay.hash: " .. tostring(T.post.hash))
+        assert(type(T.post) == "string", "post type: " .. type(T.post))
+        assert(T.post:match("^post%-%d+%-%d+%.txt$"), "post filename: " .. tostring(T.post))
         assert(T.like == false, "like: " .. tostring(T.like))
         assert(type(T.sign) == "string", "sign type: " .. type(T.sign))
         assert(T.sign:match("^ssh%-ed25519 "), "sign: " .. tostring(T.sign))
@@ -158,7 +159,7 @@ do
         assert(code == 0, "exit code: " .. tostring(code))
         local T = load(out, "block", "t", {})()
         assert(T.sign == false, "sign: " .. tostring(T.sign))
-        assert(type(T.post) == "table", "post type: " .. type(T.post))
+        assert(type(T.post) == "string", "post type: " .. type(T.post))
     end
 end
 

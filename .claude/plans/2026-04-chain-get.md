@@ -13,7 +13,7 @@ freechains chain <alias> get payload <hash>
 | Variant   | Output                                              |
 |-----------|-----------------------------------------------------|
 | `block`   | Lua table mirroring Kotlin `Block_Get`              |
-|           | (`hash`, `time`, `pay`, `like`, `sign`, `backs`)    |
+|           | (`hash`, `time`, `post`, `like`, `sign`, `backs`, `why`) |
 | `payload` | the file content added by the post commit           |
 
 Acceptance differs by command:
@@ -39,8 +39,8 @@ In progress.
 | 3b   | `src/freechains/chain/get.lua` — block branch implementation        | done           |
 | 3c   | `src/freechains/chain/ssh.lua` — `M.gpgsig` helper                  | reverted (sign field is scalar pubkey only — proof dropped) |
 | 4    | rockspec module entry                               | done     |
-| 5    | `Makefile` test line                                | pending  |
-| 6    | README Step 8 walkthrough                           | pending  |
+| 5    | `Makefile` test line                                | done     |
+| 6    | README Step 8 walkthrough                           | done     |
 | 7    | `.claude/plans/commands.md` rows                    | pending  |
 | 8    | unsigned-post block test (validates `sign = false`) | done — also fixed `apply('like')` nil-author crash; regression test added in `tst/cli-begs.lua` section 4 |
 
@@ -80,13 +80,16 @@ Kotlin returns this serialized as JSON. Error on missing block:
 |--------------|---------------------|-------------------------------------------------------------------|
 | `hash`       | string              | the commit hash itself (40-hex)                                   |
 | `time`       | integer             | `git log -1 --format=%at <hash>` (author epoch)                   |
-| `post`       | table or `false`    | for `post` commits: `{ file=<path>, hash=<blob-hash> }`; for likes: `false` |
+| `post`       | string or `false`   | for `post` commits: payload filename (e.g. `"post-1714560000-12345.txt"`); for likes: `false`. Use `chain get payload <hash>` to fetch the file content. |
 | `like`       | table or `false`    | for `like` commits: see §like-shape (separate plan `2026-05-like-shape.md`); for posts: `false` |
 | `sign`       | string or `false`   | signed: `"ssh-ed25519 <b64>"`; unsigned: `false` (raw signature still recoverable from `git cat-file commit <hash>` if needed) |
 | `backs`      | array of string     | parents from `git rev-list --parents -n 1 <hash>` (skip self)     |
 | `why`        | string              | `git log -1 --format=%B <hash>` minus trailing `Freechains: <kind>` line |
 
-`pay.crypt` is omitted (always `false` in lua port).
+`pay` (Kotlin's `{ crypt, hash }` table) is collapsed to a scalar
+`post = "<filename>"`. `crypt` is omitted (always `false` in lua port,
+no encryption); `pay.hash` is dropped (redundant — `git ls-tree`
+recovers it; the filename is sufficient for `chain get payload`).
 
 Output via `serial()` (project helper) — produces loadable Lua source.
 
@@ -206,9 +209,7 @@ return {
     ["backs"] = { "<parent-hash>", },
     ["hash"]  = "b52c62f...",
     ["like"]  = false,
-    ["pay"]   = {
-        ["hash"] = "<blob-hash>",
-    },
+    ["post"]  = "post-1714560000-12345.txt",
     ["sign"]  = "ssh-ed25519 ...",
     ["time"]  = 1714560000,
     ["why"]   = "(empty message)",
@@ -222,10 +223,10 @@ return {
 - trailer: read once via `trailer(<hash>)`, then per-branch reject.
 - `payload` accepts `post` only; `block` accepts `post` and `like`.
 - block table fields built from:
-  - `pay.hash`  — `git ls-tree <hash> <file>` (3rd column)
-  - `backs`     — `git rev-list --parents -n 1 <hash>` (drop self)
-  - `sign`      — `ssh.pubkey(REPO, hash)` (string) or `nil` if unsigned (key omitted)
+  - `post`      — for `post` commits: `commit_file()` (the payload filename); `false` for likes
   - `like`      — for `like` commits: `load(<file content>)()` then map `{n=L.number, target=L.target, id=L.id}`; `false` for posts
+  - `sign`      — `ssh.pubkey(REPO, hash) or false` (string when signed)
+  - `backs`     — `git rev-list --parents -n 1 <hash>` (drop self)
   - `why`       — `git log -1 --format=%B` minus trailing `Freechains: <kind>` line
   - `time`      — `git log -1 --format=%at`
   - `hash`      — `ARGS.hash`
