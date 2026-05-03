@@ -19,7 +19,7 @@ shape self-describing. Aligns `n` with Kotlin `Like.n`.
 
 ## Status
 
-All steps complete; awaiting test run.
+All steps complete. Tests green after `sudo make install`.
 
 | Step | Item                                                        | State    |
 |------|-------------------------------------------------------------|----------|
@@ -30,6 +30,11 @@ All steps complete; awaiting test run.
 | 5    | `chain/get.lua` — block branch like extraction              | done     |
 | 6    | `tst/cli-like.lua` — assertions                             | done     |
 | 7    | `tst/err-like.lua` — assertions                             | done     |
+| 8    | `tst/sync.lua` + `tst/cli-send.lua` — stale forges          | done     |
+
+Pre-receive hook calls the installed `freechains` binary, so any
+edit to `src/freechains/chain/*.lua` requires `sudo make install`
+before re-running sync-related tests.
 
 ## Like-file format change
 
