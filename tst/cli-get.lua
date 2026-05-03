@@ -112,8 +112,8 @@ do
         local T = load(out, "block", "t", {})()
         assert(T.hash == LIKE, "hash: " .. tostring(T.hash))
         assert(type(T.like) == "table", "like type: " .. type(T.like))
-        assert(T.like.target == "post", "like.target: " .. tostring(T.like.target))
-        assert(T.like.id == POST, "like.id: " .. tostring(T.like.id))
+        assert(T.like.post == POST, "like.post: " .. tostring(T.like.post))
+        assert(T.like.author == nil, "like.author should be unset")
         assert(math.type(T.like.n) == "integer", "like.n: " .. tostring(T.like.n))
     end
 
