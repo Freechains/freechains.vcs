@@ -35,8 +35,7 @@ one (oldest first) against the winner's state:
   changes
 - **Mode enforcement** — per-commit tree diff vs parent;
   every changed path's operation must be permitted by the
-  chain's `mode` field. See
-  [2026-05-operation-modes-4way.md](2026-05-operation-modes-4way.md).
+  chain's `mode` field. See [operations.md](operations.md).
 
 On first validation failure: discard that commit and
 all subsequent loser commits.

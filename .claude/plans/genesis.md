@@ -103,9 +103,7 @@ Hierarchy: `create` < `append` < `remove` < `edit`.
 | `'remove'` | append + path deletion                   |
 | `'edit'`   | full access (add, extend, delete, rewrite) |
 
-See [operations.md](operations.md) and
-[2026-05-operation-modes-4way.md](2026-05-operation-modes-4way.md)
-for enforcement details.
+See [operations.md](operations.md) for enforcement details.
 
 #### `shared`
 
