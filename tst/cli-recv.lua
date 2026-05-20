@@ -357,4 +357,41 @@ do
     )
 end
 
+-- 8. recv state commit with forbidden path
+do
+    print("==> Step 8: recv state commit with forbidden path")
+
+    TEST "A resets to last good state (B's HEAD)"
+    local b_head = exec("git -C " .. REPO_B .. " rev-parse HEAD")
+    exec("git -C " .. REPO_A .. " reset --hard " .. b_head)
+
+    TEST "A creates state-trailer commit with forbidden path"
+    local f = io.open(REPO_A .. "/evil.txt", "w")
+    f:write("smuggled\n")
+    f:close()
+    exec("git -C " .. REPO_A .. " add evil.txt")
+    exec (
+        "git -C " .. REPO_A .. " commit -m '(empty message)'"
+        .. " --no-edit --trailer 'Freechains: state'"
+    )
+
+    TEST "B's HEAD before recv"
+    local before = exec("git -C " .. REPO_B .. " rev-parse HEAD")
+
+    TEST "B recvs from A fails with forbidden path"
+    local _, Q, err = exec (true,
+        EXE_B .. " --now=12000 chain test sync recv " .. REPO_A
+    )
+    assert (
+        Q ~= 0 and err and err:match("invalid state"),
+        "should fail with forbidden path: " .. tostring(err)
+    )
+
+    TEST "B's HEAD unchanged"
+    local after = exec("git -C " .. REPO_B .. " rev-parse HEAD")
+    assert(before == after,
+        "B's HEAD changed: " .. before .. " vs " .. after
+    )
+end
+
 print("<== ALL PASSED")

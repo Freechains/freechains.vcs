@@ -52,12 +52,8 @@ single `commit()` call site covers both push and recv directions.
 
 ### Check block
 
-Inlined inside `sync.lua:commit()` for `kind=='post'` and
-`kind=='like'` (state commits are exempt, see below).
-Single call site — no helper function needed.
-
-Rule: **every status char must be `A`** — no modifications,
-deletions, or renames. Multiple new files per commit allowed.
+Inlined inside `sync.lua:commit()`. Single call site — no helper
+function needed. Two branches: state and non-state.
 
 Uses `diff-tree --cc` to unify merge and non-merge handling:
 
@@ -67,20 +63,44 @@ Uses `diff-tree --cc` to unify merge and non-merge handling:
   result differs from every parent); status is multi-char
   (`AA`, `AM`, `MM`, ...). `AA` = added vs both parents = OK.
 
+Rules per kind:
+
+| kind         | path restriction                                      | status restriction |
+|--------------|-------------------------------------------------------|--------------------|
+| `post`/`like`| any                                                   | `A` only           |
+| `state`      | exactly `.freechains/state/{authors,posts,order}.lua` | `A` or `M` only    |
+
 ```lua
--- in sync.lua:commit(), guarded by kind ~= 'state'
 local diff = exec (
     "git -C " .. REPO ..
         " diff-tree --cc --no-commit-id -r --name-status " .. hash
 )
-for status, path in diff:gmatch("(%a+)%s+(%S+)") do
-    if status:match("[^A]") then
-        error (
-            "invalid " .. kind ..
-                " : mode violation : " ..
-                status .. " " .. path
-            , 0
-        )
+if kind == 'state' then
+    for status, path in diff:gmatch("(%a+)%s+(%S+)") do
+        if path ~= ".freechains/state/authors.lua"
+            and path ~= ".freechains/state/posts.lua"
+            and path ~= ".freechains/state/order.lua"
+        then
+            error("invalid state : forbidden path : " .. path, 0)
+        end
+        if status:match("[^AM]") then
+            error (
+                "invalid state : forbidden status : " ..
+                    status .. " " .. path
+                , 0
+            )
+        end
+    end
+else
+    for status, path in diff:gmatch("(%a+)%s+(%S+)") do
+        if status:match("[^A]") then
+            error (
+                "invalid " .. kind ..
+                    " : mode violation : " ..
+                    status .. " " .. path
+                , 0
+            )
+        end
     end
 end
 ```
@@ -100,16 +120,15 @@ State commits (trailer `Freechains: state`) write
 Those paths are mutated by design — they are an internal index,
 not user content.
 
-Two options:
+State is **not exempt** — it has its own restrictions:
 
-1. **Skip mode check for `kind == 'state'`.** Same path the
-   existing validator already takes (sync.lua:169).
-2. **Restrict the check to non-state paths** (filter out
-   `.freechains/state/*` in the diff).
+- **Closed path set:** only the three files above. Anything else
+  (including other `*.lua` files under `state/`) is rejected.
+- **Allowed statuses:** `A` (initial / genesis) or `M` (mutate).
+  `D` is rejected — state files are never deleted.
 
-Recommendation: option 1. State commits are a closed set
-produced only by freechains itself; trusting their kind trailer
-matches existing design.
+Without these restrictions, a state-trailer commit would be an
+unrestricted attacker channel.
 
 ## `post` cleanup
 
@@ -190,9 +209,19 @@ No reflows of git history are required — the byte-faithful
 ## Implementation checklist
 
 - [x] Inline create check in `sync.lua:commit()` for `kind=='post'` and `kind=='like'`
+- [x] Add state branch: closed path set + `A`/`M` status only
 - [ ] Drop `\n` rewrite in `post.lua:12`
 - [ ] Replace `"a"`/`"w"` selector with `"w"` + pre-existence check
 - [ ] Reject existing destination in `post file` (post.lua:22-24)
+
+## Deferred
+
+- **Per-blob size cap.** Apply to all kinds (post, like, state).
+  Implementation sketch: after the path/status loop, call
+  `git cat-file -s <hash>:<path>` for each affected path and
+  reject if size > `C.size.max`. State files grow with chain
+  size — may need a higher state cap or be unbounded.
+  Open: single global cap vs. per-kind caps; reasonable value.
 
 ## Open questions
 
