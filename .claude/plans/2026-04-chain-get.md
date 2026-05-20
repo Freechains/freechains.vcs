@@ -28,11 +28,11 @@ All rejection cases share the single error `ERROR : chain get : unknown post`
 
 ## Status
 
-In progress.
+Complete. `make tests` green.
 
 | Step | Item                                                | State    |
 |------|-----------------------------------------------------|----------|
-| 0    | `tst/cli-get.lua` (test file)                       | needs rework — 10 cases per Tests table |
+| 0    | `tst/cli-get.lua` (test file)                       | done — 12 cases (payload × 5, metadata × 7 incl. merge-like) |
 | 1    | CLI parse in `src/freechains.lua`                   | done     |
 | 2    | dispatch in `src/freechains/chain/init.lua`         | done     |
 | 3a   | `src/freechains/chain/get.lua` — payload + scaffolding + metadata-TODO | done           |
@@ -226,7 +226,8 @@ return {
   - `post`      — for `post` commits: `commit_file()` (the payload filename); `false` for likes
   - `like`      — for `like` commits: `load(<file content>)()` then map `{n=L.number, target=L.target, id=L.id}`; `false` for posts
   - `sign`      — `ssh.pubkey(REPO, hash) or false` (string when signed)
-  - `backs`     — `git rev-list --parents -n 1 <hash>` (drop self)
+  - `backs`     — recursive walk through `git rev-list --parents`, skipping `state` trailers, collecting nearest `post`/`like` ancestors. 0 for chain-first post; 1 for normal post/like; 2 for beg-merge like
+  - `commit_file` uses `git diff-tree --cc` so it works for merge commits too (without `--cc`, diff-tree emits nothing for merges, and the file lookup returns nil)
   - `why`       — `git log -1 --format=%B` minus trailing `Freechains: <kind>` line
   - `time`      — `git log -1 --format=%at`
   - `hash`      — `ARGS.hash`
