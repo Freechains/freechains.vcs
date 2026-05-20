@@ -118,6 +118,27 @@ elseif ARGS.recv then
             error("invalid " .. kind .. " : invalid signature", 0)
         end
 
+        -- create-mode check: every non-state commit (merge or not)
+        -- must only add files; nothing modified, deleted, renamed.
+        -- --cc handles both: regular diff for non-merges, novel-only
+        -- diff for merges. Status chars must all be 'A'.
+        if kind ~= 'state' then
+            local diff = exec (
+                "git -C " .. REPO ..
+                    " diff-tree --cc --no-commit-id -r --name-status " .. hash
+            )
+            for status, path in diff:gmatch("(%a+)%s+(%S+)") do
+                if status:match("[^A]") then
+                    error (
+                        "invalid " .. kind ..
+                            " : mode violation : " ..
+                            status .. " " .. path
+                        , 0
+                    )
+                end
+            end
+        end
+
         if kind == 'like' then
             if not key then
                 error("invalid like : missing sign key", 0)

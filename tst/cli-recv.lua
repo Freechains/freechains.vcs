@@ -346,7 +346,7 @@ do
         EXE_B .. " --now=11000 chain test sync recv " .. REPO_A
     )
     assert (
-        Q ~= 0 and err and err:match("create.mode violation"),
+        Q ~= 0 and err and err:match("invalid post : mode violation"),
         "should fail with create-mode violation: " .. tostring(err)
     )
 

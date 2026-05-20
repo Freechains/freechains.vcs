@@ -56,49 +56,42 @@ Inlined inside `sync.lua:commit()` for `kind=='post'` and
 `kind=='like'` (state commits are exempt, see below).
 Single call site — no helper function needed.
 
-Stricter rule: **exactly one file, status `A`**.
-Merge commits skipped (constituent commits already validated).
+Rule: **every status char must be `A`** — no modifications,
+deletions, or renames. Multiple new files per commit allowed.
+
+Uses `diff-tree --cc` to unify merge and non-merge handling:
+
+- non-merge: `--cc` falls back to regular diff vs parent;
+  status is single-char (`A`, `M`, `D`, ...).
+- merge: `--cc` shows only **novel** content (files where the
+  result differs from every parent); status is multi-char
+  (`AA`, `AM`, `MM`, ...). `AA` = added vs both parents = OK.
 
 ```lua
 -- in sync.lua:commit(), guarded by kind ~= 'state'
-do
-    -- skip merge commits: parents already validated
-    local ps = exec (
-        "git -C " .. REPO .. " rev-list --parents -1 " .. hash
-    )
-    local n = 0
-    for _ in ps:gmatch("%x+") do
-        n = n + 1
-    end
-    if n <= 2 then
-        local out = exec (
-            "git -C " .. REPO ..
-            " diff-tree -r --name-status --root " ..
-            hash .. "^ " .. hash
+local diff = exec (
+    "git -C " .. REPO ..
+        " diff-tree --cc --no-commit-id -r --name-status " .. hash
+)
+for status, path in diff:gmatch("(%a+)%s+(%S+)") do
+    if status:match("[^A]") then
+        error (
+            "invalid " .. kind ..
+                " : mode violation : " ..
+                status .. " " .. path
+            , 0
         )
-        local count = 0
-        for status, path in out:gmatch("(%a)%s+(%S+)") do
-            if status ~= "A" then
-                error (
-                    "invalid " .. kind ..
-                        " : create-mode violation : " ..
-                        status .. " " .. path
-                    , 0
-                )
-            else
-                count = count + 1
-            end
-        end
-        if count ~= 1 then
-            error (
-                "invalid " .. kind ..
-                    " : expected 1 file, got " .. count
-                , 0
-            )
-        end
     end
 end
 ```
+
+**Note:** `--no-commit-id` is required — without it, `diff-tree`
+prints the commit hash as the first line, and the regex
+`(%a+)%s+(%S+)` can mis-parse the trailing letters of the hash
+as a "status" (flaky based on hash content).
+
+Like-merges (`like.lua:37+71`) pass: the merge introduces one
+new metadata file, status `AA`, no other novel content.
 
 ### State commits
 
