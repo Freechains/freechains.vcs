@@ -12,11 +12,14 @@ end
 
 local kind = trailer(ARGS.hash)
 
--- the single tracked file in this commit (post payload or like Lua)
+-- the single tracked file in this commit (post payload or like Lua).
+-- --cc reduces to the file(s) present in this commit but absent
+-- from every parent — handles both regular commits and merges
+-- (without --cc, diff-tree emits nothing for merge commits).
 local function commit_file ()
     local files = exec (
         "git -C " .. REPO ..
-        " diff-tree --no-commit-id -r --name-only " .. ARGS.hash
+        " diff-tree --cc --no-commit-id -r --name-only " .. ARGS.hash
     )
     assert(not files:match("\n%S"), "bug found")
     return files:match("^(%S+)")
@@ -33,7 +36,7 @@ if ARGS.payload then
     )
     io.write(out)
 
-elseif ARGS.block then
+elseif ARGS.metadata then
     if kind~='post' and kind~='like' then
         ERROR("chain get : unknown post")
     end
@@ -49,32 +52,34 @@ elseif ARGS.block then
         "git -C " .. REPO .. " log -1 --format=%B " .. ARGS.hash
     ):gsub("\n*Freechains:%s*%S+%s*$", "")
 
-    -- backs: parents (rev-list --parents prints "<hash> <parent>...")
+    -- backs: nearest post/like ancestors. State commits are
+    -- skipped recursively until a post/like is found (or the
+    -- chain bottoms out at the genesis state).
     local backs = {}
     do
-        local raw = exec (
-            "git -C " .. REPO .. " rev-list --parents -n 1 " .. ARGS.hash
-        )
-        local first = true
-        for h in raw:gmatch("%S+") do
-            if first then
-                first = false
-            else
-                backs[#backs+1] = h
+        local function rec (h)
+            local raw = exec (
+                "git -C " .. REPO .. " rev-list --parents -n 1 " .. h
+                -- <commit> <parent1> <parent2> ...
+            )
+            local me = true
+            for p in raw:gmatch("%S+") do
+                if me then
+                    me = false
+                else
+                    local k = trailer(p)
+                    if k=='post' or k=='like' then
+                        backs[#backs+1] = p
+                    elseif k=='state' then
+                        rec(p)
+                    else
+                        error("bug found : invalid trailer")
+                    end
+                end
             end
         end
-        assert(#backs==1 or #backs==2)
-    end
-
-    local post = false
-    if kind == 'post' then
-        local hash = exec (
-            "git -C " .. REPO .. " ls-tree " .. ARGS.hash .. " " .. file
-        ):match("^%S+%s+%S+%s+(%S+)")
-        post = {
-            file = file,
-            hash = hash,
-        }
+        rec(ARGS.hash)
+        assert(#backs <= 2, "bug found")
     end
 
     -- like: only for like-trailer commits
@@ -93,7 +98,7 @@ elseif ARGS.block then
         why   = why,
         backs = backs,
         --
-        post  = post,
+        post  = (kind=='post' and file) or false,
         like  = like,
     }
     io.write(serial(T))

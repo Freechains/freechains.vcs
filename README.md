@@ -83,3 +83,27 @@ freechains chain '#chat' order
 b52c62f...
 d6568e4...
 ```
+
+- Read posts payload:
+
+```
+freechains chain '#chat' get payload b52c62f
+Hello World!
+freechains chain '#chat' get payload d6568e4
+I am here!
+```
+
+- Read post metadata:
+
+```
+freechains chain '#chat' get metadata b52c62f
+return {
+    ["backs"] = { "<parent-hash>", },
+    ["hash"]  = "b52c62f...",
+    ["like"]  = false,
+    ["post"]  = "post-1714560000-12345.txt",
+    ["sign"]  = "ssh-ed25519 ...",
+    ["time"]  = 1714560000,
+    ["why"]   = "(empty message)",
+}
+```

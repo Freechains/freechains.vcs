@@ -10,8 +10,8 @@
 | `freechains chains list` | `ls` of symlinks in `chains/` | 3 | no native multi-repo listing in git |
 | `freechains chain <n> genesis` | `git rev-list --max-parents=0 HEAD` | 4 | finding root commit, very close |
 | `freechains chain <n> heads` | `git rev-parse HEAD` | 4 | single HEAD model simplifies this to one command |
-| `freechains chain <n> get block <hash>` | `git cat-file -p <hash>` | 5 | direct content-addressed lookup, perfect |
-| `freechains chain <n> get payload <hash>` | `git cat-file blob <hash>` | 5 | blob = payload, perfect match |
+| `freechains chain <n> get metadata <hash>` | `git log -1 --format=… <hash>` + `rev-list --parents` + `diff-tree` + `ssh.pubkey` | 2 | composite: builds a Lua table (`hash`, `time`, `post`, `like`, `sign`, `backs`, `why`); no single-command equivalent |
+| `freechains chain <n> get payload <hash>` | `git diff-tree --name-only <hash>` then `git show <hash>:<file>` | 4 | two-step: locate the single file added by the commit, then dump its blob |
 | `freechains chain <n> post inline <text>` | `git hash-object` + `git commit` | 3 | must write blob + tree before committing |
 | `freechains chain <n> like <hash>` | zero-payload commit with `freechains-like: <hash>` extra header | 1 | stored as structural commit with metadata only |
 | `freechains chain <n> dislike <hash>` | zero-payload commit with `freechains-dislike: <hash>` extra header | 1 | same pattern as like |

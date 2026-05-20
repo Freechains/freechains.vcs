@@ -71,7 +71,7 @@ local cmd = {
             inline = {},
         },
         get = {
-            block = {},
+            metadata = {},
             payload = {},
         },
         like = {},
@@ -149,8 +149,8 @@ do
     -- cmd.chain.get
     cmd.chain.get._ = cmd.chain._:command("get")
     do
-        cmd.chain.get.block._ = cmd.chain.get._:command("block")
-        cmd.chain.get.block._:argument("hash")
+        cmd.chain.get.metadata._ = cmd.chain.get._:command("metadata")
+        cmd.chain.get.metadata._:argument("hash")
 
         cmd.chain.get.payload._ = cmd.chain.get._:command("payload")
         cmd.chain.get.payload._:argument("hash")

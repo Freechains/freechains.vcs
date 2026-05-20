@@ -20,7 +20,7 @@ local GENESIS = exec("git -C " .. DIR .. " rev-list --max-parents=0 HEAD")
 local UNSIGNED = exec (
     ENV_EXE .. " chain cli-get post inline 'unsigned content' --beg"
 )
-exec (
+local MERGE_LIKE = exec (
     ENV_EXE .. " chain cli-get like 1 post " .. UNSIGNED .. " --sign " .. KEY2
 )
 
@@ -82,45 +82,48 @@ do
     end
 end
 
--- GET BLOCK
+-- GET METADATA
 do
-    print("==> freechains chain get block")
+    print("==> freechains chain get metadata")
 
     do
-        TEST "block of post"
+        TEST "metadata of post"
         local out, code = exec (
-            ENV_EXE .. " chain cli-get get block " .. POST
+            ENV_EXE .. " chain cli-get get metadata " .. POST
         )
         assert(code == 0, "exit code: " .. tostring(code))
-        local T = load(out, "block", "t", {})()
+        local T = load(out, "metadata", "t", {})()
         assert(T.hash == POST, "hash: " .. tostring(T.hash))
         assert(math.type(T.time) == "integer", "time: " .. tostring(T.time))
-        assert(T.post.hash:match("^%x+$"), "pay.hash: " .. tostring(T.post.hash))
+        assert(type(T.post) == "string", "post type: " .. type(T.post))
+        assert(T.post:match("^post%-%d+%-%d+%.txt$"), "post filename: " .. tostring(T.post))
         assert(T.like == false, "like: " .. tostring(T.like))
         assert(type(T.sign) == "string", "sign type: " .. type(T.sign))
         assert(T.sign:match("^ssh%-ed25519 "), "sign: " .. tostring(T.sign))
         assert(type(T.backs) == "table", "backs type: " .. type(T.backs))
-        assert(#T.backs == 1, "backs len: " .. #T.backs)
+        assert(#T.backs == 0, "POST is the first post; expected 0 backs, got: " .. #T.backs)
     end
 
     do
-        TEST "block of like"
+        TEST "metadata of like"
         local out, code = exec (
-            ENV_EXE .. " chain cli-get get block " .. LIKE
+            ENV_EXE .. " chain cli-get get metadata " .. LIKE
         )
         assert(code == 0, "exit code: " .. tostring(code))
-        local T = load(out, "block", "t", {})()
+        local T = load(out, "metadata", "t", {})()
         assert(T.hash == LIKE, "hash: " .. tostring(T.hash))
         assert(type(T.like) == "table", "like type: " .. type(T.like))
         assert(T.like.post == POST, "like.post: " .. tostring(T.like.post))
         assert(T.like.author == nil, "like.author should be unset")
         assert(math.type(T.like.n) == "integer", "like.n: " .. tostring(T.like.n))
+        assert(#T.backs == 1, "expected 1 back, got: " .. #T.backs)
+        assert(T.backs[1] == POST, "back should be POST: " .. tostring(T.backs[1]))
     end
 
     do
-        TEST "block of state"
+        TEST "metadata of state"
         local _, Q, err = exec (true,
-            ENV_EXE .. " chain cli-get get block " .. STATE
+            ENV_EXE .. " chain cli-get get metadata " .. STATE
         )
         assert (
             Q ~= 0 and err == "ERROR : chain get : unknown post"
@@ -129,9 +132,9 @@ do
     end
 
     do
-        TEST "block of genesis"
+        TEST "metadata of genesis"
         local _, Q, err = exec (true,
-            ENV_EXE .. " chain cli-get get block " .. GENESIS
+            ENV_EXE .. " chain cli-get get metadata " .. GENESIS
         )
         assert (
             Q ~= 0 and err == "ERROR : chain get : unknown post"
@@ -140,9 +143,9 @@ do
     end
 
     do
-        TEST "block of unknown"
+        TEST "metadata of unknown"
         local _, Q, err = exec (true,
-            ENV_EXE .. " chain cli-get get block " .. UNKNOWN
+            ENV_EXE .. " chain cli-get get metadata " .. UNKNOWN
         )
         assert (
             Q ~= 0 and err == "ERROR : chain get : unknown post"
@@ -151,14 +154,29 @@ do
     end
 
     do
-        TEST "block of unsigned post"
+        TEST "metadata of unsigned post"
         local out, code = exec (
-            ENV_EXE .. " chain cli-get get block " .. UNSIGNED
+            ENV_EXE .. " chain cli-get get metadata " .. UNSIGNED
         )
         assert(code == 0, "exit code: " .. tostring(code))
-        local T = load(out, "block", "t", {})()
+        local T = load(out, "metadata", "t", {})()
         assert(T.sign == false, "sign: " .. tostring(T.sign))
-        assert(type(T.post) == "table", "post type: " .. type(T.post))
+        assert(type(T.post) == "string", "post type: " .. type(T.post))
+        assert(#T.backs == 1, "expected 1 back, got: " .. #T.backs)
+        assert(T.backs[1] == LIKE, "back should be LIKE: " .. tostring(T.backs[1]))
+    end
+
+    do
+        TEST "metadata of merge-like (beg merge, 2 backs)"
+        local out, code = exec (
+            ENV_EXE .. " chain cli-get get metadata " .. MERGE_LIKE
+        )
+        assert(code == 0, "exit code: " .. tostring(code))
+        local T = load(out, "metadata", "t", {})()
+        assert(#T.backs == 2, "expected 2 backs, got: " .. #T.backs)
+        local s = { [T.backs[1]] = true, [T.backs[2]] = true }
+        assert(s[LIKE],     "backs should contain LIKE: "     .. table.concat(T.backs, " "))
+        assert(s[UNSIGNED], "backs should contain UNSIGNED: " .. table.concat(T.backs, " "))
     end
 end
 
