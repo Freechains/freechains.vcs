@@ -20,7 +20,7 @@ local GENESIS = exec("git -C " .. DIR .. " rev-list --max-parents=0 HEAD")
 local UNSIGNED = exec (
     ENV_EXE .. " chain cli-get post inline 'unsigned content' --beg"
 )
-exec (
+local MERGE_LIKE = exec (
     ENV_EXE .. " chain cli-get like 1 post " .. UNSIGNED .. " --sign " .. KEY2
 )
 
@@ -101,7 +101,7 @@ do
         assert(type(T.sign) == "string", "sign type: " .. type(T.sign))
         assert(T.sign:match("^ssh%-ed25519 "), "sign: " .. tostring(T.sign))
         assert(type(T.backs) == "table", "backs type: " .. type(T.backs))
-        assert(#T.backs == 1, "backs len: " .. #T.backs)
+        assert(#T.backs == 0, "POST is the first post; expected 0 backs, got: " .. #T.backs)
     end
 
     do
@@ -116,6 +116,8 @@ do
         assert(T.like.target == "post", "like.target: " .. tostring(T.like.target))
         assert(T.like.id == POST, "like.id: " .. tostring(T.like.id))
         assert(math.type(T.like.n) == "integer", "like.n: " .. tostring(T.like.n))
+        assert(#T.backs == 1, "expected 1 back, got: " .. #T.backs)
+        assert(T.backs[1] == POST, "back should be POST: " .. tostring(T.backs[1]))
     end
 
     do
@@ -160,6 +162,21 @@ do
         local T = load(out, "metadata", "t", {})()
         assert(T.sign == false, "sign: " .. tostring(T.sign))
         assert(type(T.post) == "string", "post type: " .. type(T.post))
+        assert(#T.backs == 1, "expected 1 back, got: " .. #T.backs)
+        assert(T.backs[1] == LIKE, "back should be LIKE: " .. tostring(T.backs[1]))
+    end
+
+    do
+        TEST "metadata of merge-like (beg merge, 2 backs)"
+        local out, code = exec (
+            ENV_EXE .. " chain cli-get get metadata " .. MERGE_LIKE
+        )
+        assert(code == 0, "exit code: " .. tostring(code))
+        local T = load(out, "metadata", "t", {})()
+        assert(#T.backs == 2, "expected 2 backs, got: " .. #T.backs)
+        local s = { [T.backs[1]] = true, [T.backs[2]] = true }
+        assert(s[LIKE],     "backs should contain LIKE: "     .. table.concat(T.backs, " "))
+        assert(s[UNSIGNED], "backs should contain UNSIGNED: " .. table.concat(T.backs, " "))
     end
 end
 
