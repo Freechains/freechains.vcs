@@ -322,4 +322,39 @@ do
     )
 end
 
+-- 7. recv FF with create-mode violation
+do
+    print("==> Step 7: recv FF create-mode violation")
+
+    TEST "A overwrites tracked post via raw git"
+    local file = exec("ls " .. REPO_A .. "*.txt | head -1")
+    local base = file:match("([^/]+)$")
+    local f = io.open(file, "w")
+    f:write("tampered\n")
+    f:close()
+    exec("git -C " .. REPO_A .. " add " .. base)
+    exec (
+        "git -C " .. REPO_A .. " commit -m '(empty message)'"
+        .. " --no-edit --trailer 'Freechains: post'"
+    )
+
+    TEST "B's HEAD before recv"
+    local before = exec("git -C " .. REPO_B .. " rev-parse HEAD")
+
+    TEST "B recvs from A fails with create-mode violation"
+    local _, Q, err = exec (true,
+        EXE_B .. " --now=11000 chain test sync recv " .. REPO_A
+    )
+    assert (
+        Q ~= 0 and err and err:match("create.mode violation"),
+        "should fail with create-mode violation: " .. tostring(err)
+    )
+
+    TEST "B's HEAD unchanged"
+    local after = exec("git -C " .. REPO_B .. " rev-parse HEAD")
+    assert(before == after,
+        "B's HEAD changed: " .. before .. " vs " .. after
+    )
+end
+
 print("<== ALL PASSED")
