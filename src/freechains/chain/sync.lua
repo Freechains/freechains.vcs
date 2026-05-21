@@ -345,6 +345,7 @@ elseif ARGS.recv then
             G_fst = G_rem
             O_snd = dofile(FC .. "state/order.lua")
         end
+        O_snd[#O_snd+1] = snd
 
         -- filter O_snd: keep only commits unreachable from fst
         do
