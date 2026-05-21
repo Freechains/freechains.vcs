@@ -259,7 +259,7 @@ do
     do
         TEST "A posts to log.txt"
         local out = exec (
-            EXE_A .. " chain test post" .. " inline 'from A' --file log.txt --sign " .. KEY1
+            EXE_A .. " chain test post" .. " inline 'from A\n' --file log.txt --sign " .. KEY1
         )
         assert(#out == 40, "hash: " .. out)
     end
@@ -267,7 +267,7 @@ do
     do
         TEST "B posts to log.txt"
         local out = exec (
-            EXE_B .. " chain test post" .. " inline 'from B' --file log.txt --sign " .. KEY1
+            EXE_B .. " chain test post" .. " inline 'from B\n' --file log.txt --sign " .. KEY1
         )
         assert(#out == 40, "hash: " .. out)
     end
