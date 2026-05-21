@@ -107,10 +107,18 @@ elseif ARGS.dag then
         if #cur == 1 and #prev == 1 then
             local cps = parents[cur[1]]
             if #cps >= 2 then
-                -- multi-parent commit alone in its row: render join `\   /`
+                -- multi-parent join: one glyph per parent (`\` left, `/` right, `|` center)
                 local hc = col[cur[1]]
-                set_at(t, hc - SPAN // 2, "\\")
-                set_at(t, hc + SPAN // 2, "/")
+                for _, p in ipairs(cps) do
+                    local pc = col[p]
+                    if pc < hc then
+                        set_at(t, hc - SPAN // 2, "\\")
+                    elseif pc > hc then
+                        set_at(t, hc + SPAN // 2, "/")
+                    else
+                        set_at(t, hc, "|")
+                    end
+                end
             else
                 -- linear (possibly shifted)
                 local pc  = col[prev[1]]
@@ -132,10 +140,18 @@ elseif ARGS.dag then
             set_at(t, pc - SPAN // 2, "/")
             set_at(t, pc + SPAN // 2, "\\")
         elseif #cur == 1 and #prev == 2 then
-            -- join from siblings
+            -- join from siblings: same per-parent logic
             local hc = col[cur[1]]
-            set_at(t, hc - SPAN // 2, "\\")
-            set_at(t, hc + SPAN // 2, "/")
+            for _, p in ipairs(parents[cur[1]]) do
+                local pc = col[p]
+                if pc < hc then
+                    set_at(t, hc - SPAN // 2, "\\")
+                elseif pc > hc then
+                    set_at(t, hc + SPAN // 2, "/")
+                else
+                    set_at(t, hc, "|")
+                end
+            end
         end
         emit(t)
 
