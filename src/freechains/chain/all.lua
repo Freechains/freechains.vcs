@@ -1,8 +1,6 @@
 if ARGS.order then
     for _, hash in ipairs(G.order) do
-        if trailer(hash) ~= "state" then
-            print(hash)
-        end
+        print(hash)
     end
 
 elseif ARGS.dag then
@@ -11,77 +9,20 @@ elseif ARGS.dag then
     local SHORT = 7
     local SPAN  = 4
 
-    -- raw git parents of h
-    local function gparents (h)
-        local out = exec (
-            "git -C " .. REPO .. " log -1 --format='%P' " .. h
-        )
-        local ps = {}
-        for p in out:gmatch("%S+") do
-            ps[#ps+1] = p
-        end
-        return ps
-    end
-
-    -- V membership: post / like / state-with-2+-parents
-    local function is_v (h)
-        local t = trailer(h)
-        if t == "post" or t == "like" then
-            return true
-        end
-        if t == "state" then
-            return #gparents(h) >= 2
-        end
-        return false
-    end
-
-    -- walk transitively through non-V commits collecting V-member ancestors
-    local function up_v (h, visited, out, out_seen)
-        if visited[h] then
-            return
-        end
-        visited[h] = true
-        if is_v(h) then
-            if not out_seen[h] then
-                out_seen[h] = true
-                out[#out+1] = h
-            end
-            return
-        end
-        for _, p in ipairs(gparents(h)) do
-            up_v(p, visited, out, out_seen)
-        end
-    end
-
-    -- V-member parents of h
-    local function vparents (h)
-        local out      = {}
-        local out_seen = {}
-        for _, p in ipairs(gparents(h)) do
-            up_v(p, {}, out, out_seen)
-        end
-        return out
-    end
-
-    -- V in consensus order
-    local V = {}
-    for _, h in ipairs(G.order) do
-        if is_v(h) then
-            V[#V+1] = h
-        end
-    end
-
+    -- G.order is already post/like only
+    local V = G.order
     if #V == 0 then
         return
     end
 
+    -- V-parents via backs() (walks through state/merge transparently)
     local parents = {}
     for _, h in ipairs(V) do
-        parents[h] = vparents(h)
+        parents[h] = backs(h)
     end
 
-    -- group V into rows: consecutive entries each with exactly 1 v-parent equal to the
-    -- previous entry's 1 v-parent are siblings
+    -- group V into rows: consecutive entries each with exactly 1 v-parent equal
+    -- to the previous entry's 1 v-parent are siblings
     local groups = {}
     do
         local current = { V[1] }
@@ -148,19 +89,11 @@ elseif ARGS.dag then
         print((table.concat(t):gsub("%s+$", "")))
     end
 
-    -- state-merge → `*`, post/like → 7-char short hash
-    local function glyph (h)
-        if trailer(h) == "state" then
-            return "*"
-        end
-        return h:sub(1, SHORT)
-    end
-
     -- first hash row
     do
         local t = blank()
         for _, h in ipairs(groups[1]) do
-            set_at(t, col[h], glyph(h))
+            set_at(t, col[h], h:sub(1, SHORT))
         end
         emit(t)
     end
@@ -208,7 +141,7 @@ elseif ARGS.dag then
 
         local t2 = blank()
         for _, h in ipairs(cur) do
-            set_at(t2, col[h], glyph(h))
+            set_at(t2, col[h], h:sub(1, SHORT))
         end
         emit(t2)
     end

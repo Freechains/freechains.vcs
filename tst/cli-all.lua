@@ -178,7 +178,7 @@ do
         "fst/snd should be BP4/AP4 in some order"
     )
 
-    TEST "B dag shows fork closing at state-merge *"
+    TEST "B dag shows fork (state-merge filtered)"
     assert(
         exec(EXE_B .. " chain test all dag") ==
         string.format([[
@@ -191,8 +191,6 @@ do
                  %s
                   /   \
              %s %s
-                  \   /
-                    *
 ]], P1:sub(1,7), P2:sub(1,7), L1:sub(1,7), P3:sub(1,7), fst:sub(1,7), snd:sub(1,7))
     )
 end
@@ -232,8 +230,6 @@ do
                   /   \
              %s %s
                   \   /
-                    *
-                    |
                  %s
                   \   /
                  %s
@@ -241,5 +237,4 @@ do
     )
 end
 
-error'ok'
 print("<== ALL PASSED")
