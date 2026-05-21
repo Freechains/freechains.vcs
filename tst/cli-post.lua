@@ -35,19 +35,20 @@ do
     end
 
     do
-        TEST "post same file again, different hash"
-        local hash1 = exec (
-            "git -C " .. DIR .. " rev-parse HEAD"
-        )
+        TEST "post same file again rejects"
         local tmp = TMP .. "/hello.txt"
         local f = io.open(tmp, "w")
-        f:write("hello world updated\n")
+        f:write("collision attempt\n")
         f:close()
-        local hash2, code = exec (
+        local _, Q, err = exec (true,
             ENV_EXE .. " chain cli-post post file " .. tmp .. " --sign " .. KEY1
         )
-        assert(code == 0, "exit code: " .. tostring(code))
-        assert(hash1 ~= hash2, "hashes should differ")
+        assert (
+            Q~=0 and err=="ERROR : chain post : file already exists"
+            , "should fail: " .. tostring(err)
+        )
+        local content = exec("cat " .. DIR .. "/hello.txt")
+        assert(content == "Hello World!", "content: " .. content)
     end
 
     do

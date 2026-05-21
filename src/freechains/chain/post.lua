@@ -28,6 +28,13 @@ do
     else
         assert(ARGS.file)
         file = ARGS.path:match("[^/]+$")
+        do
+            local f = io.open(REPO .. "/" .. file, "r")
+            if f then
+                f:close()
+                ERROR("chain post : file already exists")
+            end
+        end
         exec ('stdout',
             "cp " .. ARGS.path .. " " .. REPO .. "/"
             , "chain post : invalid path"

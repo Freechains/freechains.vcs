@@ -212,7 +212,7 @@ No reflows of git history are required — the byte-faithful
 - [x] Add state branch: closed path set + `A`/`M` status only
 - [x] Drop `\n` rewrite in `post.lua:12`
 - [x] Replace `"a"`/`"w"` selector with `"w"` + pre-existence check
-- [ ] Reject existing destination in `post file` (post.lua:22-24)
+- [x] Reject existing destination in `post file` (post.lua:22-24)
 
 ## Deferred
 
