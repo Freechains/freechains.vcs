@@ -118,6 +118,46 @@ elseif ARGS.recv then
             error("invalid " .. kind .. " : invalid signature", 0)
         end
 
+        -- create-mode check (post/like): only additions allowed
+        -- state check: closed path set, A or M only (no D)
+        -- --cc handles merges and non-merges uniformly
+        local diff = exec (
+            "git -C " .. REPO ..
+                " diff-tree --cc --no-commit-id -r --name-status " .. hash
+        )
+        if kind == 'state' then
+            for status, path in diff:gmatch("(%a+)%s+(%S+)") do
+                local ok = (
+                    (path == ".freechains/state/authors.lua") or
+                    (path == ".freechains/state/posts.lua")   or
+                    (path == ".freechains/state/order.lua")
+                )
+                if not ok then
+                    error (
+                        "invalid state : " .. path
+                        , 0
+                    )
+                end
+                if status:match("[^AM]") then
+                    error (
+                        "invalid state : " .. path
+                        , 0
+                    )
+                end
+            end
+        else
+            for status, path in diff:gmatch("(%a+)%s+(%S+)") do
+                if status:match("[^A]") then
+                    error (
+                        "invalid " .. kind ..
+                            " : mode violation : " ..
+                            status .. " " .. path
+                        , 0
+                    )
+                end
+            end
+        end
+
         if kind == 'like' then
             if not key then
                 error("invalid like : missing sign key", 0)
