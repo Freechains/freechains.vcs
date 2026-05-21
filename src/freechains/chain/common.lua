@@ -79,7 +79,7 @@ function apply (G, kind, time, T)
                 if entry.state == "00-12" then
                     local subs = {}
                     for h2, other in pairs(G.posts) do
-                        if other.time and other.time>entry.time then
+                        if other.author and other.time and other.time>entry.time then
                             subs[other.author] = true
                         end
                     end
