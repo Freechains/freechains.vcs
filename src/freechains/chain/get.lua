@@ -52,35 +52,9 @@ elseif ARGS.metadata then
         "git -C " .. REPO .. " log -1 --format=%B " .. ARGS.hash
     ):gsub("\n*Freechains:%s*%S+%s*$", "")
 
-    -- backs: nearest post/like ancestors. State commits are
-    -- skipped recursively until a post/like is found (or the
-    -- chain bottoms out at the genesis state).
-    local backs = {}
-    do
-        local function rec (h)
-            local raw = exec (
-                "git -C " .. REPO .. " rev-list --parents -n 1 " .. h
-                -- <commit> <parent1> <parent2> ...
-            )
-            local me = true
-            for p in raw:gmatch("%S+") do
-                if me then
-                    me = false
-                else
-                    local k = trailer(p)
-                    if k=='post' or k=='like' then
-                        backs[#backs+1] = p
-                    elseif k=='state' then
-                        rec(p)
-                    else
-                        error("bug found : invalid trailer")
-                    end
-                end
-            end
-        end
-        rec(ARGS.hash)
-        assert(#backs <= 2, "bug found")
-    end
+    -- post/like ancestors via `backs` in common.lua (walks through
+    -- state/merge commits)
+    local backs = backs(ARGS.hash)
 
     -- like: only for like-trailer commits
     local like = false

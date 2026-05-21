@@ -18,6 +18,39 @@ function trailer (hash)
     return out:match "(%S+)"
 end
 
+-- post/like ancestors of `hash`, walking through `state` (and `merge`)
+-- commits transparently. Returns an array of hashes (dedup'd).
+function backs (hash)
+    local ret = {}
+    local see = {}
+    local function rec (h)
+        local raw = exec (
+            "git -C " .. REPO ..
+                " rev-list --parents -n 1 " .. h
+        )
+        local me = true
+        for p in raw:gmatch("%S+") do
+            if me then
+                me = false
+            else
+                local k = trailer(p)
+                if k=='post' or k=='like' then
+                    if not see[p] then
+                        see[p] = true
+                        ret[#ret+1] = p
+                    end
+                elseif k=='state' or k=='merge' then
+                    rec(p)
+                else
+                    error("bug found : invalid trailer")
+                end
+            end
+        end
+    end
+    rec(hash)
+    return ret
+end
+
 function write (G)
     local function f (V, file)
         local f = io.open(file, "w")
