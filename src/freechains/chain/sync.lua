@@ -390,6 +390,7 @@ elseif ARGS.recv then
                 end
                 exec ('stdout',
                     "git -C " .. REPO .. " commit -m 'x'"
+                    .. " --trailer 'Freechains: merge'"
                 )
             end
 
