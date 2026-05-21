@@ -9,7 +9,7 @@ local hash
 do
     local file
     if ARGS.inline then
-        local text = ARGS.text .. (ARGS.text:match("\n$") and "" or "\n")
+        local text = ARGS.text
         local rand = math.random(0, 9999999999)
         file = ARGS.file or "post-" .. CMD.now .. "-" .. rand .. ".txt"
         local f = io.open(REPO.."/"..file, (ARGS.file and "a") or "w")

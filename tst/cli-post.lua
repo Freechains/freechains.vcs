@@ -94,7 +94,7 @@ do
     do
         TEST "inline --file creates file"
         local _, code = exec (
-            ENV_EXE .. " chain cli-post post inline 'Line 1'"
+            ENV_EXE .. " chain cli-post post inline 'Line 1\n'"
             .. " --file log.txt --sign " .. KEY1
         )
         assert(code == 0, "exit code: " .. tostring(code))
@@ -105,7 +105,7 @@ do
     do
         TEST "inline --file appends"
         local _, code = exec (
-            ENV_EXE .. " chain cli-post post inline 'Line 2'"
+            ENV_EXE .. " chain cli-post post inline 'Line 2\n'"
             .. " --file log.txt --sign " .. KEY1
         )
         assert(code == 0, "exit code: " .. tostring(code))

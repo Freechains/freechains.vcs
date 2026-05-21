@@ -31,10 +31,10 @@ end
 do
     print("==> Test 1: local wins by prefix reps")
 
-    TEST "A creates chain + seeds shared.txt"
+    TEST "A creates chain + seeds seed.txt"
     exec(EXE_A .. " --now=1000 chains add cons-a init file " .. GEN_2)
     local seed_a = exec (
-        EXE_A .. " --now=1100 chain cons-a post inline 'seed\n' --file shared.txt --sign " .. KEY1
+        EXE_A .. " --now=1100 chain cons-a post inline 'seed\n' --file seed.txt --sign " .. KEY1
     )
 
     TEST "KEY2 likes seed (loses reps, KEY1 > KEY2 at fork)"
@@ -45,14 +45,14 @@ do
     TEST "B clones cons-a"
     exec(EXE_B .. " chains add cons-a clone " .. ROOT_A .. "/chains/cons-a/")
 
-    TEST "A appends alpha with KEY1 (higher prefix reps)"
+    TEST "A posts alpha to common.txt with KEY1 (higher prefix reps)"
     exec (
-        EXE_A .. " --now=2000 chain cons-a post inline 'alpha\n' --file shared.txt --sign " .. KEY1
+        EXE_A .. " --now=2000 chain cons-a post inline 'alpha\n' --file common.txt --sign " .. KEY1
     )
 
-    TEST "B appends beta with KEY2 (lower prefix reps)"
+    TEST "B posts beta to common.txt with KEY2 (lower prefix reps)"
     exec (
-        EXE_B .. " --now=2000 chain cons-a post inline 'beta\n' --file shared.txt --sign " .. KEY2
+        EXE_B .. " --now=2000 chain cons-a post inline 'beta\n' --file common.txt --sign " .. KEY2
     )
 
     TEST "A recvs from B (A wins by prefix reps)"
@@ -60,8 +60,8 @@ do
         EXE_A .. " --now=3000 chain cons-a sync recv " .. ROOT_B .. "/chains/cons-a/"
     )
 
-    TEST "A's shared.txt has alpha, not beta"
-    local h = io.open(ROOT_A .. "/chains/cons-a/shared.txt")
+    TEST "A's common.txt has alpha, not beta"
+    local h = io.open(ROOT_A .. "/chains/cons-a/common.txt")
     local content = h:read("a")
     h:close()
     assert(content:match("alpha"), "alpha missing: " .. content)
@@ -80,10 +80,10 @@ end
 do
     print("==> Test 2: remote wins by prefix reps")
 
-    TEST "A creates chain + seeds shared.txt"
+    TEST "A creates chain + seeds seed.txt"
     exec(EXE_A .. " --now=1000 chains add cons-b init file " .. GEN_2)
     local seed_b = exec (
-        EXE_A .. " --now=1100 chain cons-b post inline 'seed\n' --file shared.txt --sign " .. KEY1
+        EXE_A .. " --now=1100 chain cons-b post inline 'seed\n' --file seed.txt --sign " .. KEY1
     )
 
     TEST "KEY2 likes seed (loses reps, KEY1 > KEY2 at fork)"
@@ -94,14 +94,14 @@ do
     TEST "B clones cons-b"
     exec(EXE_B .. " chains add cons-b clone " .. ROOT_A .. "/chains/cons-b/")
 
-    TEST "A appends alpha with KEY2 (lower prefix reps)"
+    TEST "A posts alpha to common.txt with KEY2 (lower prefix reps)"
     exec (
-        EXE_A .. " --now=2000 chain cons-b post inline 'alpha\n' --file shared.txt --sign " .. KEY2
+        EXE_A .. " --now=2000 chain cons-b post inline 'alpha\n' --file common.txt --sign " .. KEY2
     )
 
-    TEST "B appends beta with KEY1 (higher prefix reps)"
+    TEST "B posts beta to common.txt with KEY1 (higher prefix reps)"
     exec (
-        EXE_B .. " --now=2000 chain cons-b post inline 'beta\n' --file shared.txt --sign " .. KEY1
+        EXE_B .. " --now=2000 chain cons-b post inline 'beta\n' --file common.txt --sign " .. KEY1
     )
 
     TEST "A recvs from B (B wins by prefix reps)"
@@ -110,8 +110,8 @@ do
     )
     assert(out:match "ERROR : content conflict\nvoided : %S+\n")
 
-    TEST "A's shared.txt has beta, not alpha"
-    local h = io.open(ROOT_A .. "/chains/cons-b/shared.txt")
+    TEST "A's common.txt has beta, not alpha"
+    local h = io.open(ROOT_A .. "/chains/cons-b/common.txt")
     local content = h:read("a")
     h:close()
     assert(content:match("beta"), "beta missing: " .. content)
