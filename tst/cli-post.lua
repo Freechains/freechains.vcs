@@ -103,14 +103,17 @@ do
     end
 
     do
-        TEST "inline --file appends"
-        local _, code = exec (
+        TEST "inline --file rejects existing"
+        local _, Q, err = exec (true,
             ENV_EXE .. " chain cli-post post inline 'Line 2\n'"
             .. " --file log.txt --sign " .. KEY1
         )
-        assert(code == 0, "exit code: " .. tostring(code))
+        assert (
+            Q~=0 and err=="ERROR : chain post : file already exists"
+            , "should fail: " .. tostring(err)
+        )
         local content = exec("cat " .. DIR .. "/log.txt")
-        assert(content == "Line 1\nLine 2\n", "content: " .. content)
+        assert(content == "Line 1", "content: " .. content)
     end
 end
 

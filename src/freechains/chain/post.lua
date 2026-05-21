@@ -12,9 +12,19 @@ do
         local text = ARGS.text
         local rand = math.random(0, 9999999999)
         file = ARGS.file or "post-" .. CMD.now .. "-" .. rand .. ".txt"
-        local f = io.open(REPO.."/"..file, (ARGS.file and "a") or "w")
-        f:write(text)
-        f:close()
+        local path = REPO .. "/" .. file
+        do
+            local f = io.open(path, "r")
+            if f then
+                f:close()
+                ERROR("chain post : file already exists")
+            end
+        end
+        do
+            local f = io.open(path, "w")
+            f:write(text)
+            f:close()
+        end
     else
         assert(ARGS.file)
         file = ARGS.path:match("[^/]+$")

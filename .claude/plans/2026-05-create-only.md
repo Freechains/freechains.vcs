@@ -211,7 +211,7 @@ No reflows of git history are required — the byte-faithful
 - [x] Inline create check in `sync.lua:commit()` for `kind=='post'` and `kind=='like'`
 - [x] Add state branch: closed path set + `A`/`M` status only
 - [x] Drop `\n` rewrite in `post.lua:12`
-- [ ] Replace `"a"`/`"w"` selector with `"w"` + pre-existence check
+- [x] Replace `"a"`/`"w"` selector with `"w"` + pre-existence check
 - [ ] Reject existing destination in `post file` (post.lua:22-24)
 
 ## Deferred
