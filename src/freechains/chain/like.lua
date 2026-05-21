@@ -38,9 +38,6 @@ if to_beg then
     G.order[#G.order+1] = exec (
         "git -C " .. REPO .. " rev-parse " .. ref .. "~1"   -- beg post
     )
-    G.order[#G.order+1] = exec (
-        "git -C " .. REPO .. " rev-parse " .. ref           -- beg state
-    )
     local src = exec (
         "git -C " .. REPO .. " show " .. ref .. ":.freechains/state/posts.lua"
     )

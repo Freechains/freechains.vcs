@@ -195,6 +195,7 @@ elseif ARGS.recv then
             if not ok then
                 error("invalid like : " .. err, 0)
             end
+            G.order[#G.order+1] = hash
         elseif kind == 'post' then
             local ok, err = apply(G, 'post', tonumber(time), {
                 hash = hash,
@@ -204,10 +205,10 @@ elseif ARGS.recv then
             if not ok then
                 error("invalid post : " .. err, 0)
             end
+            G.order[#G.order+1] = hash
         else
             assert(kind == 'state')
         end
-        G.order[#G.order+1] = hash
     end
 
     ---------------------------------------------------------------------------
@@ -246,7 +247,6 @@ elseif ARGS.recv then
             order   = F(".freechains/state/order.lua"),
             now     = NOW(oct),
         }
-        G_oct.order[#G_oct.order+1] = oct
     end
 
     -- 4: needs fst/winner - snd/loser (do now b/c 3 mutates G_oct)
@@ -314,7 +314,6 @@ elseif ARGS.recv then
             exec("git -C " .. REPO .. " merge --ff-only " .. rem)
             -- verify remote state: overwrite with G_rem, diff vs HEAD
             do
-                G_rem.order[#G_rem.order] = nil -- doesn't contain own hash yet
                 write(G_rem)
                 local same = exec (true, 'stdout',
                     "git -C " .. REPO ..  " diff --quiet HEAD -- .freechains/state/"
@@ -341,12 +340,10 @@ elseif ARGS.recv then
                 order   = dofile(FC .. "state/order.lua"),
                 now     = NOW(loc),
             }
-            G_fst.order[#G_fst.order+1] = loc
             O_snd = G_rem.order
         else
             G_fst = G_rem
             O_snd = dofile(FC .. "state/order.lua")
-            O_snd[#O_snd+1] = loc
         end
 
         -- filter O_snd: keep only commits unreachable from fst
