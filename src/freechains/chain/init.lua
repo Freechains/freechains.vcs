@@ -21,8 +21,8 @@ else
         "git -C " .. REPO .. " rev-parse HEAD"
     )
 
-    if ARGS.order then
-        require "freechains.chain.order"
+    if ARGS.all then
+        require "freechains.chain.all"
     elseif ARGS.reps then
         apply(G, 'reps', CMD.now, nil)
         require "freechains.chain.reps"

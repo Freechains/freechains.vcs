@@ -17,7 +17,7 @@ tests:
 	$(L) cli-begs.lua
 	$(L) cli-recv.lua
 	$(L) cli-send.lua
-	$(L) cli-order.lua
+	$(L) cli-all.lua
 	$(L) sync.lua
 	$(L) consensus.lua
 	$(L) err-post.lua

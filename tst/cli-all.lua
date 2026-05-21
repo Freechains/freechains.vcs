@@ -2,8 +2,8 @@
 
 require "tests"
 
-local ROOT_A = ROOT .. "/cli-order/A/"
-local ROOT_B = ROOT .. "/cli-order/B/"
+local ROOT_A = ROOT .. "/cli-all/A/"
+local ROOT_B = ROOT .. "/cli-all/B/"
 
 local EXE_A  = ENV .. " ../src/freechains.lua --root " .. ROOT_A
 local EXE_B  = ENV .. " ../src/freechains.lua --root " .. ROOT_B
@@ -15,12 +15,34 @@ exec("mkdir -p " .. ROOT_A)
 exec("mkdir -p " .. ROOT_B)
 
 local function order (exe)
-    local out = exec(exe .. " chain test order")
+    local out = exec(exe .. " chain test all order")
     local lines = {}
     for line in out:gmatch("[^\n]+") do
         lines[#lines+1] = line
     end
     return lines
+end
+
+local function dag (exe)
+    local out = exec(exe .. " chain test all dag")
+    local lines = {}
+    for line in out:gmatch("[^\n]+") do
+        lines[#lines+1] = line
+    end
+    return lines
+end
+
+local function check_linear_dag (exe, n)
+    local D = dag(exe)
+    local expected = (n > 0) and (2*n - 1) or 0
+    assert(#D == expected,
+        "dag lines: expected " .. expected .. " got " .. #D)
+    for i, line in ipairs(D) do
+        local ch = (i % 2 == 1) and "*" or "|"
+        assert(line:sub(21, 21) == ch,
+            "dag line " .. i .. " : expected " .. ch .. " at col 21 : got " ..
+            "'" .. (line:sub(21, 21)) .. "'")
+    end
 end
 
 -- 1. post order
@@ -38,6 +60,9 @@ do
     assert(#O == 1, "expected 1 entries, got " .. #O)
     assert(O[1] == P1, "expected P1")
 
+    TEST "dag after P1"
+    check_linear_dag(EXE_A, 1)
+
     TEST "A posts P2"
     local P2 = exec(EXE_A .. " --now=3000 chain test post inline 'world' --sign " .. KEY1)
 
@@ -46,6 +71,9 @@ do
     assert(#O == 2, "expected 2 entries, got " .. #O)
     assert(O[1] == P1, "expected P1 at index 1")
     assert(O[2] == P2, "expected P2 at index 2")
+
+    TEST "dag after P2"
+    check_linear_dag(EXE_A, 2)
 end
 
 -- 2. like order
@@ -65,6 +93,9 @@ do
     assert(O[1] == P1, "expected P1 at index 1")
     assert(O[2] == P2, "expected P2 at index 2")
     assert(O[3] == L1, "expected L1 at index 3")
+
+    TEST "dag after L1"
+    check_linear_dag(EXE_A, 3)
 end
 
 -- 3. sync preserves order
@@ -81,6 +112,9 @@ do
     for i = 1, #oa do
         assert(oa[i] == ob[i], "mismatch at " .. i)
     end
+
+    TEST "B dag matches linear (3 nodes)"
+    check_linear_dag(EXE_B, 3)
 end
 
 -- 4. recv preserves order
@@ -100,6 +134,12 @@ do
     for i = 1, #oa do
         assert(oa[i] == ob[i], "mismatch at " .. i)
     end
+
+    TEST "A dag has 4 linear nodes"
+    check_linear_dag(EXE_A, 4)
+
+    TEST "B dag has 4 linear nodes"
+    check_linear_dag(EXE_B, 4)
 end
 
 print("<== ALL PASSED")
