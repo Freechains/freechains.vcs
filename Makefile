@@ -11,6 +11,7 @@ tests:
 	$(L) cli-sign.lua
 	$(L) cli-like.lua
 	$(L) cli-get.lua
+	$(L) cli-get-merge.lua
 	$(L) cli-reps.lua
 	$(L) cli-now.lua
 	$(L) cli-time.lua
