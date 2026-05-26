@@ -221,11 +221,24 @@ do
     TEST "KEY2 begs on B"
     BEG = exec(EXE_B .. " --now=8000 chain test post inline 'please help' --beg --sign " .. KEY2)
     assert(#BEG == 40, "expected hash, got: " .. BEG)
-error'ok'
+
+    -- beg lives on refs/begs/ (off-main): invisible to order/dag, listed by begs
+    TEST "all begs lists the pending beg"
+    assert(exec(EXE_B .. " chain test all begs") == BEG)
+
+    TEST "all order does not include the pending beg"
+    local has_beg = false
+    for line in exec(EXE_B .. " chain test all order"):gmatch("[^\n]+") do
+        if line == BEG then has_beg = true end
+    end
+    assert(not has_beg, "pending beg should not be in order")
 
     TEST "KEY1 likes BEG"
     LIKE = exec(EXE_B .. " --now=8500 chain test like 1 post " .. BEG .. " --sign " .. KEY1)
     assert(#LIKE == 40, "expected hash, got: " .. LIKE)
+
+    TEST "all begs empty after like (ref consumed)"
+    assert(exec(EXE_B .. " chain test all begs") == "")
 
     -- KEY2 begs (BEG lives on refs/begs/, off-main); KEY1's like merges it back:
     --   git:  ... M ─────────────── LIKE ── S      (LIKE: a like-trailer merge)
@@ -318,4 +331,3 @@ do
 end
 
 print("<== ALL PASSED")
-error'ok'

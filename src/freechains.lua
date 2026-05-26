@@ -67,6 +67,7 @@ local cmd = {
         all = {
             order = {},
             dag   = {},
+            begs  = {},
         },
         reps = {},
         post = {
@@ -121,6 +122,7 @@ do
     do
         cmd.chain.all.order._ = cmd.chain.all._:command("order")
         cmd.chain.all.dag._   = cmd.chain.all._:command("dag")
+        cmd.chain.all.begs._  = cmd.chain.all._:command("begs")
     end
 
     -- cmd.chain.reps

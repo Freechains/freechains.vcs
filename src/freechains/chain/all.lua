@@ -1,4 +1,13 @@
-if ARGS.order then
+if ARGS.begs then
+    -- pending begs: post hashes parked on refs/begs/beg-<hash>
+    local out = exec (
+        "git -C " .. REPO .. " for-each-ref refs/begs/ --format='%(refname)'"
+    )
+    for h in out:gmatch("refs/begs/beg%-(%x+)") do
+        print(h)
+    end
+
+elseif ARGS.order then
     for _, hash in ipairs(G.order) do
         print(hash)
     end
