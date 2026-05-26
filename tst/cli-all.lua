@@ -221,6 +221,7 @@ do
     TEST "KEY2 begs on B"
     BEG = exec(EXE_B .. " --now=8000 chain test post inline 'please help' --beg --sign " .. KEY2)
     assert(#BEG == 40, "expected hash, got: " .. BEG)
+error'ok'
 
     -- beg lives on refs/begs/ (off-main): invisible to order/dag, listed by begs
     TEST "all begs lists the pending beg"
@@ -328,6 +329,47 @@ do
          %s %s %s
 ]], P0:sub(1,7), lines[2]:sub(1,7), lines[3]:sub(1,7), lines[4]:sub(1,7))
     )
+end
+
+-- 8. begs transmit over recv and send
+do
+    print("==> Step 8: begs transmit")
+
+    local REPO_A3 = ROOT_A .. "/chains/beg/"
+    local REPO_B3 = ROOT_B .. "/chains/beg/"
+    local REPO_C3 = ROOT_C .. "/chains/beg/"
+
+    TEST "A creates beg-chain + root post"
+    exec(EXE_A .. " --now=1000 chains add beg init inline --sign " .. KEY1)
+    exec(EXE_A .. " --now=2000 chain beg post inline 'root' --sign " .. KEY1)
+
+    TEST "B, C clone"
+    exec(EXE_B .. " chains add beg clone " .. REPO_A3)
+    exec(EXE_C .. " chains add beg clone " .. REPO_A3)
+
+    TEST "B begs (KEY2, off-main)"
+    local BG = exec(EXE_B .. " --now=3000 chain beg post inline 'help B' --beg --sign " .. KEY2)
+    assert(#BG == 40, "expected hash, got: " .. BG)
+
+    -- recv direction: A pulls B's beg (refs/begs/* in the fetch refspec)
+    TEST "A has no begs before recv"
+    assert(exec(EXE_A .. " chain beg all begs") == "")
+
+    TEST "A recvs from B"
+    exec(EXE_A .. " --now=3500 chain beg sync recv " .. REPO_B3)
+
+    TEST "A all begs now lists B's beg (recv transmits begs)"
+    assert(exec(EXE_A .. " chain beg all begs") == BG)
+
+    -- send direction: B pushes to C; C's hook recvs back from B (begs included)
+    TEST "C has no begs before send"
+    assert(exec(EXE_C .. " chain beg all begs") == "")
+
+    TEST "B sends to C"
+    exec(EXE_B .. " --now=4000 chain beg sync send " .. REPO_C3)
+
+    TEST "C all begs now lists B's beg (send transmits begs)"
+    assert(exec(EXE_C .. " chain beg all begs") == BG)
 end
 
 print("<== ALL PASSED")
