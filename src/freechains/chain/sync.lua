@@ -18,8 +18,9 @@ if ARGS.send then
     end
 
 elseif ARGS.recv then
+    do
     exec ('stdout',
-        "git -C " .. REPO .. " fetch --prune " .. ARGS.remote ..
+        "git -C " .. REPO .. " fetch " .. ARGS.remote ..
             " main refs/begs/*:refs/begs/*"
         , "chain sync : fetch failed"
     )
@@ -444,5 +445,23 @@ elseif ARGS.recv then
         end
     end
 
+    end
     ::RECV::
+
+    -- stale-beg cleanup: drop refs/begs/* whose post is already in main
+    do
+        local out = exec (
+            "git -C " .. REPO .. " for-each-ref refs/begs/ --format='%(refname) %(objectname)'"
+        )
+        for refname, post in out:gmatch("(%S+)%s+(%S+)") do
+            local ok = exec (true, 'stdout',
+                "git -C " .. REPO .. " merge-base --is-ancestor " .. post .. " main"
+            )
+            if ok then
+                exec (
+                    "git -C " .. REPO .. " update-ref -d " .. refname
+                )
+            end
+        end
+    end
 end
