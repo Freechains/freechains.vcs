@@ -48,19 +48,19 @@ Follows a step-by-step execution:
 - Create an SSH keypair:
 
 ```
-ssh-keygen -t ed25519
+$ ssh-keygen -t ed25519
 ```
 
 The keypair in `~/.ssh/*` becomes your default identity:
 
 ```
-ls ~/.ssh/id_ed25519*
+$ ls ~/.ssh/id_ed25519*
 ```
 
 - Create a chain locally:
 
 ```
-freechains chains add '#chat' init inline --sign
+$ freechains chains add '#chat' init inline --sign
 461cfb4...
 ```
 
@@ -70,15 +70,15 @@ The output is the chain's unique identifier across all peers.
 All application data resides in `~/.freechains/`:
 
 ```
-ls ~/.freechains/chains/
+$ ls ~/.freechains/chains/
 ```
 
 - Post some content:
 
 ```
-freechains chain '#chat' post inline "Hello World!" --sign
+$ freechains chain '#chat' post inline "Hello World!\n" --sign
 b52c62f...
-freechains chain '#chat' post inline "I am here!"   --sign
+$ freechains chain '#chat' post inline "I am here!\n"   --sign
 d6568e4...
 ```
 
@@ -87,7 +87,7 @@ The output is each post's unique identifier.
 - List posts in order:
 
 ```
-freechains chain '#chat' list order
+$ freechains chain '#chat' list order
 b52c62f...
 d6568e4...
 ```
@@ -95,23 +95,25 @@ d6568e4...
 - Read posts payload:
 
 ```
-freechains chain '#chat' get payload b52c62f
+$ freechains chain '#chat' get payload b52c62f
 Hello World!
-freechains chain '#chat' get payload d6568e4
+$ freechains chain '#chat' get payload d6568e4
 I am here!
 ```
 
 - Read post metadata:
 
 ```
-freechains chain '#chat' get metadata b52c62f
+freechains chain '#chat' get metadata d6568e4
 return {
-    ["backs"] = { "<parent-hash>", },
-    ["hash"]  = "b52c62f...",
-    ["like"]  = false,
-    ["post"]  = "post-1714560000-12345.txt",
-    ["sign"]  = "ssh-ed25519 ...",
-    ["time"]  = 1714560000,
-    ["why"]   = "(empty message)",
+    ["backs"] = {
+        [1] = "b52c62f...",
+    },
+    ["hash"] = "d6568e4...",
+    ["like"] = false,
+    ["post"] = "post-1780088002-4865365518.txt",
+    ["sign"] = "ssh-ed25519 AAAAC3N...",
+    ["time"] = 1780088002,
+    ["why"] = "(empty message)",
 }
 ```
