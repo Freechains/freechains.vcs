@@ -28,12 +28,20 @@ which freechains
 
 The basic API of Freechains is straightforward:
 
-- `freechains chains add ...`:         creates or clones a chain locally
-- `freechains chain post ...`:         posts to a chain (signed with SSH)
-- `freechains chain like/dislike ...`: rates a post
-- `freechains chain order`:            shows posts in consensus order
+- `freechains chains add ...`:         creates or clones chain locally
+- `freechains chain post ...`:         posts to chain (signed with SSH)
+- `freechains chain like/dislike ...`: rates post or author
+- `freechains chain list dag/order`:   lists all posts (DAG or consensus order)
 - `freechains chain reps ...`:         queries reputation
-- `freechains chain sync send/recv`:   synchronizes with a remote peer
+- `freechains chain sync send/recv`:   synchronizes with remote peer
+
+<!--
+For testing purposes, you may prepend an alternative path to store the chains:
+
+```
+freechains --root=/tmp/tests/ ...
+```
+-->
 
 Follows a step-by-step execution:
 
@@ -79,7 +87,7 @@ The output is each post's unique identifier.
 - List posts in order:
 
 ```
-freechains chain '#chat' order
+freechains chain '#chat' list order
 b52c62f...
 d6568e4...
 ```
