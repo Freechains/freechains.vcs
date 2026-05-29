@@ -132,8 +132,8 @@ if ARGS.add then
             "mkdir -p " .. DIR
             , "chains add : clone failed"
         )
-        local tmp = DIR .. "/" .. "_tmp" .. "/"
-        exec ('stdout',
+        local tmp = DIR .. "/_tmp-" .. math.random(0, 9999999999) .. "/"
+        exec (
             "git clone " .. ARGS.url .. " " .. tmp
             , "chains add : clone failed"
         )

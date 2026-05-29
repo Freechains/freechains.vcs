@@ -115,7 +115,7 @@ do
     do
         TEST "git clone failed"
         local _,Q,err = exec(true, EXE .. " chains add x clone /nonexistent/repo")
-        assert(Q~=0 and err=="ERROR : chains add : clone failed")
+        assert(Q~=0 and err and err:match("^ERROR : chains add : clone failed"), "should fail: " .. tostring(err))
     end
 
     do
@@ -123,7 +123,7 @@ do
         local _,Q,err = exec (true,
             EXE .. " chains add clone-dup clone " .. ROOT .. "/chains/cli-chains"
         )
-        assert(Q~=0 and err=="ERROR : chains add : clone failed", "should fail: " .. tostring(err))
+        assert(Q~=0 and err and err:match("^ERROR : chains add : clone failed"), "should fail: " .. tostring(err))
     end
 
     do
