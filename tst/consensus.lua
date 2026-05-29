@@ -13,7 +13,7 @@ exec("mkdir -p " .. ROOT_A)
 exec("mkdir -p " .. ROOT_B)
 
 local function order (exe, chain)
-    local out = exec(exe .. " chain " .. chain .. " all order")
+    local out = exec(exe .. " chain " .. chain .. " list order")
     local T = {}
     local S = {}
     for line in out:gmatch("[^\n]+") do

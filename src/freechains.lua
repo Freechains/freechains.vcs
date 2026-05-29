@@ -64,7 +64,7 @@ local cmd = {
     },
     chain = {
         _ = parser:command("chain"),
-        all = {
+        list = {
             order = {},
             dag   = {},
             begs  = {},
@@ -117,12 +117,12 @@ end
 do
     cmd.chain._:argument("alias")
 
-    -- cmd.chain.all
-    cmd.chain.all._ = cmd.chain._:command("all")
+    -- cmd.chain.list
+    cmd.chain.list._ = cmd.chain._:command("list")
     do
-        cmd.chain.all.order._ = cmd.chain.all._:command("order")
-        cmd.chain.all.dag._   = cmd.chain.all._:command("dag")
-        cmd.chain.all.begs._  = cmd.chain.all._:command("begs")
+        cmd.chain.list.order._ = cmd.chain.list._:command("order")
+        cmd.chain.list.dag._   = cmd.chain.list._:command("dag")
+        cmd.chain.list.begs._  = cmd.chain.list._:command("begs")
     end
 
     -- cmd.chain.reps

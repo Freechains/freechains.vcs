@@ -2,9 +2,9 @@
 
 require "tests"
 
-local ROOT_A = ROOT .. "/cli-all/A/"
-local ROOT_B = ROOT .. "/cli-all/B/"
-local ROOT_C = ROOT .. "/cli-all/C/"
+local ROOT_A = ROOT .. "/cli-list/A/"
+local ROOT_B = ROOT .. "/cli-list/B/"
+local ROOT_C = ROOT .. "/cli-list/C/"
 
 local EXE_A  = ENV .. " ../src/freechains.lua --root " .. ROOT_A
 local EXE_B  = ENV .. " ../src/freechains.lua --root " .. ROOT_B
@@ -30,11 +30,11 @@ do
     P1 = exec(EXE_A .. " --now=2000 chain test post inline 'hello' --sign " .. KEY1)
 
     TEST "order has P1"
-    assert(exec(EXE_A .. " chain test all order") == P1)
+    assert(exec(EXE_A .. " chain test list order") == P1)
 
     TEST "dag has P1"
     assert(
-        exec(EXE_A .. " chain test all dag") ==
+        exec(EXE_A .. " chain test list dag") ==
         string.format([[
                  %s]], P1:sub(1,7))
     )
@@ -46,11 +46,11 @@ do
     -- dag:  P1 │ P2                            (state commits filtered out)
 
     TEST "order has P1, P2"
-    assert(exec(EXE_A .. " chain test all order") == P1.."\n"..P2.."\n")
+    assert(exec(EXE_A .. " chain test list order") == P1.."\n"..P2.."\n")
 
     TEST "dag has P1, P2"
     assert(
-        exec(EXE_A .. " chain test all dag") ==
+        exec(EXE_A .. " chain test list dag") ==
         string.format([[
                  %s
                     |
@@ -70,11 +70,11 @@ do
     -- dag:  P1 │ P2 │ L1
 
     TEST "order has P1, P2, L1"
-    assert(exec(EXE_A .. " chain test all order") == P1.."\n"..P2.."\n"..L1.."\n")
+    assert(exec(EXE_A .. " chain test list order") == P1.."\n"..P2.."\n"..L1.."\n")
 
     TEST "dag has P1, P2, L1"
     assert(
-        exec(EXE_A .. " chain test all dag") ==
+        exec(EXE_A .. " chain test list dag") ==
         string.format([[
                  %s
                     |
@@ -94,14 +94,14 @@ do
 
     TEST "B order matches A"
     assert(
-        exec(EXE_A .. " chain test all order") ==
-        exec(EXE_B .. " chain test all order")
+        exec(EXE_A .. " chain test list order") ==
+        exec(EXE_B .. " chain test list order")
     )
 
     TEST "B dag matches A"
     assert(
-        exec(EXE_A .. " chain test all dag") ==
-        exec(EXE_B .. " chain test all dag")
+        exec(EXE_A .. " chain test list dag") ==
+        exec(EXE_B .. " chain test list dag")
     )
 end
 
@@ -120,19 +120,19 @@ do
 
     TEST "B order matches A"
     assert(
-        exec(EXE_A .. " chain test all order") ==
-        exec(EXE_B .. " chain test all order")
+        exec(EXE_A .. " chain test list order") ==
+        exec(EXE_B .. " chain test list order")
     )
 
     TEST "B dag matches A"
     assert(
-        exec(EXE_A .. " chain test all dag") ==
-        exec(EXE_B .. " chain test all dag")
+        exec(EXE_A .. " chain test list dag") ==
+        exec(EXE_B .. " chain test list dag")
     )
 
     TEST "A dag has 4 nodes"
     assert(
-        exec(EXE_A .. " chain test all dag") ==
+        exec(EXE_A .. " chain test list dag") ==
         string.format([[
                  %s
                     |
@@ -167,7 +167,7 @@ do
 
     TEST "A dag is linear with 5 nodes"
     assert(
-        exec(EXE_A .. " chain test all dag") ==
+        exec(EXE_A .. " chain test list dag") ==
         string.format([[
                  %s
                     |
@@ -183,7 +183,7 @@ do
 
     TEST "B order has fork resolution"
     local lines = {}
-    for line in exec(EXE_B .. " chain test all order"):gmatch("[^\n]+") do
+    for line in exec(EXE_B .. " chain test list order"):gmatch("[^\n]+") do
         lines[#lines+1] = line
     end
     assert(#lines == 6, "expected 6 commits, got " .. #lines)
@@ -199,7 +199,7 @@ do
 
     TEST "B dag shows fork (state-merge filtered)"
     assert(
-        exec(EXE_B .. " chain test all dag") ==
+        exec(EXE_B .. " chain test list dag") ==
         string.format([[
                  %s
                     |
@@ -222,8 +222,8 @@ do
     local begA = exec(EXE_A .. " --now=7500 chain test post inline 'help A' --beg --sign " .. KEY3)
     assert(#begA == 40, "expected hash, got: " .. begA)
 
-    TEST "A all begs lists begA"
-    assert(exec(EXE_A .. " chain test all begs") == begA)
+    TEST "A list begs lists begA"
+    assert(exec(EXE_A .. " chain test list begs") == begA)
 
     TEST "KEY2 begs on B"
     BEG = exec(EXE_B .. " --now=8000 chain test post inline 'please help' --beg --sign " .. KEY2)
@@ -232,9 +232,9 @@ do
     TEST "A recv B (begs should transmit; A keeps begA, gains BEG)"
     exec(EXE_A .. " --now=8200 chain test sync recv " .. REPO_B)
 
-    TEST "A all begs has both begA and BEG"
+    TEST "A list begs has both begA and BEG"
     local begs, n = {}, 0
-    for h in exec(EXE_A .. " chain test all begs"):gmatch("[^\n]+") do
+    for h in exec(EXE_A .. " chain test list begs"):gmatch("[^\n]+") do
         begs[h] = true ; n = n + 1
     end
     assert(n == 2, "expected 2 begs, got " .. n)
@@ -242,11 +242,11 @@ do
 
     -- beg lives on refs/begs/ (off-main): invisible to order/dag, listed by begs
     TEST "all begs lists the pending beg"
-    assert(exec(EXE_B .. " chain test all begs") == BEG)
+    assert(exec(EXE_B .. " chain test list begs") == BEG)
 
     TEST "all order does not include the pending beg"
     local has_beg = false
-    for line in exec(EXE_B .. " chain test all order"):gmatch("[^\n]+") do
+    for line in exec(EXE_B .. " chain test list order"):gmatch("[^\n]+") do
         if line == BEG then has_beg = true end
     end
     assert(not has_beg, "pending beg should not be in order")
@@ -256,7 +256,7 @@ do
     assert(#LIKE == 40, "expected hash, got: " .. LIKE)
 
     TEST "all begs empty after like (ref consumed)"
-    assert(exec(EXE_B .. " chain test all begs") == "")
+    assert(exec(EXE_B .. " chain test list begs") == "")
 
     -- KEY2 begs (BEG lives on refs/begs/, off-main); KEY1's like merges it back:
     --   git:  ... M ─────────────── LIKE ── S      (LIKE: a like-trailer merge)
@@ -267,7 +267,7 @@ do
 
     TEST "B order now has 8 commits (M filtered, BEG+LIKE added)"
     local lines = {}
-    for line in exec(EXE_B .. " chain test all order"):gmatch("[^\n]+") do
+    for line in exec(EXE_B .. " chain test list order"):gmatch("[^\n]+") do
         lines[#lines+1] = line
     end
     assert(#lines == 8, "expected 8 commits, got " .. #lines)
@@ -276,7 +276,7 @@ do
 
     TEST "B dag: LIKE has immediate parent (|) + distant parents annotated"
     assert(
-        exec(EXE_B .. " chain test all dag") ==
+        exec(EXE_B .. " chain test list dag") ==
         string.format([[
                  %s
                     |
@@ -331,7 +331,7 @@ do
 
     TEST "A order: P0 then 3 siblings"
     local lines = {}
-    for line in exec(EXE_A .. " chain tri all order"):gmatch("[^\n]+") do
+    for line in exec(EXE_A .. " chain tri list order"):gmatch("[^\n]+") do
         lines[#lines+1] = line
     end
     assert(#lines == 4, "expected 4 commits, got " .. #lines)
@@ -339,7 +339,7 @@ do
 
     TEST "A dag shows 3-way fork"
     assert(
-        exec(EXE_A .. " chain tri all dag") ==
+        exec(EXE_A .. " chain tri list dag") ==
         string.format([[
                  %s
                 /   |   \

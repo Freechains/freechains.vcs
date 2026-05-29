@@ -18,8 +18,8 @@ else
         now     = NOW("HEAD"),
     }
 
-    if ARGS.all then
-        require "freechains.chain.all"
+    if ARGS.list then
+        require "freechains.chain.list"
     elseif ARGS.reps then
         apply(G, 'reps', CMD.now, nil)
         require "freechains.chain.reps"
