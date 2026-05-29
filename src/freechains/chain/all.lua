@@ -13,6 +13,8 @@ elseif ARGS.order then
     end
 
 elseif ARGS.dag then
+    -- TODO: this whole branch is AI-gened and was not properly reviewed
+
     local WIDTH = 40
     local MID   = 20
     local SHORT = 7
