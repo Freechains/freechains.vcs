@@ -213,11 +213,13 @@ if ARGS.now then
 end
 
 if ARGS.daemon then
+    local port = ARGS.port or 8330
+    print("Serving on port " .. port .. "...")
     os.execute (
         "git daemon --base-path=" .. (ARGS.root .. "/chains/") ..
             " --export-all" ..
             " --enable=" .. (ARGS.hub and "receive-pack" or "upload-pack") ..
-            " --port=" .. (ARGS.port or 8330) ..
+            " --port=" .. port ..
             " " .. table.concat(ARGS.xtra, " ")
     )
 elseif ARGS.chains then

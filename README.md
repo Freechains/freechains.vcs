@@ -139,12 +139,14 @@ locally.
 
 - Communicate with other peers over the Internet:
 
-As peer `A`, serve the chains with `git daemon`:
+As peer `A`, serve the chains with a daemon:
 
 ```
-$ git daemon --base-path="$HOME/.freechains/chains/" --export-all --enable=receive-pack --port=8330
-# switch to another terminal
+$ freechains daemon
+Serving on port 8330...
 ```
+
+(Switch to another terminal...)
 
 As peer `B`, here using a separate `--root` on the same machine, clone the
 chain in `A`:
@@ -155,8 +157,6 @@ $ freechains --root=/tmp/peer-B/ chains add '#chat' clone 'git://127.0.0.1:8330/
 ```
 
 Note that the hash identifier is the same in both peers.
-Note also that peer `B` may choose another alias for the cloned chain (here, we
-kept it as `#chat`).
 
 You may now list the posts in peer `B`:
 
@@ -174,14 +174,20 @@ $ freechains chain '#chat' post inline "Sync me!\n" --sign
 e1f2a3b...
 ```
 
+Now, peers `A` and `B` diverge and need to synchronize.
+
 - Synchronize with `B`:
 
-As peer `B`, serve a writable daemon on another port:
+As peer `B`, serve a daemon on another port:
 
 ```
-$ git daemon --base-path=/tmp/peer-B/chains/ --export-all --enable=receive-pack --port=8331
-# switch to another terminal
+$ freechains --root=/tmp/peer-B/ daemon --hub --port=8331
+Serving on port 8330...
 ```
+
+The option `--hub` allows peers to push changes to it.
+
+(Switch to another terminal...)
 
 As peer `A`, send the new post over `git://`:
 
