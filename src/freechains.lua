@@ -50,6 +50,9 @@ parser
     :convert(tonumber)
 
 local cmd = {
+    daemon = {
+        _ = parser:command("daemon"),
+    },
     chains = {
         _ = parser:command("chains"),
         add = {
@@ -86,6 +89,12 @@ local cmd = {
         },
     },
 }
+
+-- cmd.daemon
+do
+    cmd.daemon._:option("--port"):convert(tonumber)
+    cmd.daemon._:flag("--hub")
+end
 
 -- cmd.chains
 do
@@ -202,7 +211,14 @@ if ARGS.now then
     )
 end
 
-if ARGS.chains then
+if ARGS.daemon then
+    os.execute (
+        "git daemon --base-path=" .. (ARGS.root .. "/chains/") ..
+            " --export-all" ..
+            " --enable=" .. (ARGS.hub and "receive-pack" or "upload-pack") ..
+            " --port=" .. (ARGS.port or 8330)
+    )
+elseif ARGS.chains then
     require "freechains.chains"
 elseif ARGS.chain then
     require "freechains.chain"
