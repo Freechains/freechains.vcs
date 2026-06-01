@@ -6,9 +6,9 @@ local ROOT_A = ROOT .. "/repl-remote-begs/A/"
 local ROOT_B = ROOT .. "/repl-remote-begs/B/"
 local ROOT_C = ROOT .. "/repl-remote-begs/C/"
 
-local EXE_A  = ENV .. " ../src/freechains.lua --root " .. ROOT_A
-local EXE_B  = ENV .. " ../src/freechains.lua --root " .. ROOT_B
-local EXE_C  = ENV .. " ../src/freechains.lua --root " .. ROOT_C
+local EXE_A  = ENV .. " ../src/freechains.lua --root=" .. ROOT_A
+local EXE_B  = ENV .. " ../src/freechains.lua --root=" .. ROOT_B
+local EXE_C  = ENV .. " ../src/freechains.lua --root=" .. ROOT_C
 
 local REPO_A = ROOT_A .. "/chains/test/"
 local REPO_B = ROOT_B .. "/chains/test/"
@@ -30,18 +30,14 @@ local PID_A  = ROOT_A .. "/daemon.pid"
 local PID_B  = ROOT_B .. "/daemon.pid"
 local PID_C  = ROOT_C .. "/daemon.pid"
 
-local function daemon_start (port, pid, dir)
+local function daemon_start (exe, port, pid)
     exec (
-        "git daemon"
+        exe .. " daemon --hub --port=" .. port
+        .. " --"
         .. " --listen=127.0.0.1"
-        .. " --port=" .. port
-        .. " --export-all"
-        .. " --enable=receive-pack"
-        .. " --base-path=" .. dir
         .. " --pid-file=" .. pid
         .. " --reuseaddr"
         .. " --detach"
-        .. " " .. dir
     )
 end
 
@@ -56,9 +52,9 @@ local function daemon_stop (pid)
     end
 end
 
-daemon_start(PORT_A, PID_A, ROOT_A .. "/chains/")
-daemon_start(PORT_B, PID_B, ROOT_B .. "/chains/")
-daemon_start(PORT_C, PID_C, ROOT_C .. "/chains/")
+daemon_start(EXE_A, PORT_A, PID_A)
+daemon_start(EXE_B, PORT_B, PID_B)
+daemon_start(EXE_C, PORT_C, PID_C)
 os.execute("sleep 0.3") -- starting up daemons
 
 local _ <close> = setmetatable({}, {__close=function()
@@ -343,8 +339,8 @@ do
     exec("rm -rf " .. TMP)
     exec("mkdir -p " .. ROOT_A .. "/chains")
     exec("mkdir -p " .. ROOT_B .. "/chains")
-    daemon_start(PORT_A, PID_A, ROOT_A .. "/chains/")
-    daemon_start(PORT_B, PID_B, ROOT_B .. "/chains/")
+    daemon_start(EXE_A, PORT_A, PID_A)
+    daemon_start(EXE_B, PORT_B, PID_B)
     os.execute("sleep 0.3")
 
     exec(EXE_A .. " chains add test init file " .. GEN_0)

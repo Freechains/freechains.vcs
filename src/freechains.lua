@@ -94,6 +94,7 @@ local cmd = {
 do
     cmd.daemon._:option("--port"):convert(tonumber)
     cmd.daemon._:flag("--hub")
+    cmd.daemon._:argument("xtra"):args("*")
 end
 
 -- cmd.chains
@@ -216,7 +217,8 @@ if ARGS.daemon then
         "git daemon --base-path=" .. (ARGS.root .. "/chains/") ..
             " --export-all" ..
             " --enable=" .. (ARGS.hub and "receive-pack" or "upload-pack") ..
-            " --port=" .. (ARGS.port or 8330)
+            " --port=" .. (ARGS.port or 8330) ..
+            " " .. table.concat(ARGS.xtra, " ")
     )
 elseif ARGS.chains then
     require "freechains.chains"
