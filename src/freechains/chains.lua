@@ -89,7 +89,7 @@ if ARGS.add then
         )
         git_config(tmp)
         exec (
-            "cp " .. HERE .. "/hooks/pre-receive " .. tmp .. "/.git/hooks/pre-receive"
+            "cp " .. HERE .. "/hooks/pre-receive " .. tmp .. "/.git/hooks/pre-receive && chmod +x " .. tmp .. "/.git/hooks/pre-receive"
         )
         exec (
             "cp -r " .. HERE .. "/skel/. " .. tmp .. "/"
@@ -139,7 +139,7 @@ if ARGS.add then
         )
         git_config(tmp)
         exec (
-            "cp " .. HERE .. "/hooks/pre-receive " .. tmp .. "/.git/hooks/pre-receive"
+            "cp " .. HERE .. "/hooks/pre-receive " .. tmp .. "/.git/hooks/pre-receive && chmod +x " .. tmp .. "/.git/hooks/pre-receive"
         )
         local hash = exec (
             "git -C " .. tmp .. " rev-list --max-parents=0 HEAD"
