@@ -67,6 +67,9 @@ $ freechains chains add '#chat' init inline --sign
 This creates the public chain `#chat`, with you as the sole pioneer.
 The output is the chain's unique identifier across all peers.
 
+Note that the exact hash identifiers depend on local creation time and thus
+will differ throughout this guide.
+
 All application data resides in `~/.freechains/`:
 
 ```
@@ -84,7 +87,18 @@ d6568e4...
 
 The output is each post's unique identifier.
 
-- List posts in order:
+- List all posts:
+
+As a DAG:
+
+```
+$ freechains chain '#chat' list dag
+                 b52c62f
+                    |
+                 d6568e4
+```
+
+In consensus order:
 
 ```
 $ freechains chain '#chat' list order
@@ -117,3 +131,48 @@ return {
     ["why"] = "(empty message)",
 }
 ```
+
+These are the basic steps to create keys and chains, and post and read content
+locally.
+
+### Peer-to-Peer Synchronization
+
+- Communicate with other peers over the Internet:
+
+As peer `A`, serve the chains with `git daemon`:
+
+```
+$ git daemon --base-path="$HOME/.freechains/chains/" --export-all --port=8330
+# switch to another terminal
+```
+
+As peer `B`, here using a separate `--root` on the same machine, clone the
+chain in `A`:
+
+```
+$ freechains --root=/tmp/peer-B/ chains add '#chat' clone 'git://127.0.0.1:8330/#chat'
+461cfb4...
+```
+
+Note that the hash identifier is the same in both peers.
+Note also that peer `B` may choose another alias for the cloned chain (here, we
+kept it as `#chat`).
+
+You may now list the posts in peer `B`:
+
+```
+$ freechains --root=/tmp/peer-B/ chain '#chat' list dag
+                 b52c62f
+                    |
+                 d6568e4
+```
+
+- Post again from `A`:
+
+- Synchronize with `B`:
+
+(use send)
+
+### Reputation & Consensus
+
+(TODO: skip for now)
