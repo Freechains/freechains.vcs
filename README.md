@@ -142,7 +142,7 @@ locally.
 As peer `A`, serve the chains with `git daemon`:
 
 ```
-$ git daemon --base-path="$HOME/.freechains/chains/" --export-all --port=8330
+$ git daemon --base-path="$HOME/.freechains/chains/" --export-all --enable=receive-pack --port=8330
 # switch to another terminal
 ```
 
@@ -169,9 +169,36 @@ $ freechains --root=/tmp/peer-B/ chain '#chat' list dag
 
 - Post again from `A`:
 
+```
+$ freechains chain '#chat' post inline "Sync me!\n" --sign
+e1f2a3b...
+```
+
 - Synchronize with `B`:
 
-(use send)
+As peer `B`, serve a writable daemon on another port:
+
+```
+$ git daemon --base-path=/tmp/peer-B/chains/ --export-all --enable=receive-pack --port=8331
+# switch to another terminal
+```
+
+As peer `A`, send the new post over `git://`:
+
+```
+$ freechains chain '#chat' sync send 'git://127.0.0.1:8331/#chat'
+```
+
+Peer `B` now holds the new post:
+
+```
+$ freechains --root=/tmp/peer-B/ chain '#chat' list dag
+                 b52c62f
+                    |
+                 d6568e4
+                    |
+                 e1f2a3b
+```
 
 ### Reputation & Consensus
 
