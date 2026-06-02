@@ -57,16 +57,16 @@ dir name.
 
 ## Steps (resume here)
 
-Status: **not started** — both call sites still produce bare 40-hex
-dir names and print the bare hash.
-Verified call sites (line numbers as of commit `eabf858`):
+Status: **done** — all tests pass.
 
-| file       | line(s)   | current code                                                  |
-|------------|-----------|---------------------------------------------------------------|
-| chains.lua | 114-128   | `local hash = exec("git -C " .. tmp .. " rev-parse HEAD")` …  |
-| chains.lua | 144-156   | `local hash = exec("git -C " .. tmp .. " rev-list ...")` …    |
+Quoting note discovered during implementation: `#` is the shell
+comment marker, so every interpolation of a `#`-containing path
+into a shell command must be single-quoted.
+Spots touched: `chains.lua` (init/clone/rem), `chain/sync.lua`
+(push `-o url=...`), `hooks/pre-receive` (spawned `freechains`
+command), `tst/cli-chains.lua` (`realpath`).
 
-### Step 1 — `chains.lua` init
+### Step 1 — `chains.lua` init — DONE
 
 Replace the hash line with the typed form, then reuse `hash`
 unchanged for the rename target, symlink target, and `print`:
@@ -83,7 +83,7 @@ exec("ln -s " .. hash .. "/ " .. DIR .. "/" .. ARGS.alias)
 print(hash)
 ```
 
-### Step 2 — `chains.lua` clone
+### Step 2 — `chains.lua` clone — DONE
 
 Same pattern for the clone branch:
 
@@ -101,16 +101,14 @@ exec("ln -s " .. hash .. " " .. DIR .. "/" .. ARGS.alias)
 print(hash)
 ```
 
-### Step 3 — spec docs
+### Step 3 — spec docs — DONE
 
-Update `chains.md` "Identification" + `layout.md` `chains/` example
-to show `#<40-hex>`.
+`chains.md` Identification + Sync example + Layout sample updated.
+`layout.md` `<chain-hash>` -> `<chain-id>` everywhere.
 
-### Step 4 — verify (ask the user to run; do not run tests yourself)
+### Step 4 — verify — DONE
 
-- `freechains chains add x init ...` -> prints `#<40-hex>` (41 chars).
-- `chains/<alias>` symlink resolves to `chains/#<hex>/`.
-- Local sync (`chain x sync recv <path>`) still works (REPO via symlink).
+All tests pass after the quoting fixes above.
 
 ## Open questions
 

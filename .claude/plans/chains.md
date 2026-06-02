@@ -8,18 +8,21 @@ network.
 
 ## Identification
 
-A chain is univocally identified by its **genesis commit hash**:
+A chain is univocally identified by its **typed genesis hash**:
 
 ```
-genesis_hash = git_commit_hash(genesis)
+chain_id = <type> .. git_commit_hash(genesis)
 ```
 
+`<type>` is the type character from the genesis block
+(currently only `#`).
 Each `chains add init` call creates a unique genesis commit
-(real pubkey + timestamp), so the hash is unique per creation.
+(real pubkey + timestamp), so the chain id is unique per creation.
 To join an existing chain, use `chains add <alias> clone <url>`.
 
-Names, prefixes, and aliases are conventions of the application
-layer and are not part of the protocol.
+The type prefix shares its shape with aliases (`#sports`),
+making any chain id self-describing.
+Aliases beyond the prefix remain application-layer conventions.
 
 ## Types
 
@@ -94,11 +97,11 @@ The hash is used as the remote name in the Git layer:
 
 ```bash
 # add a peer for a known chain
-git remote add <genesis_hash> https://<peer>:8330/<genesis_hash>
+git remote add <chain-id> https://<peer>:8330/<chain-id>
 
 # synchronize
-git fetch <genesis_hash>
-git push <genesis_hash>
+git fetch <chain-id>
+git push <chain-id>
 ```
 
 To join an existing chain from a peer:
@@ -115,10 +118,10 @@ Aliases are symlinks in the `chains/` directory:
 
 ```
 <root>/chains/
-  <genesis-hash>/     git repo (working tree)
-  #sports -> <hash>/  symlink alias
-  $family -> <hash>/  symlink alias
-  @me     -> <hash>/  symlink alias
+  <chain-id>/             git repo (working tree)
+  #sports -> <chain-id>/  symlink alias
+  $family -> <chain-id>/  symlink alias
+  @me     -> <chain-id>/  symlink alias
 ```
 
 Aliases are **local to each peer** — two peers may use different

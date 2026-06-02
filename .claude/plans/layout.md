@@ -13,7 +13,7 @@ A Freechains host is a directory with two top-level subdirectories, each backed 
     config.toml                     <- host port, default peers, key to use
     peers.toml                      <- known peers registry
   chains/                           <- one git repo per chain
-    <chain-hash>/                   <- git working tree (DAG + blocks)
+    <chain-id>/                   <- git working tree (DAG + blocks)
       .freechains/
         genesis.lua                <- tracked: genesis block definition
         random                     <- tracked: uniqueness seed
@@ -21,9 +21,9 @@ A Freechains host is a directory with two top-level subdirectories, each backed 
         authors.lua                <- tracked: author → {reps, time}
         posts.lua                  <- tracked: post → {author, time, state, reps}
         now.lua                    <- UNTRACKED: last time effects timestamp
-    @francisco -> <chain-hash>/     <- symlink alias (human-readable name)
-    #sports    -> <chain-hash>/     <- symlink alias
-    $friends   -> <chain-hash>/     <- symlink alias
+    @francisco -> <chain-id>/     <- symlink alias (human-readable name)
+    #sports    -> <chain-id>/     <- symlink alias
+    $friends   -> <chain-id>/     <- symlink alias
 ```
 
 ### config/
