@@ -1,4 +1,5 @@
 VERSION = {0, 20, 0}
+PORT    = 8330
 
 function version ()
     return "v" .. VERSION[1] .. "." .. VERSION[2] .. "." .. VERSION[3]
@@ -99,7 +100,7 @@ function URL (raw, alias)
     end
     local hostport, path = raw:match("^([^/]+)(/?.*)$")
     if not hostport:find(":") then
-        hostport = hostport .. ":8330"
+        hostport = hostport .. ":" .. PORT
     end
     return "git://" .. hostport .. path
 end
