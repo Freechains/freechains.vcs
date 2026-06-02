@@ -213,7 +213,7 @@ if ARGS.now then
 end
 
 if ARGS.daemon then
-    local port = ARGS.port or 8330
+    local port = ARGS.port or PORT
     print("Serving on port " .. port .. "...")
     os.execute (
         "git daemon --base-path=" .. (ARGS.root .. "/chains/") ..

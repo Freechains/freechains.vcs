@@ -152,7 +152,7 @@ As peer `B`, here using a separate `--root` on the same machine, clone the
 chain in `A`:
 
 ```
-$ freechains --root=/tmp/peer-B/ chains add '#chat' clone 'git://127.0.0.1:8330/#chat'
+$ freechains --root=/tmp/peer-B/ chains add '#chat' clone 127.0.0.1
 #461cfb4...
 ```
 
@@ -182,7 +182,7 @@ As peer `B`, serve a daemon on another port:
 
 ```
 $ freechains --root=/tmp/peer-B/ daemon --hub --port=8331
-Serving on port 8330...
+Serving on port 8331...
 ```
 
 The option `--hub` allows peers to push changes to it.
@@ -192,7 +192,7 @@ The option `--hub` allows peers to push changes to it.
 As peer `A`, send the new post over `git://`:
 
 ```
-$ freechains chain '#chat' sync send 'git://127.0.0.1:8331/#chat'
+$ freechains chain '#chat' sync send 127.0.0.1:8331
 ```
 
 Peer `B` now holds the new post:
