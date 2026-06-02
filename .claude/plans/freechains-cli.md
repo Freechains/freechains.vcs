@@ -208,16 +208,16 @@ Single Lua script with:
 5. `git -C <tmp> -c user.name="-" -c user.email="-"`
    `commit --allow-empty-message -m ""`
 6. `git -C <tmp> rev-parse HEAD` → hash
-7. `mv <tmp> <root>/chains/<hash>/`
-8. `ln -s <hash>/ <root>/chains/<alias>`
+7. `mv <tmp> <root>/chains/<chain-id>/`
+8. `ln -s <chain-id>/ <root>/chains/<alias>`
 9. Print hash to stdout
 
 ### `chains add` (remote)
 
 1. `git clone <host>/<hash-or-alias> <root>/chains/<tmp>/`
 2. Read genesis hash from `git rev-list --max-parents=0 HEAD`
-3. Rename repo dir to `<root>/chains/<hash>/`
-4. Create symlink `<root>/chains/<alias> -> <hash>/`
+3. Rename repo dir to `<root>/chains/<chain-id>/`
+4. Create symlink `<root>/chains/<alias> -> <chain-id>/`
 5. Print hash to stdout
 
 ### `chains rem`

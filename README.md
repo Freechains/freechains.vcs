@@ -61,7 +61,7 @@ $ ls ~/.ssh/id_ed25519*
 
 ```
 $ freechains chains add '#chat' init inline --sign
-461cfb4...
+#461cfb4...
 ```
 
 This creates the public chain `#chat`, with you as the sole pioneer.
@@ -153,10 +153,10 @@ chain in `A`:
 
 ```
 $ freechains --root=/tmp/peer-B/ chains add '#chat' clone 'git://127.0.0.1:8330/#chat'
-461cfb4...
+#461cfb4...
 ```
 
-Note that the hash identifier is the same in both peers.
+Note that the chain id is the same in both peers.
 
 You may now list the posts in peer `B`:
 
