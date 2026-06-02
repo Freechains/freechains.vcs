@@ -8,8 +8,8 @@ local ROOT_B = ROOT .. "/err-sign/B/"
 local EXE_A  = ENV .. " ../src/freechains.lua --root " .. ROOT_A
 local EXE_B  = ENV .. " ../src/freechains.lua --root " .. ROOT_B
 
-local REPO_A = ROOT_A .. "/chains/err-sign/"
-local REPO_B = ROOT_B .. "/chains/err-sign/"
+local REPO_A = ROOT_A .. "/chains/#err-sign/"
+local REPO_B = ROOT_B .. "/chains/#err-sign/"
 
 exec("mkdir -p " .. ROOT_A)
 exec("mkdir -p " .. ROOT_B)
@@ -22,13 +22,13 @@ local POST
 
 do
     TEST "A creates chain"
-    exec(EXE_A .. " chains add err-sign init file " .. GEN_1)
+    exec(EXE_A .. " chains add '#err-sign' init file " .. GEN_1)
 
     TEST "A posts signed"
-    POST = exec(EXE_A .. " chain err-sign post inline 'legit' --sign " .. KEY1)
+    POST = exec(EXE_A .. " chain '#err-sign' post inline 'legit' --sign " .. KEY1)
 
     TEST "B clones from A"
-    exec(EXE_B .. " chains add err-sign clone " .. REPO_A)
+    exec(EXE_B .. " chains add '#err-sign' clone " .. REPO_A)
 end
 
 -- craft unsigned like directly via git (bypass freechains)
@@ -50,7 +50,7 @@ do
 
     TEST "B rejects unsigned like on sync"
     local _,Q,err = exec (true,
-        EXE_B .. " chain err-sign sync recv " .. REPO_A
+        EXE_B .. " chain '#err-sign' sync recv " .. REPO_A
     )
     assert (
         Q~=0 and err=="ERROR : chain sync : invalid like : missing sign key"
@@ -62,15 +62,15 @@ end
 do
     print("==> sync rejects like without payload")
 
-    local REPO_A2 = ROOT_A .. "/chains/err-payload/"
-    local REPO_B2 = ROOT_B .. "/chains/err-payload/"
+    local REPO_A2 = ROOT_A .. "/chains/#err-payload/"
+    local REPO_B2 = ROOT_B .. "/chains/#err-payload/"
 
     TEST "A creates chain + post"
-    exec(EXE_A .. " chains add err-payload init file " .. GEN_1)
-    exec(EXE_A .. " chain err-payload post inline 'legit' --sign " .. KEY1)
+    exec(EXE_A .. " chains add '#err-payload' init file " .. GEN_1)
+    exec(EXE_A .. " chain '#err-payload' post inline 'legit' --sign " .. KEY1)
 
     TEST "B clones from A"
-    exec(EXE_B .. " chains add err-payload clone " .. REPO_A2)
+    exec(EXE_B .. " chains add '#err-payload' clone " .. REPO_A2)
 
     TEST "A crafts like with no payload file"
     exec (
@@ -84,7 +84,7 @@ do
 
     TEST "B rejects like without payload on sync"
     local _,Q,err = exec (true,
-        EXE_B .. " chain err-payload sync recv " .. REPO_A2
+        EXE_B .. " chain '#err-payload' sync recv " .. REPO_A2
     )
     assert (
         Q~=0 and err=="ERROR : chain sync : invalid like : missing metadata file"
@@ -96,15 +96,15 @@ end
 do
     print("==> sync rejects like with bad lua metadata (syntax error)")
 
-    local REPO_A3 = ROOT_A .. "/chains/err-lua/"
-    local REPO_B3 = ROOT_B .. "/chains/err-lua/"
+    local REPO_A3 = ROOT_A .. "/chains/#err-lua/"
+    local REPO_B3 = ROOT_B .. "/chains/#err-lua/"
 
     TEST "A creates chain + post"
-    exec(EXE_A .. " chains add err-lua init file " .. GEN_1)
-    exec(EXE_A .. " chain err-lua post inline 'legit' --sign " .. KEY1)
+    exec(EXE_A .. " chains add '#err-lua' init file " .. GEN_1)
+    exec(EXE_A .. " chain '#err-lua' post inline 'legit' --sign " .. KEY1)
 
     TEST "B clones from A"
-    exec(EXE_B .. " chains add err-lua clone " .. REPO_A3)
+    exec(EXE_B .. " chains add '#err-lua' clone " .. REPO_A3)
 
     TEST "A crafts like with invalid lua metadata"
     exec("mkdir -p " .. REPO_A3 .. ".freechains/likes/")
@@ -127,7 +127,7 @@ do
 
     TEST "B rejects like with bad lua on sync"
     local _,Q,err = exec (true,
-        EXE_B .. " chain err-lua sync recv " .. REPO_A3
+        EXE_B .. " chain '#err-lua' sync recv " .. REPO_A3
     )
     assert (
         Q~=0 and err=="ERROR : chain sync : invalid like : invalid lua metadata"
@@ -139,15 +139,15 @@ end
 do
     print("==> sync rejects like with bad lua metadata (not table)")
 
-    local REPO_A4 = ROOT_A .. "/chains/err-table/"
-    local REPO_B4 = ROOT_B .. "/chains/err-table/"
+    local REPO_A4 = ROOT_A .. "/chains/#err-table/"
+    local REPO_B4 = ROOT_B .. "/chains/#err-table/"
 
     TEST "A creates chain + post"
-    exec(EXE_A .. " chains add err-table init file " .. GEN_1)
-    exec(EXE_A .. " chain err-table post inline 'legit' --sign " .. KEY1)
+    exec(EXE_A .. " chains add '#err-table' init file " .. GEN_1)
+    exec(EXE_A .. " chain '#err-table' post inline 'legit' --sign " .. KEY1)
 
     TEST "B clones from A"
-    exec(EXE_B .. " chains add err-table clone " .. REPO_A4)
+    exec(EXE_B .. " chains add '#err-table' clone " .. REPO_A4)
 
     TEST "A crafts like with invalid lua metadata"
     exec("mkdir -p " .. REPO_A4 .. ".freechains/likes/")
@@ -170,7 +170,7 @@ do
 
     TEST "B rejects like with bad lua on sync"
     local _,Q,err = exec (true,
-        EXE_B .. " chain err-table sync recv " .. REPO_A4
+        EXE_B .. " chain '#err-table' sync recv " .. REPO_A4
     )
     assert (
         Q~=0 and err=="ERROR : chain sync : invalid like : invalid lua metadata"
@@ -182,15 +182,15 @@ end
 do
     print("==> sync rejects like with bad target type")
 
-    local REPO_A5 = ROOT_A .. "/chains/err-target/"
-    local REPO_B5 = ROOT_B .. "/chains/err-target/"
+    local REPO_A5 = ROOT_A .. "/chains/#err-target/"
+    local REPO_B5 = ROOT_B .. "/chains/#err-target/"
 
     TEST "A creates chain + post"
-    exec(EXE_A .. " chains add err-target init file " .. GEN_1)
-    local post = exec(EXE_A .. " chain err-target post inline 'legit' --sign " .. KEY1)
+    exec(EXE_A .. " chains add '#err-target' init file " .. GEN_1)
+    local post = exec(EXE_A .. " chain '#err-target' post inline 'legit' --sign " .. KEY1)
 
     TEST "B clones from A"
-    exec(EXE_B .. " chains add err-target clone " .. REPO_A5)
+    exec(EXE_B .. " chains add '#err-target' clone " .. REPO_A5)
 
     TEST "A crafts like with bad target type"
     exec("mkdir -p " .. REPO_A5 .. ".freechains/likes/")
@@ -213,7 +213,7 @@ do
 
     TEST "B rejects like with bad target type on sync"
     local _,Q,err = exec (true,
-        EXE_B .. " chain err-target sync recv " .. REPO_A5
+        EXE_B .. " chain '#err-target' sync recv " .. REPO_A5
     )
     assert (
         Q~=0 and err=="ERROR : chain sync : invalid like : invalid target : expects 'post' or 'author'"
@@ -225,15 +225,15 @@ end
 do
     print("==> sync rejects like with post not found")
 
-    local REPO_A6 = ROOT_A .. "/chains/err-post/"
-    local REPO_B6 = ROOT_B .. "/chains/err-post/"
+    local REPO_A6 = ROOT_A .. "/chains/#err-post/"
+    local REPO_B6 = ROOT_B .. "/chains/#err-post/"
 
     TEST "A creates chain + post"
-    exec(EXE_A .. " chains add err-post init file " .. GEN_1)
-    exec(EXE_A .. " chain err-post post inline 'legit' --sign " .. KEY1)
+    exec(EXE_A .. " chains add '#err-post' init file " .. GEN_1)
+    exec(EXE_A .. " chain '#err-post' post inline 'legit' --sign " .. KEY1)
 
     TEST "B clones from A"
-    exec(EXE_B .. " chains add err-post clone " .. REPO_A6)
+    exec(EXE_B .. " chains add '#err-post' clone " .. REPO_A6)
 
     TEST "A crafts like targeting nonexistent post"
     exec("mkdir -p " .. REPO_A6 .. ".freechains/likes/")
@@ -256,7 +256,7 @@ do
 
     TEST "B rejects like with post not found on sync"
     local _,Q,err = exec (true,
-        EXE_B .. " chain err-post sync recv " .. REPO_A6
+        EXE_B .. " chain '#err-post' sync recv " .. REPO_A6
     )
     assert (
         Q~=0 and err=="ERROR : chain sync : invalid like : invalid target : post not found"
@@ -268,15 +268,15 @@ end
 do
     print("==> sync rejects like with insufficient reputation")
 
-    local REPO_A7 = ROOT_A .. "/chains/err-reps/"
-    local REPO_B7 = ROOT_B .. "/chains/err-reps/"
+    local REPO_A7 = ROOT_A .. "/chains/#err-reps/"
+    local REPO_B7 = ROOT_B .. "/chains/#err-reps/"
 
     TEST "A creates chain + post"
-    exec(EXE_A .. " chains add err-reps init file " .. GEN_1)
-    local post = exec(EXE_A .. " chain err-reps post inline 'legit' --sign " .. KEY1)
+    exec(EXE_A .. " chains add '#err-reps' init file " .. GEN_1)
+    local post = exec(EXE_A .. " chain '#err-reps' post inline 'legit' --sign " .. KEY1)
 
     TEST "B clones from A"
-    exec(EXE_B .. " chains add err-reps clone " .. REPO_A7)
+    exec(EXE_B .. " chains add '#err-reps' clone " .. REPO_A7)
 
     TEST "A crafts like signed by non-pioneer (0 reps)"
     exec("mkdir -p " .. REPO_A7 .. ".freechains/likes/")
@@ -299,7 +299,7 @@ do
 
     TEST "B rejects like with insufficient reps on sync"
     local _,Q,err = exec (true,
-        EXE_B .. " chain err-reps sync recv " .. REPO_A7
+        EXE_B .. " chain '#err-reps' sync recv " .. REPO_A7
     )
     assert (
         Q~=0 and err=="ERROR : chain sync : invalid like : insufficient reputation"
@@ -311,15 +311,15 @@ end
 do
     print("==> sync rejects like with too big time difference")
 
-    local REPO_A8 = ROOT_A .. "/chains/err-time/"
-    local REPO_B8 = ROOT_B .. "/chains/err-time/"
+    local REPO_A8 = ROOT_A .. "/chains/#err-time/"
+    local REPO_B8 = ROOT_B .. "/chains/#err-time/"
 
     TEST "A creates chain + post"
-    exec(EXE_A .. " --now=10000 chains add err-time init file " .. GEN_1)
-    local post = exec(EXE_A .. " --now=11000 chain err-time post inline 'legit' --sign " .. KEY1)
+    exec(EXE_A .. " --now=10000 chains add '#err-time' init file " .. GEN_1)
+    local post = exec(EXE_A .. " --now=11000 chain '#err-time' post inline 'legit' --sign " .. KEY1)
 
     TEST "B clones from A"
-    exec(EXE_B .. " chains add err-time clone " .. REPO_A8)
+    exec(EXE_B .. " chains add '#err-time' clone " .. REPO_A8)
 
     TEST "A crafts like with old timestamp"
     exec("mkdir -p " .. REPO_A8 .. ".freechains/likes/")
@@ -342,7 +342,7 @@ do
 
     TEST "B rejects like with old timestamp on sync"
     local _,Q,err = exec (true,
-        EXE_B .. " chain err-time sync recv " .. REPO_A8
+        EXE_B .. " chain '#err-time' sync recv " .. REPO_A8
     )
     assert (
         Q~=0 and err=="ERROR : chain sync : invalid like : too old"
@@ -354,15 +354,15 @@ end
 do
     print("==> sync rejects like with fractional number")
 
-    local REPO_A9 = ROOT_A .. "/chains/err-frac/"
-    local REPO_B9 = ROOT_B .. "/chains/err-frac/"
+    local REPO_A9 = ROOT_A .. "/chains/#err-frac/"
+    local REPO_B9 = ROOT_B .. "/chains/#err-frac/"
 
     TEST "A creates chain + post"
-    exec(EXE_A .. " chains add err-frac init file " .. GEN_1)
-    local post = exec(EXE_A .. " chain err-frac post inline 'legit' --sign " .. KEY1)
+    exec(EXE_A .. " chains add '#err-frac' init file " .. GEN_1)
+    local post = exec(EXE_A .. " chain '#err-frac' post inline 'legit' --sign " .. KEY1)
 
     TEST "B clones from A"
-    exec(EXE_B .. " chains add err-frac clone " .. REPO_A9)
+    exec(EXE_B .. " chains add '#err-frac' clone " .. REPO_A9)
 
     TEST "A crafts like with fractional number"
     exec("mkdir -p " .. REPO_A9 .. ".freechains/likes/")
@@ -385,7 +385,7 @@ do
 
     TEST "B rejects like with fractional number on sync"
     local _,Q,err = exec (true,
-        EXE_B .. " chain err-frac sync recv " .. REPO_A9
+        EXE_B .. " chain '#err-frac' sync recv " .. REPO_A9
     )
     assert (
         Q~=0 and err=="ERROR : chain sync : invalid like : invalid number : expects non-zero integer"
@@ -397,15 +397,15 @@ end
 do
     print("==> sync rejects like with zero number")
 
-    local REPO_A10 = ROOT_A .. "/chains/err-zero/"
-    local REPO_B10 = ROOT_B .. "/chains/err-zero/"
+    local REPO_A10 = ROOT_A .. "/chains/#err-zero/"
+    local REPO_B10 = ROOT_B .. "/chains/#err-zero/"
 
     TEST "A creates chain + post"
-    exec(EXE_A .. " chains add err-zero init file " .. GEN_1)
-    local post = exec(EXE_A .. " chain err-zero post inline 'legit' --sign " .. KEY1)
+    exec(EXE_A .. " chains add '#err-zero' init file " .. GEN_1)
+    local post = exec(EXE_A .. " chain '#err-zero' post inline 'legit' --sign " .. KEY1)
 
     TEST "B clones from A"
-    exec(EXE_B .. " chains add err-zero clone " .. REPO_A10)
+    exec(EXE_B .. " chains add '#err-zero' clone " .. REPO_A10)
 
     TEST "A crafts like with zero number"
     exec("mkdir -p " .. REPO_A10 .. ".freechains/likes/")
@@ -428,7 +428,7 @@ do
 
     TEST "B rejects like with zero number on sync"
     local _,Q,err = exec (true,
-        EXE_B .. " chain err-zero sync recv " .. REPO_A10
+        EXE_B .. " chain '#err-zero' sync recv " .. REPO_A10
     )
     assert (
         Q~=0 and err=="ERROR : chain sync : invalid like : invalid number : expects non-zero integer"
@@ -440,17 +440,17 @@ end
 do
     print("==> sync rejects forged signature like")
 
-    local REPO_A11 = ROOT_A .. "/chains/err-forge-like/"
-    local REPO_B11 = ROOT_B .. "/chains/err-forge-like/"
+    local REPO_A11 = ROOT_A .. "/chains/#err-forge-like/"
+    local REPO_B11 = ROOT_B .. "/chains/#err-forge-like/"
 
     TEST "A creates chain"
-    exec(EXE_A .. " chains add err-forge-like init file " .. GEN_1)
+    exec(EXE_A .. " chains add '#err-forge-like' init file " .. GEN_1)
 
     TEST "B clones from A"
-    exec(EXE_B .. " chains add err-forge-like clone " .. REPO_A11)
+    exec(EXE_B .. " chains add '#err-forge-like' clone " .. REPO_A11)
 
     TEST "A crafts a like with forged signature"
-    exec(EXE_A .. " chain err-forge-like like 1 author '" .. PUB1 .. "' --sign " .. KEY1)
+    exec(EXE_A .. " chain '#err-forge-like' like 1 author '" .. PUB1 .. "' --sign " .. KEY1)
     -- Strip state commit
     exec("git -C " .. REPO_A11 .. " reset --hard HEAD~1")
     -- Tamper: change commit message, gpgsig header stays intact
@@ -468,7 +468,7 @@ do
     exec("git -C " .. REPO_A11 .. " commit -m 'x' --trailer 'Freechains: state' --allow-empty")
 
     TEST "B rejects forged like signature on sync"
-    local _,Q,err = exec(true, EXE_B .. " chain err-forge-like sync recv " .. REPO_A11)
+    local _,Q,err = exec(true, EXE_B .. " chain '#err-forge-like' sync recv " .. REPO_A11)
     assert(Q~=0 and err == "ERROR : chain sync : invalid like : invalid signature", "should fail: " .. tostring(err))
 end
 

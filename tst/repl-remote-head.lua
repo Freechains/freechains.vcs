@@ -10,9 +10,9 @@ local EXE_A  = ENV .. " ../src/freechains.lua --root=" .. ROOT_A
 local EXE_B  = ENV .. " ../src/freechains.lua --root=" .. ROOT_B
 local EXE_C  = ENV .. " ../src/freechains.lua --root=" .. ROOT_C
 
-local REPO_A = ROOT_A .. "/chains/test/"
-local REPO_B = ROOT_B .. "/chains/test/"
-local REPO_C = ROOT_C .. "/chains/test/"
+local REPO_A = ROOT_A .. "/chains/#test/"
+local REPO_B = ROOT_B .. "/chains/#test/"
+local REPO_C = ROOT_C .. "/chains/#test/"
 
 exec("mkdir -p " .. ROOT_A .. "/chains")
 exec("mkdir -p " .. ROOT_B .. "/chains")
@@ -72,7 +72,7 @@ do
     do
         TEST "chain created"
         CHAIN_HASH = exec (
-            EXE_A .. " chains add test init file " .. GEN_1
+            EXE_A .. " chains add '#test' init file " .. GEN_1
         )
         assert(#CHAIN_HASH == 41, "hash: " .. CHAIN_HASH)
         assert(CHAIN_HASH:match("^#%x+$"), "not hex")
@@ -81,7 +81,7 @@ do
     do
         TEST "post on A"
         local out = exec (
-            EXE_A .. " chain test post inline 'post from A' --sign " .. KEY1
+            EXE_A .. " chain '#test' post inline 'post from A' --sign " .. KEY1
         )
         assert(#out == 40, "hash: " .. out)
         assert(out:match("^%x+$"), "not hex")
@@ -95,7 +95,7 @@ do
     do
         TEST "clone succeeds"
         exec (
-            EXE_B .. " chains add test clone " .. URL_A .. "test/"
+            EXE_B .. " chains add '#test' clone '" .. URL_A .. "#test/'"
         )
     end
 
@@ -121,7 +121,7 @@ do
     do
         TEST "post on B"
         local out = exec (
-            EXE_B .. " chain test post inline 'post from B' --sign " .. KEY1
+            EXE_B .. " chain '#test' post inline 'post from B' --sign " .. KEY1
         )
         assert(#out == 40, "hash: " .. out)
         assert(out:match("^%x+$"), "not hex")
@@ -143,7 +143,7 @@ do
     do
         TEST "fetch from B"
         local _, code = exec (
-            "git -C " .. REPO_A .. " fetch " .. URL_B .. "test/ main"
+            "git -C " .. REPO_A .. " fetch '" .. URL_B .. "#test/' main"
         )
         assert(code == 0, "fetch failed")
 
@@ -196,13 +196,13 @@ do
     do
         TEST "A posts again"
         local out = exec (
-            EXE_A .. " chain test post inline 'second from A' --sign " .. KEY1
+            EXE_A .. " chain '#test' post inline 'second from A' --sign " .. KEY1
         )
         assert(#out == 40, "hash: " .. out)
 
         TEST "B posts again"
         local out = exec (
-            EXE_B .. " chain test post inline 'second from B' --sign " .. KEY1
+            EXE_B .. " chain '#test' post inline 'second from B' --sign " .. KEY1
         )
         assert(#out == 40, "hash: " .. out)
     end
@@ -210,7 +210,7 @@ do
     do
         TEST "A fetches from B"
         local _, code = exec (
-            "git -C " .. REPO_A .. " fetch " .. URL_B .. "test/ main"
+            "git -C " .. REPO_A .. " fetch '" .. URL_B .. "#test/' main"
         )
         assert(code == 0, "fetch failed")
 
@@ -239,7 +239,7 @@ do
     do
         TEST "B fetches from A"
         local _, code = exec (
-            "git -C " .. REPO_B .. " fetch " .. URL_A .. "test/ main"
+            "git -C " .. REPO_B .. " fetch '" .. URL_A .. "#test/' main"
         )
         assert(code == 0, "fetch failed")
 
@@ -279,14 +279,14 @@ do
     print("==> Unrelated histories rejected")
 
     local h = exec (
-        EXE_C .. " chains add test init file " .. GEN_1
+        EXE_C .. " chains add '#test' init file " .. GEN_1
     )
     assert(h ~= CHAIN_HASH, "should differ")
 
     do
         TEST "fetch from unrelated chain succeeds"
         local _, code = exec (
-            "git -C " .. REPO_C .. " fetch " .. URL_A .. "test/ main"
+            "git -C " .. REPO_C .. " fetch '" .. URL_A .. "#test/' main"
         )
         assert(code == 0, "fetch should succeed")
 
@@ -305,7 +305,7 @@ do
     do
         TEST "A posts to log.txt"
         local out = exec (
-            EXE_A .. " chain test post" .. " inline 'from A\n' --file log.txt --sign " .. KEY1
+            EXE_A .. " chain '#test' post" .. " inline 'from A\n' --file log.txt --sign " .. KEY1
         )
         assert(#out == 40, "hash: " .. out)
     end
@@ -313,7 +313,7 @@ do
     do
         TEST "B posts to log.txt"
         local out = exec (
-            EXE_B .. " chain test post" .. " inline 'from B\n' --file log.txt --sign " .. KEY1
+            EXE_B .. " chain '#test' post" .. " inline 'from B\n' --file log.txt --sign " .. KEY1
         )
         assert(#out == 40, "hash: " .. out)
     end
@@ -321,7 +321,7 @@ do
     do
         TEST "fetch succeeds"
         local _, code = exec (
-            "git -C " .. REPO_A .. " fetch " .. URL_B .. "test/ main"
+            "git -C " .. REPO_A .. " fetch '" .. URL_B .. "#test/' main"
         )
         assert(code == 0, "fetch should succeed")
 

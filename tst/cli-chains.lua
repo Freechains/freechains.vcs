@@ -2,7 +2,7 @@
 
 require "tests"
 
-local DIR = ROOT .. "/chains/cli-chains"
+local DIR = ROOT .. "/chains/#cli-chains"
 
 -- ADD
 do
@@ -11,7 +11,7 @@ do
     do
         TEST "success"
         local out, code = exec (
-            EXE .. " chains add cli-chains init file " .. GEN_0
+            EXE .. " chains add '#cli-chains' init file " .. GEN_0
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 41, "hash length: " .. #out)
@@ -57,7 +57,7 @@ do
 
     do
         TEST "duplicate alias fails"
-        local _,Q,err = exec(true, EXE .. " chains add cli-chains init file " .. GEN_0)
+        local _,Q,err = exec(true, EXE .. " chains add '#cli-chains' init file " .. GEN_0)
         assert(Q~=0 and err=="ERROR : chains add : alias already exists", "should fail: " .. tostring(err))
     end
 
@@ -70,7 +70,7 @@ do
             f:close()
         end
         local _, Q, err = exec (true,
-            EXE .. " chains add x init file " .. bad
+            EXE .. " chains add '#x' init file " .. bad
         )
         assert (
             Q~=0 and err=="ERROR : chains add : invalid genesis"
@@ -80,14 +80,14 @@ do
 
     do
         TEST "genesis file not found"
-        local _,Q,err = exec(true, EXE .. " chains add x init file /nonexistent/genesis.lua")
+        local _,Q,err = exec(true, EXE .. " chains add '#x' init file /nonexistent/genesis.lua")
         assert(Q~=0 and err=="ERROR : chains add : invalid genesis")
     end
 
     do
         TEST "init missing subcommand fails"
         local _, Q, err = exec (true,
-            EXE .. " chains add x init"
+            EXE .. " chains add '#x' init"
         )
         assert(Q~=0 and err and
             err:match("Error: a command is required")
@@ -98,7 +98,7 @@ do
     do
         TEST "init invalid subcommand fails"
         local _, Q, err = exec (true,
-            EXE .. " chains add x init bogus"
+            EXE .. " chains add '#x' init bogus"
         )
         assert(Q~=0 and err and
             err:match("Error: unknown command 'bogus'")
@@ -108,20 +108,20 @@ do
 
     do
         TEST "git init failed"
-        local _,Q,err = exec(true, ENV .. " ../src/freechains.lua --root /dev/null chains add x init file " .. GEN_0)
+        local _,Q,err = exec(true, ENV .. " ../src/freechains.lua --root /dev/null chains add '#x' init file " .. GEN_0)
         assert(Q~=0 and err=="ERROR : chains add : init failed", "should fail: " .. tostring(err))
     end
 
     do
         TEST "git clone failed"
-        local _,Q,err = exec(true, EXE .. " chains add x clone /nonexistent/repo")
+        local _,Q,err = exec(true, EXE .. " chains add '#x' clone /nonexistent/repo")
         assert(Q~=0 and err=="ERROR : chains add : clone failed")
     end
 
     do
         TEST "clone existing chain fails"
         local _,Q,err = exec (true,
-            EXE .. " chains add clone-dup clone " .. ROOT .. "/chains/cli-chains"
+            EXE .. " chains add '#clone-dup' clone " .. ROOT .. "/chains/#cli-chains"
         )
         assert(Q~=0 and err=="ERROR : chains add : clone failed", "should fail: " .. tostring(err))
     end
@@ -129,7 +129,7 @@ do
     do
         TEST "add args fails"
         local _, code = exec (true,
-            EXE .. " chains add x args --type '#'"
+            EXE .. " chains add '#x' args --type '#'"
         )
         assert(code ~= 0, "should fail")
     end
@@ -137,7 +137,7 @@ do
     do
         TEST "add remote fails"
         local _, code = exec (true,
-            EXE .. " chains add x remote host hash"
+            EXE .. " chains add '#x' remote host hash"
         )
         assert(code ~= 0, "should fail")
     end
@@ -153,19 +153,19 @@ do
             EXE .. " chains dir"
         )
         assert(code == 0, "exit code: " .. tostring(code))
-        assert(out == "cli-chains", "list: " .. out)
+        assert(out == "#cli-chains", "list: " .. out)
     end
 
     do
         TEST "dir two chains"
         exec (
-            EXE .. " chains add other init file " .. GEN_0
+            EXE .. " chains add '#other' init file " .. GEN_0
         )
         local out, code = exec(
             EXE .. " chains dir"
         )
         assert(code == 0, "exit code: " .. tostring(code))
-        assert(out == "cli-chains\nother\n", "list: " .. out)
+        assert(out == "#cli-chains\n#other\n", "list: " .. out)
     end
 end
 
@@ -176,19 +176,19 @@ do
     do
         TEST "rem success"
         local _, code = exec (
-            EXE .. " chains rem cli-chains"
+            EXE .. " chains rem '#cli-chains'"
         )
         assert(code == 0, "exit code: " .. tostring(code))
 
         TEST "dir removed"
         local _, code = exec (true,
-            "test -d " .. ROOT .. "/chains/cli-chains"
+            "test -d " .. ROOT .. "/chains/#cli-chains"
         )
         assert(code ~= 0, "dir should not exist")
 
         TEST "symlink removed"
         local _, code = exec (true,
-            "test -L " .. ROOT .. "/chains/cli-chains"
+            "test -L " .. ROOT .. "/chains/#cli-chains"
         )
         assert(code ~= 0, "symlink should not exist")
     end
@@ -196,7 +196,7 @@ do
     do
         TEST "rem nonexistent fails"
         local _, Q, err = exec (true,
-            EXE .. " chains rem nonexistent"
+            EXE .. " chains rem '#nonexistent'"
         )
         assert (
             Q~=0 and err=="ERROR : chains rem : invalid chain"
@@ -207,7 +207,7 @@ do
     do
         TEST "rem other"
         local _, code = exec (
-            EXE .. " chains rem other"
+            EXE .. " chains rem '#other'"
         )
         assert(code == 0, "exit code: " .. tostring(code))
     end
@@ -229,17 +229,17 @@ do
     do
         TEST "inline creates chain"
         local out, code = exec (
-            EXE .. " chains add inl-chat init inline --sign " .. KEY1
+            EXE .. " chains add '#inl-chat' init inline --sign " .. KEY1
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 41, "hash length: " .. #out)
         assert(out:match("^#%x+$"), "hash is hex")
 
         TEST "inline genesis"
-        local gen = ROOT .. "/chains/inl-chat/.freechains/genesis.lua"
+        local gen = ROOT .. "/chains/#inl-chat/.freechains/genesis.lua"
         local t = dofile(gen)
         assert(t.type == "#", "type: " .. tostring(t.type))
-        assert(t.name == "inl-chat", "name: " .. tostring(t.name))
+        assert(t.name == "#inl-chat", "name: " .. tostring(t.name))
         assert (
             t.pioneers and t.pioneers[1] == PUB1
             , "pioneers[1]: " .. tostring(t.pioneers and t.pioneers[1])
@@ -253,12 +253,12 @@ do
     do
         TEST "inline uses default --sign at $HOME/.ssh/id_ed25519"
         local out, code = exec (
-            "HOME=" .. SSH .. "home " .. EXE .. " chains add inl-default init inline --sign"
+            "HOME=" .. SSH .. "home " .. EXE .. " chains add '#inl-default' init inline --sign"
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 41, "hash length: " .. #out)
 
-        local gen = ROOT .. "/chains/inl-default/.freechains/genesis.lua"
+        local gen = ROOT .. "/chains/#inl-default/.freechains/genesis.lua"
         local t = dofile(gen)
         assert (
             t.pioneers and t.pioneers[1] == PUB1
@@ -269,7 +269,7 @@ do
     do
         TEST "inline with bad --sign fails"
         local _, Q, err = exec (true,
-            EXE .. " chains add inl-badkey init inline --sign /nonexistent/key"
+            EXE .. " chains add '#inl-badkey' init inline --sign /nonexistent/key"
         )
         assert (
             Q ~= 0 and err == "ERROR : chains add : invalid sign key"

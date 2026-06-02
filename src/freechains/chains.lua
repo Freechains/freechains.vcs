@@ -35,6 +35,9 @@ end
 local DIR = ARGS.root .. "/chains/"
 
 if ARGS.add then
+    if ARGS.alias:sub(1,1) ~= "#" then
+        ERROR("chains add : invalid alias : expected '#'")
+    end
     if io.open(DIR .. "/" .. ARGS.alias) then
         ERROR("chains add : alias already exists")
     end

@@ -107,7 +107,7 @@ git push <chain-id>
 To join an existing chain from a peer:
 
 ```bash
-freechains chains add myalias clone <url>
+freechains chains add #myalias clone <url>
 ```
 
 ## Index and Aliases
@@ -118,18 +118,20 @@ Aliases are symlinks in the `chains/` directory:
 
 ```
 <root>/chains/
-  <chain-id>/             git repo (working tree)
-  #sports -> <chain-id>/  symlink alias
-  $family -> <chain-id>/  symlink alias
-  @me     -> <chain-id>/  symlink alias
+  <chain-id>/              git repo (working tree)
+  #sports -> <chain-id>/   symlink alias
+  $family -> <chain-id>/   symlink alias
+  @me     -> <chain-id>/   symlink alias
 ```
 
 Aliases are **local to each peer** — two peers may use different
 aliases for the same chain.
 The genesis hash is always the authoritative identifier.
 
-Prefix conventions (`#`, `$`, `@`) are application-level
-notation and carry no meaning to the protocol.
+Aliases **must start with the type marker** (`#`, `$`, `@`) — the
+same one in the genesis `type` field.
+`chains add <alias> ...` rejects aliases without a type marker.
+Currently only `#` is implemented; `$` and `@` are reserved.
 
 ## Layers
 

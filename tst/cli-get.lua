@@ -2,15 +2,15 @@
 
 require "tests"
 
-local DIR = ROOT .. "/chains/cli-get/"
+local DIR = ROOT .. "/chains/#cli-get/"
 local UNKNOWN = "0000000000000000000000000000000000000000"
 
-exec(ENV_EXE .. " chains add cli-get init file " .. GEN_2)
+exec(ENV_EXE .. " chains add '#cli-get' init file " .. GEN_2)
 local POST = exec (
-    ENV_EXE .. " chain cli-get post inline 'hello world' --sign " .. KEY1
+    ENV_EXE .. " chain '#cli-get' post inline 'hello world' --sign " .. KEY1
 )
 local LIKE = exec (
-    ENV_EXE .. " chain cli-get like 1 post " .. POST .. " --sign " .. KEY2
+    ENV_EXE .. " chain '#cli-get' like 1 post " .. POST .. " --sign " .. KEY2
 )
 local STATE   = exec("git -C " .. DIR .. " rev-parse HEAD")
 local GENESIS = exec("git -C " .. DIR .. " rev-list --max-parents=0 HEAD")
@@ -18,10 +18,10 @@ local GENESIS = exec("git -C " .. DIR .. " rev-list --max-parents=0 HEAD")
 -- unsigned post: --beg stores it in refs/begs/, then a like merges it
 -- back into the main chain so it becomes reachable from HEAD
 local UNSIGNED = exec (
-    ENV_EXE .. " chain cli-get post inline 'unsigned content' --beg"
+    ENV_EXE .. " chain '#cli-get' post inline 'unsigned content' --beg"
 )
 local MERGE_LIKE = exec (
-    ENV_EXE .. " chain cli-get like 1 post " .. UNSIGNED .. " --sign " .. KEY2
+    ENV_EXE .. " chain '#cli-get' like 1 post " .. UNSIGNED .. " --sign " .. KEY2
 )
 
 -- GET PAYLOAD
@@ -31,7 +31,7 @@ do
     do
         TEST "payload of post"
         local out, code = exec (
-            ENV_EXE .. " chain cli-get get payload " .. POST
+            ENV_EXE .. " chain '#cli-get' get payload " .. POST
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(out == "hello world", "content: " .. out)
@@ -40,7 +40,7 @@ do
     do
         TEST "payload of like"
         local _, Q, err = exec (true,
-            ENV_EXE .. " chain cli-get get payload " .. LIKE
+            ENV_EXE .. " chain '#cli-get' get payload " .. LIKE
         )
         assert (
             Q ~= 0 and err == "ERROR : chain get : unknown post"
@@ -51,7 +51,7 @@ do
     do
         TEST "payload of state"
         local _, Q, err = exec (true,
-            ENV_EXE .. " chain cli-get get payload " .. STATE
+            ENV_EXE .. " chain '#cli-get' get payload " .. STATE
         )
         assert (
             Q ~= 0 and err == "ERROR : chain get : unknown post"
@@ -62,7 +62,7 @@ do
     do
         TEST "payload of genesis"
         local _, Q, err = exec (true,
-            ENV_EXE .. " chain cli-get get payload " .. GENESIS
+            ENV_EXE .. " chain '#cli-get' get payload " .. GENESIS
         )
         assert (
             Q ~= 0 and err == "ERROR : chain get : unknown post"
@@ -73,7 +73,7 @@ do
     do
         TEST "payload of unknown"
         local _, Q, err = exec (true,
-            ENV_EXE .. " chain cli-get get payload " .. UNKNOWN
+            ENV_EXE .. " chain '#cli-get' get payload " .. UNKNOWN
         )
         assert (
             Q ~= 0 and err == "ERROR : chain get : unknown post"
@@ -89,7 +89,7 @@ do
     do
         TEST "metadata of post"
         local out, code = exec (
-            ENV_EXE .. " chain cli-get get metadata " .. POST
+            ENV_EXE .. " chain '#cli-get' get metadata " .. POST
         )
         assert(code == 0, "exit code: " .. tostring(code))
         local T = load(out, "metadata", "t", {})()
@@ -107,7 +107,7 @@ do
     do
         TEST "metadata of like"
         local out, code = exec (
-            ENV_EXE .. " chain cli-get get metadata " .. LIKE
+            ENV_EXE .. " chain '#cli-get' get metadata " .. LIKE
         )
         assert(code == 0, "exit code: " .. tostring(code))
         local T = load(out, "metadata", "t", {})()
@@ -123,7 +123,7 @@ do
     do
         TEST "metadata of state"
         local _, Q, err = exec (true,
-            ENV_EXE .. " chain cli-get get metadata " .. STATE
+            ENV_EXE .. " chain '#cli-get' get metadata " .. STATE
         )
         assert (
             Q ~= 0 and err == "ERROR : chain get : unknown post"
@@ -134,7 +134,7 @@ do
     do
         TEST "metadata of genesis"
         local _, Q, err = exec (true,
-            ENV_EXE .. " chain cli-get get metadata " .. GENESIS
+            ENV_EXE .. " chain '#cli-get' get metadata " .. GENESIS
         )
         assert (
             Q ~= 0 and err == "ERROR : chain get : unknown post"
@@ -145,7 +145,7 @@ do
     do
         TEST "metadata of unknown"
         local _, Q, err = exec (true,
-            ENV_EXE .. " chain cli-get get metadata " .. UNKNOWN
+            ENV_EXE .. " chain '#cli-get' get metadata " .. UNKNOWN
         )
         assert (
             Q ~= 0 and err == "ERROR : chain get : unknown post"
@@ -156,7 +156,7 @@ do
     do
         TEST "metadata of unsigned post"
         local out, code = exec (
-            ENV_EXE .. " chain cli-get get metadata " .. UNSIGNED
+            ENV_EXE .. " chain '#cli-get' get metadata " .. UNSIGNED
         )
         assert(code == 0, "exit code: " .. tostring(code))
         local T = load(out, "metadata", "t", {})()
@@ -169,7 +169,7 @@ do
     do
         TEST "metadata of merge-like (beg merge, 2 backs)"
         local out, code = exec (
-            ENV_EXE .. " chain cli-get get metadata " .. MERGE_LIKE
+            ENV_EXE .. " chain '#cli-get' get metadata " .. MERGE_LIKE
         )
         assert(code == 0, "exit code: " .. tostring(code))
         local T = load(out, "metadata", "t", {})()

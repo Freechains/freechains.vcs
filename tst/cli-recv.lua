@@ -11,9 +11,9 @@ local EXE_A  = ENV .. " ../src/freechains.lua --root " .. ROOT_A
 local EXE_B  = ENV .. " ../src/freechains.lua --root " .. ROOT_B
 local EXE_C  = ENV .. " ../src/freechains.lua --root " .. ROOT_C
 
-local REPO_A = ROOT_A .. "/chains/test/"
-local REPO_B = ROOT_B .. "/chains/test/"
-local REPO_C = ROOT_C .. "/chains/test/"
+local REPO_A = ROOT_A .. "/chains/#test/"
+local REPO_B = ROOT_B .. "/chains/#test/"
+local REPO_C = ROOT_C .. "/chains/#test/"
 
 exec("mkdir -p " .. ROOT_A)
 exec("mkdir -p " .. ROOT_B)
@@ -25,14 +25,14 @@ do
 
     do
         TEST "A creates chain + posts"
-        exec(EXE_A .. " --now=1000 chains add test init file " .. GEN_1)
+        exec(EXE_A .. " --now=1000 chains add '#test' init file " .. GEN_1)
         local out = exec (
-            EXE_A .. " --now=2000 chain test post inline 'post from A' --sign " .. KEY1
+            EXE_A .. " --now=2000 chain '#test' post inline 'post from A' --sign " .. KEY1
         )
         assert(#out == 40, "hash: " .. out)
 
         TEST "B clones"
-        exec(EXE_B .. " chains add test clone " .. REPO_A)
+        exec(EXE_B .. " chains add '#test' clone " .. REPO_A)
     end
     -- A:  [state] genesis ── [post] P1 ── [state] S1
     -- B:  [state] genesis ── [post] P1 ── [state] S1
@@ -40,7 +40,7 @@ do
     do
         TEST "A posts again"
         local out = exec (
-            EXE_A .. " --now=3000 chain test post inline 'second from A' --sign " .. KEY1
+            EXE_A .. " --now=3000 chain '#test' post inline 'second from A' --sign " .. KEY1
         )
         assert(#out == 40, "hash: " .. out)
 
@@ -54,7 +54,7 @@ do
 
     do
         TEST "B recvs from A"
-        exec(EXE_B .. " --now=3500 chain test sync recv " .. REPO_A)
+        exec(EXE_B .. " --now=3500 chain '#test' sync recv " .. REPO_A)
 
         TEST "B has A's latest post"
         local A = exec("git -C " .. REPO_A .. " rev-parse HEAD")
@@ -74,12 +74,12 @@ do
     do
         TEST "A posts"
         local out = exec (
-            EXE_A .. " --now=4000 chain test post inline 'third from A' --sign " .. KEY1
+            EXE_A .. " --now=4000 chain '#test' post inline 'third from A' --sign " .. KEY1
         )
         assert(#out == 40, "hash: " .. out)
 
         TEST "B recvs from A"
-        exec(EXE_B .. " --now=4500 chain test sync recv " .. REPO_A)
+        exec(EXE_B .. " --now=4500 chain '#test' sync recv " .. REPO_A)
     end
     -- A:  genesis ── P1 ── S1 ── P2 ── S2 ── [post] P3 ── [state] S3
     -- B:  genesis ── P1 ── S1 ── P2 ── S2 ── [post] P3 ── [state] S3
@@ -87,12 +87,12 @@ do
     do
         TEST "B posts"
         local out = exec (
-            EXE_B .. " --now=5000 chain test post inline 'first from B' --sign " .. KEY1
+            EXE_B .. " --now=5000 chain '#test' post inline 'first from B' --sign " .. KEY1
         )
         assert(#out == 40, "hash: " .. out)
 
         TEST "A recvs from B"
-        exec(EXE_A .. " --now=5500 chain test sync recv " .. REPO_B)
+        exec(EXE_A .. " --now=5500 chain '#test' sync recv " .. REPO_B)
     end
     -- A:  genesis ── ... ── S3 ── [post] P4 ── [state] S4
     -- B:  genesis ── ... ── S3 ── [post] P4 ── [state] S4
@@ -118,13 +118,13 @@ do
     do
         TEST "A posts (diverge)"
         A = exec (
-            EXE_A .. " --now=6000 chain test post inline 'fourth from A' --sign " .. KEY1
+            EXE_A .. " --now=6000 chain '#test' post inline 'fourth from A' --sign " .. KEY1
         )
         assert(#A == 40, "hash: " .. A)
 
         TEST "B posts (diverge)"
         B = exec (
-            EXE_B .. " --now=7000 chain test post inline 'second from B' --sign " .. KEY1
+            EXE_B .. " --now=7000 chain '#test' post inline 'second from B' --sign " .. KEY1
         )
         assert(#B == 40, "hash: " .. B)
     end
@@ -134,7 +134,7 @@ do
     -- A <-- B
     do
         TEST "A recvs from B"
-        exec(EXE_A .. " --now=7500 chain test sync recv " .. REPO_B)
+        exec(EXE_A .. " --now=7500 chain '#test' sync recv " .. REPO_B)
 
         TEST "no wall-clock timestamps"
         local out = exec("git -C " .. REPO_A .. " log --format=%at")
@@ -162,7 +162,7 @@ do
     -- B <-- A
     do
         TEST "B recvs from A"
-        exec(EXE_B .. " --now=7500 chain test sync recv " .. REPO_A)
+        exec(EXE_B .. " --now=7500 chain '#test' sync recv " .. REPO_A)
 
         TEST "B has both post files"
         local h = io.popen("cat " .. REPO_B .. "*.txt")
@@ -221,40 +221,40 @@ do
 
         local bef = {
             author = tonumber((exec (
-                EXE_A .. " --now=8000 chain test reps author '" .. PUB1 .. "'"
+                EXE_A .. " --now=8000 chain '#test' reps author '" .. PUB1 .. "'"
             ))),
             post = tonumber((exec (
-                EXE_A .. " --now=8000 chain test reps post " .. A
+                EXE_A .. " --now=8000 chain '#test' reps post " .. A
             ))),
         }
         assert(bef.author==29, "bef.author expected 29, got " .. bef.author)
         assert(bef.post  == 0, "bef.post expected 0, got " .. bef.post)
 
         exec (
-            EXE_A .. " --now=8000 chain test like 5 post " .. A .. " --sign " .. KEY1
+            EXE_A .. " --now=8000 chain '#test' like 5 post " .. A .. " --sign " .. KEY1
         )
 
         local aft = {
             author = tonumber((exec (
-                EXE_A .. " --now=8000 chain test reps author '" .. PUB1 .. "'"
+                EXE_A .. " --now=8000 chain '#test' reps author '" .. PUB1 .. "'"
             ))),
             post = tonumber((exec (
-                EXE_A .. " --now=8000 chain test reps post " .. A
+                EXE_A .. " --now=8000 chain '#test' reps post " .. A
             ))),
         }
         assert(aft.author == 28, "aft.author expected 28, got " .. aft.author)
         assert(aft.post   == 3,  "aft.post expected 3, got " .. aft.post)
 
         TEST "B recvs from A (with like)"
-        exec(EXE_B .. " --now=8500 chain test sync recv " .. REPO_A)
+        exec(EXE_B .. " --now=8500 chain '#test' sync recv " .. REPO_A)
 
         TEST "B reflects like"
         local b = {
             author = tonumber((exec (
-                EXE_B .. " --now=8500 chain test reps author '" .. PUB1 .. "'"
+                EXE_B .. " --now=8500 chain '#test' reps author '" .. PUB1 .. "'"
             ))),
             post = tonumber((exec (
-                EXE_B .. " --now=8500 chain test reps post " .. A
+                EXE_B .. " --now=8500 chain '#test' reps post " .. A
             ))),
         }
         assert(b.author == aft.author, "author reps: A=" .. aft.author .. " B=" .. b.author)
@@ -267,9 +267,9 @@ do
     print("==> Step 5: recv unrelated histories")
 
     TEST "C creates independent chain"
-    exec(EXE_C .. " --now=1000 chains add test init file " .. GEN_1)
+    exec(EXE_C .. " --now=1000 chains add '#test' init file " .. GEN_1)
     exec (
-        EXE_C .. " --now=2000 chain test post inline 'post from C' --sign " .. KEY1
+        EXE_C .. " --now=2000 chain '#test' post inline 'post from C' --sign " .. KEY1
     )
 
     TEST "B's HEAD before recv"
@@ -277,7 +277,7 @@ do
 
     TEST "B recvs from C fails with unrelated histories"
     local _, Q, err = exec (true,
-        EXE_B .. " --now=9000 chain test sync recv " .. REPO_C
+        EXE_B .. " --now=9000 chain '#test' sync recv " .. REPO_C
     )
     assert (
         Q~=0 and err=="ERROR : chain sync : incompatible genesis"
@@ -308,7 +308,7 @@ do
 
     TEST "B recvs from A fails with state mismatch"
     local _, Q, err = exec (true,
-        EXE_B .. " --now=10000 chain test sync recv " .. REPO_A
+        EXE_B .. " --now=10000 chain '#test' sync recv " .. REPO_A
     )
     assert (
         Q~=0 and err=="ERROR : chain sync : remote state mismatch",
@@ -343,7 +343,7 @@ do
 
     TEST "B recvs from A fails with create-mode violation"
     local _, Q, err = exec (true,
-        EXE_B .. " --now=11000 chain test sync recv " .. REPO_A
+        EXE_B .. " --now=11000 chain '#test' sync recv " .. REPO_A
     )
     assert (
         Q ~= 0 and err and err:match("invalid post : mode violation"),
@@ -380,7 +380,7 @@ do
 
     TEST "B recvs from A fails with forbidden path"
     local _, Q, err = exec (true,
-        EXE_B .. " --now=12000 chain test sync recv " .. REPO_A
+        EXE_B .. " --now=12000 chain '#test' sync recv " .. REPO_A
     )
     assert (
         Q ~= 0 and err and err:match("invalid state"),

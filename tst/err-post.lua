@@ -15,15 +15,15 @@ exec("mkdir -p " .. ROOT_B)
 do
     print("==> sync rejects post with insufficient reputation")
 
-    local REPO_A1 = ROOT_A .. "/chains/err-reps/"
-    local REPO_B1 = ROOT_B .. "/chains/err-reps/"
+    local REPO_A1 = ROOT_A .. "/chains/#err-reps/"
+    local REPO_B1 = ROOT_B .. "/chains/#err-reps/"
 
     TEST "A creates chain + post"
-    exec(EXE_A .. " chains add err-reps init file " .. GEN_1)
-    exec(EXE_A .. " chain err-reps post inline 'legit' --sign " .. KEY1)
+    exec(EXE_A .. " chains add '#err-reps' init file " .. GEN_1)
+    exec(EXE_A .. " chain '#err-reps' post inline 'legit' --sign " .. KEY1)
 
     TEST "B clones from A"
-    exec(EXE_B .. " chains add err-reps clone " .. REPO_A1)
+    exec(EXE_B .. " chains add '#err-reps' clone " .. REPO_A1)
 
     TEST "A crafts post signed by non-pioneer (0 reps)"
     local f = io.open(REPO_A1 .. "forged.txt", "w")
@@ -45,7 +45,7 @@ do
 
     TEST "B rejects post with insufficient reps on sync"
     local _,Q,err = exec (true,
-        EXE_B .. " chain err-reps sync recv " .. REPO_A1
+        EXE_B .. " chain '#err-reps' sync recv " .. REPO_A1
     )
     assert (
         Q~=0 and err=="ERROR : chain sync : invalid post : insufficient reputation"
@@ -57,15 +57,15 @@ end
 do
     print("==> sync rejects post with too old timestamp")
 
-    local REPO_A2 = ROOT_A .. "/chains/err-time/"
-    local REPO_B2 = ROOT_B .. "/chains/err-time/"
+    local REPO_A2 = ROOT_A .. "/chains/#err-time/"
+    local REPO_B2 = ROOT_B .. "/chains/#err-time/"
 
     TEST "A creates chain + post"
-    exec(EXE_A .. " --now=10000 chains add err-time init file " .. GEN_1)
-    exec(EXE_A .. " --now=11000 chain err-time post inline 'legit' --sign " .. KEY1)
+    exec(EXE_A .. " --now=10000 chains add '#err-time' init file " .. GEN_1)
+    exec(EXE_A .. " --now=11000 chain '#err-time' post inline 'legit' --sign " .. KEY1)
 
     TEST "B clones from A"
-    exec(EXE_B .. " chains add err-time clone " .. REPO_A2)
+    exec(EXE_B .. " chains add '#err-time' clone " .. REPO_A2)
 
     TEST "A crafts post with old timestamp"
     local f = io.open(REPO_A2 .. "forged.txt", "w")
@@ -87,7 +87,7 @@ do
 
     TEST "B rejects post with old timestamp on sync"
     local _,Q,err = exec (true,
-        EXE_B .. " chain err-time sync recv " .. REPO_A2
+        EXE_B .. " chain '#err-time' sync recv " .. REPO_A2
     )
     assert (
         Q~=0 and err=="ERROR : chain sync : invalid post : too old"
@@ -99,18 +99,18 @@ end
 do
     print("==> sync rejects forged signature post")
 
-    local REPO_A3 = ROOT_A .. "/chains/err-forge/"
-    local REPO_B3 = ROOT_B .. "/chains/err-forge/"
+    local REPO_A3 = ROOT_A .. "/chains/#err-forge/"
+    local REPO_B3 = ROOT_B .. "/chains/#err-forge/"
 
     TEST "A creates chain + post"
-    exec(EXE_A .. " chains add err-forge init file " .. GEN_1)
-    exec(EXE_A .. " chain err-forge post inline 'legit' --sign " .. KEY1)
+    exec(EXE_A .. " chains add '#err-forge' init file " .. GEN_1)
+    exec(EXE_A .. " chain '#err-forge' post inline 'legit' --sign " .. KEY1)
 
     TEST "B clones from A"
-    exec(EXE_B .. " chains add err-forge clone " .. REPO_A3)
+    exec(EXE_B .. " chains add '#err-forge' clone " .. REPO_A3)
 
     TEST "A crafts a post with forged signature"
-    exec(EXE_A .. " chain err-forge post inline 'original content' --sign " .. KEY1)
+    exec(EXE_A .. " chain '#err-forge' post inline 'original content' --sign " .. KEY1)
     -- Strip state commit
     exec("git -C " .. REPO_A3 .. " reset --hard HEAD~1")
     -- Tamper: change commit message, gpgsig header stays intact
@@ -128,7 +128,7 @@ do
     exec("git -C " .. REPO_A3 .. " commit -m 'x' --trailer 'Freechains: state' --allow-empty")
 
     TEST "B rejects forged signature on sync"
-    local _,Q,err = exec(true, EXE_B .. " chain err-forge sync recv " .. REPO_A3)
+    local _,Q,err = exec(true, EXE_B .. " chain '#err-forge' sync recv " .. REPO_A3)
     assert(Q~=0 and err == "ERROR : chain sync : invalid post : invalid signature", "should fail: " .. tostring(err))
 end
 
@@ -137,7 +137,7 @@ do
     print("==> sync fetch failed")
 
     TEST "sync recv from nonexistent remote"
-    local _,Q,err = exec(true, EXE_A .. " chain err-forge sync recv /nonexistent/repo")
+    local _,Q,err = exec(true, EXE_A .. " chain '#err-forge' sync recv /nonexistent/repo")
     assert(Q~=0 and err=="ERROR : chain sync : fetch failed", "should fail: " .. tostring(err))
 end
 

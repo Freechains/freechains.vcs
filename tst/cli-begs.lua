@@ -3,17 +3,17 @@
 require "tests"
 local ssh = require "freechains.chain.ssh"
 
-local DIR1 = ROOT .. "/chains/cli-begs-1/"
-local DIR2 = ROOT .. "/chains/cli-begs-2/"
-local DIR3 = ROOT .. "/chains/cli-begs-3/"
-local DIR4 = ROOT .. "/chains/cli-begs-4/"
-local DIR5 = ROOT .. "/chains/cli-begs-5/"
-local DIR6 = ROOT .. "/chains/cli-begs-6/"
+local DIR1 = ROOT .. "/chains/#cli-begs-1/"
+local DIR2 = ROOT .. "/chains/#cli-begs-2/"
+local DIR3 = ROOT .. "/chains/#cli-begs-3/"
+local DIR4 = ROOT .. "/chains/#cli-begs-4/"
+local DIR5 = ROOT .. "/chains/#cli-begs-5/"
+local DIR6 = ROOT .. "/chains/#cli-begs-6/"
 
 -- 1. Simple beg
 do
     print("==> Simple beg")
-    exec(ENV_EXE .. " chains add cli-begs-1 init file " .. GEN_1)
+    exec(ENV_EXE .. " chains add '#cli-begs-1' init file " .. GEN_1)
 
     local HEAD = exec("git -C " .. DIR1 .. " rev-parse HEAD")
 
@@ -21,7 +21,7 @@ do
     do
         TEST "beg-post-succeeds"
         local out, code = exec (
-            ENV_EXE .. " chain cli-begs-1 post inline 'please help' --beg --sign " .. KEY2
+            ENV_EXE .. " chain '#cli-begs-1' post inline 'please help' --beg --sign " .. KEY2
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -53,19 +53,19 @@ end
 -- 2. Multiple begs from HEAD
 do
     print("==> Multiple begs from HEAD")
-    exec(ENV_EXE .. " chains add cli-begs-2 init file " .. GEN_1)
+    exec(ENV_EXE .. " chains add '#cli-begs-2' init file " .. GEN_1)
 
     local HEAD = exec("git -C " .. DIR2 .. " rev-parse HEAD")
 
     do
         TEST "beg-multiple-from-head"
         local out1, code1 = exec (
-            ENV_EXE .. " chain cli-begs-2 post inline 'beg from key2' --beg --sign " .. KEY2
+            ENV_EXE .. " chain '#cli-begs-2' post inline 'beg from key2' --beg --sign " .. KEY2
         )
         assert(code1 == 0, "beg1 exit code: " .. tostring(code1))
 
         local out2, code2 = exec (
-            ENV_EXE .. " chain cli-begs-2 post inline 'beg from key3' --beg --sign " .. KEY3
+            ENV_EXE .. " chain '#cli-begs-2' post inline 'beg from key3' --beg --sign " .. KEY3
         )
         assert(code2 == 0, "beg2 exit code: " .. tostring(code2))
 
@@ -85,24 +85,24 @@ end
 -- 3. Multiple begs from different heads
 do
     print("==> Multiple begs from different heads")
-    exec(ENV_EXE .. " chains add cli-begs-3 init file " .. GEN_1)
+    exec(ENV_EXE .. " chains add '#cli-begs-3' init file " .. GEN_1)
 
     -- KEY1 posts normally (advances HEAD)
-    exec(ENV_EXE .. " chain cli-begs-3 post inline 'normal post 1' --sign " .. KEY1)
+    exec(ENV_EXE .. " chain '#cli-begs-3' post inline 'normal post 1' --sign " .. KEY1)
     local HEAD1 = exec("git -C " .. DIR3 .. " rev-parse HEAD")
 
     -- KEY2 begs from HEAD1
     local BEG1 = exec (
-        ENV_EXE .. " chain cli-begs-3 post inline 'beg from head1' --beg --sign " .. KEY2
+        ENV_EXE .. " chain '#cli-begs-3' post inline 'beg from head1' --beg --sign " .. KEY2
     )
 
     -- KEY1 posts again (advances HEAD)
-    exec(ENV_EXE .. " chain cli-begs-3 post inline 'normal post 2' --sign " .. KEY1)
+    exec(ENV_EXE .. " chain '#cli-begs-3' post inline 'normal post 2' --sign " .. KEY1)
     local HEAD2 = exec("git -C " .. DIR3 .. " rev-parse HEAD")
 
     -- KEY3 begs from HEAD2
     local BEG2 = exec (
-        ENV_EXE .. " chain cli-begs-3 post inline 'beg from head2' --beg --sign " .. KEY3
+        ENV_EXE .. " chain '#cli-begs-3' post inline 'beg from head2' --beg --sign " .. KEY3
     )
 
     do
@@ -119,11 +119,11 @@ end
 do
     print("==> Likes on begs")
 
-    exec(ENV_EXE .. " chains add cli-begs-4 init file " .. GEN_1)
+    exec(ENV_EXE .. " chains add '#cli-begs-4' init file " .. GEN_1)
 
     -- KEY2 begs
     local BEG = exec (
-        ENV_EXE .. " chain cli-begs-4 post inline 'please accept me' --beg --sign " .. KEY2
+        ENV_EXE .. " chain '#cli-begs-4' post inline 'please accept me' --beg --sign " .. KEY2
     )
 
     local HEAD = exec("git -C " .. DIR4 .. " rev-parse HEAD")
@@ -137,7 +137,7 @@ do
     do
         TEST "like-beg-succeeds"
         local out, code = exec (
-            ENV_EXE .. " chain cli-begs-4 like 1 post " .. BEG .. " --sign " .. KEY1
+            ENV_EXE .. " chain '#cli-begs-4' like 1 post " .. BEG .. " --sign " .. KEY1
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -177,7 +177,7 @@ do
     do
         TEST "beg-sufficient-reps"
         local _,code,err = exec (true,
-            ENV_EXE .. " chain cli-begs-4 post inline 'another beg' --beg --sign " .. KEY2
+            ENV_EXE .. " chain '#cli-begs-4' post inline 'another beg' --beg --sign " .. KEY2
         )
         assert (code~=0 and
             err=="ERROR : chain post : --beg error : author has sufficient reputation"
@@ -189,12 +189,12 @@ do
         TEST "like-beg-insufficient-reps"
 
         local beg = exec (
-            ENV_EXE .. " chain cli-begs-4 post inline 'another beg' --beg --sign " .. KEY3
+            ENV_EXE .. " chain '#cli-begs-4' post inline 'another beg' --beg --sign " .. KEY3
         )
 
         -- KEY3 has 0 reps, should fail to like
         local _, Q, err = exec (true,
-            ENV_EXE .. " chain cli-begs-4 like 1 post " .. beg .. " --sign " .. KEY3
+            ENV_EXE .. " chain '#cli-begs-4' like 1 post " .. beg .. " --sign " .. KEY3
         )
         assert (
             Q~=0 and err=="ERROR : chain like : insufficient reputation"
@@ -209,7 +209,7 @@ do
         local beg = refs:match("refs/begs/beg%-(%x+)")
 
         local _, Q, err = exec (true,
-            ENV_EXE .. " chain cli-begs-4 like 1 post " .. beg .. " --sign " .. KEY3
+            ENV_EXE .. " chain '#cli-begs-4' like 1 post " .. beg .. " --sign " .. KEY3
         )
         assert (
             Q~=0 and err=="ERROR : chain like : insufficient reputation"
@@ -223,7 +223,7 @@ do
         do
             TEST "unsigned-beg-post-succeeds"
             local out, code = exec (
-                ENV_EXE .. " chain cli-begs-4 post inline 'unsigned beg' --beg"
+                ENV_EXE .. " chain '#cli-begs-4' post inline 'unsigned beg' --beg"
             )
             assert(code == 0, "exit code: " .. tostring(code))
             assert(#out == 40, "hash length: " .. #out)
@@ -233,7 +233,7 @@ do
         do
             TEST "like-unsigned-beg-succeeds"
             local out, code = exec (
-                ENV_EXE .. " chain cli-begs-4 like 1 post " .. UNSIGNED .. " --sign " .. KEY1
+                ENV_EXE .. " chain '#cli-begs-4' like 1 post " .. UNSIGNED .. " --sign " .. KEY1
             )
             assert(code == 0, "exit code: " .. tostring(code))
             assert(#out == 40, "hash: " .. out)
@@ -245,16 +245,16 @@ end
 do
     print("==> Merge structure (always 2-parent)")
 
-    exec(ENV_EXE .. " chains add cli-begs-5 init file " .. GEN_1)
+    exec(ENV_EXE .. " chains add '#cli-begs-5' init file " .. GEN_1)
 
     -- KEY2 begs
     local BEG = exec (
-        ENV_EXE .. " chain cli-begs-5 post inline 'merge test beg' --beg --sign " .. KEY2
+        ENV_EXE .. " chain '#cli-begs-5' post inline 'merge test beg' --beg --sign " .. KEY2
     )
     local HEAD = exec("git -C " .. DIR5 .. " rev-parse HEAD")
 
     -- KEY1 likes the beg (triggers merge)
-    exec(ENV_EXE .. " chain cli-begs-5 like 1 post " .. BEG .. " --sign " .. KEY1)
+    exec(ENV_EXE .. " chain '#cli-begs-5' like 1 post " .. BEG .. " --sign " .. KEY1)
 
     local MERGE = exec("git -C " .. DIR5 .. " rev-parse HEAD~1")
 
@@ -282,19 +282,19 @@ end
 do
     print("==> Merge structure (true merge)")
 
-    exec(ENV_EXE .. " chains add cli-begs-6 init file " .. GEN_1)
+    exec(ENV_EXE .. " chains add '#cli-begs-6' init file " .. GEN_1)
 
     -- KEY2 begs
     local BEG = exec (
-        ENV_EXE .. " chain cli-begs-6 post inline 'merge test beg' --beg --sign " .. KEY2
+        ENV_EXE .. " chain '#cli-begs-6' post inline 'merge test beg' --beg --sign " .. KEY2
     )
 
     -- KEY1 posts normally (advances HEAD past genesis)
-    exec(ENV_EXE .. " chain cli-begs-6 post inline 'normal post' --sign " .. KEY1)
+    exec(ENV_EXE .. " chain '#cli-begs-6' post inline 'normal post' --sign " .. KEY1)
     local HEAD = exec("git -C " .. DIR6 .. " rev-parse HEAD")
 
     -- KEY1 likes the beg (triggers true merge)
-    local LIKE = exec(ENV_EXE .. " chain cli-begs-6 like 1 post " .. BEG .. " --sign " .. KEY1)
+    local LIKE = exec(ENV_EXE .. " chain '#cli-begs-6' like 1 post " .. BEG .. " --sign " .. KEY1)
 
     do
         TEST "merge-has-two-parents"

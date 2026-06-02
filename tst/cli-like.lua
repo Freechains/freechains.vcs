@@ -3,8 +3,8 @@
 require "tests"
 local ssh = require "freechains.chain.ssh"
 
-exec(ENV_EXE .. " chains add cli-like init file " .. GEN_2)
-local DIR = ROOT .. "/chains/cli-like/"
+exec(ENV_EXE .. " chains add '#cli-like' init file " .. GEN_2)
+local DIR = ROOT .. "/chains/#cli-like/"
 
 -- Pioneer posts a target block
 local POST
@@ -12,7 +12,7 @@ local POST
 do
     print("==> freechains post")
     POST = exec (
-        ENV_EXE .. " chain cli-like post inline 'target post' --sign " .. KEY1
+        ENV_EXE .. " chain '#cli-like' post inline 'target post' --sign " .. KEY1
     )
     assert(#POST == 40, "target hash: " .. POST)
 
@@ -32,7 +32,7 @@ do
     do
         TEST "like-success"
         local out, code = exec (
-            ENV_EXE .. " chain cli-like like 1 post " .. POST .. " --sign " .. KEY2
+            ENV_EXE .. " chain '#cli-like' like 1 post " .. POST .. " --sign " .. KEY2
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -42,7 +42,7 @@ do
 
     do
         TEST "like-triggers-discount-refund"
-        local k1 = exec(ENV_EXE .. " chain cli-like reps author '" .. PUB1 .. "'")
+        local k1 = exec(ENV_EXE .. " chain '#cli-like' reps author '" .. PUB1 .. "'")
         -- KEY1: 15000 - 1000 (post) + 1000 (discount refund) + 450 (self-back) = 15450 -> ext 16
         assert(k1 == "16", "KEY1 reps after like: " .. k1)
     end
@@ -86,13 +86,13 @@ do
     print("==> freechains chain like (-1)")
 
     local TARGET2 = exec (
-        ENV_EXE .. " chain cli-like post inline 'another post' --sign " .. KEY1
+        ENV_EXE .. " chain '#cli-like' post inline 'another post' --sign " .. KEY1
     )
 
     do
         TEST "dislike-success"
         local out, code = exec (
-            ENV_EXE .. " chain cli-like dislike 1 post " .. TARGET2 .. " --sign " .. KEY2
+            ENV_EXE .. " chain '#cli-like' dislike 1 post " .. TARGET2 .. " --sign " .. KEY2
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -108,10 +108,10 @@ do
     do
         TEST "dislike-with-why"
         local TARGET3 = exec (
-            ENV_EXE .. " chain cli-like post inline 'bad content' --sign " .. KEY1
+            ENV_EXE .. " chain '#cli-like' post inline 'bad content' --sign " .. KEY1
         )
         local out, code = exec (
-            ENV_EXE .. " chain cli-like dislike 1 post " .. TARGET3
+            ENV_EXE .. " chain '#cli-like' dislike 1 post " .. TARGET3
             .. " --sign " .. KEY2 .. " --why 'spam content'"
         )
         assert(code == 0, "exit code: " .. tostring(code))
@@ -121,8 +121,8 @@ do
 end
 
 -- LIKE AUTHOR (fresh chain)
-exec(ENV_EXE .. " chains rem cli-like")
-exec(ENV_EXE .. " chains add cli-like init file " .. GEN_2)
+exec(ENV_EXE .. " chains rem '#cli-like'")
+exec(ENV_EXE .. " chains add '#cli-like' init file " .. GEN_2)
 do
     print("==> freechains chain like author")
 
@@ -130,7 +130,7 @@ do
     do
         TEST "like-author-success"
         local out, code = exec (
-            ENV_EXE .. " chain cli-like like 1 author '" .. PUB2 .. "'" .. " --sign " .. KEY1
+            ENV_EXE .. " chain '#cli-like' like 1 author '" .. PUB2 .. "'" .. " --sign " .. KEY1
         )
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -139,21 +139,21 @@ do
     do
         TEST "like-author-liker-cost"
         -- KEY1: 15 - 1 (cost) = 14
-        local out = exec(ENV_EXE .. " chain cli-like reps author '" .. PUB1 .. "'")
+        local out = exec(ENV_EXE .. " chain '#cli-like' reps author '" .. PUB1 .. "'")
         assert(out == "14", "liker reps: " .. out)
 
         TEST "like-author-target-gains"
         -- KEY2: 15000 + 900 = 15900 -> ext = 16
-        local out = exec(ENV_EXE .. " chain cli-like reps author '" .. PUB2 .. "'")
+        local out = exec(ENV_EXE .. " chain '#cli-like' reps author '" .. PUB2 .. "'")
         assert(out == "16", "target reps: " .. out)
     end
 
     do
         TEST "like-author-2-transfer"
         -- like 2: KEY1 pays 2000 cost, KEY2 gets 2000*90%=1800
-        exec(ENV_EXE .. " chain cli-like like 2 author '" .. PUB2 .. "'" .. " --sign " .. KEY1)
-        local k1 = exec(ENV_EXE .. " chain cli-like reps author '" .. PUB1 .. "'")
-        local k2 = exec(ENV_EXE .. " chain cli-like reps author '" .. PUB2 .. "'")
+        exec(ENV_EXE .. " chain '#cli-like' like 2 author '" .. PUB2 .. "'" .. " --sign " .. KEY1)
+        local k1 = exec(ENV_EXE .. " chain '#cli-like' reps author '" .. PUB1 .. "'")
+        local k2 = exec(ENV_EXE .. " chain '#cli-like' reps author '" .. PUB2 .. "'")
         -- KEY1: 14000 - 2000 = 12000 -> ext=12
         -- KEY2: 15900 + 1800 = 17700 -> ext=18
         assert(k1 == "12", "liker reps: " .. k1)
@@ -162,9 +162,9 @@ do
 
     do
         TEST "dislike-author"
-        exec(ENV_EXE .. " chain cli-like dislike 1 author '" .. PUB2 .. "'" .. " --sign " .. KEY1)
-        local k1 = exec(ENV_EXE .. " chain cli-like reps author '" .. PUB1 .. "'")
-        local k2 = exec(ENV_EXE .. " chain cli-like reps author '" .. PUB2 .. "'")
+        exec(ENV_EXE .. " chain '#cli-like' dislike 1 author '" .. PUB2 .. "'" .. " --sign " .. KEY1)
+        local k1 = exec(ENV_EXE .. " chain '#cli-like' reps author '" .. PUB1 .. "'")
+        local k2 = exec(ENV_EXE .. " chain '#cli-like' reps author '" .. PUB2 .. "'")
         -- KEY1: 12000 - 1000 = 11000 -> ext=11
         -- KEY2: 17700 - 900 = 16800 -> ext=17
         assert(k1 == "11", "liker reps: " .. k1)
@@ -177,14 +177,14 @@ do
     print("==> Error cases")
 
     POST = exec (
-        ENV_EXE .. " chain cli-like post inline 'target post' --sign " .. KEY1
+        ENV_EXE .. " chain '#cli-like' post inline 'target post' --sign " .. KEY1
     )
 
     do
         TEST "like-nonexistent-post"
         local fake = "0000000000000000000000000000000000000000"
         local _, Q, err = exec (true,
-            ENV_EXE .. " chain cli-like like 1 post " .. fake .. " --sign " .. KEY2
+            ENV_EXE .. " chain '#cli-like' like 1 post " .. fake .. " --sign " .. KEY2
         )
         assert (
             Q~=0 and err=="ERROR : chain like : invalid target : post not found"
@@ -195,10 +195,10 @@ do
     do
         TEST "self-like-allowed"
         local self_target = exec (
-            ENV_EXE .. " chain cli-like post inline 'self target' --sign " .. KEY1
+            ENV_EXE .. " chain '#cli-like' post inline 'self target' --sign " .. KEY1
         )
         local _, code = exec (
-            ENV_EXE .. " chain cli-like like 1 post " .. self_target .. " --sign " .. KEY1
+            ENV_EXE .. " chain '#cli-like' like 1 post " .. self_target .. " --sign " .. KEY1
         )
         assert(code == 0, "self-like should succeed")
     end
@@ -206,10 +206,10 @@ do
     do
         TEST "self-dislike-allowed"
         local self_target = exec (
-            ENV_EXE .. " chain cli-like post inline 'self dislike' --sign " .. KEY1
+            ENV_EXE .. " chain '#cli-like' post inline 'self dislike' --sign " .. KEY1
         )
         local _, code = exec (
-            ENV_EXE .. " chain cli-like dislike 1 post " .. self_target .. " --sign " .. KEY1
+            ENV_EXE .. " chain '#cli-like' dislike 1 post " .. self_target .. " --sign " .. KEY1
         )
         assert(code == 0, "self-dislike should succeed")
     end
@@ -217,7 +217,7 @@ do
     do
         TEST "like-requires-sign"
         local _, Q, err = exec (true,
-            ENV_EXE .. " chain cli-like like 1 post " .. POST
+            ENV_EXE .. " chain '#cli-like' like 1 post " .. POST
         )
         assert (
             Q~=0 and err and err:match("missing option '%-%-sign'")
@@ -228,7 +228,7 @@ do
     do
         TEST "like-zero-number"
         local _, Q, err = exec (true,
-            ENV_EXE .. " chain cli-like like 0 post " .. POST .. " --sign " .. KEY1
+            ENV_EXE .. " chain '#cli-like' like 0 post " .. POST .. " --sign " .. KEY1
         )
         assert (
             Q~=0 and err:match("Error: expected positive integer : got '0'")
@@ -236,7 +236,7 @@ do
         )
         TEST "like-non-numeric"
         local _, Q, err = exec (true,
-            ENV_EXE .. " chain cli-like like abc post " .. POST .. " --sign " .. KEY1
+            ENV_EXE .. " chain '#cli-like' like abc post " .. POST .. " --sign " .. KEY1
         )
         assert (
             Q~=0 and err:match("Error: expected positive integer : got 'abc'")
@@ -247,7 +247,7 @@ do
     do
         TEST "like-bad-target-type"
         local _, Q, err = exec (true,
-            ENV_EXE .. " chain cli-like like 1 foo " .. POST .. " --sign " .. KEY1
+            ENV_EXE .. " chain '#cli-like' like 1 foo " .. POST .. " --sign " .. KEY1
         )
         assert (
             Q~=0 and err=="ERROR : chain like : invalid target : expects 'post' or 'author'"
@@ -258,7 +258,7 @@ do
     do
         TEST "like with invalid sign key fails"
         local _,Q,err = exec (true,
-            ENV_EXE .. " chain cli-like like 1 post " .. POST .. " --sign bad-key"
+            ENV_EXE .. " chain '#cli-like' like 1 post " .. POST .. " --sign bad-key"
         )
         assert (
             Q~=0 and err=="ERROR : chain like : invalid sign key"
@@ -269,7 +269,7 @@ do
     do
         TEST "like with invalid author key fails"
         local _,Q,err = exec (true,
-            ENV_EXE .. " chain cli-like like 1 author bad-key --sign " .. KEY1
+            ENV_EXE .. " chain '#cli-like' like 1 author bad-key --sign " .. KEY1
         )
         assert (
             Q~=0 and err=="ERROR : chain like : invalid author key"

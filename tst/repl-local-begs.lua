@@ -10,9 +10,9 @@ local EXE_A  = ENV .. " ../src/freechains.lua --root " .. ROOT_A
 local EXE_B  = ENV .. " ../src/freechains.lua --root " .. ROOT_B
 local EXE_C  = ENV .. " ../src/freechains.lua --root " .. ROOT_C
 
-local REPO_A = ROOT_A .. "/chains/test/"
-local REPO_B = ROOT_B .. "/chains/test/"
-local REPO_C = ROOT_C .. "/chains/test/"
+local REPO_A = ROOT_A .. "/chains/#test/"
+local REPO_B = ROOT_B .. "/chains/#test/"
+local REPO_C = ROOT_C .. "/chains/#test/"
 
 exec("mkdir -p " .. ROOT_A)
 exec("mkdir -p " .. ROOT_B)
@@ -27,7 +27,7 @@ do
     do
         TEST "chain created"
         CHAIN_HASH = exec (
-            EXE_A .. " chains add test init file " .. GEN_0
+            EXE_A .. " chains add '#test' init file " .. GEN_0
         )
         assert(#CHAIN_HASH == 41, "hash: " .. CHAIN_HASH)
         assert(CHAIN_HASH:match("^#%x+$"), "not hex")
@@ -36,7 +36,7 @@ do
     do
         TEST "beg on A"
         local out = exec (
-            EXE_A .. " chain test post inline 'post from A' --beg"
+            EXE_A .. " chain '#test' post inline 'post from A' --beg"
         )
         assert(#out == 40, "hash: " .. out)
         assert(out:match("^%x+$"), "not hex")
@@ -50,7 +50,7 @@ do
     do
         TEST "clone succeeds"
         exec (
-            EXE_B .. " chains add test clone " .. REPO_A
+            EXE_B .. " chains add '#test' clone " .. REPO_A
         )
     end
 
@@ -87,7 +87,7 @@ do
     do
         TEST "beg on B"
         local out = exec (
-            EXE_B .. " chain test post inline 'post from B' --beg"
+            EXE_B .. " chain '#test' post inline 'post from B' --beg"
         )
         assert(#out == 40, "hash: " .. out)
         assert(out:match("^%x+$"), "not hex")
@@ -178,13 +178,13 @@ do
     do
         TEST "A begs again"
         local out = exec (
-            EXE_A .. " chain test post inline 'second from A' --beg"
+            EXE_A .. " chain '#test' post inline 'second from A' --beg"
         )
         assert(#out == 40, "hash: " .. out)
 
         TEST "B begs again"
         local out = exec (
-            EXE_B .. " chain test post inline 'second from B' --beg"
+            EXE_B .. " chain '#test' post inline 'second from B' --beg"
         )
         assert(#out == 40, "hash: " .. out)
     end
@@ -259,7 +259,7 @@ do
     print("==> Unrelated histories rejected")
 
     local h = exec (
-        EXE_C .. " chains add test init file " .. GEN_0
+        EXE_C .. " chains add '#test' init file " .. GEN_0
     )
     assert(h ~= CHAIN_HASH, "should differ")
 
@@ -291,17 +291,17 @@ do
     exec("rm -rf " .. TMP)
     exec("mkdir -p " .. ROOT_A)
     exec("mkdir -p " .. ROOT_B)
-    exec(EXE_A .. " chains add test init file " .. GEN_0)
+    exec(EXE_A .. " chains add '#test' init file " .. GEN_0)
 
     -- clone A to B
     exec (
-        EXE_B .. " chains add test clone " .. REPO_A
+        EXE_B .. " chains add '#test' clone " .. REPO_A
     )
 
     do
         TEST "A begs to log.txt"
         local out = exec (
-            EXE_A .. " chain test post inline 'from A' --file log.txt --beg"
+            EXE_A .. " chain '#test' post inline 'from A' --file log.txt --beg"
         )
         assert(#out == 40, "hash: " .. out)
     end
@@ -309,7 +309,7 @@ do
     do
         TEST "B begs to log.txt"
         local out = exec (
-            EXE_B .. " chain test post inline 'from B' --file log.txt --beg"
+            EXE_B .. " chain '#test' post inline 'from B' --file log.txt --beg"
         )
         assert(#out == 40, "hash: " .. out)
     end
