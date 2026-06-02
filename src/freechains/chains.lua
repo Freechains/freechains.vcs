@@ -111,7 +111,7 @@ if ARGS.add then
             .. " --trailer 'Freechains: state'"
         )
 
-        local hash = exec (
+        local hash = "#" .. exec (
             "git -C " .. tmp .. " rev-parse HEAD"
         )
         local final = DIR .. "/" .. hash
@@ -120,10 +120,10 @@ if ARGS.add then
             ERROR("chains add : init failed")
         end
         exec (
-            "git -C " .. final .. " config freechains.url " .. final
+            "git -C '" .. final .. "' config freechains.url '" .. final .. "'"
         )
         exec (
-            "ln -s " .. hash .. "/ " .. DIR .. "/" .. ARGS.alias
+            "ln -s '" .. hash .. "/' " .. DIR .. "/" .. ARGS.alias
         )
         print(hash)
 
@@ -141,7 +141,7 @@ if ARGS.add then
         exec (
             "cp " .. HERE .. "/hooks/pre-receive " .. tmp .. "/.git/hooks/pre-receive && chmod +x " .. tmp .. "/.git/hooks/pre-receive"
         )
-        local hash = exec (
+        local hash = "#" .. exec (
             "git -C " .. tmp .. " rev-list --max-parents=0 HEAD"
         )
         local dir = DIR .. "/" .. hash .. "/"
@@ -150,9 +150,9 @@ if ARGS.add then
             ERROR("chains add : clone failed")
         end
         exec (
-            "git -C " .. dir .. " config freechains.url " .. dir
+            "git -C '" .. dir .. "' config freechains.url '" .. dir .. "'"
         )
-        exec("ln -s " .. hash .. " " .. DIR .. "/" .. ARGS.alias)
+        exec("ln -s '" .. hash .. "' " .. DIR .. "/" .. ARGS.alias)
         print(hash)
     end
 elseif ARGS.rem then
@@ -161,7 +161,7 @@ elseif ARGS.rem then
         "readlink " .. alias
         , "chains rem : invalid chain"
     )
-    exec ("rm -rf " .. DIR .. lnk)
+    exec ("rm -rf '" .. DIR .. lnk .. "'")
     os.remove(alias)
 elseif ARGS.dir then
     local out = exec (

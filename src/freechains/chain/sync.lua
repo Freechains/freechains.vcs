@@ -7,7 +7,7 @@ if ARGS.send then
         , "chain sync : freechains.url not set"
     )
     local _, Q, err = exec (true,
-        "git -C " .. REPO ..  " push -o freechains=true -o url=" .. url .. " "
+        "git -C " .. REPO ..  " push -o freechains=true -o 'url=" .. url .. "' "
             .. ARGS.remote .. " main refs/begs/*:refs/begs/*"
     )
     if err and err:find("Freechains: OK") then

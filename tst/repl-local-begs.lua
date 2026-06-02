@@ -29,8 +29,8 @@ do
         CHAIN_HASH = exec (
             EXE_A .. " chains add test init file " .. GEN_0
         )
-        assert(#CHAIN_HASH == 40, "hash: " .. CHAIN_HASH)
-        assert(CHAIN_HASH:match("^%x+$"), "not hex")
+        assert(#CHAIN_HASH == 41, "hash: " .. CHAIN_HASH)
+        assert(CHAIN_HASH:match("^#%x+$"), "not hex")
     end
 
     do

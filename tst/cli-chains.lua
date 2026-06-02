@@ -14,8 +14,8 @@ do
             EXE .. " chains add cli-chains init file " .. GEN_0
         )
         assert(code == 0, "exit code: " .. tostring(code))
-        assert(#out == 40, "hash length: " .. #out)
-        assert(out:match("^%x+$"), "hash is hex")
+        assert(#out == 41, "hash length: " .. #out)
+        assert(out:match("^#%x+$"), "hash is hex")
 
         TEST "genesis file"
         local gen = DIR .. "/.freechains/genesis.lua"
@@ -29,7 +29,7 @@ do
 
         TEST "alias -> hash"
         local lnk = exec("readlink " .. DIR)
-        assert(lnk:match("^%x+/$"), "symlink target: " .. lnk)
+        assert(lnk:match("^#%x+/$"), "symlink target: " .. lnk)
 
         TEST "author/committer = dash"
         local author = exec("git -C " .. DIR .. " log --format=%an HEAD")
@@ -50,7 +50,7 @@ do
 
         TEST "freechains.url points to own repo"
         local url  = exec("git -C " .. DIR .. " config freechains.url")
-        local real = exec("realpath " .. url)
+        local real = exec("realpath '" .. url .. "'")
         local want = exec("realpath " .. DIR)
         assert(real == want, "url mismatch: " .. real .. " vs " .. want)
     end
@@ -232,8 +232,8 @@ do
             EXE .. " chains add inl-chat init inline --sign " .. KEY1
         )
         assert(code == 0, "exit code: " .. tostring(code))
-        assert(#out == 40, "hash length: " .. #out)
-        assert(out:match("^%x+$"), "hash is hex")
+        assert(#out == 41, "hash length: " .. #out)
+        assert(out:match("^#%x+$"), "hash is hex")
 
         TEST "inline genesis"
         local gen = ROOT .. "/chains/inl-chat/.freechains/genesis.lua"
@@ -256,7 +256,7 @@ do
             "HOME=" .. SSH .. "home " .. EXE .. " chains add inl-default init inline --sign"
         )
         assert(code == 0, "exit code: " .. tostring(code))
-        assert(#out == 40, "hash length: " .. #out)
+        assert(#out == 41, "hash length: " .. #out)
 
         local gen = ROOT .. "/chains/inl-default/.freechains/genesis.lua"
         local t = dofile(gen)
