@@ -134,7 +134,7 @@ if ARGS.add then
         )
         local tmp = DIR .. "/_tmp-" .. math.random(0, 9999999999) .. "/"
         exec ('stdout',
-            "git clone " .. ARGS.url .. " " .. tmp
+            "git clone " .. URL(ARGS.url, ARGS.alias) .. " " .. tmp
             , "chains add : clone failed"
         )
         git_config(tmp)

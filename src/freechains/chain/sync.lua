@@ -8,7 +8,7 @@ if ARGS.send then
     )
     local _, Q, err = exec (true,
         "git -C " .. REPO ..  " push -o freechains=true -o 'url=" .. url .. "' "
-            .. ARGS.remote .. " main refs/begs/*:refs/begs/*"
+            .. URL(ARGS.remote, ARGS.alias) .. " main refs/begs/*:refs/begs/*"
     )
     if err and err:find("Freechains: OK") then
         -- success: receiver's hook ran recv and rejected the push
@@ -20,7 +20,7 @@ if ARGS.send then
 elseif ARGS.recv then
     do
         exec ('stdout',
-            "git -C " .. REPO .. " fetch " .. ARGS.remote ..
+            "git -C " .. REPO .. " fetch " .. URL(ARGS.remote, ARGS.alias) ..
                 " main refs/begs/*:refs/begs/*"
             , "chain sync : fetch failed"
         )

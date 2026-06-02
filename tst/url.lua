@@ -27,7 +27,7 @@ local CASES = {
 for _, c in ipairs(CASES) do
     local input, expected, alias = c[1], c[2], c[3] or ALIAS
     TEST (input .. " -> " .. expected)
-    local got = url(input, alias)
+    local got = URL(input, alias)
     assert(got == expected, "got: " .. tostring(got))
 end
 

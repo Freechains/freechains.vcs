@@ -89,3 +89,18 @@ function serial (t)
     return "return " .. val(t) .. "\n"
 end
 
+function URL (raw, alias)
+    if not raw:find("#") then
+        local sep = (raw:sub(-1) == "/") and "" or "/"
+        raw = raw .. sep .. alias
+    end
+    if raw:match("^[/~.]") or raw:find("://") then
+        return raw
+    end
+    local hostport, path = raw:match("^([^/]+)(/?.*)$")
+    if not hostport:find(":") then
+        hostport = hostport .. ":8330"
+    end
+    return "git://" .. hostport .. path
+end
+
