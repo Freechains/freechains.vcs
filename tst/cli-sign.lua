@@ -68,13 +68,10 @@ do
 
     do
         TEST "post without --sign or --beg fails"
-        local _, Q, err = exec { err=false,
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-sign' post inline 'no auth'",
+            err = "ERROR : chain post : requires --sign or --beg",
         }
-        assert (
-            Q~=0 and err=="ERROR : chain post : requires --sign or --beg"
-            , "should fail: " .. tostring(err)
-        )
     end
 end
 
@@ -84,13 +81,10 @@ do
 
     do
         TEST "post with invalid GPG key fails"
-        local _,Q,err = exec { err=false,
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-sign' post inline 'bad key' --sign bad-key",
+            err = "ERROR : chain post : invalid sign key",
         }
-        assert (
-            Q~=0 and err=="ERROR : chain post : invalid sign key"
-            , "should fail: " .. tostring(err)
-        )
     end
 end
 

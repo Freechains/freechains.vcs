@@ -310,13 +310,10 @@ do
     }
 
     TEST "B recvs from C fails with unrelated histories"
-    local _, Q, err = exec { err=false,
+    FAIL {
         cmd = EXE_B .. " --now=9000 chain '#test' sync recv " .. REPO_C,
+        err = "ERROR : chain sync : incompatible genesis",
     }
-    assert (
-        Q~=0 and err=="ERROR : chain sync : incompatible genesis"
-        , "should fail: " .. tostring(err)
-    )
 
     TEST "B's HEAD unchanged"
     local after = exec {
@@ -346,13 +343,10 @@ do
     }
 
     TEST "B recvs from A fails with state mismatch"
-    local _, Q, err = exec { err=false,
+    FAIL {
         cmd = EXE_B .. " --now=10000 chain '#test' sync recv " .. REPO_A,
+        err = "ERROR : chain sync : remote state mismatch",
     }
-    assert (
-        Q~=0 and err=="ERROR : chain sync : remote state mismatch",
-        "should fail: " .. tostring(err)
-    )
 
     TEST "B's HEAD unchanged"
     local after = exec {
@@ -388,13 +382,10 @@ do
     }
 
     TEST "B recvs from A fails with create-mode violation"
-    local _, Q, err = exec { err=false,
+    local err = FAIL {
         cmd = EXE_B .. " --now=11000 chain '#test' sync recv " .. REPO_A,
     }
-    assert (
-        Q ~= 0 and err and err:match("invalid post : mode violation"),
-        "should fail with create-mode violation: " .. tostring(err)
-    )
+    assert(err and err:match("invalid post : mode violation"), "should fail with create-mode violation: " .. tostring(err))
 
     TEST "B's HEAD unchanged"
     local after = exec {
@@ -434,13 +425,10 @@ do
     }
 
     TEST "B recvs from A fails with forbidden path"
-    local _, Q, err = exec { err=false,
+    local err = FAIL {
         cmd = EXE_B .. " --now=12000 chain '#test' sync recv " .. REPO_A,
     }
-    assert (
-        Q ~= 0 and err and err:match("invalid state"),
-        "should fail with forbidden path: " .. tostring(err)
-    )
+    assert(err and err:match("invalid state"), "should fail with forbidden path: " .. tostring(err))
 
     TEST "B's HEAD unchanged"
     local after = exec {

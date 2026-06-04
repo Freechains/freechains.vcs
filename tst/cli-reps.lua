@@ -217,13 +217,10 @@ do
     do
         TEST "gate-blocked-no-reps"
         -- KEY2 is not a pioneer, has 0 reps -> post must fail
-        local _, Q, err = exec { err=false,
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-reps' post inline 'blocked'" .. " --sign " .. KEY2,
+            err = "ERROR : chain post : insufficient reputation",
         }
-        assert (
-            Q~=0 and err=="ERROR : chain post : insufficient reputation"
-            , "should fail: " .. tostring(err)
-        )
     end
 
     do
@@ -257,13 +254,10 @@ do
     do
         TEST "gate-beg-with-reps-fails"
         -- KEY1 is pioneer with reps -> --beg must fail
-        local _, Q, err = exec { err=false,
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-reps' post inline 'no beg needed'" .. " --sign " .. KEY1 .. " --beg",
+            err = "ERROR : chain post : --beg error : author has sufficient reputation",
         }
-        assert (
-            Q~=0 and err=="ERROR : chain post : --beg error : author has sufficient reputation"
-            , "should fail: " .. tostring(err)
-        )
     end
 
 end
@@ -274,26 +268,26 @@ do
 
     do
         TEST "reps-post-requires-hash"
-        local _,Q,err = exec { err=false,
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-reps' reps post",
+            err = "ERROR : chain reps : post requires a hash",
         }
-        assert(Q~=0 and err=="ERROR : chain reps : post requires a hash", "should fail: " .. tostring(err))
     end
 
     do
         TEST "reps-author-requires-pubkey"
-        local _,Q,err = exec { err=false,
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-reps' reps author",
+            err = "ERROR : chain reps : author requires a pubkey",
         }
-        assert(Q~=0 and err=="ERROR : chain reps : author requires a pubkey", "should fail: " .. tostring(err))
     end
 
     do
         TEST "reps-invalid-target"
-        local _,Q,err = exec { err=false,
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-reps' reps foo",
+            err = "ERROR : chain reps : invalid target : foo",
         }
-        assert(Q~=0 and err=="ERROR : chain reps : invalid target : foo", "should fail: " .. tostring(err))
     end
 
     exec {

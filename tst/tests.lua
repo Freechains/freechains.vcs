@@ -34,3 +34,15 @@ ENV_EXE = EXE
 function TEST (name)
     print("  - " .. name .. "... ")
 end
+
+-- run a command expected to FAIL; assert the error msg if given; return it
+function FAIL (t)
+    local _, code, err = exec { err = false,
+        cmd = t.cmd,
+    }
+    assert(code ~= 0, "should fail: " .. tostring(err))
+    if t.err then
+        assert(err == t.err, "should fail with: " .. tostring(err))
+    end
+    return err
+end

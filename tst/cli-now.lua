@@ -134,13 +134,10 @@ do
         exec {
             cmd = ENV_EXE .. " --now=10000 chain '#cli-now' post inline 'base2' --sign " .. KEY1,
         }
-        local _, Q, err = exec { err=false,
+        FAIL {
             cmd = ENV_EXE .. " --now=5000 chain '#cli-now' post inline 'too far back' --sign " .. KEY1,
+            err = "ERROR : chain post : too old",
         }
-        assert (
-            Q~=0 and err=="ERROR : chain post : too old"
-            , "should fail: " .. tostring(err)
-        )
     end
 
     do
@@ -148,13 +145,10 @@ do
         local h = exec {
             cmd = ENV_EXE .. " --now=10000 chain '#cli-now' post inline 'base3' --sign " .. KEY1,
         }
-        local _, Q, err = exec { err=false,
+        FAIL {
             cmd = ENV_EXE .. " --now=5000 chain '#cli-now' like 1 post " .. h .. " --sign " .. KEY1,
+            err = "ERROR : chain like : too old",
         }
-        assert (
-            Q~=0 and err=="ERROR : chain like : too old"
-            , "should fail: " .. tostring(err)
-        )
     end
 end
 

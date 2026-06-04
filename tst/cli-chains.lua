@@ -73,10 +73,10 @@ do
 
     do
         TEST "duplicate alias fails"
-        local _,Q,err = exec { err=false,
+        FAIL {
             cmd = EXE .. " chains add '#cli-chains' init file " .. GEN_0,
+            err = "ERROR : chains add : alias already exists",
         }
-        assert(Q~=0 and err=="ERROR : chains add : alias already exists", "should fail: " .. tostring(err))
     end
 
     do
@@ -87,83 +87,74 @@ do
             f:write('return "not a table"\n')
             f:close()
         end
-        local _, Q, err = exec { err=false,
+        FAIL {
             cmd = EXE .. " chains add '#x' init file " .. bad,
+            err = "ERROR : chains add : invalid genesis",
         }
-        assert (
-            Q~=0 and err=="ERROR : chains add : invalid genesis"
-            , "should fail: " .. tostring(err)
-        )
     end
 
     do
         TEST "genesis file not found"
-        local _,Q,err = exec { err=false,
+        FAIL {
             cmd = EXE .. " chains add '#x' init file /nonexistent/genesis.lua",
+            err = "ERROR : chains add : invalid genesis",
         }
-        assert(Q~=0 and err=="ERROR : chains add : invalid genesis")
     end
 
     do
         TEST "init missing subcommand fails"
-        local _, Q, err = exec { err=false,
+        local err = FAIL {
             cmd = EXE .. " chains add '#x' init",
         }
-        assert(Q~=0 and err and
-            err:match("Error: a command is required")
-            , "should fail with TODO: " .. tostring(err)
-        )
+        assert(err and
+            err:match("Error: a command is required"), "should fail with TODO: " .. tostring(err))
     end
 
     do
         TEST "init invalid subcommand fails"
-        local _, Q, err = exec { err=false,
+        local err = FAIL {
             cmd = EXE .. " chains add '#x' init bogus",
         }
-        assert(Q~=0 and err and
-            err:match("Error: unknown command 'bogus'")
-            , "should fail with TODO: " .. tostring(err)
-        )
+        assert(err and
+            err:match("Error: unknown command 'bogus'"), "should fail with TODO: " .. tostring(err))
     end
 
     do
         TEST "git init failed"
-        local _,Q,err = exec { err=false,
+        FAIL {
             cmd = ENV .. " ../src/freechains.lua --root /dev/null chains add '#x' init file " .. GEN_0,
+            err = "ERROR : chains add : init failed",
         }
-        assert(Q~=0 and err=="ERROR : chains add : init failed", "should fail: " .. tostring(err))
     end
 
     do
         TEST "git clone failed"
-        local _,Q,err = exec { err=false,
+        FAIL {
             cmd = EXE .. " chains add '#x' clone /nonexistent/repo",
+            err = "ERROR : chains add : clone failed",
         }
-        assert(Q~=0 and err=="ERROR : chains add : clone failed")
     end
 
     do
         TEST "clone existing chain fails"
-        local _,Q,err = exec { err=false,
+        FAIL {
             cmd = EXE .. " chains add '#clone-dup' clone " .. ROOT .. "/chains/#cli-chains",
+            err = "ERROR : chains add : clone failed",
         }
-        assert(Q~=0 and err=="ERROR : chains add : clone failed", "should fail: " .. tostring(err))
     end
 
     do
         TEST "add args fails"
-        local _, code = exec { err=false,
+        FAIL {
             cmd = EXE .. " chains add '#x' args --type '#'",
         }
-        assert(code ~= 0, "should fail")
     end
 
     do
         TEST "add remote fails"
-        local _, code = exec { err=false,
+        FAIL {
             cmd = EXE .. " chains add '#x' remote host hash",
         }
-        assert(code ~= 0, "should fail")
     end
 end
 
@@ -205,27 +196,22 @@ do
         assert(code == 0, "exit code: " .. tostring(code))
 
         TEST "dir removed"
-        local _, code = exec { err=false,
+        FAIL {
             cmd = "test -d " .. ROOT .. "/chains/#cli-chains",
         }
-        assert(code ~= 0, "dir should not exist")
 
         TEST "symlink removed"
-        local _, code = exec { err=false,
+        FAIL {
             cmd = "test -L " .. ROOT .. "/chains/#cli-chains",
         }
-        assert(code ~= 0, "symlink should not exist")
     end
 
     do
         TEST "rem nonexistent fails"
-        local _, Q, err = exec { err=false,
+        FAIL {
             cmd = EXE .. " chains rem '#nonexistent'",
+            err = "ERROR : chains rem : invalid chain",
         }
-        assert (
-            Q~=0 and err=="ERROR : chains rem : invalid chain"
-            , "should fail: " .. tostring(err)
-        )
     end
 
     do
@@ -292,13 +278,10 @@ do
 
     do
         TEST "inline with bad --sign fails"
-        local _, Q, err = exec { err=false,
+        FAIL {
             cmd = EXE .. " chains add '#inl-badkey' init inline --sign /nonexistent/key",
+            err = "ERROR : chains add : invalid sign key",
         }
-        assert (
-            Q ~= 0 and err == "ERROR : chains add : invalid sign key"
-            , "should fail: " .. tostring(err)
-        )
     end
 end
 

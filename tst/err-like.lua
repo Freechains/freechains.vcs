@@ -61,13 +61,10 @@ do
     }
 
     TEST "B rejects unsigned like on sync"
-    local _,Q,err = exec { err=false,
+    FAIL {
         cmd = EXE_B .. " chain '#err-sign' sync recv " .. REPO_A,
+        err = "ERROR : chain sync : invalid like : missing sign key",
     }
-    assert (
-        Q~=0 and err=="ERROR : chain sync : invalid like : missing sign key"
-        , "should fail: " .. tostring(err)
-    )
 end
 
 -- sync rejects like with no payload file
@@ -99,13 +96,10 @@ do
     }
 
     TEST "B rejects like without payload on sync"
-    local _,Q,err = exec { err=false,
+    FAIL {
         cmd = EXE_B .. " chain '#err-payload' sync recv " .. REPO_A2,
+        err = "ERROR : chain sync : invalid like : missing metadata file",
     }
-    assert (
-        Q~=0 and err=="ERROR : chain sync : invalid like : missing metadata file"
-        , "should fail: " .. tostring(err)
-    )
 end
 
 -- sync rejects like with invalid lua metadata (syntax error)
@@ -146,13 +140,10 @@ do
     }
 
     TEST "B rejects like with bad lua on sync"
-    local _,Q,err = exec { err=false,
+    FAIL {
         cmd = EXE_B .. " chain '#err-lua' sync recv " .. REPO_A3,
+        err = "ERROR : chain sync : invalid like : invalid lua metadata",
     }
-    assert (
-        Q~=0 and err=="ERROR : chain sync : invalid like : invalid lua metadata"
-        , "should fail: " .. tostring(err)
-    )
 end
 
 -- sync rejects like with invalid lua metadata (not table)
@@ -193,13 +184,10 @@ do
     }
 
     TEST "B rejects like with bad lua on sync"
-    local _,Q,err = exec { err=false,
+    FAIL {
         cmd = EXE_B .. " chain '#err-table' sync recv " .. REPO_A4,
+        err = "ERROR : chain sync : invalid like : invalid lua metadata",
     }
-    assert (
-        Q~=0 and err=="ERROR : chain sync : invalid like : invalid lua metadata"
-        , "should fail: " .. tostring(err)
-    )
 end
 
 -- sync rejects like with invalid target type
@@ -240,13 +228,10 @@ do
     }
 
     TEST "B rejects like with bad target type on sync"
-    local _,Q,err = exec { err=false,
+    FAIL {
         cmd = EXE_B .. " chain '#err-target' sync recv " .. REPO_A5,
+        err = "ERROR : chain sync : invalid like : invalid target : expects 'post' or 'author'",
     }
-    assert (
-        Q~=0 and err=="ERROR : chain sync : invalid like : invalid target : expects 'post' or 'author'"
-        , "should fail: " .. tostring(err)
-    )
 end
 
 -- sync rejects like with nonexistent post target
@@ -287,13 +272,10 @@ do
     }
 
     TEST "B rejects like with post not found on sync"
-    local _,Q,err = exec { err=false,
+    FAIL {
         cmd = EXE_B .. " chain '#err-post' sync recv " .. REPO_A6,
+        err = "ERROR : chain sync : invalid like : invalid target : post not found",
     }
-    assert (
-        Q~=0 and err=="ERROR : chain sync : invalid like : invalid target : post not found"
-        , "should fail: " .. tostring(err)
-    )
 end
 
 -- sync rejects like from author with insufficient reputation
@@ -334,13 +316,10 @@ do
     }
 
     TEST "B rejects like with insufficient reps on sync"
-    local _,Q,err = exec { err=false,
+    FAIL {
         cmd = EXE_B .. " chain '#err-reps' sync recv " .. REPO_A7,
+        err = "ERROR : chain sync : invalid like : insufficient reputation",
     }
-    assert (
-        Q~=0 and err=="ERROR : chain sync : invalid like : insufficient reputation"
-        , "should fail: " .. tostring(err)
-    )
 end
 
 -- sync rejects like with too big time difference
@@ -381,13 +360,10 @@ do
     }
 
     TEST "B rejects like with old timestamp on sync"
-    local _,Q,err = exec { err=false,
+    FAIL {
         cmd = EXE_B .. " chain '#err-time' sync recv " .. REPO_A8,
+        err = "ERROR : chain sync : invalid like : too old",
     }
-    assert (
-        Q~=0 and err=="ERROR : chain sync : invalid like : too old"
-        , "should fail: " .. tostring(err)
-    )
 end
 
 -- sync rejects like with fractional number
@@ -428,13 +404,10 @@ do
     }
 
     TEST "B rejects like with fractional number on sync"
-    local _,Q,err = exec { err=false,
+    FAIL {
         cmd = EXE_B .. " chain '#err-frac' sync recv " .. REPO_A9,
+        err = "ERROR : chain sync : invalid like : invalid number : expects non-zero integer",
     }
-    assert (
-        Q~=0 and err=="ERROR : chain sync : invalid like : invalid number : expects non-zero integer"
-        , "should fail: " .. tostring(err)
-    )
 end
 
 -- sync rejects like with zero number
@@ -475,13 +448,10 @@ do
     }
 
     TEST "B rejects like with zero number on sync"
-    local _,Q,err = exec { err=false,
+    FAIL {
         cmd = EXE_B .. " chain '#err-zero' sync recv " .. REPO_A10,
+        err = "ERROR : chain sync : invalid like : invalid number : expects non-zero integer",
     }
-    assert (
-        Q~=0 and err=="ERROR : chain sync : invalid like : invalid number : expects non-zero integer"
-        , "should fail: " .. tostring(err)
-    )
 end
 
 -- sync rejects like with forged signature
@@ -532,10 +502,10 @@ do
     }
 
     TEST "B rejects forged like signature on sync"
-    local _,Q,err = exec { err=false,
+    FAIL {
         cmd = EXE_B .. " chain '#err-forge-like' sync recv " .. REPO_A11,
+        err = "ERROR : chain sync : invalid like : invalid signature",
     }
-    assert(Q~=0 and err == "ERROR : chain sync : invalid like : invalid signature", "should fail: " .. tostring(err))
 end
 
 print("<== ALL PASSED")

@@ -214,13 +214,10 @@ do
 
     do
         TEST "beg-sufficient-reps"
-        local _,code,err = exec { err=false,
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-begs-4' post inline 'another beg' --beg --sign " .. KEY2,
+            err = "ERROR : chain post : --beg error : author has sufficient reputation",
         }
-        assert (code~=0 and
-            err=="ERROR : chain post : --beg error : author has sufficient reputation"
-            , err
-        )
     end
 
     do
@@ -231,13 +228,10 @@ do
         }
 
         -- KEY3 has 0 reps, should fail to like
-        local _, Q, err = exec { err=false,
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-begs-4' like 1 post " .. beg .. " --sign " .. KEY3,
+            err = "ERROR : chain like : insufficient reputation",
         }
-        assert (
-            Q~=0 and err=="ERROR : chain like : insufficient reputation"
-            , "should fail: " .. tostring(err)
-        )
 
         TEST "like-beg-self-like-no-reps"
         -- KEY3 begged (0 reps), tries to like own beg
@@ -246,13 +240,10 @@ do
         }
         local beg = refs:match("refs/begs/beg%-(%x+)")
 
-        local _, Q, err = exec { err=false,
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-begs-4' like 1 post " .. beg .. " --sign " .. KEY3,
+            err = "ERROR : chain like : insufficient reputation",
         }
-        assert (
-            Q~=0 and err=="ERROR : chain like : insufficient reputation"
-            , "should fail: " .. tostring(err)
-        )
     end
 
     -- regression: nil-author when liking an unsigned --beg post

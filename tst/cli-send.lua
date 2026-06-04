@@ -59,40 +59,36 @@ do
     assert(ok == 0, "B hook missing or not executable")
 
     TEST "reject push to refs/heads/hack"
-    local _, ok, err = exec { err=false,
+    local err = FAIL {
         cmd = "git -C " .. REPO_A .. " push " .. REPO_B .. " main:refs/heads/hack",
     }
-    assert(ok ~= 0, "refs/heads/hack : push should have failed")
     assert (
         err and err:find("ERROR : chain sync : unexpected ref : refs/heads/hack"),
         "refs/heads/hack : unexpected stderr: " .. tostring(err)
     )
 
     TEST "reject push to refs/tags/v1"
-    local _, ok, err = exec { err=false,
+    local err = FAIL {
         cmd = "git -C " .. REPO_A .. " push " .. REPO_B .. " main:refs/tags/v1",
     }
-    assert(ok ~= 0, "refs/tags/v1 : push should have failed")
     assert (
         err and err:find("ERROR : chain sync : unexpected ref : refs/tags/v1"),
         "refs/tags/v1 : unexpected stderr: " .. tostring(err)
     )
 
     TEST "refs/begs/foo without freechains option -> missing option"
-    local _, ok, err = exec { err=false,
+    local err = FAIL {
         cmd = "git -C " .. REPO_A .. " push " .. REPO_B .. " main:refs/begs/foo",
     }
-    assert(ok ~= 0, "refs/begs/foo : push should have failed")
     assert (
         err and err:find("ERROR : chain sync : missing freechains push option"),
         "refs/begs/foo : unexpected stderr: " .. tostring(err)
     )
 
     TEST "reject multi-ref push with unexpected refs"
-    local _, ok, err = exec { err=false,
+    local err = FAIL {
         cmd = "git -C " .. REPO_A .. " push " .. REPO_B .. " main:refs/heads/alpha main:refs/heads/beta",
     }
-    assert(ok ~= 0, "multi-ref : push should have failed")
     assert (
         err and err:find("ERROR : chain sync : unexpected ref : refs/heads/alpha")
             or err:find("ERROR : chain sync : unexpected ref : refs/heads/beta"),
@@ -105,20 +101,18 @@ do
     }
 
     TEST "reject push without freechains option"
-    local _, ok, err = exec { err=false,
+    local err = FAIL {
         cmd = "git -C " .. REPO_A .. " push " .. REPO_B .. " main",
     }
-    assert(ok ~= 0, "push without options : should have failed")
     assert (
         err and err:find("ERROR : chain sync : missing freechains push option"),
         "no freechains option : unexpected stderr: " .. tostring(err)
     )
 
     TEST "reject push without url option"
-    local _, ok, err = exec { err=false,
+    local err = FAIL {
         cmd = "git -C " .. REPO_A .. " push -o freechains=true " .. REPO_B .. " main",
     }
-    assert(ok ~= 0, "push without url : should have failed")
     assert (
         err and err:find("ERROR : chain sync : missing url push option"),
         "no url option : unexpected stderr: " .. tostring(err)
@@ -163,13 +157,10 @@ do
     }
 
     TEST "X sends to B: push should be rejected"
-    local _, Q, err = exec { err=false,
+    local err = FAIL {
         cmd = EXE_X .. " chain '#test' sync send " .. REPO_B,
     }
-    assert (
-        Q~=0 and err and err:find("ERROR : chain sync : invalid like : insufficient reputation"),
-        "send should fail: " .. tostring(err)
-    )
+    assert(err and err:find("ERROR : chain sync : invalid like : insufficient reputation"), "send should fail: " .. tostring(err))
 end
 
 -- 3. A send after 1st post
@@ -428,13 +419,10 @@ do
     }
 
     TEST "B recvs from C fails with unrelated histories"
-    local _, Q, err = exec { err=false,
+    FAIL {
         cmd = EXE_B .. " --now=9000 chain '#test' sync recv " .. REPO_C,
+        err = "ERROR : chain sync : incompatible genesis",
     }
-    assert (
-        Q~=0 and err=="ERROR : chain sync : incompatible genesis"
-        , "should fail: " .. tostring(err)
-    )
 
     TEST "B's HEAD unchanged"
     local after = exec {

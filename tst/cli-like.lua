@@ -219,13 +219,10 @@ do
     do
         TEST "like-nonexistent-post"
         local fake = "0000000000000000000000000000000000000000"
-        local _, Q, err = exec { err=false,
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-like' like 1 post " .. fake .. " --sign " .. KEY2,
+            err = "ERROR : chain like : invalid target : post not found",
         }
-        assert (
-            Q~=0 and err=="ERROR : chain like : invalid target : post not found"
-            , "should fail: " .. tostring(err)
-        )
     end
 
     do
@@ -252,65 +249,47 @@ do
 
     do
         TEST "like-requires-sign"
-        local _, Q, err = exec { err=false,
+        local err = FAIL {
             cmd = ENV_EXE .. " chain '#cli-like' like 1 post " .. POST,
         }
-        assert (
-            Q~=0 and err and err:match("missing option '%-%-sign'")
-            , "should fail: " .. tostring(err)
-        )
+        assert(err and err:match("missing option '%-%-sign'"), "should fail: " .. tostring(err))
     end
 
     do
         TEST "like-zero-number"
-        local _, Q, err = exec { err=false,
+        local err = FAIL {
             cmd = ENV_EXE .. " chain '#cli-like' like 0 post " .. POST .. " --sign " .. KEY1,
         }
-        assert (
-            Q~=0 and err:match("Error: expected positive integer : got '0'")
-            , "like with 0 should fail"
-        )
+        assert(err:match("Error: expected positive integer : got '0'"), "like with 0 should fail")
         TEST "like-non-numeric"
-        local _, Q, err = exec { err=false,
+        local err = FAIL {
             cmd = ENV_EXE .. " chain '#cli-like' like abc post " .. POST .. " --sign " .. KEY1,
         }
-        assert (
-            Q~=0 and err:match("Error: expected positive integer : got 'abc'")
-            , "should fail with non-numeric number"
-        )
+        assert(err:match("Error: expected positive integer : got 'abc'"), "should fail with non-numeric number")
     end
 
     do
         TEST "like-bad-target-type"
-        local _, Q, err = exec { err=false,
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-like' like 1 foo " .. POST .. " --sign " .. KEY1,
+            err = "ERROR : chain like : invalid target : expects 'post' or 'author'",
         }
-        assert (
-            Q~=0 and err=="ERROR : chain like : invalid target : expects 'post' or 'author'"
-            , "should fail: " .. tostring(err)
-        )
     end
 
     do
         TEST "like with invalid sign key fails"
-        local _,Q,err = exec { err=false,
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-like' like 1 post " .. POST .. " --sign bad-key",
+            err = "ERROR : chain like : invalid sign key",
         }
-        assert (
-            Q~=0 and err=="ERROR : chain like : invalid sign key"
-            , "should fail: " .. tostring(err)
-        )
     end
 
     do
         TEST "like with invalid author key fails"
-        local _,Q,err = exec { err=false,
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-like' like 1 author bad-key --sign " .. KEY1,
+            err = "ERROR : chain like : invalid author key",
         }
-        assert (
-            Q~=0 and err=="ERROR : chain like : invalid author key"
-            , "should fail: " .. tostring(err)
-        )
     end
 end
 

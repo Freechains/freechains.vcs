@@ -208,10 +208,9 @@ do
     }
 
     TEST "X sends to B: rejected"
-    local _, Q, err = exec { err=false,
+    local err = FAIL {
         cmd = EXE_X .. " chain '#test' sync send " .. REPO_B,
     }
-    assert(Q ~= 0, "send should fail")
     assert (
         err and err:find("insufficient reputation"),
         "expected reps error, got: " .. tostring(err)

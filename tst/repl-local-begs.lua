@@ -283,10 +283,9 @@ do
             cmd = "git -C " .. REPO_C .. " for-each-ref refs/begs/ --sort=refname --format='%(refname)'",
         }
         local first = ref:match("[^\n]+")
-        local _, code = exec { err=false,
+        FAIL {
             cmd = "git -C " .. REPO_C .. " merge --no-commit --no-ff " .. first,
         }
-        assert(code ~= 0, "should reject unrelated histories")
     end
 end
 
@@ -352,10 +351,9 @@ do
 
     do
         TEST "merge second beg fails with conflict"
-        local _, code = exec { err=false,
+        FAIL {
             cmd = "git -C " .. REPO_A .. " merge --no-edit " .. ref2,
         }
-        assert(code ~= 0, "should fail with conflict")
     end
 
     do

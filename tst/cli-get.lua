@@ -45,46 +45,34 @@ do
 
     do
         TEST "payload of like"
-        local _, Q, err = exec { err=false,
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-get' get payload " .. LIKE,
+            err = "ERROR : chain get : unknown post",
         }
-        assert (
-            Q ~= 0 and err == "ERROR : chain get : unknown post"
-            , "should fail: " .. tostring(err)
-        )
     end
 
     do
         TEST "payload of state"
-        local _, Q, err = exec { err=false,
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-get' get payload " .. STATE,
+            err = "ERROR : chain get : unknown post",
         }
-        assert (
-            Q ~= 0 and err == "ERROR : chain get : unknown post"
-            , "should fail: " .. tostring(err)
-        )
     end
 
     do
         TEST "payload of genesis"
-        local _, Q, err = exec { err=false,
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-get' get payload " .. GENESIS,
+            err = "ERROR : chain get : unknown post",
         }
-        assert (
-            Q ~= 0 and err == "ERROR : chain get : unknown post"
-            , "should fail: " .. tostring(err)
-        )
     end
 
     do
         TEST "payload of unknown"
-        local _, Q, err = exec { err=false,
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-get' get payload " .. UNKNOWN,
+            err = "ERROR : chain get : unknown post",
         }
-        assert (
-            Q ~= 0 and err == "ERROR : chain get : unknown post"
-            , "should fail: " .. tostring(err)
-        )
     end
 end
 
@@ -128,35 +116,26 @@ do
 
     do
         TEST "metadata of state"
-        local _, Q, err = exec { err=false,
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-get' get metadata " .. STATE,
+            err = "ERROR : chain get : unknown post",
         }
-        assert (
-            Q ~= 0 and err == "ERROR : chain get : unknown post"
-            , "should fail: " .. tostring(err)
-        )
     end
 
     do
         TEST "metadata of genesis"
-        local _, Q, err = exec { err=false,
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-get' get metadata " .. GENESIS,
+            err = "ERROR : chain get : unknown post",
         }
-        assert (
-            Q ~= 0 and err == "ERROR : chain get : unknown post"
-            , "should fail: " .. tostring(err)
-        )
     end
 
     do
         TEST "metadata of unknown"
-        local _, Q, err = exec { err=false,
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-get' get metadata " .. UNKNOWN,
+            err = "ERROR : chain get : unknown post",
         }
-        assert (
-            Q ~= 0 and err == "ERROR : chain get : unknown post"
-            , "should fail: " .. tostring(err)
-        )
     end
 
     do
