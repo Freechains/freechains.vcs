@@ -170,7 +170,7 @@ $ freechains --root=/tmp/peer-B/ chain '#chat' list dag
 - Post again from `A`:
 
 ```
-$ freechains chain '#chat' post inline "Sync me!\n" --sign
+$ freechains chain '#chat' post inline $'Sync me\n' --sign
 e1f2a3b...
 ```
 
