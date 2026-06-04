@@ -87,26 +87,20 @@ freechains --root=/tmp/tests/ ...
 
 ### Basics
 
-- Create an SSH keypair:
+To operate on the chains, `Alice` first needs to create an SSH keypair:
 
 ```
-$ ssh-keygen -t ed25519
+$ ssh-keygen -t ed25519 -C '' -f /tmp/alice
 ```
 
-The keypair in `~/.ssh/*` becomes your default identity:
+`Alice` can now create a chain locally:
 
 ```
-$ ls ~/.ssh/id_ed25519*
-```
-
-- Create a chain locally:
-
-```
-$ freechains chains add '#chat' init inline --sign
+$ freechains chains add '#chat' init inline --sign=/tmp/alice
 #461cfb4...
 ```
 
-This creates the public chain `#chat`, with you as the sole pioneer.
+This creates the public chain `#chat`, with `Alice` as the sole pioneer.
 The output is the chain's unique identifier across all peers.
 
 Note that the exact hash identifiers depend on local creation time and thus
@@ -121,9 +115,9 @@ $ ls ~/.freechains/chains/
 With the chain set, we can now post some content:
 
 ```
-$ freechains chain '#chat' post inline $'Hello World\n' --sign
+$ freechains chain '#chat' post inline $'Hello World\n' --sign=/tmp/alice
 b52c62f...
-$ freechains chain '#chat' post inline $'I am here\n'   --sign
+$ freechains chain '#chat' post inline $'I am here\n'   --sign=/tmp/alice
 d6568e4...
 ```
 
@@ -204,7 +198,7 @@ $ freechains --root=/tmp/peer-B/ chains add '#chat' clone localhost
 ```
 Note that the chain id is the same in both peers (`#461cfb4...`).
 
-You may now list the posts in peer `B`:
+We may now list the posts in peer `B`:
 
 ```
 $ freechains --root=/tmp/peer-B/ chain '#chat' list dag
@@ -216,7 +210,7 @@ $ freechains --root=/tmp/peer-B/ chain '#chat' list dag
 To illustrate how peers synchonize over time, let's post again in peer `A`:
 
 ```
-$ freechains chain '#chat' post inline $'Sync me\n' --sign
+$ freechains chain '#chat' post inline $'Sync me\n' --sign=/tmp/alice
 e1f2a3b...
 ```
 
@@ -276,9 +270,9 @@ ERROR : chain post : insufficient reputation
 Let's query the public keys from both users:
 
 ```
-$ cat ~/.ssh/id_ed25519.pub ;   # <-- you
+$ cat /tmp/alice.pub
 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMIF9tHWFQPIoV7vwhk1/Cdh20XxDFme804wcvzTc96I xxx@xxx.com
-$ cat /tmp/peer-B/bob.pub       # <-- Bob
+$ cat /tmp/bob.pub
 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE2Cb41DBUuNgju+Y1pfhgN18N3yE/IRDRtFbje8+xIa yyy@yyy.com
 ```
 
@@ -291,18 +285,18 @@ $ freechains chain '#chat' reps author 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE2C
 0
 ```
 
-As the chain pioneer, you still have `29 reps` to use, whereas `Bob` has no
+As the chain pioneer, `Alice` still has `29 reps` to use, whereas `Bob` has no
 reputation and cannot post on the chain.
 
 To welcome new users into the chain, the pioneer needs to redistribute a share
 of its `reps`:
 
 ```
-$ freechains chain '#chat' like 10 author 'ssh-ed25519 ...je8+xIa' --sign
+$ freechains chain '#chat' like 10 author 'ssh-ed25519 ...je8+xIa' --sign=/tmp/alice
 560a55ce9a983ff505429da5719c0fe46a304414
 ```
 
-We just transferred `10` of your `reps` to `Bob`:
+`Alice` just transferred `10 reps` to `Bob`:
 
 ```
 $ freechains chain '#chat' reps author 'ssh-ed25519 ...vzTc96I'
