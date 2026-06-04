@@ -85,7 +85,7 @@ freechains --root=/tmp/tests/ ...
 ```
 -->
 
-Follows a step-by-step execution:
+### Basics
 
 - Create an SSH keypair:
 
@@ -177,28 +177,28 @@ return {
 These are the basic steps to create keys and chains, and to post and read
 content locally.
 
-### Peer-to-Peer Synchronization
+### Synchronization
 
-- Communicate with other peers over the Internet:
-
-As peer `A`, serve the chains with a daemon:
+- Serve chains with a daemon:
 
 ```
+# Switch to new terminal...
 $ freechains daemon
 Serving on port 8330...
 ```
 
-(Switch to another terminal...)
+As peer `A`, we serve the chains over the Internet on default port `8330`.
 
-As peer `B`, here using a separate `--root` on the same machine, clone the
-chain in `A`:
+- Clone a chain remotely:
 
 ```
 $ freechains --root=/tmp/peer-B/ chains add '#chat' clone localhost
 #461cfb4...
 ```
 
-Note that the chain id is the same in both peers.
+As peer `B`, we simulate another machine using a separate `--root`, and cloned
+the chain in peer `A`.
+Note that the chain id is the same in both peers (`#461cfb4...`).
 
 You may now list the posts in peer `B`:
 
@@ -209,27 +209,26 @@ $ freechains --root=/tmp/peer-B/ chain '#chat' list dag
                  d6568e4
 ```
 
-- Post again from `A`:
+- Create a divergence between peers:
 
 ```
 $ freechains chain '#chat' post inline $'Sync me\n' --sign
 e1f2a3b...
 ```
 
-Now, peers `A` and `B` diverge and need to synchronize.
+We posted again locally in peer `A`, making `B` outdated.
 
-- Synchronize with `B`:
+- Synchronize peers:
 
 As peer `B`, serve a daemon on another port:
 
 ```
+# Switch to new terminal...
 $ freechains --root=/tmp/peer-B/ daemon --hub --port=8331
 Serving on port 8331...
 ```
 
 The option `--hub` allows peers to push changes to it.
-
-(Switch to another terminal...)
 
 As peer `A`, send the new post to peer `B` on port `8331`:
 
@@ -248,6 +247,22 @@ $ freechains --root=/tmp/peer-B/ chain '#chat' list dag
                  e1f2a3b
 ```
 
-### Reputation & Consensus
+Note that synchronization is always explicitly peer-to-peer, through `send` (or
+`recv`).
 
-(TODO: skip for now)
+### Reputation
+
+Let's introduce a new user `Bob` that acts through peer `B`:
+
+```
+$ ssh-keygen -t ed25519 -f /tmp/peer-B/bob
+```
+
+- Post again from `A`:
+
+```
+$ freechains chain '#chat' post inline $'Sync me\n' --sign
+e1f2a3b...
+```
+
+### Consensus
