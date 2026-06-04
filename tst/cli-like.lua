@@ -208,6 +208,26 @@ do
     end
 end
 
+-- WHITESPACE TRIM
+do
+    print("==> Whitespace trim")
+
+    do
+        TEST "like-author-whitespace"
+        local before_s = exec {
+            cmd = ENV_EXE .. " chain '#cli-like' reps author '" .. PUB2 .. "'",
+        }
+        exec {
+            cmd = ENV_EXE .. " chain '#cli-like' like 1 author ' " .. PUB2 .. " \n' --sign " .. KEY1,
+        }
+        local after_s = exec {
+            cmd = ENV_EXE .. " chain '#cli-like' reps author '" .. PUB2 .. "'",
+        }
+        local before, after = tonumber(before_s), tonumber(after_s)
+        assert(after > before, "expected reps gain, got " .. before .. " -> " .. after)
+    end
+end
+
 -- ERROR CASES
 do
     print("==> Error cases")
@@ -288,6 +308,14 @@ do
         TEST "like with invalid author key fails"
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-like' like 1 author bad-key --sign " .. KEY1,
+            err = "ERROR : chain like : invalid author key",
+        }
+    end
+
+    do
+        TEST "like-author-only-whitespace"
+        FAIL {
+            cmd = ENV_EXE .. " chain '#cli-like' like 1 author '   ' --sign " .. KEY1,
             err = "ERROR : chain like : invalid author key",
         }
     end

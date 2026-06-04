@@ -1,5 +1,7 @@
 local ssh = require "freechains.chain.ssh"
 
+ARGS.id = ARGS.id:match("^%s*(.-)%s*$")
+
 -- num
 local num = ARGS.number * C.reps.unit
 if ARGS.dislike then

@@ -262,6 +262,39 @@ do
 
 end
 
+-- WHITESPACE TRIM
+do
+    print("==> Whitespace trim")
+
+    do
+        TEST "reps-author-whitespace"
+        local clean = exec {
+            cmd = ENV_EXE .. " chain '#cli-reps' reps author '" .. PUB1 .. "'",
+        }
+        local padded = exec {
+            cmd = ENV_EXE .. " chain '#cli-reps' reps author ' " .. PUB1 .. " \n'",
+        }
+        assert(clean == padded, "trimmed lookup mismatch: " .. clean .. " vs " .. padded)
+        assert(tonumber(clean) > 0, "expected non-zero reps: " .. clean)
+    end
+
+    do
+        TEST "reps-post-whitespace"
+        local posts = exec {
+            cmd = ENV_EXE .. " chain '#cli-reps' reps posts",
+        }
+        local hash = posts:match("(%x+)")
+        assert(hash, "no post available")
+        local clean = exec {
+            cmd = ENV_EXE .. " chain '#cli-reps' reps post " .. hash,
+        }
+        local padded = exec {
+            cmd = ENV_EXE .. " chain '#cli-reps' reps post ' " .. hash .. " \n'",
+        }
+        assert(clean == padded, "trimmed post lookup mismatch: " .. clean .. " vs " .. padded)
+    end
+end
+
 -- ERROR PATHS
 do
     print("==> Error paths")

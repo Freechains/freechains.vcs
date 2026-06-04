@@ -8,6 +8,10 @@ local function ext (int)
     end
 end
 
+if ARGS.key then
+    ARGS.key = ARGS.key:match("^%s*(.-)%s*$")
+end
+
 if ARGS.target == "post" then
     if not ARGS.key then
         ERROR("chain reps : post requires a hash")
