@@ -189,7 +189,7 @@ The option `--hub` allows peers to push changes to it.
 
 (Switch to another terminal...)
 
-As peer `A`, send the new post over `git://`:
+As peer `A`, send the new post to peer `B` on port `8331`:
 
 ```
 $ freechains chain '#chat' sync send localhost:8331
