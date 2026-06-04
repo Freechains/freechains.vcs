@@ -61,7 +61,7 @@ do
     }
 
     TEST "B rejects unsigned like on sync"
-    local _,Q,err = exec { err=true,
+    local _,Q,err = exec { err=false,
         cmd = EXE_B .. " chain '#err-sign' sync recv " .. REPO_A,
     }
     assert (
@@ -99,7 +99,7 @@ do
     }
 
     TEST "B rejects like without payload on sync"
-    local _,Q,err = exec { err=true,
+    local _,Q,err = exec { err=false,
         cmd = EXE_B .. " chain '#err-payload' sync recv " .. REPO_A2,
     }
     assert (
@@ -146,7 +146,7 @@ do
     }
 
     TEST "B rejects like with bad lua on sync"
-    local _,Q,err = exec { err=true,
+    local _,Q,err = exec { err=false,
         cmd = EXE_B .. " chain '#err-lua' sync recv " .. REPO_A3,
     }
     assert (
@@ -193,7 +193,7 @@ do
     }
 
     TEST "B rejects like with bad lua on sync"
-    local _,Q,err = exec { err=true,
+    local _,Q,err = exec { err=false,
         cmd = EXE_B .. " chain '#err-table' sync recv " .. REPO_A4,
     }
     assert (
@@ -240,7 +240,7 @@ do
     }
 
     TEST "B rejects like with bad target type on sync"
-    local _,Q,err = exec { err=true,
+    local _,Q,err = exec { err=false,
         cmd = EXE_B .. " chain '#err-target' sync recv " .. REPO_A5,
     }
     assert (
@@ -287,7 +287,7 @@ do
     }
 
     TEST "B rejects like with post not found on sync"
-    local _,Q,err = exec { err=true,
+    local _,Q,err = exec { err=false,
         cmd = EXE_B .. " chain '#err-post' sync recv " .. REPO_A6,
     }
     assert (
@@ -334,7 +334,7 @@ do
     }
 
     TEST "B rejects like with insufficient reps on sync"
-    local _,Q,err = exec { err=true,
+    local _,Q,err = exec { err=false,
         cmd = EXE_B .. " chain '#err-reps' sync recv " .. REPO_A7,
     }
     assert (
@@ -381,7 +381,7 @@ do
     }
 
     TEST "B rejects like with old timestamp on sync"
-    local _,Q,err = exec { err=true,
+    local _,Q,err = exec { err=false,
         cmd = EXE_B .. " chain '#err-time' sync recv " .. REPO_A8,
     }
     assert (
@@ -428,7 +428,7 @@ do
     }
 
     TEST "B rejects like with fractional number on sync"
-    local _,Q,err = exec { err=true,
+    local _,Q,err = exec { err=false,
         cmd = EXE_B .. " chain '#err-frac' sync recv " .. REPO_A9,
     }
     assert (
@@ -475,7 +475,7 @@ do
     }
 
     TEST "B rejects like with zero number on sync"
-    local _,Q,err = exec { err=true,
+    local _,Q,err = exec { err=false,
         cmd = EXE_B .. " chain '#err-zero' sync recv " .. REPO_A10,
     }
     assert (
@@ -532,7 +532,7 @@ do
     }
 
     TEST "B rejects forged like signature on sync"
-    local _,Q,err = exec { err=true,
+    local _,Q,err = exec { err=false,
         cmd = EXE_B .. " chain '#err-forge-like' sync recv " .. REPO_A11,
     }
     assert(Q~=0 and err == "ERROR : chain sync : invalid like : invalid signature", "should fail: " .. tostring(err))

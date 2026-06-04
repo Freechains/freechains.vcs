@@ -15,7 +15,7 @@ end
 -- detect if like targets a beg on refs/begs/
 local to_beg = (
     (ARGS.target == "post") and
-        exec { err=true,
+        exec { err=false,
             cmd = "git -C " .. REPO .. " rev-parse --verify refs/begs/beg-" .. ARGS.id,
         } and true
 )
@@ -26,7 +26,7 @@ if to_beg then
     local up = exec {
         cmd = "git -C " .. REPO .. " log -1 --format=%P " .. ARGS.id,
     }
-    local _,ok = exec { err=true,
+    local _,ok = exec { err=false,
         cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. up .. " HEAD",
     }
     if ok ~= 0 then

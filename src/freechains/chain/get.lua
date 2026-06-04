@@ -2,7 +2,7 @@ require "freechains.chain.common"
 local ssh = require "freechains.chain.ssh"
 
 do
-    local _, code = exec { stderr=false, err=true,
+    local _, code = exec { stderr=false, err=false,
         cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. ARGS.hash .. " HEAD",
     }
     if code ~= 0 then

@@ -56,7 +56,7 @@ local LIKE = exec {
 }
 
 TEST "get metadata on like-merge over a state-merge should succeed"
-local out, code, err = exec { err=true,
+local out, code, err = exec { err=false,
     cmd = EXE_B .. " chain '#test' get metadata " .. LIKE,
 }
 assert(

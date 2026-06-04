@@ -281,7 +281,7 @@ do
             cmd = "git -C " .. REPO_B .. " for-each-ref refs/begs/ --format='%(refname)'",
         }
         for ref in refs:gmatch("[^\n]+") do
-            local _, code = exec { err=true,
+            local _, code = exec { err=false,
                 cmd = "git -C " .. REPO_B .. " merge-base --is-ancestor " .. ref .. " HEAD",
             }
             if code == 0 then
@@ -324,7 +324,7 @@ do
             cmd = "git -C " .. REPO_C .. " for-each-ref refs/begs/ --sort=refname --format='%(refname)'",
         }
         local first = ref:match("[^\n]+")
-        local _, code = exec { err=true,
+        local _, code = exec { err=false,
             cmd = "git -C " .. REPO_C .. " merge --no-commit --no-ff " .. first,
         }
         assert(code ~= 0, "should reject unrelated histories")
@@ -399,7 +399,7 @@ do
 
     do
         TEST "merge second beg fails with conflict"
-        local _, code = exec { err=true,
+        local _, code = exec { err=false,
             cmd = "git -C " .. REPO_A .. " merge --no-edit " .. ref2,
         }
         assert(code ~= 0, "should fail with conflict")

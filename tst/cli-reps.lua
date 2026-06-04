@@ -217,7 +217,7 @@ do
     do
         TEST "gate-blocked-no-reps"
         -- KEY2 is not a pioneer, has 0 reps -> post must fail
-        local _, Q, err = exec { err=true,
+        local _, Q, err = exec { err=false,
             cmd = ENV_EXE .. " chain '#cli-reps' post inline 'blocked'" .. " --sign " .. KEY2,
         }
         assert (
@@ -257,7 +257,7 @@ do
     do
         TEST "gate-beg-with-reps-fails"
         -- KEY1 is pioneer with reps -> --beg must fail
-        local _, Q, err = exec { err=true,
+        local _, Q, err = exec { err=false,
             cmd = ENV_EXE .. " chain '#cli-reps' post inline 'no beg needed'" .. " --sign " .. KEY1 .. " --beg",
         }
         assert (
@@ -274,7 +274,7 @@ do
 
     do
         TEST "reps-post-requires-hash"
-        local _,Q,err = exec { err=true,
+        local _,Q,err = exec { err=false,
             cmd = ENV_EXE .. " chain '#cli-reps' reps post",
         }
         assert(Q~=0 and err=="ERROR : chain reps : post requires a hash", "should fail: " .. tostring(err))
@@ -282,7 +282,7 @@ do
 
     do
         TEST "reps-author-requires-pubkey"
-        local _,Q,err = exec { err=true,
+        local _,Q,err = exec { err=false,
             cmd = ENV_EXE .. " chain '#cli-reps' reps author",
         }
         assert(Q~=0 and err=="ERROR : chain reps : author requires a pubkey", "should fail: " .. tostring(err))
@@ -290,7 +290,7 @@ do
 
     do
         TEST "reps-invalid-target"
-        local _,Q,err = exec { err=true,
+        local _,Q,err = exec { err=false,
             cmd = ENV_EXE .. " chain '#cli-reps' reps foo",
         }
         assert(Q~=0 and err=="ERROR : chain reps : invalid target : foo", "should fail: " .. tostring(err))

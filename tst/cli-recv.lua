@@ -121,7 +121,7 @@ do
 
     do
         TEST "A and B are equal"
-        local _, ok = exec { err=true,
+        local _, ok = exec { err=false,
             cmd = "diff -r --exclude=.git " .. REPO_A .. " " .. REPO_B,
         }
         assert(ok == 0, "A and B should not differ")
@@ -219,7 +219,7 @@ do
         end
 
         TEST "A and B are bit-equal"
-        local _, ok = exec { err=true,
+        local _, ok = exec { err=false,
             cmd = "diff -r --exclude=.git " .. REPO_A .. " " .. REPO_B,
         }
         assert(ok == 0, "A and B should not differ")
@@ -310,7 +310,7 @@ do
     }
 
     TEST "B recvs from C fails with unrelated histories"
-    local _, Q, err = exec { err=true,
+    local _, Q, err = exec { err=false,
         cmd = EXE_B .. " --now=9000 chain '#test' sync recv " .. REPO_C,
     }
     assert (
@@ -346,7 +346,7 @@ do
     }
 
     TEST "B recvs from A fails with state mismatch"
-    local _, Q, err = exec { err=true,
+    local _, Q, err = exec { err=false,
         cmd = EXE_B .. " --now=10000 chain '#test' sync recv " .. REPO_A,
     }
     assert (
@@ -388,7 +388,7 @@ do
     }
 
     TEST "B recvs from A fails with create-mode violation"
-    local _, Q, err = exec { err=true,
+    local _, Q, err = exec { err=false,
         cmd = EXE_B .. " --now=11000 chain '#test' sync recv " .. REPO_A,
     }
     assert (
@@ -434,7 +434,7 @@ do
     }
 
     TEST "B recvs from A fails with forbidden path"
-    local _, Q, err = exec { err=true,
+    local _, Q, err = exec { err=false,
         cmd = EXE_B .. " --now=12000 chain '#test' sync recv " .. REPO_A,
     }
     assert (

@@ -191,7 +191,7 @@ do
         assert(beg == BEG, "beg: " .. beg .. " expected: " .. BEG)
 
         TEST "like-beg-ancestor-is-beg"
-        local _, code = exec { err = true,
+        local _, code = exec { err=false,
             cmd = "git -C " .. DIR4 .. " merge-base --is-ancestor " .. BEG .. " HEAD",
         }
         assert(code == 0, "beg should be ancestor of HEAD")
@@ -214,7 +214,7 @@ do
 
     do
         TEST "beg-sufficient-reps"
-        local _,code,err = exec { err=true,
+        local _,code,err = exec { err=false,
             cmd = ENV_EXE .. " chain '#cli-begs-4' post inline 'another beg' --beg --sign " .. KEY2,
         }
         assert (code~=0 and
@@ -231,7 +231,7 @@ do
         }
 
         -- KEY3 has 0 reps, should fail to like
-        local _, Q, err = exec { err=true,
+        local _, Q, err = exec { err=false,
             cmd = ENV_EXE .. " chain '#cli-begs-4' like 1 post " .. beg .. " --sign " .. KEY3,
         }
         assert (
@@ -246,7 +246,7 @@ do
         }
         local beg = refs:match("refs/begs/beg%-(%x+)")
 
-        local _, Q, err = exec { err=true,
+        local _, Q, err = exec { err=false,
             cmd = ENV_EXE .. " chain '#cli-begs-4' like 1 post " .. beg .. " --sign " .. KEY3,
         }
         assert (
@@ -364,7 +364,7 @@ do
 
     do
         TEST "merge-ancestor-includes-beg"
-        local _, code = exec { err=true,
+        local _, code = exec { err=false,
             cmd = "git -C " .. DIR6 .. " merge-base --is-ancestor " .. BEG .. " " .. LIKE,
         }
         assert(code == 0, "beg should be ancestor of like")

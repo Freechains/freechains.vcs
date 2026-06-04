@@ -24,15 +24,16 @@ function exec (t)
     local _, _, code = h:close()
     if code == 0 then
         return out, code
+    elseif t.err == false then
+        if out == "" then
+            out = nil
+        end
+        return false, code, out
     elseif t.err then
         if out == "" then
             out = nil
         end
-        if t.err == true then
-            return false, code, out
-        else
-            ERROR(t.err, out)
-        end
+        ERROR(t.err, out)
     else
         error("bug found : [" .. code .. "] : " .. t.cmd .. " : " .. out)
     end

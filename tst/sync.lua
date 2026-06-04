@@ -208,7 +208,7 @@ do
     }
 
     TEST "X sends to B: rejected"
-    local _, Q, err = exec { err=true,
+    local _, Q, err = exec { err=false,
         cmd = EXE_X .. " chain '#test' sync send " .. REPO_B,
     }
     assert(Q ~= 0, "send should fail")

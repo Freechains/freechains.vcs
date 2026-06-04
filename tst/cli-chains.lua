@@ -73,7 +73,7 @@ do
 
     do
         TEST "duplicate alias fails"
-        local _,Q,err = exec { err=true,
+        local _,Q,err = exec { err=false,
             cmd = EXE .. " chains add '#cli-chains' init file " .. GEN_0,
         }
         assert(Q~=0 and err=="ERROR : chains add : alias already exists", "should fail: " .. tostring(err))
@@ -87,7 +87,7 @@ do
             f:write('return "not a table"\n')
             f:close()
         end
-        local _, Q, err = exec { err=true,
+        local _, Q, err = exec { err=false,
             cmd = EXE .. " chains add '#x' init file " .. bad,
         }
         assert (
@@ -98,7 +98,7 @@ do
 
     do
         TEST "genesis file not found"
-        local _,Q,err = exec { err=true,
+        local _,Q,err = exec { err=false,
             cmd = EXE .. " chains add '#x' init file /nonexistent/genesis.lua",
         }
         assert(Q~=0 and err=="ERROR : chains add : invalid genesis")
@@ -106,7 +106,7 @@ do
 
     do
         TEST "init missing subcommand fails"
-        local _, Q, err = exec { err=true,
+        local _, Q, err = exec { err=false,
             cmd = EXE .. " chains add '#x' init",
         }
         assert(Q~=0 and err and
@@ -117,7 +117,7 @@ do
 
     do
         TEST "init invalid subcommand fails"
-        local _, Q, err = exec { err=true,
+        local _, Q, err = exec { err=false,
             cmd = EXE .. " chains add '#x' init bogus",
         }
         assert(Q~=0 and err and
@@ -128,7 +128,7 @@ do
 
     do
         TEST "git init failed"
-        local _,Q,err = exec { err=true,
+        local _,Q,err = exec { err=false,
             cmd = ENV .. " ../src/freechains.lua --root /dev/null chains add '#x' init file " .. GEN_0,
         }
         assert(Q~=0 and err=="ERROR : chains add : init failed", "should fail: " .. tostring(err))
@@ -136,7 +136,7 @@ do
 
     do
         TEST "git clone failed"
-        local _,Q,err = exec { err=true,
+        local _,Q,err = exec { err=false,
             cmd = EXE .. " chains add '#x' clone /nonexistent/repo",
         }
         assert(Q~=0 and err=="ERROR : chains add : clone failed")
@@ -144,7 +144,7 @@ do
 
     do
         TEST "clone existing chain fails"
-        local _,Q,err = exec { err=true,
+        local _,Q,err = exec { err=false,
             cmd = EXE .. " chains add '#clone-dup' clone " .. ROOT .. "/chains/#cli-chains",
         }
         assert(Q~=0 and err=="ERROR : chains add : clone failed", "should fail: " .. tostring(err))
@@ -152,7 +152,7 @@ do
 
     do
         TEST "add args fails"
-        local _, code = exec { err=true,
+        local _, code = exec { err=false,
             cmd = EXE .. " chains add '#x' args --type '#'",
         }
         assert(code ~= 0, "should fail")
@@ -160,7 +160,7 @@ do
 
     do
         TEST "add remote fails"
-        local _, code = exec { err=true,
+        local _, code = exec { err=false,
             cmd = EXE .. " chains add '#x' remote host hash",
         }
         assert(code ~= 0, "should fail")
@@ -205,13 +205,13 @@ do
         assert(code == 0, "exit code: " .. tostring(code))
 
         TEST "dir removed"
-        local _, code = exec { err=true,
+        local _, code = exec { err=false,
             cmd = "test -d " .. ROOT .. "/chains/#cli-chains",
         }
         assert(code ~= 0, "dir should not exist")
 
         TEST "symlink removed"
-        local _, code = exec { err=true,
+        local _, code = exec { err=false,
             cmd = "test -L " .. ROOT .. "/chains/#cli-chains",
         }
         assert(code ~= 0, "symlink should not exist")
@@ -219,7 +219,7 @@ do
 
     do
         TEST "rem nonexistent fails"
-        local _, Q, err = exec { err=true,
+        local _, Q, err = exec { err=false,
             cmd = EXE .. " chains rem '#nonexistent'",
         }
         assert (
@@ -292,7 +292,7 @@ do
 
     do
         TEST "inline with bad --sign fails"
-        local _, Q, err = exec { err=true,
+        local _, Q, err = exec { err=false,
             cmd = EXE .. " chains add '#inl-badkey' init inline --sign /nonexistent/key",
         }
         assert (

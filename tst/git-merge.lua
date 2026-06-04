@@ -30,7 +30,7 @@ end
 
 -- dry-run merge: returns true if clean, false if conflict
 local function dry_merge (dir)
-    local _, code = exec { err=true,
+    local _, code = exec { err=false,
         cmd = "git -C " .. dir .. " merge --no-commit --no-ff FETCH_HEAD",
     }
     exec {

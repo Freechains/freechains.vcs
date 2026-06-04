@@ -66,7 +66,7 @@ function M.verify (repo, hash)
     local f = io.open(repo .. "/.freechains/tmp/allowed_signers", "w")
     f:write("git " .. key .. "\n")
     f:close()
-    local out, code = exec { err=true,
+    local out, code = exec { err=false,
         cmd = "git -C " .. repo
         .. " -c gpg.ssh.allowedSignersFile=.freechains/tmp/allowed_signers"
         .. " verify-commit " .. hash,

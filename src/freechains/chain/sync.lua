@@ -6,7 +6,7 @@ if ARGS.send then
         cmd = "git -C " .. REPO .. " config freechains.url",
         err = "chain sync : freechains.url not set",
     }
-    local _, Q, err = exec { err=true,
+    local _, Q, err = exec { err=false,
         cmd = "git -C " .. REPO ..  " push -o freechains=true -o 'url=" .. url .. "' "
             .. URL(ARGS.remote, ARGS.alias) .. " main refs/begs/*:refs/begs/*",
     }
@@ -60,7 +60,7 @@ elseif ARGS.recv then
 
         -- 2. remote has nothing new
         do
-            local ok = exec { stderr=false, err=true,
+            local ok = exec { stderr=false, err=false,
                 cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. rem .. " " .. loc,
             }
             if ok then
@@ -312,7 +312,7 @@ elseif ARGS.recv then
 
         -- 3. local has nothing new
         do
-            local ff = exec { stderr=false, err=true,
+            local ff = exec { stderr=false, err=false,
                 cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. loc .. " " .. rem,
             }
             if ff then
@@ -322,7 +322,7 @@ elseif ARGS.recv then
                 -- verify remote state: overwrite with G_rem, diff vs HEAD
                 do
                     write(G_rem)
-                    local same = exec { stderr=false, err=true,
+                    local same = exec { stderr=false, err=false,
                         cmd = "git -C " .. REPO ..  " diff --quiet HEAD -- .freechains/state/",
                     }
                     if not same then
@@ -385,11 +385,11 @@ elseif ARGS.recv then
                 local kind = trailer(hash)
 
                 if kind~='state' then
-                    ok = exec { stderr=false, err=true,
+                    ok = exec { stderr=false, err=false,
                         cmd = "git -C " .. REPO .. " merge --no-commit " .. hash,
                     }
                     if not ok then
-                        exec { stderr=false, err=true,
+                        exec { stderr=false, err=false,
                             cmd = "git -C " .. REPO .. " merge --abort",
                         }
                         err = "content conflict"
@@ -466,7 +466,7 @@ elseif ARGS.recv then
             cmd = "git -C " .. REPO .. " for-each-ref refs/begs/ --format='%(refname) %(objectname)'",
         }
         for refname, post in out:gmatch("(%S+)%s+(%S+)") do
-            local ok = exec { stderr=false, err=true,
+            local ok = exec { stderr=false, err=false,
                 cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. post .. " main",
             }
             if ok then

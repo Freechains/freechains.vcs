@@ -47,19 +47,19 @@ do
     }
 
     TEST "A has executable pre-receive hook"
-    local _, ok = exec { err=true,
+    local _, ok = exec { err=false,
         cmd = "test -x " .. REPO_A .. ".git/hooks/pre-receive",
     }
     assert(ok == 0, "A hook missing or not executable")
 
     TEST "B has executable pre-receive hook"
-    local _, ok = exec { err=true,
+    local _, ok = exec { err=false,
         cmd = "test -x " .. REPO_B .. ".git/hooks/pre-receive",
     }
     assert(ok == 0, "B hook missing or not executable")
 
     TEST "reject push to refs/heads/hack"
-    local _, ok, err = exec { err=true,
+    local _, ok, err = exec { err=false,
         cmd = "git -C " .. REPO_A .. " push " .. REPO_B .. " main:refs/heads/hack",
     }
     assert(ok ~= 0, "refs/heads/hack : push should have failed")
@@ -69,7 +69,7 @@ do
     )
 
     TEST "reject push to refs/tags/v1"
-    local _, ok, err = exec { err=true,
+    local _, ok, err = exec { err=false,
         cmd = "git -C " .. REPO_A .. " push " .. REPO_B .. " main:refs/tags/v1",
     }
     assert(ok ~= 0, "refs/tags/v1 : push should have failed")
@@ -79,7 +79,7 @@ do
     )
 
     TEST "refs/begs/foo without freechains option -> missing option"
-    local _, ok, err = exec { err=true,
+    local _, ok, err = exec { err=false,
         cmd = "git -C " .. REPO_A .. " push " .. REPO_B .. " main:refs/begs/foo",
     }
     assert(ok ~= 0, "refs/begs/foo : push should have failed")
@@ -89,7 +89,7 @@ do
     )
 
     TEST "reject multi-ref push with unexpected refs"
-    local _, ok, err = exec { err=true,
+    local _, ok, err = exec { err=false,
         cmd = "git -C " .. REPO_A .. " push " .. REPO_B .. " main:refs/heads/alpha main:refs/heads/beta",
     }
     assert(ok ~= 0, "multi-ref : push should have failed")
@@ -105,7 +105,7 @@ do
     }
 
     TEST "reject push without freechains option"
-    local _, ok, err = exec { err=true,
+    local _, ok, err = exec { err=false,
         cmd = "git -C " .. REPO_A .. " push " .. REPO_B .. " main",
     }
     assert(ok ~= 0, "push without options : should have failed")
@@ -115,7 +115,7 @@ do
     )
 
     TEST "reject push without url option"
-    local _, ok, err = exec { err=true,
+    local _, ok, err = exec { err=false,
         cmd = "git -C " .. REPO_A .. " push -o freechains=true " .. REPO_B .. " main",
     }
     assert(ok ~= 0, "push without url : should have failed")
@@ -163,7 +163,7 @@ do
     }
 
     TEST "X sends to B: push should be rejected"
-    local _, Q, err = exec { err=true,
+    local _, Q, err = exec { err=false,
         cmd = EXE_X .. " chain '#test' sync send " .. REPO_B,
     }
     assert (
@@ -239,7 +239,7 @@ do
 
     do
         TEST "A and B are equal"
-        local _, ok = exec { err=true,
+        local _, ok = exec { err=false,
             cmd = "diff -r --exclude=.git " .. REPO_A .. " " .. REPO_B,
         }
         assert(ok == 0, "A and B should not differ")
@@ -337,7 +337,7 @@ do
         end
 
         TEST "A and B are bit-equal"
-        local _, ok = exec { err=true,
+        local _, ok = exec { err=false,
             cmd = "diff -r --exclude=.git " .. REPO_A .. " " .. REPO_B,
         }
         assert(ok == 0, "A and B should not differ")
@@ -428,7 +428,7 @@ do
     }
 
     TEST "B recvs from C fails with unrelated histories"
-    local _, Q, err = exec { err=true,
+    local _, Q, err = exec { err=false,
         cmd = EXE_B .. " --now=9000 chain '#test' sync recv " .. REPO_C,
     }
     assert (

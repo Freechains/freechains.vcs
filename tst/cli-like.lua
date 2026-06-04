@@ -87,7 +87,7 @@ do
 
     do
         TEST "like-ancestor-is-post"
-        local _, code = exec { err=true,
+        local _, code = exec { err=false,
             cmd = "git -C " .. DIR .. " merge-base --is-ancestor " .. POST .. " HEAD",
         }
         assert(code == 0, "post should be ancestor of HEAD")
@@ -219,7 +219,7 @@ do
     do
         TEST "like-nonexistent-post"
         local fake = "0000000000000000000000000000000000000000"
-        local _, Q, err = exec { err=true,
+        local _, Q, err = exec { err=false,
             cmd = ENV_EXE .. " chain '#cli-like' like 1 post " .. fake .. " --sign " .. KEY2,
         }
         assert (
@@ -252,7 +252,7 @@ do
 
     do
         TEST "like-requires-sign"
-        local _, Q, err = exec { err=true,
+        local _, Q, err = exec { err=false,
             cmd = ENV_EXE .. " chain '#cli-like' like 1 post " .. POST,
         }
         assert (
@@ -263,7 +263,7 @@ do
 
     do
         TEST "like-zero-number"
-        local _, Q, err = exec { err=true,
+        local _, Q, err = exec { err=false,
             cmd = ENV_EXE .. " chain '#cli-like' like 0 post " .. POST .. " --sign " .. KEY1,
         }
         assert (
@@ -271,7 +271,7 @@ do
             , "like with 0 should fail"
         )
         TEST "like-non-numeric"
-        local _, Q, err = exec { err=true,
+        local _, Q, err = exec { err=false,
             cmd = ENV_EXE .. " chain '#cli-like' like abc post " .. POST .. " --sign " .. KEY1,
         }
         assert (
@@ -282,7 +282,7 @@ do
 
     do
         TEST "like-bad-target-type"
-        local _, Q, err = exec { err=true,
+        local _, Q, err = exec { err=false,
             cmd = ENV_EXE .. " chain '#cli-like' like 1 foo " .. POST .. " --sign " .. KEY1,
         }
         assert (
@@ -293,7 +293,7 @@ do
 
     do
         TEST "like with invalid sign key fails"
-        local _,Q,err = exec { err=true,
+        local _,Q,err = exec { err=false,
             cmd = ENV_EXE .. " chain '#cli-like' like 1 post " .. POST .. " --sign bad-key",
         }
         assert (
@@ -304,7 +304,7 @@ do
 
     do
         TEST "like with invalid author key fails"
-        local _,Q,err = exec { err=true,
+        local _,Q,err = exec { err=false,
             cmd = ENV_EXE .. " chain '#cli-like' like 1 author bad-key --sign " .. KEY1,
         }
         assert (

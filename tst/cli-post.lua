@@ -42,7 +42,7 @@ do
         local f = io.open(tmp, "w")
         f:write("collision attempt\n")
         f:close()
-        local _, Q, err = exec { err=true,
+        local _, Q, err = exec { err=false,
             cmd = ENV_EXE .. " chain '#cli-post' post file " .. tmp .. " --sign " .. KEY1,
         }
         assert (
@@ -112,7 +112,7 @@ do
 
     do
         TEST "inline --file rejects existing"
-        local _, Q, err = exec { err=true,
+        local _, Q, err = exec { err=false,
             cmd = ENV_EXE .. " chain '#cli-post' post inline 'Line 2\n'" .. " --file log.txt --sign " .. KEY1,
         }
         assert (
@@ -175,7 +175,7 @@ do
     do
         TEST "post to nonexistent chain fails"
         local tmp = TMP .. "/hello.txt"
-        local _, Q, err = exec { err=true,
+        local _, Q, err = exec { err=false,
             cmd = ENV_EXE .. " chain '#nochain' post file " .. tmp .. " --sign " .. KEY1,
         }
         assert (
@@ -186,7 +186,7 @@ do
 
     do
         TEST "post file copy failed"
-        local _,Q,err = exec { err=true,
+        local _,Q,err = exec { err=false,
             cmd = ENV_EXE .. " chain '#cli-post' post file /tmp/nonexistent-file.txt --sign " .. KEY1,
         }
         assert(Q~=0 and err=="ERROR : chain post : invalid path", "should fail: " .. tostring(err))

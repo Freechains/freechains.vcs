@@ -45,7 +45,7 @@ do
 
     do
         TEST "payload of like"
-        local _, Q, err = exec { err=true,
+        local _, Q, err = exec { err=false,
             cmd = ENV_EXE .. " chain '#cli-get' get payload " .. LIKE,
         }
         assert (
@@ -56,7 +56,7 @@ do
 
     do
         TEST "payload of state"
-        local _, Q, err = exec { err=true,
+        local _, Q, err = exec { err=false,
             cmd = ENV_EXE .. " chain '#cli-get' get payload " .. STATE,
         }
         assert (
@@ -67,7 +67,7 @@ do
 
     do
         TEST "payload of genesis"
-        local _, Q, err = exec { err=true,
+        local _, Q, err = exec { err=false,
             cmd = ENV_EXE .. " chain '#cli-get' get payload " .. GENESIS,
         }
         assert (
@@ -78,7 +78,7 @@ do
 
     do
         TEST "payload of unknown"
-        local _, Q, err = exec { err=true,
+        local _, Q, err = exec { err=false,
             cmd = ENV_EXE .. " chain '#cli-get' get payload " .. UNKNOWN,
         }
         assert (
@@ -128,7 +128,7 @@ do
 
     do
         TEST "metadata of state"
-        local _, Q, err = exec { err=true,
+        local _, Q, err = exec { err=false,
             cmd = ENV_EXE .. " chain '#cli-get' get metadata " .. STATE,
         }
         assert (
@@ -139,7 +139,7 @@ do
 
     do
         TEST "metadata of genesis"
-        local _, Q, err = exec { err=true,
+        local _, Q, err = exec { err=false,
             cmd = ENV_EXE .. " chain '#cli-get' get metadata " .. GENESIS,
         }
         assert (
@@ -150,7 +150,7 @@ do
 
     do
         TEST "metadata of unknown"
-        local _, Q, err = exec { err=true,
+        local _, Q, err = exec { err=false,
             cmd = ENV_EXE .. " chain '#cli-get' get metadata " .. UNKNOWN,
         }
         assert (

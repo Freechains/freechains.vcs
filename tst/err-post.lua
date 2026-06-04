@@ -50,7 +50,7 @@ do
     }
 
     TEST "B rejects post with insufficient reps on sync"
-    local _,Q,err = exec { err=true,
+    local _,Q,err = exec { err=false,
         cmd = EXE_B .. " chain '#err-reps' sync recv " .. REPO_A1,
     }
     assert (
@@ -94,7 +94,7 @@ do
     }
 
     TEST "B rejects post with old timestamp on sync"
-    local _,Q,err = exec { err=true,
+    local _,Q,err = exec { err=false,
         cmd = EXE_B .. " chain '#err-time' sync recv " .. REPO_A2,
     }
     assert (
@@ -154,7 +154,7 @@ do
     }
 
     TEST "B rejects forged signature on sync"
-    local _,Q,err = exec { err=true,
+    local _,Q,err = exec { err=false,
         cmd = EXE_B .. " chain '#err-forge' sync recv " .. REPO_A3,
     }
     assert(Q~=0 and err == "ERROR : chain sync : invalid post : invalid signature", "should fail: " .. tostring(err))
@@ -165,7 +165,7 @@ do
     print("==> sync fetch failed")
 
     TEST "sync recv from nonexistent remote"
-    local _,Q,err = exec { err=true,
+    local _,Q,err = exec { err=false,
         cmd = EXE_A .. " chain '#err-forge' sync recv /nonexistent/repo",
     }
     assert(Q~=0 and err=="ERROR : chain sync : fetch failed", "should fail: " .. tostring(err))
