@@ -118,7 +118,7 @@ All application data resides in `~/.freechains/`:
 $ ls ~/.freechains/chains/
 ```
 
-- Post some content:
+With the chain set, we can now post some content:
 
 ```
 $ freechains chain '#chat' post inline $'Hello World\n' --sign
@@ -129,9 +129,9 @@ d6568e4...
 
 The output is each post's unique identifier.
 
-- List all posts:
+We can list all posts in the chain:
 
-As a DAG:
+- As a DAG:
 
 ```
 $ freechains chain '#chat' list dag
@@ -140,7 +140,7 @@ $ freechains chain '#chat' list dag
                  d6568e4
 ```
 
-In consensus order:
+- In consensus order:
 
 ```
 $ freechains chain '#chat' list order
@@ -148,7 +148,9 @@ b52c62f...
 d6568e4...
 ```
 
-- Read posts payload:
+We can also query each post individually:
+
+- Post payload:
 
 ```
 $ freechains chain '#chat' get payload b52c62f
@@ -157,7 +159,7 @@ $ freechains chain '#chat' get payload d6568e4
 I am here
 ```
 
-- Read post metadata:
+- Post metadata:
 
 ```
 $ freechains chain '#chat' get metadata d6568e4
@@ -179,25 +181,27 @@ content locally.
 
 ### Synchronization
 
-- Serve chains with a daemon:
+We can share the chains with other peers over the Internet.
+
+We first need to start a daemon to serve synchronization requests:
 
 ```
-# Switch to new terminal...
+# (switch to new terminal)
 $ freechains daemon
 Serving on port 8330...
 ```
 
-As peer `A`, we serve the chains over the Internet on default port `8330`.
+As peer `A`, we now listen for requests on default port `8330`.
 
-- Clone a chain remotely:
+To simulate a remote peer `B`, we will use a separate `--root` as prefix to the
+commands.
+
+As peer `B`, we clone the chain `#chat` served by peer `A`:
 
 ```
 $ freechains --root=/tmp/peer-B/ chains add '#chat' clone localhost
 #461cfb4...
 ```
-
-As peer `B`, we simulate another machine using a separate `--root`, and cloned
-the chain in peer `A`.
 Note that the chain id is the same in both peers (`#461cfb4...`).
 
 You may now list the posts in peer `B`:
@@ -209,21 +213,35 @@ $ freechains --root=/tmp/peer-B/ chain '#chat' list dag
                  d6568e4
 ```
 
-- Create a divergence between peers:
+To illustrate how peers synchonize over time, let's post again in peer `A`:
 
 ```
 $ freechains chain '#chat' post inline $'Sync me\n' --sign
 e1f2a3b...
 ```
 
-We posted again locally in peer `A`, making `B` outdated.
+Peer `B` is now outdated and needs to synchronize:
 
-- Synchronize peers:
+```
+$ freechains --root=/tmp/peer-B/ chain '#chat' sync recv localhost
+```
 
+Peer `B` now holds the new post from `A`:
+
+```
+$ freechains --root=/tmp/peer-B/ chain '#chat' list dag
+                 b52c62f
+                    |
+                 d6568e4
+                    |
+                 e1f2a3b
+```
+
+<!--
 As peer `B`, serve a daemon on another port:
 
 ```
-# Switch to new terminal...
+# (switch to new terminal)
 $ freechains --root=/tmp/peer-B/ daemon --hub --port=8331
 Serving on port 8331...
 ```
@@ -235,34 +253,68 @@ As peer `A`, send the new post to peer `B` on port `8331`:
 ```
 $ freechains chain '#chat' sync send localhost:8331
 ```
+-->
 
-Peer `B` now holds the new post:
-
-```
-$ freechains --root=/tmp/peer-B/ chain '#chat' list dag
-                 b52c62f
-                    |
-                 d6568e4
-                    |
-                 e1f2a3b
-```
-
-Note that synchronization is always explicitly peer-to-peer, through `send` (or
-`recv`).
+Note that synchronization is always explicitly peer-to-peer, through `recv` (or
+`send`).
 
 ### Reputation
 
-Let's introduce a new user `Bob` that acts through peer `B`:
+Let's introduce a new user `Bob` that will act through peer `B`:
 
 ```
 $ ssh-keygen -t ed25519 -f /tmp/peer-B/bob
 ```
 
-- Post again from `A`:
+Since `Bob` has no previous reputation, he cannot yet post on the chain:
 
 ```
-$ freechains chain '#chat' post inline $'Sync me\n' --sign
-e1f2a3b...
+$ freechains chain '#chat' post inline $'Possibly malicious\n' --sign=/tmp/peer-B/bob
+ERROR : chain post : insufficient reputation
 ```
+
+Let's query the public keys from both users:
+
+```
+$ cat ~/.ssh/id_ed25519.pub ;   # <-- you
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMIF9tHWFQPIoV7vwhk1/Cdh20XxDFme804wcvzTc96I xxx@xxx.com
+$ cat /tmp/peer-B/bob.pub       # <-- Bob
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE2Cb41DBUuNgju+Y1pfhgN18N3yE/IRDRtFbje8+xIa yyy@yyy.com
+```
+
+Now, let's query their reputations:
+
+```
+$ freechains chain '#chat' reps author 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMIF9tHWFQPIoV7vwhk1/Cdh20XxDFme804wcvzTc96I'
+29
+$ freechains chain '#chat' reps author 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE2Cb41DBUuNgju+Y1pfhgN18N3yE/IRDRtFbje8+xIa'
+0
+```
+
+As the chain pioneer, you still have `29 reps` to use, whereas `Bob` has no
+reputation and cannot post on the chain.
+
+To welcome new users into the chain, the pioneer needs to redistribute a share
+of its `reps`:
+
+```
+$ freechains chain '#chat' like 10 author 'ssh-ed25519 ...je8+xIa' --sign
+560a55ce9a983ff505429da5719c0fe46a304414
+```
+
+We just transferred `10` of your `reps` to `Bob`:
+
+```
+$ freechains chain '#chat' reps author 'ssh-ed25519 ...vzTc96I'
+20
+$ freechains chain '#chat' reps author 'ssh-ed25519 ...je8+xIa'
+10
+```
+
+(For now, let's ignore why the pioneer went from `29` to `20`, not to `19`).
+
+
+The permissionless nature of Freechains comes not from the fact that XXX, but
+that YYY.
 
 ### Consensus
