@@ -2,9 +2,9 @@ require "freechains.chain.common"
 local ssh = require "freechains.chain.ssh"
 
 do
-    local _, code = exec(true, 'stdout',
-        "git -C " .. REPO .. " merge-base --is-ancestor " .. ARGS.hash .. " HEAD"
-    )
+    local _, code = exec { stderr=false, err=true,
+        cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. ARGS.hash .. " HEAD",
+    }
     if code ~= 0 then
         ERROR("chain get : unknown post")
     end
@@ -17,10 +17,10 @@ local kind = trailer(ARGS.hash)
 -- from every parent — handles both regular commits and merges
 -- (without --cc, diff-tree emits nothing for merge commits).
 local function commit_file ()
-    local files = exec (
-        "git -C " .. REPO ..
-        " diff-tree --cc --no-commit-id -r --name-only " .. ARGS.hash
-    )
+    local files = exec {
+        cmd = "git -C " .. REPO ..
+        " diff-tree --cc --no-commit-id -r --name-only " .. ARGS.hash,
+    }
     assert(not files:match("\n%S"), "bug found")
     return files:match("^(%S+)")
 end
@@ -31,9 +31,9 @@ if ARGS.payload then
     end
 
     local file = commit_file()
-    local out = exec (
-        "git -C " .. REPO .. " show " .. ARGS.hash .. ":" .. file
-    )
+    local out = exec { trim=false,
+        cmd = "git -C " .. REPO .. " show " .. ARGS.hash .. ":" .. file,
+    }
     io.write(out)
 
 elseif ARGS.metadata then
@@ -43,14 +43,14 @@ elseif ARGS.metadata then
 
     local file = commit_file()
 
-    local time = tonumber((exec (
-        "git -C " .. REPO .. " log -1 --format=%at " .. ARGS.hash
-    )))
+    local time = tonumber((exec {
+        cmd = "git -C " .. REPO .. " log -1 --format=%at " .. ARGS.hash,
+    }))
 
     -- why: full commit message minus Freechains: trailer
-    local why = exec (
-        "git -C " .. REPO .. " log -1 --format=%B " .. ARGS.hash
-    ):gsub("\n*Freechains:%s*%S+%s*$", "")
+    local why = exec {
+        cmd = "git -C " .. REPO .. " log -1 --format=%B " .. ARGS.hash,
+    } :gsub("\n*Freechains:%s*%S+%s*$", "")
 
     -- post/like ancestors via `backs` in common.lua (walks through
     -- state/merge commits)
@@ -59,9 +59,9 @@ elseif ARGS.metadata then
     -- like: only for like-trailer commits
     local like = false
     if kind == 'like' then
-        local f = exec (
-            "git -C " .. REPO .. " show " .. ARGS.hash .. ":" .. file
-        )
+        local f = exec {
+            cmd = "git -C " .. REPO .. " show " .. ARGS.hash .. ":" .. file,
+        }
         like = assert(assert(load(f))())
     end
 

@@ -2,12 +2,24 @@ local C    = require "freechains.constants"
 local HERE = debug.getinfo(1, "S").source:match("@(.*/)")
 
 local function git_config (dir)
-    exec("git -C " .. dir .. " config user.name  '-'")
-    exec("git -C " .. dir .. " config user.email '-'")
-    exec("git -C " .. dir .. " config commit.gpgsign false")
-    exec("git -C " .. dir .. " config pull.rebase false")
-    exec("git -C " .. dir .. " config merge.ours.driver true")
-    exec("git -C " .. dir .. " config receive.advertisePushOptions true")
+    exec {
+        cmd = "git -C " .. dir .. " config user.name  '-'",
+    }
+    exec {
+        cmd = "git -C " .. dir .. " config user.email '-'",
+    }
+    exec {
+        cmd = "git -C " .. dir .. " config commit.gpgsign false",
+    }
+    exec {
+        cmd = "git -C " .. dir .. " config pull.rebase false",
+    }
+    exec {
+        cmd = "git -C " .. dir .. " config merge.ours.driver true",
+    }
+    exec {
+        cmd = "git -C " .. dir .. " config receive.advertisePushOptions true",
+    }
 end
 
 local function pioneers (dir)
@@ -50,10 +62,10 @@ if ARGS.add then
         if ARGS.file then
             -- existing path-based init below
         elseif ARGS.inline then
-            local pub = exec ('stdout',
-                "ssh-keygen -y -f " .. ARGS.sign
-                , "chains add : invalid sign key"
-            )
+            local pub = exec { stderr=false,
+                cmd = "ssh-keygen -y -f " .. ARGS.sign,
+                err = "chains add : invalid sign key",
+            }
             pub = assert(pub:match("^(%S+ %S+)"), "bug found")
             local T = {
                 version  = VERSION,
@@ -86,89 +98,97 @@ if ARGS.add then
 
         local tmp = DIR .. "/tmp-" .. rand .. "/"
 
-        exec ('stdout',
-            "git init -b main " .. tmp
-            , "chains add : init failed"
-        )
+        exec { stderr=false,
+            cmd = "git init -b main " .. tmp,
+            err = "chains add : init failed",
+        }
         git_config(tmp)
-        exec (
-            "cp " .. HERE .. "/hooks/pre-receive " .. tmp .. "/.git/hooks/pre-receive && chmod +x " .. tmp .. "/.git/hooks/pre-receive"
-        )
-        exec (
-            "cp -r " .. HERE .. "/skel/. " .. tmp .. "/"
-        )
+        exec {
+            cmd = "cp " .. HERE .. "/hooks/pre-receive " .. tmp .. "/.git/hooks/pre-receive && chmod +x " .. tmp .. "/.git/hooks/pre-receive",
+        }
+        exec {
+            cmd = "cp -r " .. HERE .. "/skel/. " .. tmp .. "/",
+        }
         do
             local f = io.open(tmp .. "/.freechains/random", "w")
             f:write(tostring(rand) .. "\n")
             f:close()
         end
-        exec (
-            "cp " .. ARGS.path .. " " .. tmp .. "/.freechains/genesis.lua"
-        )
+        exec {
+            cmd = "cp " .. ARGS.path .. " " .. tmp .. "/.freechains/genesis.lua",
+        }
         pioneers(tmp .. "/")
-        exec (
-            "git -C " .. tmp .. " add .freechains/ .gitattributes .gitignore"
-        )
-        exec (
-            CMD.git .. "git -C " .. tmp .. " commit -m '(empty message)'"
-            .. " --trailer 'Freechains: state'"
-        )
+        exec {
+            cmd = "git -C " .. tmp .. " add .freechains/ .gitattributes .gitignore",
+        }
+        exec {
+            cmd = CMD.git .. "git -C " .. tmp .. " commit -m '(empty message)'"
+            .. " --trailer 'Freechains: state'",
+        }
 
-        local hash = "#" .. exec (
-            "git -C " .. tmp .. " rev-parse HEAD"
-        )
+        local hash = "#" .. exec {
+            cmd = "git -C " .. tmp .. " rev-parse HEAD",
+        }
         local final = DIR .. "/" .. hash
         if not os.rename(tmp, final) then
-            exec("rm -rf " .. tmp)
+            exec {
+                cmd = "rm -rf " .. tmp,
+            }
             ERROR("chains add : init failed")
         end
-        exec (
-            "git -C '" .. final .. "' config freechains.url '" .. final .. "'"
-        )
-        exec (
-            "ln -s '" .. hash .. "/' " .. DIR .. "/" .. ARGS.alias
-        )
+        exec {
+            cmd = "git -C '" .. final .. "' config freechains.url '" .. final .. "'",
+        }
+        exec {
+            cmd = "ln -s '" .. hash .. "/' " .. DIR .. "/" .. ARGS.alias,
+        }
         print(hash)
 
     elseif ARGS.clone then
-        exec (
-            "mkdir -p " .. DIR
-            , "chains add : clone failed"
-        )
+        exec {
+            cmd = "mkdir -p " .. DIR,
+            err = "chains add : clone failed",
+        }
         local tmp = DIR .. "/_tmp-" .. math.random(0, 9999999999) .. "/"
-        exec ('stdout',
-            "git clone " .. URL(ARGS.url, ARGS.alias) .. " " .. tmp
-            , "chains add : clone failed"
-        )
+        exec { stderr=false,
+            cmd = "git clone " .. URL(ARGS.url, ARGS.alias) .. " " .. tmp,
+            err = "chains add : clone failed",
+        }
         git_config(tmp)
-        exec (
-            "cp " .. HERE .. "/hooks/pre-receive " .. tmp .. "/.git/hooks/pre-receive && chmod +x " .. tmp .. "/.git/hooks/pre-receive"
-        )
-        local hash = "#" .. exec (
-            "git -C " .. tmp .. " rev-list --max-parents=0 HEAD"
-        )
+        exec {
+            cmd = "cp " .. HERE .. "/hooks/pre-receive " .. tmp .. "/.git/hooks/pre-receive && chmod +x " .. tmp .. "/.git/hooks/pre-receive",
+        }
+        local hash = "#" .. exec {
+            cmd = "git -C " .. tmp .. " rev-list --max-parents=0 HEAD",
+        }
         local dir = DIR .. "/" .. hash .. "/"
         if not os.rename(tmp, dir) then
-            exec("rm -rf " .. tmp)
+            exec {
+                cmd = "rm -rf " .. tmp,
+            }
             ERROR("chains add : clone failed")
         end
-        exec (
-            "git -C '" .. dir .. "' config freechains.url '" .. dir .. "'"
-        )
-        exec("ln -s '" .. hash .. "' " .. DIR .. "/" .. ARGS.alias)
+        exec {
+            cmd = "git -C '" .. dir .. "' config freechains.url '" .. dir .. "'",
+        }
+        exec {
+            cmd = "ln -s '" .. hash .. "' " .. DIR .. "/" .. ARGS.alias,
+        }
         print(hash)
     end
 elseif ARGS.rem then
     local alias = DIR .. "/" .. ARGS.alias
-    local lnk = exec (
-        "readlink " .. alias
-        , "chains rem : invalid chain"
-    )
-    exec ("rm -rf '" .. DIR .. lnk .. "'")
+    local lnk = exec {
+        cmd = "readlink " .. alias,
+        err = "chains rem : invalid chain",
+    }
+    exec {
+        cmd = "rm -rf '" .. DIR .. lnk .. "'",
+    }
     os.remove(alias)
 elseif ARGS.dir then
-    local out = exec (
-        "find " .. DIR .. " -maxdepth 1 -type l -printf '%f\\n'" .. " | sort"
-    )
+    local out = exec {
+        cmd = "find " .. DIR .. " -maxdepth 1 -type l -printf '%f\\n'" .. " | sort",
+    }
     io.write(out)
 end

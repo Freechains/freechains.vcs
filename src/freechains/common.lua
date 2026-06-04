@@ -13,44 +13,28 @@ function ERROR (msg, out)
     os.exit(1)
 end
 
-function exec (a, b, c)
-    -- 'stdout' silences "stderr > /dev/null"
-    -- a = true = returns error, otherwise crashes
-    local stdout, cmd, err
-    if a == true then
-        err = true
-        if b == 'stdout' then
-            stdout = true
-            cmd = c
-        else
-            cmd = b
-        end
-    elseif a == 'stdout' then
-        stdout = true
-        cmd, err = b, c
-    else
-        cmd, err = a, b
+function exec (t)
+    -- t.stderr == false: silences stderr ("2>/dev/null")
+    local redir = (t.stderr == false) and "/dev/null" or "&1"
+    local h = io.popen(t.cmd .. " 2>" .. redir)
+    local out = h:read("a")
+    if t.trim ~= false then
+        out = out:match("^([^\n]*)\n$") or out
     end
-
-    local redir = stdout and "/dev/null" or "&1"
-    local h = io.popen(cmd .. " 2>" .. redir)
-    local raw = h:read("a")
-    local out = raw:match("^([^\n]*)\n$") or raw
-    local ok, _, code = h:close()
-
+    local _, _, code = h:close()
     if code == 0 then
         return out, code
-    elseif err then
+    elseif t.err then
         if out == "" then
             out = nil
         end
-        if err == true then
+        if t.err == true then
             return false, code, out
         else
-            ERROR(err, out)
+            ERROR(t.err, out)
         end
     else
-        error("bug found : [" .. code .. "] : " .. cmd .. " : " .. out)
+        error("bug found : [" .. code .. "] : " .. t.cmd .. " : " .. out)
     end
 end
 

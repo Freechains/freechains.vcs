@@ -3,18 +3,16 @@ REPO = ARGS.root .. "/chains/" .. ARGS.alias .. "/"
 FC   = REPO .. ".freechains/"
 
 function NOW (hash)
-    return assert(
-        tonumber((
-            exec("git -C " .. REPO .. " log -1 --format=%at " .. hash)
-        ))
-    )
+    return assert(tonumber((exec {
+        cmd = "git -C " .. REPO .. " log -1 --format=%at " .. hash,
+    })))
 end
 
 function trailer (hash)
-    local out = exec (
-        "git -C " .. REPO ..
-            " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash
-    )
+    local out = exec {
+        cmd = "git -C " .. REPO ..
+            " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash,
+    }
     return out:match "(%S+)"
 end
 
@@ -24,10 +22,10 @@ function backs (hash)
     local ret = {}
     local see = {}
     local function rec (h)
-        local raw = exec (
-            "git -C " .. REPO ..
-                " rev-list --parents -n 1 " .. h
-        )
+        local raw = exec {
+            cmd = "git -C " .. REPO ..
+                " rev-list --parents -n 1 " .. h,
+        }
         local me = true
         for p in raw:gmatch("%S+") do
             if me then

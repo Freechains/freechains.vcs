@@ -15,32 +15,34 @@ end
 -- detect if like targets a beg on refs/begs/
 local to_beg = (
     (ARGS.target == "post") and
-        exec (true,
-            "git -C " .. REPO .. " rev-parse --verify refs/begs/beg-" .. ARGS.id
-        ) and true
+        exec { err=true,
+            cmd = "git -C " .. REPO .. " rev-parse --verify refs/begs/beg-" .. ARGS.id,
+        } and true
 )
 
 -- beg: validate parent, merge into main, load beg entry
 local ref = "refs/begs/beg-" .. ARGS.id
 if to_beg then
-    local up = exec (
-        "git -C " .. REPO .. " log -1 --format=%P " .. ARGS.id
-    )
-    local _,ok = exec (true,
-        "git -C " .. REPO .. " merge-base --is-ancestor " .. up .. " HEAD"
-    )
+    local up = exec {
+        cmd = "git -C " .. REPO .. " log -1 --format=%P " .. ARGS.id,
+    }
+    local _,ok = exec { err=true,
+        cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. up .. " HEAD",
+    }
     if ok ~= 0 then
         error("TODO : bug found : branch should not exist in the first place")
         --exec("git -C " .. REPO .. " update-ref -d " .. ref)
         --ERROR("chain like : invalid target : beg post does not exist")
     end
-    exec("git -C " .. REPO .. " merge -X ours --no-ff --no-commit --no-edit " .. ref)
-    G.order[#G.order+1] = exec (
-        "git -C " .. REPO .. " rev-parse " .. ref .. "~1"   -- beg post
-    )
-    local src = exec (
-        "git -C " .. REPO .. " show " .. ref .. ":.freechains/state/posts.lua"
-    )
+    exec {
+        cmd = "git -C " .. REPO .. " merge -X ours --no-ff --no-commit --no-edit " .. ref,
+    }
+    G.order[#G.order+1] = exec {
+        cmd = "git -C " .. REPO .. " rev-parse " .. ref .. "~1",   -- beg post
+    }
+    local src = exec {
+        cmd = "git -C " .. REPO .. " show " .. ref .. ":.freechains/state/posts.lua",
+    }
     G.posts[ARGS.id] = load(src)()[ARGS.id]
 end
 
@@ -58,19 +60,19 @@ do
     local f = io.open(REPO .. file, "w")
     f:write(payload)
     f:close()
-    exec (
-        "git -C " .. REPO .. " add " .. file
-    )
+    exec {
+        cmd = "git -C " .. REPO .. " add " .. file,
+    }
     local s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=ssh"
     local msg = ARGS.why or "(empty message)"
-    exec ('stdout',
-        CMD.git .. "git -C " .. REPO .. s1 .. " commit -S -m '" .. msg
-        .. "' --trailer 'Freechains: like'"
-        , "chain like : invalid sign key"
-    )
-    hash = exec (
-        "git -C " .. REPO .. " rev-parse HEAD"
-    )
+    exec { stderr=false,
+        cmd = CMD.git .. "git -C " .. REPO .. s1 .. " commit -S -m '" .. msg ..
+                  "' --trailer 'Freechains: like'",
+        err = "chain like : invalid sign key",
+    }
+    hash = exec {
+        cmd = "git -C " .. REPO .. " rev-parse HEAD",
+    }
 end
 
 -- apply
@@ -84,7 +86,9 @@ do
     }
     local ok, err = apply(G, 'like', CMD.now, T)
     if not ok then
-        exec("git -C " .. REPO .. " reset --hard HEAD~1")
+        exec {
+            cmd = "git -C " .. REPO .. " reset --hard HEAD~1",
+        }
         ERROR("chain like : " .. err)
     end
     G.order[#G.order+1] = hash
@@ -93,17 +97,19 @@ end
 -- commit state
 do
     write(G)
-    exec (
-        "git -C " .. REPO .. " add .freechains/state/"
-    )
-    exec (
-        CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
-        .. " --trailer 'Freechains: state'"
-    )
+    exec {
+        cmd = "git -C " .. REPO .. " add .freechains/state/",
+    }
+    exec {
+        cmd = CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
+        .. " --trailer 'Freechains: state'",
+    }
 end
 
 if to_beg then
-    exec("git -C " .. REPO .. " update-ref -d " .. ref)
+    exec {
+        cmd = "git -C " .. REPO .. " update-ref -d " .. ref,
+    }
 end
 
 print(hash)

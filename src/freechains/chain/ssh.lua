@@ -3,7 +3,9 @@ local M = {}
 -- Extract the SSH pubkey from a signed commit, or nil if unsigned.
 -- Parses the SSHSIG armored blob in the gpgsig header.
 function M.pubkey (repo, hash)
-    local commit = exec("git -C " .. repo .. " cat-file commit " .. hash)
+    local commit = exec {
+        cmd = "git -C " .. repo .. " cat-file commit " .. hash,
+    }
     if not commit:match("\ngpgsig ") then
         return nil
     end
@@ -32,9 +34,9 @@ function M.pubkey (repo, hash)
             end
         end
     end
-    local hex = exec(
-        "printf '%s' '" .. body .. "' | base64 -d | xxd -p | tr -d '\n'"
-    )
+    local hex = exec {
+        cmd = "printf '%s' '" .. body .. "' | base64 -d | xxd -p | tr -d '\n'",
+    }
     local function u32 (off)
         local a = tonumber(hex:sub(off,    off+1), 16)
         local b = tonumber(hex:sub(off+2,  off+3), 16)
@@ -47,9 +49,9 @@ function M.pubkey (repo, hash)
     -- pubkey wire-format string starts at hex offset 21 (1-based)
     local len = u32(21)
     local hex = hex:sub(29, 28 + len*2)
-    local key = exec(
-        "printf '%s' '" .. hex .. "' | xxd -r -p | base64 -w0"
-    )
+    local key = exec {
+        cmd = "printf '%s' '" .. hex .. "' | xxd -r -p | base64 -w0",
+    }
     return "ssh-ed25519 " .. key
 end
 
@@ -64,11 +66,11 @@ function M.verify (repo, hash)
     local f = io.open(repo .. "/.freechains/tmp/allowed_signers", "w")
     f:write("git " .. key .. "\n")
     f:close()
-    local out, code = exec(true,
-        "git -C " .. repo
+    local out, code = exec { err=true,
+        cmd = "git -C " .. repo
         .. " -c gpg.ssh.allowedSignersFile=.freechains/tmp/allowed_signers"
-        .. " verify-commit " .. hash
-    )
+        .. " verify-commit " .. hash,
+    }
     os.remove(repo .. "/.freechains/tmp/allowed_signers")
     if code == 0 then
         return key

@@ -35,28 +35,28 @@ do
                 ERROR("chain post : file already exists")
             end
         end
-        exec ('stdout',
-            "cp " .. ARGS.path .. " " .. REPO .. "/"
-            , "chain post : invalid path"
-        )
+        exec { stderr=false,
+            cmd = "cp " .. ARGS.path .. " " .. REPO .. "/",
+            err = "chain post : invalid path",
+        }
     end
-    exec (
-        "git -C " .. REPO .. " add " .. file
-    )
+    exec {
+        cmd = "git -C " .. REPO .. " add " .. file,
+    }
     local s1, s2 = "", ""
     if ARGS.sign then
         s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=ssh"
         s2 = " -S"
     end
     local msg = ARGS.why or "(empty message)"
-    exec ('stdout',
-        CMD.git .. "git -C " .. REPO .. s1 .. " commit" .. s2 .. " -m '" .. msg
-        .. "' --trailer 'Freechains: post'"
-        , "chain post : invalid sign key"
-    )
-    hash = exec (
-        "git -C " .. REPO .. " rev-parse HEAD"
-    )
+    exec { stderr=false,
+        cmd = CMD.git .. "git -C " .. REPO .. s1 .. " commit" .. s2 .. " -m '" .. msg
+        .. "' --trailer 'Freechains: post'",
+        err = "chain post : invalid sign key",
+    }
+    hash = exec {
+        cmd = "git -C " .. REPO .. " rev-parse HEAD",
+    }
 end
 
 -- apply with real hash
@@ -68,7 +68,9 @@ do
     }
     local ok, err = apply(G, 'post', CMD.now, T)
     if not ok then
-        exec("git -C " .. REPO .. " reset --hard HEAD~1")
+        exec {
+            cmd = "git -C " .. REPO .. " reset --hard HEAD~1",
+        }
         ERROR("chain post : " .. err)
     end
     G.order[#G.order+1] = hash
@@ -77,22 +79,22 @@ end
 -- commit state
 do
     write(G)
-    exec (
-        "git -C " .. REPO .. " add .freechains/state/"
-    )
-    exec (
-        CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
-        .. " --trailer 'Freechains: state'"
-    )
+    exec {
+        cmd = "git -C " .. REPO .. " add .freechains/state/",
+    }
+    exec {
+        cmd = CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
+        .. " --trailer 'Freechains: state'",
+    }
 end
 
 if ARGS.beg then
-    exec (
-        "git -C " .. REPO .. " update-ref refs/begs/beg-" .. hash .. " HEAD"
-    )
-    exec (
-        "git -C " .. REPO .. " reset --hard HEAD~2"
-    )
+    exec {
+        cmd = "git -C " .. REPO .. " update-ref refs/begs/beg-" .. hash .. " HEAD",
+    }
+    exec {
+        cmd = "git -C " .. REPO .. " reset --hard HEAD~2",
+    }
 end
 
 print(hash)

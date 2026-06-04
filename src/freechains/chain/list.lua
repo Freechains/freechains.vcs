@@ -1,8 +1,8 @@
 if ARGS.begs then
     -- pending begs: post hashes parked on refs/begs/beg-<hash>
-    local out = exec (
-        "git -C " .. REPO .. " for-each-ref refs/begs/ --format='%(refname)'"
-    )
+    local out = exec {
+        cmd = "git -C " .. REPO .. " for-each-ref refs/begs/ --format='%(refname)'",
+    }
     for h in out:gmatch("refs/begs/beg%-(%x+)") do
         print(h)
     end
