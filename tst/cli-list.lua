@@ -13,9 +13,15 @@ local EXE_C  = ENV .. " ../src/freechains.lua --root " .. ROOT_C
 local REPO_A = ROOT_A .. "/chains/#test/"
 local REPO_B = ROOT_B .. "/chains/#test/"
 
-exec("mkdir -p " .. ROOT_A)
-exec("mkdir -p " .. ROOT_B)
-exec("mkdir -p " .. ROOT_C)
+exec {
+    cmd = "mkdir -p " .. ROOT_A,
+}
+exec {
+    cmd = "mkdir -p " .. ROOT_B,
+}
+exec {
+    cmd = "mkdir -p " .. ROOT_C,
+}
 
 local P1, P2, L1, P3, AP4, BP4, fst, snd, BEG, LIKE
 
@@ -24,33 +30,47 @@ do
     print("==> Step 1: post order")
 
     TEST "A creates chain"
-    exec(EXE_A .. " --now=1000 chains add '#test' init inline --sign " .. KEY1)
+    exec {
+        cmd = EXE_A .. " --now=1000 chains add '#test' init inline --sign " .. KEY1,
+    }
 
     TEST "A posts P1"
-    P1 = exec(EXE_A .. " --now=2000 chain '#test' post inline 'hello' --sign " .. KEY1)
+    P1 = exec {
+        cmd = EXE_A .. " --now=2000 chain '#test' post inline 'hello' --sign " .. KEY1,
+    }
 
     TEST "order has P1"
-    assert(exec(EXE_A .. " chain '#test' list order") == P1)
+    assert(exec {
+        cmd = EXE_A .. " chain '#test' list order",
+    } == P1)
 
     TEST "dag has P1"
     assert(
-        exec(EXE_A .. " chain '#test' list dag") ==
+        exec {
+            cmd = EXE_A .. " chain '#test' list dag",
+        } ==
         string.format([[
                  %s]], P1:sub(1,7))
     )
 
     TEST "A posts P2"
-    P2 = exec(EXE_A .. " --now=3000 chain '#test' post inline 'world' --sign " .. KEY1)
+    P2 = exec {
+        cmd = EXE_A .. " --now=3000 chain '#test' post inline 'world' --sign " .. KEY1,
+    }
 
     -- git:  genesis ── P1 ── S1 ── P2 ── S2   (S* = per-post state commits)
     -- dag:  P1 │ P2                            (state commits filtered out)
 
     TEST "order has P1, P2"
-    assert(exec(EXE_A .. " chain '#test' list order") == P1.."\n"..P2.."\n")
+    assert(exec {
+        cmd = EXE_A .. " chain '#test' list order",
+    } == P1.."\n"..P2.."\n")
 
     TEST "dag has P1, P2"
     assert(
-        exec(EXE_A .. " chain '#test' list dag") ==
+        exec {
+            cmd = EXE_A .. " chain '#test' list dag",
+        } ==
         string.format([[
                  %s
                     |
@@ -64,17 +84,23 @@ do
     print("==> Step 2: like + order")
 
     TEST "A likes P1"
-    L1 = exec(EXE_A .. " --now=4000 chain '#test' like 1 post " .. P1 .. " --sign " .. KEY1)
+    L1 = exec {
+        cmd = EXE_A .. " --now=4000 chain '#test' like 1 post " .. P1 .. " --sign " .. KEY1,
+    }
 
     -- git:  ... S2 ── L1 ── S3        (L1 = like on P1)
     -- dag:  P1 │ P2 │ L1
 
     TEST "order has P1, P2, L1"
-    assert(exec(EXE_A .. " chain '#test' list order") == P1.."\n"..P2.."\n"..L1.."\n")
+    assert(exec {
+        cmd = EXE_A .. " chain '#test' list order",
+    } == P1.."\n"..P2.."\n"..L1.."\n")
 
     TEST "dag has P1, P2, L1"
     assert(
-        exec(EXE_A .. " chain '#test' list dag") ==
+        exec {
+            cmd = EXE_A .. " chain '#test' list dag",
+        } ==
         string.format([[
                  %s
                     |
@@ -90,18 +116,28 @@ do
     print("==> Step 3: sync preserves order")
 
     TEST "B clones"
-    exec(EXE_B .. " chains add '#test' clone " .. REPO_A)
+    exec {
+        cmd = EXE_B .. " chains add '#test' clone " .. REPO_A,
+    }
 
     TEST "B order matches A"
     assert(
-        exec(EXE_A .. " chain '#test' list order") ==
-        exec(EXE_B .. " chain '#test' list order")
+        exec {
+            cmd = EXE_A .. " chain '#test' list order",
+        } ==
+        exec {
+            cmd = EXE_B .. " chain '#test' list order",
+        }
     )
 
     TEST "B dag matches A"
     assert(
-        exec(EXE_A .. " chain '#test' list dag") ==
-        exec(EXE_B .. " chain '#test' list dag")
+        exec {
+            cmd = EXE_A .. " chain '#test' list dag",
+        } ==
+        exec {
+            cmd = EXE_B .. " chain '#test' list dag",
+        }
     )
 end
 
@@ -110,29 +146,43 @@ do
     print("==> Step 4: recv preserves order")
 
     TEST "A posts P3"
-    P3 = exec(EXE_A .. " --now=5000 chain '#test' post inline 'third' --sign " .. KEY1)
+    P3 = exec {
+        cmd = EXE_A .. " --now=5000 chain '#test' post inline 'third' --sign " .. KEY1,
+    }
 
     TEST "B recvs from A"
-    exec(EXE_B .. " --now=5500 chain '#test' sync recv " .. REPO_A)
+    exec {
+        cmd = EXE_B .. " --now=5500 chain '#test' sync recv " .. REPO_A,
+    }
 
     -- git:  ... S3 ── P3 ── S4        (A posts P3; B fast-forwards to match)
     -- dag:  P1 │ P2 │ L1 │ P3
 
     TEST "B order matches A"
     assert(
-        exec(EXE_A .. " chain '#test' list order") ==
-        exec(EXE_B .. " chain '#test' list order")
+        exec {
+            cmd = EXE_A .. " chain '#test' list order",
+        } ==
+        exec {
+            cmd = EXE_B .. " chain '#test' list order",
+        }
     )
 
     TEST "B dag matches A"
     assert(
-        exec(EXE_A .. " chain '#test' list dag") ==
-        exec(EXE_B .. " chain '#test' list dag")
+        exec {
+            cmd = EXE_A .. " chain '#test' list dag",
+        } ==
+        exec {
+            cmd = EXE_B .. " chain '#test' list dag",
+        }
     )
 
     TEST "A dag has 4 nodes"
     assert(
-        exec(EXE_A .. " chain '#test' list dag") ==
+        exec {
+            cmd = EXE_A .. " chain '#test' list dag",
+        } ==
         string.format([[
                  %s
                     |
@@ -150,13 +200,19 @@ do
     print("==> Step 5: fork via diverge")
 
     TEST "A posts AP4"
-    AP4 = exec(EXE_A .. " --now=6000 chain '#test' post inline 'a_post_4' --sign " .. KEY1)
+    AP4 = exec {
+        cmd = EXE_A .. " --now=6000 chain '#test' post inline 'a_post_4' --sign " .. KEY1,
+    }
 
     TEST "B posts BP4 (diverges from A)"
-    BP4 = exec(EXE_B .. " --now=6500 chain '#test' post inline 'b_post_4' --sign " .. KEY1)
+    BP4 = exec {
+        cmd = EXE_B .. " --now=6500 chain '#test' post inline 'b_post_4' --sign " .. KEY1,
+    }
 
     TEST "B recvs from A (case 4 diverge)"
-    exec(EXE_B .. " --now=7000 chain '#test' sync recv " .. REPO_A)
+    exec {
+        cmd = EXE_B .. " --now=7000 chain '#test' sync recv " .. REPO_A,
+    }
 
     -- A stays linear:  ... P3 ── AP4
     -- B diverges, then recvs A → state-merge M (filtered from dag):
@@ -167,7 +223,9 @@ do
 
     TEST "A dag is linear with 5 nodes"
     assert(
-        exec(EXE_A .. " chain '#test' list dag") ==
+        exec {
+            cmd = EXE_A .. " chain '#test' list dag",
+        } ==
         string.format([[
                  %s
                     |
@@ -183,7 +241,9 @@ do
 
     TEST "B order has fork resolution"
     local lines = {}
-    for line in exec(EXE_B .. " chain '#test' list order"):gmatch("[^\n]+") do
+    for line in exec {
+        cmd = EXE_B .. " chain '#test' list order",
+    }:gmatch("[^\n]+") do
         lines[#lines+1] = line
     end
     assert(#lines == 6, "expected 6 commits, got " .. #lines)
@@ -199,7 +259,9 @@ do
 
     TEST "B dag shows fork (state-merge filtered)"
     assert(
-        exec(EXE_B .. " chain '#test' list dag") ==
+        exec {
+            cmd = EXE_B .. " chain '#test' list dag",
+        } ==
         string.format([[
                  %s
                     |
@@ -219,22 +281,32 @@ do
     print("==> Step 6: beg + like")
 
     TEST "KEY3 begs on A"
-    local begA = exec(EXE_A .. " --now=7500 chain '#test' post inline 'help A' --beg --sign " .. KEY3)
+    local begA = exec {
+        cmd = EXE_A .. " --now=7500 chain '#test' post inline 'help A' --beg --sign " .. KEY3,
+    }
     assert(#begA == 40, "expected hash, got: " .. begA)
 
     TEST "A list begs lists begA"
-    assert(exec(EXE_A .. " chain '#test' list begs") == begA)
+    assert(exec {
+        cmd = EXE_A .. " chain '#test' list begs",
+    } == begA)
 
     TEST "KEY2 begs on B"
-    BEG = exec(EXE_B .. " --now=8000 chain '#test' post inline 'please help' --beg --sign " .. KEY2)
+    BEG = exec {
+        cmd = EXE_B .. " --now=8000 chain '#test' post inline 'please help' --beg --sign " .. KEY2,
+    }
     assert(#BEG == 40, "expected hash, got: " .. BEG)
 
     TEST "A recv B (begs should transmit; A keeps begA, gains BEG)"
-    exec(EXE_A .. " --now=8200 chain '#test' sync recv " .. REPO_B)
+    exec {
+        cmd = EXE_A .. " --now=8200 chain '#test' sync recv " .. REPO_B,
+    }
 
     TEST "A list begs has both begA and BEG"
     local begs, n = {}, 0
-    for h in exec(EXE_A .. " chain '#test' list begs"):gmatch("[^\n]+") do
+    for h in exec {
+        cmd = EXE_A .. " chain '#test' list begs",
+    }:gmatch("[^\n]+") do
         begs[h] = true ; n = n + 1
     end
     assert(n == 2, "expected 2 begs, got " .. n)
@@ -242,21 +314,29 @@ do
 
     -- beg lives on refs/begs/ (off-main): invisible to order/dag, listed by begs
     TEST "all begs lists the pending beg"
-    assert(exec(EXE_B .. " chain '#test' list begs") == BEG)
+    assert(exec {
+        cmd = EXE_B .. " chain '#test' list begs",
+    } == BEG)
 
     TEST "all order does not include the pending beg"
     local has_beg = false
-    for line in exec(EXE_B .. " chain '#test' list order"):gmatch("[^\n]+") do
+    for line in exec {
+        cmd = EXE_B .. " chain '#test' list order",
+    }:gmatch("[^\n]+") do
         if line == BEG then has_beg = true end
     end
     assert(not has_beg, "pending beg should not be in order")
 
     TEST "KEY1 likes BEG"
-    LIKE = exec(EXE_B .. " --now=8500 chain '#test' like 1 post " .. BEG .. " --sign " .. KEY1)
+    LIKE = exec {
+        cmd = EXE_B .. " --now=8500 chain '#test' like 1 post " .. BEG .. " --sign " .. KEY1,
+    }
     assert(#LIKE == 40, "expected hash, got: " .. LIKE)
 
     TEST "all begs empty after like (ref consumed)"
-    assert(exec(EXE_B .. " chain '#test' list begs") == "")
+    assert(exec {
+        cmd = EXE_B .. " chain '#test' list begs",
+    } == "")
 
     -- KEY2 begs (BEG lives on refs/begs/, off-main); KEY1's like merges it back:
     --   git:  ... M ─────────────── LIKE ── S      (LIKE: a like-trailer merge)
@@ -267,7 +347,9 @@ do
 
     TEST "B order now has 8 commits (M filtered, BEG+LIKE added)"
     local lines = {}
-    for line in exec(EXE_B .. " chain '#test' list order"):gmatch("[^\n]+") do
+    for line in exec {
+        cmd = EXE_B .. " chain '#test' list order",
+    }:gmatch("[^\n]+") do
         lines[#lines+1] = line
     end
     assert(#lines == 8, "expected 8 commits, got " .. #lines)
@@ -276,7 +358,9 @@ do
 
     TEST "B dag: LIKE has immediate parent (|) + distant parents annotated"
     assert(
-        exec(EXE_B .. " chain '#test' list dag") ==
+        exec {
+            cmd = EXE_B .. " chain '#test' list dag",
+        } ==
         string.format([[
                  %s
                     |
@@ -305,21 +389,39 @@ do
     local REPO_C2 = ROOT_C .. "/chains/#tri/"
 
     TEST "A creates tri + shared post P0"
-    exec(EXE_A .. " --now=1000 chains add '#tri' init inline --sign " .. KEY1)
-    local P0 = exec(EXE_A .. " --now=2000 chain '#tri' post inline 'shared' --sign " .. KEY1)
+    exec {
+        cmd = EXE_A .. " --now=1000 chains add '#tri' init inline --sign " .. KEY1,
+    }
+    local P0 = exec {
+        cmd = EXE_A .. " --now=2000 chain '#tri' post inline 'shared' --sign " .. KEY1,
+    }
 
     TEST "B, C clone tri"
-    exec(EXE_B .. " chains add '#tri' clone " .. REPO_A2)
-    exec(EXE_C .. " chains add '#tri' clone " .. REPO_A2)
+    exec {
+        cmd = EXE_B .. " chains add '#tri' clone " .. REPO_A2,
+    }
+    exec {
+        cmd = EXE_C .. " chains add '#tri' clone " .. REPO_A2,
+    }
 
     TEST "A, B, C each post from P0"
-    exec(EXE_A .. " --now=3000 chain '#tri' post inline 'from a' --sign " .. KEY1)
-    exec(EXE_B .. " --now=3500 chain '#tri' post inline 'from b' --sign " .. KEY1)
-    exec(EXE_C .. " --now=4000 chain '#tri' post inline 'from c' --sign " .. KEY1)
+    exec {
+        cmd = EXE_A .. " --now=3000 chain '#tri' post inline 'from a' --sign " .. KEY1,
+    }
+    exec {
+        cmd = EXE_B .. " --now=3500 chain '#tri' post inline 'from b' --sign " .. KEY1,
+    }
+    exec {
+        cmd = EXE_C .. " --now=4000 chain '#tri' post inline 'from c' --sign " .. KEY1,
+    }
 
     TEST "A recvs B then C (two diverge merges)"
-    exec(EXE_A .. " --now=5000 chain '#tri' sync recv " .. REPO_B2)
-    exec(EXE_A .. " --now=5500 chain '#tri' sync recv " .. REPO_C2)
+    exec {
+        cmd = EXE_A .. " --now=5000 chain '#tri' sync recv " .. REPO_B2,
+    }
+    exec {
+        cmd = EXE_A .. " --now=5500 chain '#tri' sync recv " .. REPO_C2,
+    }
 
     -- 3 peers post from shared P0; A recvs B then C → two state-merges M1, M2:
     --   git:  P0 ──┬── PA ──┐
@@ -331,7 +433,9 @@ do
 
     TEST "A order: P0 then 3 siblings"
     local lines = {}
-    for line in exec(EXE_A .. " chain '#tri' list order"):gmatch("[^\n]+") do
+    for line in exec {
+        cmd = EXE_A .. " chain '#tri' list order",
+    }:gmatch("[^\n]+") do
         lines[#lines+1] = line
     end
     assert(#lines == 4, "expected 4 commits, got " .. #lines)
@@ -339,7 +443,9 @@ do
 
     TEST "A dag shows 3-way fork"
     assert(
-        exec(EXE_A .. " chain '#tri' list dag") ==
+        exec {
+            cmd = EXE_A .. " chain '#tri' list dag",
+        } ==
         string.format([[
                  %s
                 /   |   \

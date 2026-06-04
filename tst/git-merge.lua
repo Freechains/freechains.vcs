@@ -5,33 +5,44 @@ require "tests"
 local DIR_A = ROOT .. "/git-merge/A/"
 local DIR_B = ROOT .. "/git-merge/B/"
 
-exec("rm -rf " .. ROOT .. "/git-merge")
+exec {
+    cmd = "rm -rf " .. ROOT .. "/git-merge",
+}
 
 local function post (dir, file, text)
     local f = io.open(dir .. file, "w")
     f:write(text .. "\n")
     f:close()
-    exec("git -C " .. dir .. " add " .. file)
-    exec("git -C " .. dir .. " commit --allow-empty-message -m ''")
+    exec {
+        cmd = "git -C " .. dir .. " add " .. file,
+    }
+    exec {
+        cmd = "git -C " .. dir .. " commit --allow-empty-message -m ''",
+    }
 end
 
 local function fetch (dir, remote)
-    local _, code = exec("git -C " .. dir .. " fetch " .. remote .. " main")
+    local _, code = exec {
+        cmd = "git -C " .. dir .. " fetch " .. remote .. " main",
+    }
     assert(code == 0, "fetch failed")
 end
 
 -- dry-run merge: returns true if clean, false if conflict
 local function dry_merge (dir)
-    local _, code = exec(true, "git -C " .. dir .. " merge --no-commit --no-ff FETCH_HEAD")
-    exec("git -C " .. dir .. " merge --abort")
+    local _, code = exec { err=true,
+        cmd = "git -C " .. dir .. " merge --no-commit --no-ff FETCH_HEAD",
+    }
+    exec {
+        cmd = "git -C " .. dir .. " merge --abort",
+    }
     return code == 0
 end
 
 local function graph (dir, fr, to)
-    local log = exec (
-        "git -C " .. dir .. " rev-list --topo-order --reverse --parents " ..
-            fr .. ".." .. to
-    )
+    local log = exec {
+        cmd = "git -C " .. dir .. " rev-list --topo-order --reverse --parents " .. fr .. ".." .. to,
+    }
     local G = {
         root = fr,
         [fr] = { hash=fr, childs={} },
@@ -65,17 +76,31 @@ do
 
     do
         TEST "A creates repo"
-        exec("git init -b main " .. DIR_A)
-        exec("git -C " .. DIR_A .. " config user.name  '-'")
-        exec("git -C " .. DIR_A .. " config user.email '-'")
-        exec("git -C " .. DIR_A .. " commit --allow-empty -m 'genesis'")
+        exec {
+            cmd = "git init -b main " .. DIR_A,
+        }
+        exec {
+            cmd = "git -C " .. DIR_A .. " config user.name  '-'",
+        }
+        exec {
+            cmd = "git -C " .. DIR_A .. " config user.email '-'",
+        }
+        exec {
+            cmd = "git -C " .. DIR_A .. " commit --allow-empty -m 'genesis'",
+        }
     end
 
     do
         TEST "B clones from A"
-        exec("git clone " .. DIR_A .. " " .. DIR_B)
-        exec("git -C " .. DIR_B .. " config user.name  '-'")
-        exec("git -C " .. DIR_B .. " config user.email '-'")
+        exec {
+            cmd = "git clone " .. DIR_A .. " " .. DIR_B,
+        }
+        exec {
+            cmd = "git -C " .. DIR_B .. " config user.name  '-'",
+        }
+        exec {
+            cmd = "git -C " .. DIR_B .. " config user.email '-'",
+        }
     end
 end
 
@@ -98,7 +123,9 @@ do
 
         TEST "A merges B (no conflict)"
         fetch(DIR_A, DIR_B)
-        exec("git -C " .. DIR_A .. " merge --no-edit --no-ff FETCH_HEAD")
+        exec {
+            cmd = "git -C " .. DIR_A .. " merge --no-edit --no-ff FETCH_HEAD",
+        }
     end
 
     do
@@ -110,12 +137,16 @@ do
     do
         TEST "B fetches from A (fast-forward)"
         fetch(DIR_B, DIR_A)
-        exec("git -C " .. DIR_B .. " merge --no-edit FETCH_HEAD")
+        exec {
+            cmd = "git -C " .. DIR_B .. " merge --no-edit FETCH_HEAD",
+        }
     end
 
     do
         TEST "A and B are equal after scenario 1"
-        local _, ok = exec("diff -r --exclude=.git " .. DIR_A .. " " .. DIR_B)
+        local _, ok = exec {
+            cmd = "diff -r --exclude=.git " .. DIR_A .. " " .. DIR_B,
+        }
         assert(ok == 0, "A and B differ")
     end
 end
@@ -144,7 +175,9 @@ do
 
         TEST "A merges B with -s ours (discard B entirely)"
         fetch(DIR_A, DIR_B)
-        exec("git -C " .. DIR_A .. " merge --no-edit -s ours FETCH_HEAD")
+        exec {
+            cmd = "git -C " .. DIR_A .. " merge --no-edit -s ours FETCH_HEAD",
+        }
     end
 
     do
@@ -161,12 +194,16 @@ do
     do
         TEST "B fetches from A (fast-forward)"
         fetch(DIR_B, DIR_A)
-        exec("git -C " .. DIR_B .. " merge --no-edit FETCH_HEAD")
+        exec {
+            cmd = "git -C " .. DIR_B .. " merge --no-edit FETCH_HEAD",
+        }
     end
 
     do
         TEST "A and B are equal after scenario 2"
-        local _, ok = exec("diff -r --exclude=.git " .. DIR_A .. " " .. DIR_B)
+        local _, ok = exec {
+            cmd = "diff -r --exclude=.git " .. DIR_A .. " " .. DIR_B,
+        }
         assert(ok == 0, "A and B differ")
     end
 end
@@ -195,9 +232,15 @@ do
 
         TEST "A merges B with read-tree hack (discard A entirely)"
         fetch(DIR_A, DIR_B)
-        exec("git -C " .. DIR_A .. " merge --no-commit -s ours FETCH_HEAD")
-        exec("git -C " .. DIR_A .. " read-tree --reset -u FETCH_HEAD")
-        exec("git -C " .. DIR_A .. " commit --no-edit")
+        exec {
+            cmd = "git -C " .. DIR_A .. " merge --no-commit -s ours FETCH_HEAD",
+        }
+        exec {
+            cmd = "git -C " .. DIR_A .. " read-tree --reset -u FETCH_HEAD",
+        }
+        exec {
+            cmd = "git -C " .. DIR_A .. " commit --no-edit",
+        }
     end
 
     do
@@ -211,12 +254,16 @@ do
     do
         TEST "B fetches from A (fast-forward)"
         fetch(DIR_B, DIR_A)
-        exec("git -C " .. DIR_B .. " merge --no-edit FETCH_HEAD")
+        exec {
+            cmd = "git -C " .. DIR_B .. " merge --no-edit FETCH_HEAD",
+        }
     end
 
     do
         TEST "A and B are equal after scenario 3"
-        local _, ok = exec("diff -r --exclude=.git " .. DIR_A .. " " .. DIR_B)
+        local _, ok = exec {
+            cmd = "diff -r --exclude=.git " .. DIR_A .. " " .. DIR_B,
+        }
         assert(ok == 0, "A and B differ")
     end
 end
@@ -234,51 +281,79 @@ do
     print("==> Scenario 4: nested merge DAG lab")
 
     local DIR = ROOT .. "/git-merge/lab/"
-    exec("rm -rf " .. DIR)
-    exec("git init -b main " .. DIR)
-    exec("git -C " .. DIR .. " config user.name  '-'")
-    exec("git -C " .. DIR .. " config user.email '-'")
+    exec {
+        cmd = "rm -rf " .. DIR,
+    }
+    exec {
+        cmd = "git init -b main " .. DIR,
+    }
+    exec {
+        cmd = "git -C " .. DIR .. " config user.name  '-'",
+    }
+    exec {
+        cmd = "git -C " .. DIR .. " config user.email '-'",
+    }
 
     -- pre
     post(DIR, "pre.txt", "pre")
 
     -- H1
     post(DIR, "h1.txt", "h1")
-    local H1 = exec("git -C " .. DIR .. " rev-parse HEAD")
+    local H1 = exec {
+        cmd = "git -C " .. DIR .. " rev-parse HEAD",
+    }
 
     -- branch-c from H1: c1, c2
-    exec("git -C " .. DIR .. " checkout -b branch-c")
+    exec {
+        cmd = "git -C " .. DIR .. " checkout -b branch-c",
+    }
     post(DIR, "c1.txt", "c1")
     post(DIR, "c2.txt", "c2")
 
     -- back to main: a1
-    exec("git -C " .. DIR .. " checkout main")
+    exec {
+        cmd = "git -C " .. DIR .. " checkout main",
+    }
     post(DIR, "a1.txt", "a1")
 
     -- branch-b from a1: b1, b2
-    exec("git -C " .. DIR .. " checkout -b branch-b")
+    exec {
+        cmd = "git -C " .. DIR .. " checkout -b branch-b",
+    }
     post(DIR, "b1.txt", "b1")
     post(DIR, "b2.txt", "b2")
 
     -- back to main: a2
-    exec("git -C " .. DIR .. " checkout main")
+    exec {
+        cmd = "git -C " .. DIR .. " checkout main",
+    }
     post(DIR, "a2.txt", "a2")
 
     -- M1: merge branch-b into main
-    exec("git -C " .. DIR .. " merge --no-edit branch-b")
-    local M1 = exec("git -C " .. DIR .. " rev-parse HEAD")
+    exec {
+        cmd = "git -C " .. DIR .. " merge --no-edit branch-b",
+    }
+    local M1 = exec {
+        cmd = "git -C " .. DIR .. " rev-parse HEAD",
+    }
 
     -- a4, a5
     post(DIR, "a4.txt", "a4")
     post(DIR, "a5.txt", "a5")
 
     -- M2: merge branch-c into main
-    exec("git -C " .. DIR .. " merge --no-edit branch-c")
-    local M2 = exec("git -C " .. DIR .. " rev-parse HEAD")
+    exec {
+        cmd = "git -C " .. DIR .. " merge --no-edit branch-c",
+    }
+    local M2 = exec {
+        cmd = "git -C " .. DIR .. " rev-parse HEAD",
+    }
 
     -- H2
     post(DIR, "h2.txt", "h2")
-    local H2 = exec("git -C " .. DIR .. " rev-parse HEAD")
+    local H2 = exec {
+        cmd = "git -C " .. DIR .. " rev-parse HEAD",
+    }
 
     -- post (after H2)
     post(DIR, "post.txt", "post")
@@ -286,11 +361,15 @@ do
     -- DAG diagram
     print()
     print("--- full DAG ---")
-    print(exec("git -C " .. DIR .. " log --oneline --graph --all"))
+    print(exec {
+        cmd = "git -C " .. DIR .. " log --oneline --graph --all",
+    })
     print()
 
     print("--- H1..H2 ---")
-    print(exec("git -C " .. DIR .. " log --oneline --graph " .. H1 .. ".." .. H2))
+    print(exec {
+        cmd = "git -C " .. DIR .. " log --oneline --graph " .. H1 .. ".." .. H2,
+    })
     print()
     print("git -C " .. DIR .. " log --oneline --graph " .. H1 .. ".." .. H2)
 
@@ -302,9 +381,13 @@ do
 
     -- merges in H1..H2
     print("--- merges in H1..H2 ---")
-    local merges = exec("git -C " .. DIR .. " rev-list --topo-order --merges " .. H1 .. ".." .. H2)
+    local merges = exec {
+        cmd = "git -C " .. DIR .. " rev-list --topo-order --merges " .. H1 .. ".." .. H2,
+    }
     for h in merges:gmatch("%x+") do
-        local parents = exec("git -C " .. DIR .. " rev-list --parents -1 " .. h)
+        local parents = exec {
+            cmd = "git -C " .. DIR .. " rev-list --parents -1 " .. h,
+        }
         print(h:sub(1,7) .. " parents: " .. parents:gsub("(%x+)", function(x) return x:sub(1,7) end))
     end
     print()
@@ -312,22 +395,32 @@ do
     -- merge-bases
     print("--- merge-bases ---")
     do
-        local p = exec("git -C " .. DIR .. " rev-list --parents -1 " .. M2)
+        local p = exec {
+            cmd = "git -C " .. DIR .. " rev-list --parents -1 " .. M2,
+        }
         local _, p1, p2 = p:match("(%x+) (%x+) (%x+)")
-        local base = exec("git -C " .. DIR .. " merge-base " .. p1 .. " " .. p2)
+        local base = exec {
+            cmd = "git -C " .. DIR .. " merge-base " .. p1 .. " " .. p2,
+        }
         print("M2 parents: " .. p1:sub(1,7) .. " " .. p2:sub(1,7) .. "  base: " .. base:sub(1,7))
     end
     do
-        local p = exec("git -C " .. DIR .. " rev-list --parents -1 " .. M1)
+        local p = exec {
+            cmd = "git -C " .. DIR .. " rev-list --parents -1 " .. M1,
+        }
         local _, p1, p2 = p:match("(%x+) (%x+) (%x+)")
-        local base = exec("git -C " .. DIR .. " merge-base " .. p1 .. " " .. p2)
+        local base = exec {
+            cmd = "git -C " .. DIR .. " merge-base " .. p1 .. " " .. p2,
+        }
         print("M1 parents: " .. p1:sub(1,7) .. " " .. p2:sub(1,7) .. "  base: " .. base:sub(1,7))
     end
     print()
 
     -- last merge in range (what recursive replay would find first)
     print("--- last merge (--max-count=1) ---")
-    local last = exec("git -C " .. DIR .. " rev-list --topo-order --merges --max-count=1 " .. H1 .. ".." .. H2)
+    local last = exec {
+        cmd = "git -C " .. DIR .. " rev-list --topo-order --merges --max-count=1 " .. H1 .. ".." .. H2,
+    }
     print(last:sub(1,7) .. " (should be M2)")
     assert(last == M2, "last merge should be M2")
 

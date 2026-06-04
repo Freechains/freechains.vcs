@@ -4,18 +4,34 @@ require "tests"
 local ssh = require "freechains.chain.ssh"
 
 local DIR  = TMP .. "/ssh-unit/"
-local KEYS = exec("realpath ssh/")
+local KEYS = exec {
+    cmd = "realpath ssh/",
+}
 local K1   = KEYS .. "/key1"
 local K2   = KEYS .. "/key2"
-local PUB1 = exec("awk '{print $1\" \"$2}' " .. K1 .. ".pub")
-local PUB2 = exec("awk '{print $1\" \"$2}' " .. K2 .. ".pub")
+local PUB1 = exec {
+    cmd = "awk '{print $1\" \"$2}' " .. K1 .. ".pub",
+}
+local PUB2 = exec {
+    cmd = "awk '{print $1\" \"$2}' " .. K2 .. ".pub",
+}
 
 local function reset_repo ()
-    exec("rm -rf " .. DIR)
-    exec("mkdir -p " .. DIR .. "/.freechains/tmp")
-    exec("git -C " .. DIR .. " init -q")
-    exec("git -C " .. DIR .. " config user.email t@t")
-    exec("git -C " .. DIR .. " config user.name  t")
+    exec {
+        cmd = "rm -rf " .. DIR,
+    }
+    exec {
+        cmd = "mkdir -p " .. DIR .. "/.freechains/tmp",
+    }
+    exec {
+        cmd = "git -C " .. DIR .. " init -q",
+    }
+    exec {
+        cmd = "git -C " .. DIR .. " config user.email t@t",
+    }
+    exec {
+        cmd = "git -C " .. DIR .. " config user.name  t",
+    }
 end
 
 local function commit_signed (key, msg)
@@ -23,13 +39,21 @@ local function commit_signed (key, msg)
         .. " -c gpg.format=ssh"
         .. " -c user.signingkey=" .. key
         .. " commit -S --allow-empty -q -m '" .. msg .. "'"
-    exec(cmd)
-    return exec("git -C " .. DIR .. " rev-parse HEAD")
+    exec {
+        cmd = cmd,
+    }
+    return exec {
+        cmd = "git -C " .. DIR .. " rev-parse HEAD",
+    }
 end
 
 local function commit_unsigned (msg)
-    exec("git -C " .. DIR .. " commit --allow-empty -q -m '" .. msg .. "'")
-    return exec("git -C " .. DIR .. " rev-parse HEAD")
+    exec {
+        cmd = "git -C " .. DIR .. " commit --allow-empty -q -m '" .. msg .. "'",
+    }
+    return exec {
+        cmd = "git -C " .. DIR .. " rev-parse HEAD",
+    }
 end
 
 print("==> signing_ssh helpers")
@@ -70,8 +94,12 @@ do
     TEST "verify_commit fails on tampered commit"
     reset_repo()
     local h = commit_signed(K1, "orig")
-    exec("git -C " .. DIR .. " commit --amend --allow-empty -q -m 'tampered' --no-gpg-sign")
-    local h2 = exec("git -C " .. DIR .. " rev-parse HEAD")
+    exec {
+        cmd = "git -C " .. DIR .. " commit --amend --allow-empty -q -m 'tampered' --no-gpg-sign",
+    }
+    local h2 = exec {
+        cmd = "git -C " .. DIR .. " rev-parse HEAD",
+    }
     local ok = ssh.verify(DIR, h2)
     assert(not ok, "tampered commit should not verify")
 end

@@ -4,7 +4,9 @@ require "tests"
 
 local DIR = ROOT .. "/chains/#cli-post/"
 
-exec(ENV_EXE .. " chains add '#cli-post' init inline --sign " .. KEY1)
+exec {
+    cmd = ENV_EXE .. " chains add '#cli-post' init inline --sign " .. KEY1,
+}
 
 -- POST FILE
 do
@@ -12,9 +14,9 @@ do
 
     do
         TEST "post file success"
-        local out, code = exec (
-            ENV_EXE .. " chain '#cli-post' post file hello.txt --sign " .. KEY1
-        )
+        local out, code = exec {
+            cmd = ENV_EXE .. " chain '#cli-post' post file hello.txt --sign " .. KEY1,
+        }
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
         assert(out:match("^%x+$"), "hash is hex")
@@ -28,9 +30,9 @@ do
 
     do
         TEST "genesis still in tree"
-        local _, code = exec (
-            "test -f " .. DIR .. "/.freechains/genesis.lua"
-        )
+        local _, code = exec {
+            cmd = "test -f " .. DIR .. "/.freechains/genesis.lua",
+        }
         assert(code == 0, ".freechains/genesis.lua missing")
     end
 
@@ -40,14 +42,16 @@ do
         local f = io.open(tmp, "w")
         f:write("collision attempt\n")
         f:close()
-        local _, Q, err = exec (true,
-            ENV_EXE .. " chain '#cli-post' post file " .. tmp .. " --sign " .. KEY1
-        )
+        local _, Q, err = exec { err=true,
+            cmd = ENV_EXE .. " chain '#cli-post' post file " .. tmp .. " --sign " .. KEY1,
+        }
         assert (
             Q~=0 and err=="ERROR : chain post : file already exists"
             , "should fail: " .. tostring(err)
         )
-        local content = exec("cat " .. DIR .. "/hello.txt")
+        local content = exec {
+            cmd = "cat " .. DIR .. "/hello.txt",
+        }
         assert(content == "Hello World!", "content: " .. content)
     end
 
@@ -57,15 +61,15 @@ do
         local f = io.open(tmp, "w")
         f:write("second file\n")
         f:close()
-        exec (
-            ENV_EXE .. " chain '#cli-post' post file " .. tmp .. " --sign " .. KEY1
-        )
-        local _, code1 = exec (
-            "test -f " .. DIR .. "/hello.txt"
-        )
-        local _, code2 = exec (
-            "test -f " .. DIR .. "/second.txt"
-        )
+        exec {
+            cmd = ENV_EXE .. " chain '#cli-post' post file " .. tmp .. " --sign " .. KEY1,
+        }
+        local _, code1 = exec {
+            cmd = "test -f " .. DIR .. "/hello.txt",
+        }
+        local _, code2 = exec {
+            cmd = "test -f " .. DIR .. "/second.txt",
+        }
         assert(code1 == 0, "hello.txt missing")
         assert(code2 == 0, "second.txt missing")
     end
@@ -77,12 +81,14 @@ do
 
     do
         TEST "inline auto-name"
-        local out, code = exec (
-            ENV_EXE .. " chain '#cli-post' post inline 'Quick note' --sign " .. KEY1
-        )
+        local out, code = exec {
+            cmd = ENV_EXE .. " chain '#cli-post' post inline 'Quick note' --sign " .. KEY1,
+        }
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
-        local files = exec("ls " .. DIR .. "/*-*.txt")
+        local files = exec {
+            cmd = "ls " .. DIR .. "/*-*.txt",
+        }
         assert(files ~= "", "auto-named file missing")
 
         do
@@ -94,26 +100,28 @@ do
 
     do
         TEST "inline --file creates file"
-        local _, code = exec (
-            ENV_EXE .. " chain '#cli-post' post inline 'Line 1\n'"
-            .. " --file log.txt --sign " .. KEY1
-        )
+        local _, code = exec {
+            cmd = ENV_EXE .. " chain '#cli-post' post inline 'Line 1\n'" .. " --file log.txt --sign " .. KEY1,
+        }
         assert(code == 0, "exit code: " .. tostring(code))
-        local content = exec("cat " .. DIR .. "/log.txt")
+        local content = exec {
+            cmd = "cat " .. DIR .. "/log.txt",
+        }
         assert(content == "Line 1", "content: " .. content)
     end
 
     do
         TEST "inline --file rejects existing"
-        local _, Q, err = exec (true,
-            ENV_EXE .. " chain '#cli-post' post inline 'Line 2\n'"
-            .. " --file log.txt --sign " .. KEY1
-        )
+        local _, Q, err = exec { err=true,
+            cmd = ENV_EXE .. " chain '#cli-post' post inline 'Line 2\n'" .. " --file log.txt --sign " .. KEY1,
+        }
         assert (
             Q~=0 and err=="ERROR : chain post : file already exists"
             , "should fail: " .. tostring(err)
         )
-        local content = exec("cat " .. DIR .. "/log.txt")
+        local content = exec {
+            cmd = "cat " .. DIR .. "/log.txt",
+        }
         assert(content == "Line 1", "content: " .. content)
     end
 end
@@ -124,11 +132,12 @@ do
 
     do
         TEST "inline --why sets commit message"
-        exec (
-            ENV_EXE .. " chain '#cli-post' post inline 'some text' --sign " .. KEY1
-            .. " --why 'reason for posting'"
-        )
-        local msg = exec("git -C " .. DIR .. " log -1 --format=%s HEAD~1")
+        exec {
+            cmd = ENV_EXE .. " chain '#cli-post' post inline 'some text' --sign " .. KEY1 .. " --why 'reason for posting'",
+        }
+        local msg = exec {
+            cmd = "git -C " .. DIR .. " log -1 --format=%s HEAD~1",
+        }
         assert(msg == "reason for posting", "commit message: " .. msg)
     end
 
@@ -138,18 +147,23 @@ do
         local f = io.open(tmp, "w")
         f:write("why test content\n")
         f:close()
-        exec (
-            ENV_EXE .. " chain '#cli-post' post file " .. tmp .. " --sign " .. KEY1
-            .. " --why 'file reason'"
-        )
-        local msg = exec("git -C " .. DIR .. " log -1 --format=%s HEAD~1")
+        exec {
+            cmd = ENV_EXE .. " chain '#cli-post' post file " .. tmp .. " --sign " .. KEY1 .. " --why 'file reason'",
+        }
+        local msg = exec {
+            cmd = "git -C " .. DIR .. " log -1 --format=%s HEAD~1",
+        }
         assert(msg == "file reason", "commit message: " .. msg)
     end
 
     do
         TEST "post without --why has empty message"
-        exec(ENV_EXE .. " chain '#cli-post' post inline 'no reason' --sign " .. KEY1)
-        local msg = exec("git -C " .. DIR .. " log -1 --format=%s HEAD~1")
+        exec {
+            cmd = ENV_EXE .. " chain '#cli-post' post inline 'no reason' --sign " .. KEY1,
+        }
+        local msg = exec {
+            cmd = "git -C " .. DIR .. " log -1 --format=%s HEAD~1",
+        }
         assert(msg == "(empty message)", "commit message should be empty: " .. msg)
     end
 end
@@ -161,9 +175,9 @@ do
     do
         TEST "post to nonexistent chain fails"
         local tmp = TMP .. "/hello.txt"
-        local _, Q, err = exec (true,
-            ENV_EXE .. " chain '#nochain' post file " .. tmp .. " --sign " .. KEY1
-        )
+        local _, Q, err = exec { err=true,
+            cmd = ENV_EXE .. " chain '#nochain' post file " .. tmp .. " --sign " .. KEY1,
+        }
         assert (
             Q~=0 and err=="ERROR : chain #nochain : not found"
             , "should fail: " .. tostring(err)
@@ -172,7 +186,9 @@ do
 
     do
         TEST "post file copy failed"
-        local _,Q,err = exec(true, ENV_EXE .. " chain '#cli-post' post file /tmp/nonexistent-file.txt --sign " .. KEY1)
+        local _,Q,err = exec { err=true,
+            cmd = ENV_EXE .. " chain '#cli-post' post file /tmp/nonexistent-file.txt --sign " .. KEY1,
+        }
         assert(Q~=0 and err=="ERROR : chain post : invalid path", "should fail: " .. tostring(err))
     end
 end

@@ -14,9 +14,15 @@ local REPO_A = ROOT_A .. "/chains/#test/"
 local REPO_B = ROOT_B .. "/chains/#test/"
 local REPO_C = ROOT_C .. "/chains/#test/"
 
-exec("mkdir -p " .. ROOT_A .. "/chains")
-exec("mkdir -p " .. ROOT_B .. "/chains")
-exec("mkdir -p " .. ROOT_C .. "/chains")
+exec {
+    cmd = "mkdir -p " .. ROOT_A .. "/chains",
+}
+exec {
+    cmd = "mkdir -p " .. ROOT_B .. "/chains",
+}
+exec {
+    cmd = "mkdir -p " .. ROOT_C .. "/chains",
+}
 
 local PORT_A = 19418
 local PORT_B = 19419
@@ -31,14 +37,9 @@ local PID_B  = ROOT_B .. "/daemon.pid"
 local PID_C  = ROOT_C .. "/daemon.pid"
 
 local function daemon_start (exe, port, pid)
-    exec (
-        exe .. " daemon --hub --port=" .. port
-        .. " --"
-        .. " --listen=127.0.0.1"
-        .. " --pid-file=" .. pid
-        .. " --reuseaddr"
-        .. " --detach"
-    )
+    exec {
+        cmd = exe .. " daemon --hub --port=" .. port .. " --" .. " --listen=127.0.0.1" .. " --pid-file=" .. pid .. " --reuseaddr" .. " --detach",
+    }
 end
 
 local function daemon_stop (pid)
@@ -71,18 +72,18 @@ do
 
     do
         TEST "chain created"
-        CHAIN_HASH = exec (
-            EXE_A .. " chains add '#test' init file " .. GEN_0
-        )
+        CHAIN_HASH = exec {
+            cmd = EXE_A .. " chains add '#test' init file " .. GEN_0,
+        }
         assert(#CHAIN_HASH == 41, "hash: " .. CHAIN_HASH)
         assert(CHAIN_HASH:match("^#%x+$"), "not hex")
     end
 
     do
         TEST "beg on A"
-        local out = exec (
-            EXE_A .. " chain '#test' post inline 'post from A' --beg"
-        )
+        local out = exec {
+            cmd = EXE_A .. " chain '#test' post inline 'post from A' --beg",
+        }
         assert(#out == 40, "hash: " .. out)
         assert(out:match("^%x+$"), "not hex")
     end
@@ -94,46 +95,46 @@ do
 
     do
         TEST "clone succeeds"
-        exec (
-            EXE_B .. " chains add '#test' clone '" .. URL_A .. "#test/'"
-        )
+        exec {
+            cmd = EXE_B .. " chains add '#test' clone '" .. URL_A .. "#test/'",
+        }
     end
 
     do
         TEST "B has same genesis"
-        local gen_a = exec (
-            "git -C " .. REPO_A .. " rev-list --max-parents=0 HEAD"
-        )
-        local gen_b = exec (
-            "git -C " .. REPO_B .. " rev-list --max-parents=0 HEAD"
-        )
+        local gen_a = exec {
+            cmd = "git -C " .. REPO_A .. " rev-list --max-parents=0 HEAD",
+        }
+        local gen_b = exec {
+            cmd = "git -C " .. REPO_B .. " rev-list --max-parents=0 HEAD",
+        }
         assert(gen_a == gen_b, "genesis mismatch")
     end
 
     do
         TEST "fetch begs from A"
-        local _, code = exec (
-            "git -C " .. REPO_B .. " fetch '" .. URL_A .. "#test/' refs/begs/*:refs/begs/*"
-        )
+        local _, code = exec {
+            cmd = "git -C " .. REPO_B .. " fetch '" .. URL_A .. "#test/' refs/begs/*:refs/begs/*",
+        }
         assert(code == 0, "fetch begs failed")
     end
 
     do
         TEST "B has A's beg ref"
-        local a = exec (
-            "git -C " .. REPO_A .. " for-each-ref refs/begs/ --format='%(objectname)'"
-        )
-        local b = exec (
-            "git -C " .. REPO_B .. " for-each-ref refs/begs/ --format='%(objectname)'"
-        )
+        local a = exec {
+            cmd = "git -C " .. REPO_A .. " for-each-ref refs/begs/ --format='%(objectname)'",
+        }
+        local b = exec {
+            cmd = "git -C " .. REPO_B .. " for-each-ref refs/begs/ --format='%(objectname)'",
+        }
         assert(a == b, "beg hashes differ: " .. a .. " vs " .. b)
     end
 
     do
         TEST "beg on B"
-        local out = exec (
-            EXE_B .. " chain '#test' post inline 'post from B' --beg"
-        )
+        local out = exec {
+            cmd = EXE_B .. " chain '#test' post inline 'post from B' --beg",
+        }
         assert(#out == 40, "hash: " .. out)
         assert(out:match("^%x+$"), "not hex")
     end
@@ -145,17 +146,17 @@ do
 
     do
         TEST "fetch begs from B"
-        local _, code = exec (
-            "git -C " .. REPO_A .. " fetch '" .. URL_B .. "#test/' refs/begs/*:refs/begs/*"
-        )
+        local _, code = exec {
+            cmd = "git -C " .. REPO_A .. " fetch '" .. URL_B .. "#test/' refs/begs/*:refs/begs/*",
+        }
         assert(code == 0, "fetch failed")
     end
 
     do
         TEST "A has 2 beg refs"
-        local out = exec (
-            "git -C " .. REPO_A .. " for-each-ref refs/begs/ --format='%(refname)'"
-        )
+        local out = exec {
+            cmd = "git -C " .. REPO_A .. " for-each-ref refs/begs/ --format='%(refname)'",
+        }
         local count = 0
         for _ in out:gmatch("[^\n]+") do count = count + 1 end
         assert(count == 2, "expected 2 beg refs, got: " .. count)
@@ -163,46 +164,46 @@ do
 
     -- merge 1st/2nd beg into HEAD
     do
-        local refs = exec (
-            "git -C " .. REPO_A .. " for-each-ref refs/begs/ --sort=refname --format='%(refname)'"
-        )
+        local refs = exec {
+            cmd = "git -C " .. REPO_A .. " for-each-ref refs/begs/ --sort=refname --format='%(refname)'",
+        }
         do
             local ref1 = refs:match("[^\n]+")
             TEST "merge beg into HEAD (fast-forward)"
-            exec (
-                "git -C " .. REPO_A .. " merge --no-edit " .. ref1
-            )
-            local count = exec (
-                "git -C " .. REPO_A .. " rev-list --count HEAD"
-            )
+            exec {
+                cmd = "git -C " .. REPO_A .. " merge --no-edit " .. ref1,
+            }
+            local count = exec {
+                cmd = "git -C " .. REPO_A .. " rev-list --count HEAD",
+            }
             assert(count == "3", "count: " .. count)
 
             TEST "remove merged beg ref"
-            exec (
-                "git -C " .. REPO_A .. " update-ref -d " .. ref1
-            )
+            exec {
+                cmd = "git -C " .. REPO_A .. " update-ref -d " .. ref1,
+            }
         end
         do
             local ref2 = refs:match("[^\n]*\n([^\n]+)")
             TEST "merge second beg into HEAD (true merge)"
-            exec (
-                "git -C " .. REPO_A .. " merge --no-edit " .. ref2
-            )
-            local count = exec (
-                "git -C " .. REPO_A .. " rev-list --count HEAD"
-            )
+            exec {
+                cmd = "git -C " .. REPO_A .. " merge --no-edit " .. ref2,
+            }
+            local count = exec {
+                cmd = "git -C " .. REPO_A .. " rev-list --count HEAD",
+            }
             assert(count == "6", "count: " .. count)
 
             TEST "remove merged beg ref"
-            exec (
-                "git -C " .. REPO_A .. " update-ref -d " .. ref2
-            )
+            exec {
+                cmd = "git -C " .. REPO_A .. " update-ref -d " .. ref2,
+            }
         end
         do
             TEST "no beg refs remain"
-            local out = exec (
-                "git -C " .. REPO_A .. " for-each-ref refs/begs/ --format='%(refname)'"
-            )
+            local out = exec {
+                cmd = "git -C " .. REPO_A .. " for-each-ref refs/begs/ --format='%(refname)'",
+            }
             assert(out == "", "stale refs: " .. out)
         end
     end
@@ -223,77 +224,77 @@ do
 
     do
         TEST "A begs again"
-        local out = exec (
-            EXE_A .. " chain '#test' post inline 'second from A' --beg"
-        )
+        local out = exec {
+            cmd = EXE_A .. " chain '#test' post inline 'second from A' --beg",
+        }
         assert(#out == 40, "hash: " .. out)
 
         TEST "B begs again"
-        local out = exec (
-            EXE_B .. " chain '#test' post inline 'second from B' --beg"
-        )
+        local out = exec {
+            cmd = EXE_B .. " chain '#test' post inline 'second from B' --beg",
+        }
         assert(#out == 40, "hash: " .. out)
     end
 
     do
         TEST "A fetches begs from B"
-        local _, code = exec (
-            "git -C " .. REPO_A .. " fetch '" .. URL_B .. "#test/' refs/begs/*:refs/begs/*"
-        )
+        local _, code = exec {
+            cmd = "git -C " .. REPO_A .. " fetch '" .. URL_B .. "#test/' refs/begs/*:refs/begs/*",
+        }
         assert(code == 0, "fetch failed")
 
         TEST "B fetches begs from A"
-        local _, code = exec (
-            "git -C " .. REPO_B .. " fetch '" .. URL_A .. "#test/' refs/begs/*:refs/begs/*"
-        )
+        local _, code = exec {
+            cmd = "git -C " .. REPO_B .. " fetch '" .. URL_A .. "#test/' refs/begs/*:refs/begs/*",
+        }
         assert(code == 0, "fetch failed")
     end
 
     do
         TEST "A and B have same beg refs"
-        local a = exec (
-            "git -C " .. REPO_A .. " for-each-ref refs/begs/ --sort=refname --format='%(refname) %(objectname)'"
-        )
-        local b = exec (
-            "git -C " .. REPO_B .. " for-each-ref refs/begs/ --sort=refname --format='%(refname) %(objectname)'"
-        )
+        local a = exec {
+            cmd = "git -C " .. REPO_A .. " for-each-ref refs/begs/ --sort=refname --format='%(refname) %(objectname)'",
+        }
+        local b = exec {
+            cmd = "git -C " .. REPO_B .. " for-each-ref refs/begs/ --sort=refname --format='%(refname) %(objectname)'",
+        }
         assert(a == b, "beg refs differ")
     end
 
     -- B pulls HEAD from A, then prunes merged begs
     do
         TEST "B fetches HEAD from A"
-        local _, code = exec (
-            "git -C " .. REPO_B .. " fetch '" .. URL_A .. "#test/' main"
-        )
+        local _, code = exec {
+            cmd = "git -C " .. REPO_B .. " fetch '" .. URL_A .. "#test/' main",
+        }
         assert(code == 0, "fetch HEAD failed")
 
         TEST "B merges A's HEAD"
-        exec (
-            "git -C " .. REPO_B .. " merge --no-edit FETCH_HEAD"
-        )
+        exec {
+            cmd = "git -C " .. REPO_B .. " merge --no-edit FETCH_HEAD",
+        }
     end
 
     do
         TEST "B prunes merged begs"
-        local refs = exec (
-            "git -C " .. REPO_B .. " for-each-ref refs/begs/ --format='%(refname)'"
-        )
+        local refs = exec {
+            cmd = "git -C " .. REPO_B .. " for-each-ref refs/begs/ --format='%(refname)'",
+        }
         for ref in refs:gmatch("[^\n]+") do
-            local _, code = exec (true,
-                "git -C " .. REPO_B .. " merge-base --is-ancestor " .. ref .. " HEAD"
-            )
+            local _, code = exec { err=true,
+                cmd = "git -C " .. REPO_B .. " merge-base --is-ancestor " .. ref .. " HEAD",
+            }
             if code == 0 then
-                exec (
-                    "git -C " .. REPO_B .. " update-ref -d " .. ref
-                )
+                exec {
+                    cmd = "git -C " .. REPO_B .. " update-ref -d " .. ref,
+                }
             end
         end
 
         TEST "B has 2 beg refs remaining"
-        local out = exec (
-            "git -C " .. REPO_B .. " for-each-ref refs/begs/ --format='%(refname)'"
-        )
+        local out = exec {
+            cmd = "git -C " .. REPO_B .. " for-each-ref refs/begs/ --format='%(refname)'",
+        }
         local count = 0
         for _ in out:gmatch("[^\n]+") do count = count + 1 end
         assert(count == 2, "expected 2 beg refs, got: " .. count)
@@ -304,28 +305,28 @@ end
 do
     print("==> Unrelated histories rejected")
 
-    local h = exec (
-        EXE_C .. " chains add '#test' init file " .. GEN_0
-    )
+    local h = exec {
+        cmd = EXE_C .. " chains add '#test' init file " .. GEN_0,
+    }
     assert(h ~= CHAIN_HASH, "should differ")
 
     do
         TEST "fetch begs from A succeeds"
-        local _, code = exec (
-            "git -C " .. REPO_C .. " fetch '" .. URL_A .. "#test/' refs/begs/*:refs/begs/*"
-        )
+        local _, code = exec {
+            cmd = "git -C " .. REPO_C .. " fetch '" .. URL_A .. "#test/' refs/begs/*:refs/begs/*",
+        }
         assert(code == 0, "fetch should succeed")
     end
 
     do
         TEST "merge beg into unrelated HEAD fails"
-        local ref = exec (
-            "git -C " .. REPO_C .. " for-each-ref refs/begs/ --sort=refname --format='%(refname)'"
-        )
+        local ref = exec {
+            cmd = "git -C " .. REPO_C .. " for-each-ref refs/begs/ --sort=refname --format='%(refname)'",
+        }
         local first = ref:match("[^\n]+")
-        local _, code = exec (true,
-            "git -C " .. REPO_C .. " merge --no-commit --no-ff " .. first
-        )
+        local _, code = exec { err=true,
+            cmd = "git -C " .. REPO_C .. " merge --no-commit --no-ff " .. first,
+        }
         assert(code ~= 0, "should reject unrelated histories")
     end
 end
@@ -336,63 +337,71 @@ do
 
     daemon_stop(PID_A)
     daemon_stop(PID_B)
-    exec("rm -rf " .. TMP)
-    exec("mkdir -p " .. ROOT_A .. "/chains")
-    exec("mkdir -p " .. ROOT_B .. "/chains")
+    exec {
+        cmd = "rm -rf " .. TMP,
+    }
+    exec {
+        cmd = "mkdir -p " .. ROOT_A .. "/chains",
+    }
+    exec {
+        cmd = "mkdir -p " .. ROOT_B .. "/chains",
+    }
     daemon_start(EXE_A, PORT_A, PID_A)
     daemon_start(EXE_B, PORT_B, PID_B)
     os.execute("sleep 0.3")
 
-    exec(EXE_A .. " chains add '#test' init file " .. GEN_0)
+    exec {
+        cmd = EXE_A .. " chains add '#test' init file " .. GEN_0,
+    }
 
     -- clone A to B
-    exec (
-        EXE_B .. " chains add '#test' clone '" .. URL_A .. "#test/'"
-    )
+    exec {
+        cmd = EXE_B .. " chains add '#test' clone '" .. URL_A .. "#test/'",
+    }
 
     do
         TEST "A begs to log.txt"
-        local out = exec (
-            EXE_A .. " chain '#test' post inline 'from A' --file log.txt --beg"
-        )
+        local out = exec {
+            cmd = EXE_A .. " chain '#test' post inline 'from A' --file log.txt --beg",
+        }
         assert(#out == 40, "hash: " .. out)
     end
 
     do
         TEST "B begs to log.txt"
-        local out = exec (
-            EXE_B .. " chain '#test' post inline 'from B' --file log.txt --beg"
-        )
+        local out = exec {
+            cmd = EXE_B .. " chain '#test' post inline 'from B' --file log.txt --beg",
+        }
         assert(#out == 40, "hash: " .. out)
     end
 
     do
         TEST "A fetches begs from B"
-        local _, code = exec (
-            "git -C " .. REPO_A .. " fetch '" .. URL_B .. "#test/' refs/begs/*:refs/begs/*"
-        )
+        local _, code = exec {
+            cmd = "git -C " .. REPO_A .. " fetch '" .. URL_B .. "#test/' refs/begs/*:refs/begs/*",
+        }
         assert(code == 0, "fetch should succeed")
     end
 
     -- merge first beg (fast-forward)
-    local refs = exec (
-        "git -C " .. REPO_A .. " for-each-ref refs/begs/ --sort=refname --format='%(refname)'"
-    )
+    local refs = exec {
+        cmd = "git -C " .. REPO_A .. " for-each-ref refs/begs/ --sort=refname --format='%(refname)'",
+    }
     local ref1 = refs:match("[^\n]+")
     local ref2 = refs:match("[^\n]*\n([^\n]+)")
 
-    exec (
-        "git -C " .. REPO_A .. " merge --no-edit " .. ref1
-    )
+    exec {
+        cmd = "git -C " .. REPO_A .. " merge --no-edit " .. ref1,
+    }
 
     -- record content after first merge (order is non-deterministic)
     local clean = io.open(REPO_A .. "log.txt"):read("a")
 
     do
         TEST "merge second beg fails with conflict"
-        local _, code = exec (true,
-            "git -C " .. REPO_A .. " merge --no-edit " .. ref2
-        )
+        local _, code = exec { err=true,
+            cmd = "git -C " .. REPO_A .. " merge --no-edit " .. ref2,
+        }
         assert(code ~= 0, "should fail with conflict")
     end
 
@@ -409,9 +418,9 @@ do
 
     do
         TEST "abort merge restores clean state"
-        local _, code = exec (
-            "git -C " .. REPO_A .. " merge --abort"
-        )
+        local _, code = exec {
+            cmd = "git -C " .. REPO_A .. " merge --abort",
+        }
         assert(code == 0, "abort failed")
         local h = io.open(REPO_A .. "log.txt")
         local content = h:read("a")

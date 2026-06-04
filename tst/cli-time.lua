@@ -1,7 +1,9 @@
 #!/usr/bin/env lua5.4
 require "tests"
 
-exec(ENV_EXE .. " --now=0 chains add '#cli-time' init file " .. GEN_1)
+exec {
+    cmd = ENV_EXE .. " --now=0 chains add '#cli-time' init file " .. GEN_1,
+}
 
 -- DISCOUNT
 do
@@ -10,95 +12,125 @@ do
     do
         TEST "time-discount-instant"
 
-        exec (  -- 30 -> 29 (post)
-            ENV_EXE .. " --now=0 chain '#cli-time' post inline 'p1' --sign " .. KEY1
-        )
-        local out = exec(ENV_EXE .. " --now=0 chain '#cli-time' reps author '" .. PUB1 .. "'")
+        exec { -- 30 -> 29 (post)
+            cmd = ENV_EXE .. " --now=0 chain '#cli-time' post inline 'p1' --sign " .. KEY1,
+        }
+        local out = exec {
+            cmd = ENV_EXE .. " --now=0 chain '#cli-time' reps author '" .. PUB1 .. "'",
+        }
         assert(out == "29", "reps: " .. out)
 
-        exec (  -- 29 -> 30 (refund) -> 29 (post)
-            ENV_EXE .. " --now=0 chain '#cli-time' post inline 'p2' --sign " .. KEY1
-        )
-        local out = exec(ENV_EXE .. " --now=0 chain '#cli-time' reps author '" .. PUB1 .. "'")
+        exec { -- 29 -> 30 (refund) -> 29 (post)
+            cmd = ENV_EXE .. " --now=0 chain '#cli-time' post inline 'p2' --sign " .. KEY1,
+        }
+        local out = exec {
+            cmd = ENV_EXE .. " --now=0 chain '#cli-time' reps author '" .. PUB1 .. "'",
+        }
         assert(out == "29", "reps: " .. out)
     end
 end
 
-exec(ENV_EXE .. " chains rem '#cli-time'")
+exec {
+    cmd = ENV_EXE .. " chains rem '#cli-time'",
+}
 
 -- CONSOLIDATION
 do
     print("==> Consolidation")
 
-    exec(ENV_EXE .. " --now=0 chains add '#cli-time' init file " .. GEN_1)
+    exec {
+        cmd = ENV_EXE .. " --now=0 chains add '#cli-time' init file " .. GEN_1,
+    }
 
     do
         TEST "time-consolidation-24h"
 
-        exec (  -- 30 -> 29 (post)
-            ENV_EXE .. " --now=0 chain '#cli-time' post inline 'p1' --sign " .. KEY1
-        )
-        local out = exec(ENV_EXE .. " --now=0 chain '#cli-time' reps author '" .. PUB1 .. "'")
+        exec { -- 30 -> 29 (post)
+            cmd = ENV_EXE .. " --now=0 chain '#cli-time' post inline 'p1' --sign " .. KEY1,
+        }
+        local out = exec {
+            cmd = ENV_EXE .. " --now=0 chain '#cli-time' reps author '" .. PUB1 .. "'",
+        }
         assert(out == "29", "reps: " .. out)
 
-        exec (  -- refund P1 + consolidate P1 + cost P2 → 30
-            ENV_EXE .. " --now=86400 chain '#cli-time' post inline 'p2' --sign " .. KEY1
-        )
-        local out = exec(ENV_EXE .. " --now=86400 chain '#cli-time' reps author '" .. PUB1 .. "'")
+        exec { -- refund P1 + consolidate P1 + cost P2 → 30
+            cmd = ENV_EXE .. " --now=86400 chain '#cli-time' post inline 'p2' --sign " .. KEY1,
+        }
+        local out = exec {
+            cmd = ENV_EXE .. " --now=86400 chain '#cli-time' reps author '" .. PUB1 .. "'",
+        }
         assert(out == "30", "reps: " .. out)
     end
 
-    exec(ENV_EXE .. " chains rem '#cli-time'")
+    exec {
+        cmd = ENV_EXE .. " chains rem '#cli-time'",
+    }
 
-    exec(ENV_EXE .. " --now=0 chains add '#cli-time' init file " .. GEN_1)
+    exec {
+        cmd = ENV_EXE .. " --now=0 chains add '#cli-time' init file " .. GEN_1,
+    }
 
     do
         TEST "time-consolidation-1-per-day"
 
-        exec (  -- 30 -> 29
-            ENV_EXE .. " --now=0 chain '#cli-time' post inline 'p1' --sign " .. KEY1
-        )
-        exec (  -- refund P1 + cost P2 → 29
-            ENV_EXE .. " --now=0 chain '#cli-time' post inline 'p2' --sign " .. KEY1
-        )
-        exec (  -- refund P2 + cost P3 → 29
-            ENV_EXE .. " --now=0 chain '#cli-time' post inline 'p3' --sign " .. KEY1
-        )
-        local out = exec(ENV_EXE .. " --now=0 chain '#cli-time' reps author '" .. PUB1 .. "'")
+        exec { -- 30 -> 29
+            cmd = ENV_EXE .. " --now=0 chain '#cli-time' post inline 'p1' --sign " .. KEY1,
+        }
+        exec { -- refund P1 + cost P2 → 29
+            cmd = ENV_EXE .. " --now=0 chain '#cli-time' post inline 'p2' --sign " .. KEY1,
+        }
+        exec { -- refund P2 + cost P3 → 29
+            cmd = ENV_EXE .. " --now=0 chain '#cli-time' post inline 'p3' --sign " .. KEY1,
+        }
+        local out = exec {
+            cmd = ENV_EXE .. " --now=0 chain '#cli-time' reps author '" .. PUB1 .. "'",
+        }
         assert(out == "29", "reps: " .. out)
 
-        exec (  -- refund P3 + consolidate P1 only + cost P4 → 30
-            ENV_EXE .. " --now=86400 chain '#cli-time' post inline 'p4' --sign " .. KEY1
-        )
-        local out = exec(ENV_EXE .. " --now=86400 chain '#cli-time' reps author '" .. PUB1 .. "'")
+        exec { -- refund P3 + consolidate P1 only + cost P4 → 30
+            cmd = ENV_EXE .. " --now=86400 chain '#cli-time' post inline 'p4' --sign " .. KEY1,
+        }
+        local out = exec {
+            cmd = ENV_EXE .. " --now=86400 chain '#cli-time' reps author '" .. PUB1 .. "'",
+        }
         assert(out == "30", "reps: " .. out)
     end
 
-    exec(ENV_EXE .. " chains rem '#cli-time'")
+    exec {
+        cmd = ENV_EXE .. " chains rem '#cli-time'",
+    }
 end
 
 -- REPS QUERY WITH TIME SIMULATION
 do
     print("==> Reps query")
 
-    exec(ENV_EXE .. " --now=0 chains add '#cli-time' init file " .. GEN_1)
+    exec {
+        cmd = ENV_EXE .. " --now=0 chains add '#cli-time' init file " .. GEN_1,
+    }
 
     do
         TEST "time-reps-query-simulates"
 
-        exec (  -- 30 -> 29 (post)
-            ENV_EXE .. " --now=0 chain '#cli-time' post inline 'p1' --sign " .. KEY1
-        )
+        exec { -- 30 -> 29 (post)
+            cmd = ENV_EXE .. " --now=0 chain '#cli-time' post inline 'p1' --sign " .. KEY1,
+        }
         -- query at now=0: still in discount → 29
-        local out = exec(ENV_EXE .. " --now=0 chain '#cli-time' reps author '" .. PUB1 .. "'")
+        local out = exec {
+            cmd = ENV_EXE .. " --now=0 chain '#cli-time' reps author '" .. PUB1 .. "'",
+        }
         assert(out == "29", "reps at now=0: " .. out)
 
         -- query at now=86400: refund + consolidation → 30
-        local out = exec(ENV_EXE .. " --now=86400 chain '#cli-time' reps author '" .. PUB1 .. "'")
+        local out = exec {
+            cmd = ENV_EXE .. " --now=86400 chain '#cli-time' reps author '" .. PUB1 .. "'",
+        }
         assert(out == "30", "reps at now=86400: " .. out)
     end
 
-    exec(ENV_EXE .. " chains rem '#cli-time'")
+    exec {
+        cmd = ENV_EXE .. " chains rem '#cli-time'",
+    }
 end
 
 print("<== ALL PASSED")

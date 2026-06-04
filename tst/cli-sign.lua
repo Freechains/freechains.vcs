@@ -5,7 +5,9 @@ local ssh = require "freechains.chain.ssh"
 
 local DIR = ROOT .. "/chains/#cli-sign/"
 
-exec("HOME=" .. SSH .. "home " .. ENV_EXE .. " chains add '#cli-sign' init inline --sign")
+exec {
+    cmd = "HOME=" .. SSH .. "home " .. ENV_EXE .. " chains add '#cli-sign' init inline --sign",
+}
 
 -- SIGNED POST
 do
@@ -13,9 +15,9 @@ do
 
     do
         TEST "signed post succeeds"
-        local out, code = exec (
-            ENV_EXE .. " chain '#cli-sign' post file hello.txt --sign " .. KEY1
-        )
+        local out, code = exec {
+            cmd = ENV_EXE .. " chain '#cli-sign' post file hello.txt --sign " .. KEY1,
+        }
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
         assert(out:match("^%x+$"), "hash is hex")
@@ -23,16 +25,18 @@ do
 
     do
         TEST "git verify-commit passes"
-        local hash = exec("git -C " .. DIR .. " rev-parse HEAD~1")
+        local hash = exec {
+            cmd = "git -C " .. DIR .. " rev-parse HEAD~1",
+        }
         local key = ssh.verify(DIR, hash)
         assert(key == PUB1, "verify-commit failed: " .. tostring(key))
     end
 
     do
         TEST "gpgsig header present"
-        local out = exec (
-            "git -C " .. DIR .. " cat-file commit HEAD~1"
-        )
+        local out = exec {
+            cmd = "git -C " .. DIR .. " cat-file commit HEAD~1",
+        }
         assert(out:match("gpgsig"), "gpgsig header missing")
     end
 end
@@ -43,17 +47,17 @@ do
 
     do
         TEST "beg post succeeds"
-        local out, code = exec (
-            ENV_EXE .. " chain '#cli-sign' post inline unsigned --beg"
-        )
+        local out, code = exec {
+            cmd = ENV_EXE .. " chain '#cli-sign' post inline unsigned --beg",
+        }
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
         local BEG = out
 
         TEST "beg commit has no gpgsig"
-        local out = exec (
-            "git -C " .. DIR .. " cat-file commit " .. BEG
-        )
+        local out = exec {
+            cmd = "git -C " .. DIR .. " cat-file commit " .. BEG,
+        }
         assert(not out:match("gpgsig"), "gpgsig should be absent")
     end
 end
@@ -64,9 +68,9 @@ do
 
     do
         TEST "post without --sign or --beg fails"
-        local _, Q, err = exec (true,
-            ENV_EXE .. " chain '#cli-sign' post inline 'no auth'"
-        )
+        local _, Q, err = exec { err=true,
+            cmd = ENV_EXE .. " chain '#cli-sign' post inline 'no auth'",
+        }
         assert (
             Q~=0 and err=="ERROR : chain post : requires --sign or --beg"
             , "should fail: " .. tostring(err)
@@ -80,9 +84,9 @@ do
 
     do
         TEST "post with invalid GPG key fails"
-        local _,Q,err = exec (true,
-            ENV_EXE .. " chain '#cli-sign' post inline 'bad key' --sign bad-key"
-        )
+        local _,Q,err = exec { err=true,
+            cmd = ENV_EXE .. " chain '#cli-sign' post inline 'bad key' --sign bad-key",
+        }
         assert (
             Q~=0 and err=="ERROR : chain post : invalid sign key"
             , "should fail: " .. tostring(err)

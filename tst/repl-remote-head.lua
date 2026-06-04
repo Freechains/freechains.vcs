@@ -14,9 +14,15 @@ local REPO_A = ROOT_A .. "/chains/#test/"
 local REPO_B = ROOT_B .. "/chains/#test/"
 local REPO_C = ROOT_C .. "/chains/#test/"
 
-exec("mkdir -p " .. ROOT_A .. "/chains")
-exec("mkdir -p " .. ROOT_B .. "/chains")
-exec("mkdir -p " .. ROOT_C .. "/chains")
+exec {
+    cmd = "mkdir -p " .. ROOT_A .. "/chains",
+}
+exec {
+    cmd = "mkdir -p " .. ROOT_B .. "/chains",
+}
+exec {
+    cmd = "mkdir -p " .. ROOT_C .. "/chains",
+}
 
 local PORT_A = 19418
 local PORT_B = 19419
@@ -31,14 +37,9 @@ local PID_B  = ROOT_B .. "/daemon.pid"
 local PID_C  = ROOT_C .. "/daemon.pid"
 
 local function daemon_start (exe, port, pid)
-    exec (
-        exe .. " daemon --hub --port=" .. port
-        .. " --"
-        .. " --listen=127.0.0.1"
-        .. " --pid-file=" .. pid
-        .. " --reuseaddr"
-        .. " --detach"
-    )
+    exec {
+        cmd = exe .. " daemon --hub --port=" .. port .. " --" .. " --listen=127.0.0.1" .. " --pid-file=" .. pid .. " --reuseaddr" .. " --detach",
+    }
 end
 
 local function daemon_stop (pid)
@@ -71,18 +72,18 @@ do
 
     do
         TEST "chain created"
-        CHAIN_HASH = exec (
-            EXE_A .. " chains add '#test' init file " .. GEN_1
-        )
+        CHAIN_HASH = exec {
+            cmd = EXE_A .. " chains add '#test' init file " .. GEN_1,
+        }
         assert(#CHAIN_HASH == 41, "hash: " .. CHAIN_HASH)
         assert(CHAIN_HASH:match("^#%x+$"), "not hex")
     end
 
     do
         TEST "post on A"
-        local out = exec (
-            EXE_A .. " chain '#test' post inline 'post from A' --sign " .. KEY1
-        )
+        local out = exec {
+            cmd = EXE_A .. " chain '#test' post inline 'post from A' --sign " .. KEY1,
+        }
         assert(#out == 40, "hash: " .. out)
         assert(out:match("^%x+$"), "not hex")
     end
@@ -94,44 +95,44 @@ do
 
     do
         TEST "clone succeeds"
-        exec (
-            EXE_B .. " chains add '#test' clone '" .. URL_A .. "#test/'"
-        )
+        exec {
+            cmd = EXE_B .. " chains add '#test' clone '" .. URL_A .. "#test/'",
+        }
     end
 
     do
         TEST "B has same genesis"
-        local gen_a = exec (
-            "git -C " .. REPO_A .. " rev-list --max-parents=0 HEAD"
-        )
-        local gen_b = exec (
-            "git -C " .. REPO_B .. " rev-list --max-parents=0 HEAD"
-        )
+        local gen_a = exec {
+            cmd = "git -C " .. REPO_A .. " rev-list --max-parents=0 HEAD",
+        }
+        local gen_b = exec {
+            cmd = "git -C " .. REPO_B .. " rev-list --max-parents=0 HEAD",
+        }
         assert(gen_a == gen_b, "genesis mismatch")
     end
 
     do
         TEST "B has 3 commits (genesis + post + state)"
-        local count = exec (
-            "git -C " .. REPO_B .. " rev-list --count HEAD"
-        )
+        local count = exec {
+            cmd = "git -C " .. REPO_B .. " rev-list --count HEAD",
+        }
         assert(count == "3", "count: " .. count)
     end
 
     do
         TEST "post on B"
-        local out = exec (
-            EXE_B .. " chain '#test' post inline 'post from B' --sign " .. KEY1
-        )
+        local out = exec {
+            cmd = EXE_B .. " chain '#test' post inline 'post from B' --sign " .. KEY1,
+        }
         assert(#out == 40, "hash: " .. out)
         assert(out:match("^%x+$"), "not hex")
     end
 
     do
         TEST "B has 5 commits (genesis + A post/state + B post/state)"
-        local count = exec (
-            "git -C " .. REPO_B .. " rev-list --count HEAD"
-        )
+        local count = exec {
+            cmd = "git -C " .. REPO_B .. " rev-list --count HEAD",
+        }
         assert(count == "5", "count: " .. count)
     end
 end
@@ -142,32 +143,32 @@ do
 
     do
         TEST "fetch from B"
-        local _, code = exec (
-            "git -C " .. REPO_A .. " fetch '" .. URL_B .. "#test/' main"
-        )
+        local _, code = exec {
+            cmd = "git -C " .. REPO_A .. " fetch '" .. URL_B .. "#test/' main",
+        }
         assert(code == 0, "fetch failed")
 
         TEST "dry-run merge ok"
-        local _, code = exec (
-            "git -C " .. REPO_A .. " merge --no-commit --no-ff FETCH_HEAD"
-        )
+        local _, code = exec {
+            cmd = "git -C " .. REPO_A .. " merge --no-commit --no-ff FETCH_HEAD",
+        }
         assert(code == 0, "dry-run merge failed")
-        local _, code = exec (
-            "git -C " .. REPO_A .. " merge --abort"
-        )
+        local _, code = exec {
+            cmd = "git -C " .. REPO_A .. " merge --abort",
+        }
         assert(code == 0, "abort failed")
 
         TEST "merge from B"
-        exec (
-            "git -C " .. REPO_A .. " merge --no-edit FETCH_HEAD"
-        )
+        exec {
+            cmd = "git -C " .. REPO_A .. " merge --no-edit FETCH_HEAD",
+        }
     end
 
     do
         TEST "A has 5 commits (genesis + A post/state + B post/state, fast-forward)"
-        local count = exec(
-            "git -C " .. REPO_A .. " rev-list --count HEAD"
-        )
+        local count = exec {
+            cmd = "git -C " .. REPO_A .. " rev-list --count HEAD",
+        }
         assert(count == "5", "count: " .. count)
     end
 
@@ -182,9 +183,9 @@ do
 
     do
         TEST "A and B are equal"
-        local _,ok = exec (
-            "diff -r --exclude=.git --exclude=now.lua --exclude=authors.lua --exclude=posts.lua " .. REPO_A .. " " .. REPO_B
-        )
+        local _,ok = exec {
+            cmd = "diff -r --exclude=.git --exclude=now.lua --exclude=authors.lua --exclude=posts.lua " .. REPO_A .. " " .. REPO_B,
+        }
         assert(ok==0, "A and B differ")
     end
 end
@@ -195,81 +196,81 @@ do
 
     do
         TEST "A posts again"
-        local out = exec (
-            EXE_A .. " chain '#test' post inline 'second from A' --sign " .. KEY1
-        )
+        local out = exec {
+            cmd = EXE_A .. " chain '#test' post inline 'second from A' --sign " .. KEY1,
+        }
         assert(#out == 40, "hash: " .. out)
 
         TEST "B posts again"
-        local out = exec (
-            EXE_B .. " chain '#test' post inline 'second from B' --sign " .. KEY1
-        )
+        local out = exec {
+            cmd = EXE_B .. " chain '#test' post inline 'second from B' --sign " .. KEY1,
+        }
         assert(#out == 40, "hash: " .. out)
     end
 
     do
         TEST "A fetches from B"
-        local _, code = exec (
-            "git -C " .. REPO_A .. " fetch '" .. URL_B .. "#test/' main"
-        )
+        local _, code = exec {
+            cmd = "git -C " .. REPO_A .. " fetch '" .. URL_B .. "#test/' main",
+        }
         assert(code == 0, "fetch failed")
 
         TEST "A dry-run merge ok"
-        local _, code = exec (
-            "git -C " .. REPO_A .. " merge --no-commit --no-ff FETCH_HEAD"
-        )
+        local _, code = exec {
+            cmd = "git -C " .. REPO_A .. " merge --no-commit --no-ff FETCH_HEAD",
+        }
         assert(code == 0, "dry-run merge failed")
-        local _, code = exec (
-            "git -C " .. REPO_A .. " merge --abort"
-        )
+        local _, code = exec {
+            cmd = "git -C " .. REPO_A .. " merge --abort",
+        }
         assert(code == 0, "abort failed")
 
         TEST "A merges B (true merge)"
-        exec (
-            "git -C " .. REPO_A .. " merge --no-edit FETCH_HEAD"
-        )
+        exec {
+            cmd = "git -C " .. REPO_A .. " merge --no-edit FETCH_HEAD",
+        }
 
         TEST "A has 10 commits"
-        local count = exec (
-            "git -C " .. REPO_A .. " rev-list --count HEAD"
-        )
+        local count = exec {
+            cmd = "git -C " .. REPO_A .. " rev-list --count HEAD",
+        }
         assert(count == "10", "count: " .. count)
     end
 
     do
         TEST "B fetches from A"
-        local _, code = exec (
-            "git -C " .. REPO_B .. " fetch '" .. URL_A .. "#test/' main"
-        )
+        local _, code = exec {
+            cmd = "git -C " .. REPO_B .. " fetch '" .. URL_A .. "#test/' main",
+        }
         assert(code == 0, "fetch failed")
 
         TEST "B dry-run merge ok"
-        local _, code = exec (
-            "git -C " .. REPO_B .. " merge --no-commit --no-ff FETCH_HEAD"
-        )
+        local _, code = exec {
+            cmd = "git -C " .. REPO_B .. " merge --no-commit --no-ff FETCH_HEAD",
+        }
         assert(code == 0, "dry-run merge failed")
-        local _, code = exec (
-            "git -C " .. REPO_B .. " merge --abort"
-        )
+        local _, code = exec {
+            cmd = "git -C " .. REPO_B .. " merge --abort",
+        }
         assert(code == 0, "abort failed")
 
         TEST "B merges A (fast-forward)"
-        exec (
-            "git -C " .. REPO_B .. " merge --no-edit FETCH_HEAD"
-        )
+        exec {
+            cmd = "git -C " .. REPO_B .. " merge --no-edit FETCH_HEAD",
+        }
 
         TEST "B has 10 commits"
-        local count = exec (
-            "git -C " .. REPO_B .. " rev-list --count HEAD"
-        )
+        local count = exec {
+            cmd = "git -C " .. REPO_B .. " rev-list --count HEAD",
+        }
         assert(count == "10", "count: " .. count)
     end
 
     do
         TEST "A and B are equal after bidirectional sync"
-        local _, ok = exec (
-            "diff -r --exclude=.git --exclude=now.lua --exclude=authors.lua --exclude=posts.lua " .. REPO_A .. " " .. REPO_B
-        )
+        local _, ok = exec {
+            cmd = "diff -r --exclude=.git --exclude=now.lua --exclude=authors.lua --exclude=posts.lua " .. REPO_A .. " " .. REPO_B,
+        }
         assert(ok == 0, "A and B differ")
     end
 end
@@ -278,22 +279,22 @@ end
 do
     print("==> Unrelated histories rejected")
 
-    local h = exec (
-        EXE_C .. " chains add '#test' init file " .. GEN_1
-    )
+    local h = exec {
+        cmd = EXE_C .. " chains add '#test' init file " .. GEN_1,
+    }
     assert(h ~= CHAIN_HASH, "should differ")
 
     do
         TEST "fetch from unrelated chain succeeds"
-        local _, code = exec (
-            "git -C " .. REPO_C .. " fetch '" .. URL_A .. "#test/' main"
-        )
+        local _, code = exec {
+            cmd = "git -C " .. REPO_C .. " fetch '" .. URL_A .. "#test/' main",
+        }
         assert(code == 0, "fetch should succeed")
 
         TEST "dry-run merge from unrelated chain fails"
-        local _, code = exec (true,
-            "git -C " .. REPO_C .. " merge --no-commit --no-ff FETCH_HEAD"
-        )
+        local _, code = exec { err=true,
+            cmd = "git -C " .. REPO_C .. " merge --no-commit --no-ff FETCH_HEAD",
+        }
         assert(code ~= 0, "should reject unrelated histories")
     end
 end
@@ -304,41 +305,41 @@ do
 
     do
         TEST "A posts to log.txt"
-        local out = exec (
-            EXE_A .. " chain '#test' post" .. " inline 'from A\n' --file log.txt --sign " .. KEY1
-        )
+        local out = exec {
+            cmd = EXE_A .. " chain '#test' post" .. " inline 'from A\n' --file log.txt --sign " .. KEY1,
+        }
         assert(#out == 40, "hash: " .. out)
     end
 
     do
         TEST "B posts to log.txt"
-        local out = exec (
-            EXE_B .. " chain '#test' post" .. " inline 'from B\n' --file log.txt --sign " .. KEY1
-        )
+        local out = exec {
+            cmd = EXE_B .. " chain '#test' post" .. " inline 'from B\n' --file log.txt --sign " .. KEY1,
+        }
         assert(#out == 40, "hash: " .. out)
     end
 
     do
         TEST "fetch succeeds"
-        local _, code = exec (
-            "git -C " .. REPO_A .. " fetch '" .. URL_B .. "#test/' main"
-        )
+        local _, code = exec {
+            cmd = "git -C " .. REPO_A .. " fetch '" .. URL_B .. "#test/' main",
+        }
         assert(code == 0, "fetch should succeed")
 
         TEST "dry-run merge fails with conflict"
-        local _, code = exec (true,
-            "git -C " .. REPO_A .. " merge --no-commit --no-ff FETCH_HEAD"
-        )
+        local _, code = exec { err=true,
+            cmd = "git -C " .. REPO_A .. " merge --no-commit --no-ff FETCH_HEAD",
+        }
         assert(code ~= 0, "should fail with conflict")
-        local _, code = exec (
-            "git -C " .. REPO_A .. " merge --abort"
-        )
+        local _, code = exec {
+            cmd = "git -C " .. REPO_A .. " merge --abort",
+        }
         assert(code == 0, "abort failed")
 
         TEST "merge fails with conflict"
-        local _, code = exec (true,
-            "git -C " .. REPO_A .. " merge --no-edit FETCH_HEAD"
-        )
+        local _, code = exec { err=true,
+            cmd = "git -C " .. REPO_A .. " merge --no-edit FETCH_HEAD",
+        }
         assert(code ~= 0, "should fail with conflict")
     end
 
@@ -355,9 +356,9 @@ do
 
     do
         TEST "abort merge restores clean state"
-        local _, code = exec (
-            "git -C " .. REPO_A .. " merge --abort"
-        )
+        local _, code = exec {
+            cmd = "git -C " .. REPO_A .. " merge --abort",
+        }
         assert(code == 0, "abort failed")
         local h = io.open(REPO_A .. "log.txt")
         local content = h:read("a")

@@ -15,9 +15,15 @@ local REPO_A = ROOT_A .. "/chains/#test/"
 local REPO_B = ROOT_B .. "/chains/#test/"
 local REPO_C = ROOT_C .. "/chains/#test/"
 
-exec("mkdir -p " .. ROOT_A)
-exec("mkdir -p " .. ROOT_B)
-exec("mkdir -p " .. ROOT_C)
+exec {
+    cmd = "mkdir -p " .. ROOT_A,
+}
+exec {
+    cmd = "mkdir -p " .. ROOT_B,
+}
+exec {
+    cmd = "mkdir -p " .. ROOT_C,
+}
 
 -- 1. recv basic (fetch + merge)
 do
@@ -25,27 +31,33 @@ do
 
     do
         TEST "A creates chain + posts"
-        exec(EXE_A .. " --now=1000 chains add '#test' init file " .. GEN_1)
-        local out = exec (
-            EXE_A .. " --now=2000 chain '#test' post inline 'post from A' --sign " .. KEY1
-        )
+        exec {
+            cmd = EXE_A .. " --now=1000 chains add '#test' init file " .. GEN_1,
+        }
+        local out = exec {
+            cmd = EXE_A .. " --now=2000 chain '#test' post inline 'post from A' --sign " .. KEY1,
+        }
         assert(#out == 40, "hash: " .. out)
 
         TEST "B clones"
-        exec(EXE_B .. " chains add '#test' clone " .. REPO_A)
+        exec {
+            cmd = EXE_B .. " chains add '#test' clone " .. REPO_A,
+        }
     end
     -- A:  [state] genesis ── [post] P1 ── [state] S1
     -- B:  [state] genesis ── [post] P1 ── [state] S1
 
     do
         TEST "A posts again"
-        local out = exec (
-            EXE_A .. " --now=3000 chain '#test' post inline 'second from A' --sign " .. KEY1
-        )
+        local out = exec {
+            cmd = EXE_A .. " --now=3000 chain '#test' post inline 'second from A' --sign " .. KEY1,
+        }
         assert(#out == 40, "hash: " .. out)
 
         TEST "pubkey matches pioneer key"
-        local hash = exec("git -C " .. REPO_A .. " rev-parse HEAD~1")
+        local hash = exec {
+            cmd = "git -C " .. REPO_A .. " rev-parse HEAD~1",
+        }
         local pk = ssh.verify(REPO_A, hash)
         assert(pk == PUB1, "pubkey mismatch: [" .. tostring(pk) .. "] vs [" .. PUB1 .. "]")
     end
@@ -54,11 +66,17 @@ do
 
     do
         TEST "B recvs from A"
-        exec(EXE_B .. " --now=3500 chain '#test' sync recv " .. REPO_A)
+        exec {
+            cmd = EXE_B .. " --now=3500 chain '#test' sync recv " .. REPO_A,
+        }
 
         TEST "B has A's latest post"
-        local A = exec("git -C " .. REPO_A .. " rev-parse HEAD")
-        local B = exec("git -C " .. REPO_B .. " rev-parse HEAD")
+        local A = exec {
+            cmd = "git -C " .. REPO_A .. " rev-parse HEAD",
+        }
+        local B = exec {
+            cmd = "git -C " .. REPO_B .. " rev-parse HEAD",
+        }
         assert (A == B,
             "heads should be equal: " .. A .. " vs " .. B
         )
@@ -73,35 +91,39 @@ do
 
     do
         TEST "A posts"
-        local out = exec (
-            EXE_A .. " --now=4000 chain '#test' post inline 'third from A' --sign " .. KEY1
-        )
+        local out = exec {
+            cmd = EXE_A .. " --now=4000 chain '#test' post inline 'third from A' --sign " .. KEY1,
+        }
         assert(#out == 40, "hash: " .. out)
 
         TEST "B recvs from A"
-        exec(EXE_B .. " --now=4500 chain '#test' sync recv " .. REPO_A)
+        exec {
+            cmd = EXE_B .. " --now=4500 chain '#test' sync recv " .. REPO_A,
+        }
     end
     -- A:  genesis ── P1 ── S1 ── P2 ── S2 ── [post] P3 ── [state] S3
     -- B:  genesis ── P1 ── S1 ── P2 ── S2 ── [post] P3 ── [state] S3
 
     do
         TEST "B posts"
-        local out = exec (
-            EXE_B .. " --now=5000 chain '#test' post inline 'first from B' --sign " .. KEY1
-        )
+        local out = exec {
+            cmd = EXE_B .. " --now=5000 chain '#test' post inline 'first from B' --sign " .. KEY1,
+        }
         assert(#out == 40, "hash: " .. out)
 
         TEST "A recvs from B"
-        exec(EXE_A .. " --now=5500 chain '#test' sync recv " .. REPO_B)
+        exec {
+            cmd = EXE_A .. " --now=5500 chain '#test' sync recv " .. REPO_B,
+        }
     end
     -- A:  genesis ── ... ── S3 ── [post] P4 ── [state] S4
     -- B:  genesis ── ... ── S3 ── [post] P4 ── [state] S4
 
     do
         TEST "A and B are equal"
-        local _, ok = exec (true,
-            "diff -r --exclude=.git " .. REPO_A .. " " .. REPO_B
-        )
+        local _, ok = exec { err=true,
+            cmd = "diff -r --exclude=.git " .. REPO_A .. " " .. REPO_B,
+        }
         assert(ok == 0, "A and B should not differ")
     end
     -- A:  genesis ── ... ── S3 ── [post] P4 ── [state] S4
@@ -117,15 +139,15 @@ do
     -- A,B posts independently
     do
         TEST "A posts (diverge)"
-        A = exec (
-            EXE_A .. " --now=6000 chain '#test' post inline 'fourth from A' --sign " .. KEY1
-        )
+        A = exec {
+            cmd = EXE_A .. " --now=6000 chain '#test' post inline 'fourth from A' --sign " .. KEY1,
+        }
         assert(#A == 40, "hash: " .. A)
 
         TEST "B posts (diverge)"
-        B = exec (
-            EXE_B .. " --now=7000 chain '#test' post inline 'second from B' --sign " .. KEY1
-        )
+        B = exec {
+            cmd = EXE_B .. " --now=7000 chain '#test' post inline 'second from B' --sign " .. KEY1,
+        }
         assert(#B == 40, "hash: " .. B)
     end
     -- A:  genesis ── ... ── S4 ── [post] P5 ── [state] S5
@@ -134,10 +156,14 @@ do
     -- A <-- B
     do
         TEST "A recvs from B"
-        exec(EXE_A .. " --now=7500 chain '#test' sync recv " .. REPO_B)
+        exec {
+            cmd = EXE_A .. " --now=7500 chain '#test' sync recv " .. REPO_B,
+        }
 
         TEST "no wall-clock timestamps"
-        local out = exec("git -C " .. REPO_A .. " log --format=%at")
+        local out = exec {
+            cmd = "git -C " .. REPO_A .. " log --format=%at",
+        }
         for ts in out:gmatch("%d+") do
             assert(tonumber(ts) <= 10000, "wall-clock leak: " .. ts)
         end
@@ -162,7 +188,9 @@ do
     -- B <-- A
     do
         TEST "B recvs from A"
-        exec(EXE_B .. " --now=7500 chain '#test' sync recv " .. REPO_A)
+        exec {
+            cmd = EXE_B .. " --now=7500 chain '#test' sync recv " .. REPO_A,
+        }
 
         TEST "B has both post files"
         local h = io.popen("cat " .. REPO_B .. "*.txt")
@@ -191,9 +219,9 @@ do
         end
 
         TEST "A and B are bit-equal"
-        local _, ok = exec(true,
-            "diff -r --exclude=.git " .. REPO_A .. " " .. REPO_B
-        )
+        local _, ok = exec { err=true,
+            cmd = "diff -r --exclude=.git " .. REPO_A .. " " .. REPO_B,
+        }
         assert(ok == 0, "A and B should not differ")
     end
     --                             ┌── [post] P5 ── [state] S5
@@ -220,42 +248,44 @@ do
         TEST "A likes a post"
 
         local bef = {
-            author = tonumber((exec (
-                EXE_A .. " --now=8000 chain '#test' reps author '" .. PUB1 .. "'"
-            ))),
-            post = tonumber((exec (
-                EXE_A .. " --now=8000 chain '#test' reps post " .. A
-            ))),
+            author = tonumber((exec {
+                cmd = EXE_A .. " --now=8000 chain '#test' reps author '" .. PUB1 .. "'",
+            })),
+            post = tonumber((exec {
+                cmd = EXE_A .. " --now=8000 chain '#test' reps post " .. A,
+            })),
         }
         assert(bef.author==29, "bef.author expected 29, got " .. bef.author)
         assert(bef.post  == 0, "bef.post expected 0, got " .. bef.post)
 
-        exec (
-            EXE_A .. " --now=8000 chain '#test' like 5 post " .. A .. " --sign " .. KEY1
-        )
+        exec {
+            cmd = EXE_A .. " --now=8000 chain '#test' like 5 post " .. A .. " --sign " .. KEY1,
+        }
 
         local aft = {
-            author = tonumber((exec (
-                EXE_A .. " --now=8000 chain '#test' reps author '" .. PUB1 .. "'"
-            ))),
-            post = tonumber((exec (
-                EXE_A .. " --now=8000 chain '#test' reps post " .. A
-            ))),
+            author = tonumber((exec {
+                cmd = EXE_A .. " --now=8000 chain '#test' reps author '" .. PUB1 .. "'",
+            })),
+            post = tonumber((exec {
+                cmd = EXE_A .. " --now=8000 chain '#test' reps post " .. A,
+            })),
         }
         assert(aft.author == 28, "aft.author expected 28, got " .. aft.author)
         assert(aft.post   == 3,  "aft.post expected 3, got " .. aft.post)
 
         TEST "B recvs from A (with like)"
-        exec(EXE_B .. " --now=8500 chain '#test' sync recv " .. REPO_A)
+        exec {
+            cmd = EXE_B .. " --now=8500 chain '#test' sync recv " .. REPO_A,
+        }
 
         TEST "B reflects like"
         local b = {
-            author = tonumber((exec (
-                EXE_B .. " --now=8500 chain '#test' reps author '" .. PUB1 .. "'"
-            ))),
-            post = tonumber((exec (
-                EXE_B .. " --now=8500 chain '#test' reps post " .. A
-            ))),
+            author = tonumber((exec {
+                cmd = EXE_B .. " --now=8500 chain '#test' reps author '" .. PUB1 .. "'",
+            })),
+            post = tonumber((exec {
+                cmd = EXE_B .. " --now=8500 chain '#test' reps post " .. A,
+            })),
         }
         assert(b.author == aft.author, "author reps: A=" .. aft.author .. " B=" .. b.author)
         assert(b.post   == aft.post,   "post reps: A=" .. aft.post .. " B=" .. b.post)
@@ -267,25 +297,31 @@ do
     print("==> Step 5: recv unrelated histories")
 
     TEST "C creates independent chain"
-    exec(EXE_C .. " --now=1000 chains add '#test' init file " .. GEN_1)
-    exec (
-        EXE_C .. " --now=2000 chain '#test' post inline 'post from C' --sign " .. KEY1
-    )
+    exec {
+        cmd = EXE_C .. " --now=1000 chains add '#test' init file " .. GEN_1,
+    }
+    exec {
+        cmd = EXE_C .. " --now=2000 chain '#test' post inline 'post from C' --sign " .. KEY1,
+    }
 
     TEST "B's HEAD before recv"
-    local before = exec("git -C " .. REPO_B .. " rev-parse HEAD")
+    local before = exec {
+        cmd = "git -C " .. REPO_B .. " rev-parse HEAD",
+    }
 
     TEST "B recvs from C fails with unrelated histories"
-    local _, Q, err = exec (true,
-        EXE_B .. " --now=9000 chain '#test' sync recv " .. REPO_C
-    )
+    local _, Q, err = exec { err=true,
+        cmd = EXE_B .. " --now=9000 chain '#test' sync recv " .. REPO_C,
+    }
     assert (
         Q~=0 and err=="ERROR : chain sync : incompatible genesis"
         , "should fail: " .. tostring(err)
     )
 
     TEST "B's HEAD unchanged"
-    local after = exec("git -C " .. REPO_B .. " rev-parse HEAD")
+    local after = exec {
+        cmd = "git -C " .. REPO_B .. " rev-parse HEAD",
+    }
     assert(before == after, "B's HEAD changed: " .. before .. " vs " .. after)
 end
 
@@ -297,26 +333,31 @@ do
     local f = io.open(REPO_A .. ".freechains/state/authors.lua", "w")
     f:write("return {}\n")
     f:close()
-    exec("git -C " .. REPO_A .. " add .freechains/state/authors.lua")
-    exec (
-        "git -C " .. REPO_A .. " commit -m '(empty message)'"
-        .. " --no-edit --trailer 'Freechains: state'"
-    )
+    exec {
+        cmd = "git -C " .. REPO_A .. " add .freechains/state/authors.lua",
+    }
+    exec {
+        cmd = "git -C " .. REPO_A .. " commit -m '(empty message)'" .. " --no-edit --trailer 'Freechains: state'",
+    }
 
     TEST "B's HEAD before recv"
-    local before = exec("git -C " .. REPO_B .. " rev-parse HEAD")
+    local before = exec {
+        cmd = "git -C " .. REPO_B .. " rev-parse HEAD",
+    }
 
     TEST "B recvs from A fails with state mismatch"
-    local _, Q, err = exec (true,
-        EXE_B .. " --now=10000 chain '#test' sync recv " .. REPO_A
-    )
+    local _, Q, err = exec { err=true,
+        cmd = EXE_B .. " --now=10000 chain '#test' sync recv " .. REPO_A,
+    }
     assert (
         Q~=0 and err=="ERROR : chain sync : remote state mismatch",
         "should fail: " .. tostring(err)
     )
 
     TEST "B's HEAD unchanged"
-    local after = exec("git -C " .. REPO_B .. " rev-parse HEAD")
+    local after = exec {
+        cmd = "git -C " .. REPO_B .. " rev-parse HEAD",
+    }
     assert(before == after,
         "B's HEAD changed: " .. before .. " vs " .. after
     )
@@ -327,31 +368,38 @@ do
     print("==> Step 7: recv FF create-mode violation")
 
     TEST "A overwrites tracked post via raw git"
-    local file = exec("ls " .. REPO_A .. "*.txt | head -1")
+    local file = exec {
+        cmd = "ls " .. REPO_A .. "*.txt | head -1",
+    }
     local base = file:match("([^/]+)$")
     local f = io.open(file, "w")
     f:write("tampered\n")
     f:close()
-    exec("git -C " .. REPO_A .. " add " .. base)
-    exec (
-        "git -C " .. REPO_A .. " commit -m '(empty message)'"
-        .. " --no-edit --trailer 'Freechains: post'"
-    )
+    exec {
+        cmd = "git -C " .. REPO_A .. " add " .. base,
+    }
+    exec {
+        cmd = "git -C " .. REPO_A .. " commit -m '(empty message)'" .. " --no-edit --trailer 'Freechains: post'",
+    }
 
     TEST "B's HEAD before recv"
-    local before = exec("git -C " .. REPO_B .. " rev-parse HEAD")
+    local before = exec {
+        cmd = "git -C " .. REPO_B .. " rev-parse HEAD",
+    }
 
     TEST "B recvs from A fails with create-mode violation"
-    local _, Q, err = exec (true,
-        EXE_B .. " --now=11000 chain '#test' sync recv " .. REPO_A
-    )
+    local _, Q, err = exec { err=true,
+        cmd = EXE_B .. " --now=11000 chain '#test' sync recv " .. REPO_A,
+    }
     assert (
         Q ~= 0 and err and err:match("invalid post : mode violation"),
         "should fail with create-mode violation: " .. tostring(err)
     )
 
     TEST "B's HEAD unchanged"
-    local after = exec("git -C " .. REPO_B .. " rev-parse HEAD")
+    local after = exec {
+        cmd = "git -C " .. REPO_B .. " rev-parse HEAD",
+    }
     assert(before == after,
         "B's HEAD changed: " .. before .. " vs " .. after
     )
@@ -362,33 +410,42 @@ do
     print("==> Step 8: recv state commit with forbidden path")
 
     TEST "A resets to last good state (B's HEAD)"
-    local b_head = exec("git -C " .. REPO_B .. " rev-parse HEAD")
-    exec("git -C " .. REPO_A .. " reset --hard " .. b_head)
+    local b_head = exec {
+        cmd = "git -C " .. REPO_B .. " rev-parse HEAD",
+    }
+    exec {
+        cmd = "git -C " .. REPO_A .. " reset --hard " .. b_head,
+    }
 
     TEST "A creates state-trailer commit with forbidden path"
     local f = io.open(REPO_A .. "/evil.txt", "w")
     f:write("smuggled\n")
     f:close()
-    exec("git -C " .. REPO_A .. " add evil.txt")
-    exec (
-        "git -C " .. REPO_A .. " commit -m '(empty message)'"
-        .. " --no-edit --trailer 'Freechains: state'"
-    )
+    exec {
+        cmd = "git -C " .. REPO_A .. " add evil.txt",
+    }
+    exec {
+        cmd = "git -C " .. REPO_A .. " commit -m '(empty message)'" .. " --no-edit --trailer 'Freechains: state'",
+    }
 
     TEST "B's HEAD before recv"
-    local before = exec("git -C " .. REPO_B .. " rev-parse HEAD")
+    local before = exec {
+        cmd = "git -C " .. REPO_B .. " rev-parse HEAD",
+    }
 
     TEST "B recvs from A fails with forbidden path"
-    local _, Q, err = exec (true,
-        EXE_B .. " --now=12000 chain '#test' sync recv " .. REPO_A
-    )
+    local _, Q, err = exec { err=true,
+        cmd = EXE_B .. " --now=12000 chain '#test' sync recv " .. REPO_A,
+    }
     assert (
         Q ~= 0 and err and err:match("invalid state"),
         "should fail with forbidden path: " .. tostring(err)
     )
 
     TEST "B's HEAD unchanged"
-    local after = exec("git -C " .. REPO_B .. " rev-parse HEAD")
+    local after = exec {
+        cmd = "git -C " .. REPO_B .. " rev-parse HEAD",
+    }
     assert(before == after,
         "B's HEAD changed: " .. before .. " vs " .. after
     )
