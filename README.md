@@ -132,8 +132,8 @@ return {
 }
 ```
 
-These are the basic steps to create keys and chains, and post and read content
-locally.
+These are the basic steps to create keys and chains, and to post and read
+content locally.
 
 ### Peer-to-Peer Synchronization
 
@@ -152,7 +152,7 @@ As peer `B`, here using a separate `--root` on the same machine, clone the
 chain in `A`:
 
 ```
-$ freechains --root=/tmp/peer-B/ chains add '#chat' clone 127.0.0.1
+$ freechains --root=/tmp/peer-B/ chains add '#chat' clone localhost
 #461cfb4...
 ```
 
@@ -192,7 +192,7 @@ The option `--hub` allows peers to push changes to it.
 As peer `A`, send the new post over `git://`:
 
 ```
-$ freechains chain '#chat' sync send 127.0.0.1:8331
+$ freechains chain '#chat' sync send localhost:8331
 ```
 
 Peer `B` now holds the new post:
