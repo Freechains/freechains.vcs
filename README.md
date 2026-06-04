@@ -1,4 +1,4 @@
-# Freechains: Peer-to-Peer Reputation Consensus over Git
+# Freechains: Permissionless Reputation Consensus over Git
 
 [![Tests](https://github.com/Freechains/freechains.vcs/actions/workflows/tests.yml/badge.svg)](https://github.com/Freechains/freechains.vcs/actions/workflows/tests.yml)
 
@@ -292,23 +292,35 @@ To welcome new users into the chain, the pioneer needs to redistribute a share
 of its `reps`:
 
 ```
-$ freechains chain '#chat' like 10 author $(cat /tmp/bob.pub) --sign=/tmp/alice
+$ freechains chain '#chat' like 10 author "$(cat /tmp/bob.pub)" --sign=/tmp/alice
 560a55ce9a983ff505429da5719c0fe46a304414
 ```
 
 `Alice` just transferred `10 reps` to `Bob`:
 
 ```
-$ freechains chain '#chat' reps author $(cat /tmp/alice.pub)
+$ freechains chain '#chat' reps author "$(cat /tmp/alice.pub)"
 20
-$ freechains chain '#chat' reps author $(cat /tmp/bob.pub)
-10
+$ freechains chain '#chat' reps author "$(cat /tmp/bob.pub)"
+9
 ```
 
-(For now, let's ignore why the pioneer went from `29` to `20`, not to `19`).
+You probably expected to see `19` and `10`, not `20` and `9` as `reps`.
+This is due to internal rules that tax transfers and recover `reps` over time,
+which are out of the scope of this guide.
 
+Let's now introduce new user `Charlie`, which is welcomed by `Bob` in peer `B`:
 
-The permissionless nature of Freechains comes not from the fact that XXX, but
-that YYY.
+```
+$ ssh-keygen -t ed25519 -C '' -f /tmp/charlie
+$ freechains --root=/tmp/B/ chain '#chat' like 5 author "$(cat /tmp/charlie.pub)" --sign=/tmp/bob
+$ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/bob.pub)"
+4
+$ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/charlie.pub)"
+4
+```
+
+Freechains is permissionless not in the sense that outsiders can post freely,
+but that any insider can welcome any outsider to participate.
 
 ### Consensus
