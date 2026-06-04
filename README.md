@@ -79,9 +79,9 @@ $ ls ~/.freechains/chains/
 - Post some content:
 
 ```
-$ freechains chain '#chat' post inline "Hello World!\n" --sign
+$ freechains chain '#chat' post inline $'Hello World\n' --sign
 b52c62f...
-$ freechains chain '#chat' post inline "I am here!\n"   --sign
+$ freechains chain '#chat' post inline $'I am here\n'   --sign
 d6568e4...
 ```
 
@@ -110,15 +110,15 @@ d6568e4...
 
 ```
 $ freechains chain '#chat' get payload b52c62f
-Hello World!
+Hello World
 $ freechains chain '#chat' get payload d6568e4
-I am here!
+I am here
 ```
 
 - Read post metadata:
 
 ```
-freechains chain '#chat' get metadata d6568e4
+$ freechains chain '#chat' get metadata d6568e4
 return {
     ["backs"] = {
         [1] = "b52c62f...",
