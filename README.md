@@ -1,9 +1,9 @@
-# Freechains: Peer-to-peer Content Dissemination over Git
+# Freechains: Peer-to-Peer Reputation Consensus over Git
 
 [![Tests](https://github.com/Freechains/freechains.vcs/actions/workflows/tests.yml/badge.svg)](https://github.com/Freechains/freechains.vcs/actions/workflows/tests.yml)
 
-Freechains is a permissionless social media protocol with integrated
-reputation designed on top of Git:
+Freechains is a peer-to-peer permissionless social media protocol with
+integrated reputation designed on top of Git:
 
 - Local-first publish-subscribe topic-based model
 - Unstructured peer-to-peer gossip dissemination
@@ -171,7 +171,7 @@ return {
 ```
 
 These are the basic steps to create keys and chains, and to post and read
-content locally.
+contents locally.
 
 ### Synchronization
 
@@ -276,12 +276,12 @@ $ cat /tmp/bob.pub
 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE2Cb41DBUuNgju+Y1pfhgN18N3yE/IRDRtFbje8+xIa
 ```
 
-Now, let's query their reputations:
+Now, we use their public keys to query their reputations:
 
 ```
-$ freechains chain '#chat' reps author $(cat /tmp/alice.pub)
+$ freechains chain '#chat' reps author "$(cat /tmp/alice.pub)"
 29
-$ freechains chain '#chat' reps author $(cat /tmp/bob.pub)
+$ freechains chain '#chat' reps author "$(cat /tmp/bob.pub)"
 0
 ```
 
