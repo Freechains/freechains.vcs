@@ -193,7 +193,7 @@ commands.
 As peer `B`, we clone the chain `#chat` served by peer `A`:
 
 ```
-$ freechains --root=/tmp/peer-B/ chains add '#chat' clone localhost
+$ freechains --root=/tmp/B/ chains add '#chat' clone localhost
 #461cfb4...
 ```
 Note that the chain id is the same in both peers (`#461cfb4...`).
@@ -201,7 +201,7 @@ Note that the chain id is the same in both peers (`#461cfb4...`).
 We may now list the posts in peer `B`:
 
 ```
-$ freechains --root=/tmp/peer-B/ chain '#chat' list dag
+$ freechains --root=/tmp/B/ chain '#chat' list dag
                  b52c62f
                     |
                  d6568e4
@@ -217,13 +217,13 @@ e1f2a3b...
 Peer `B` is now outdated and needs to synchronize:
 
 ```
-$ freechains --root=/tmp/peer-B/ chain '#chat' sync recv localhost
+$ freechains --root=/tmp/B/ chain '#chat' sync recv localhost
 ```
 
 Peer `B` now holds the new post from `A`:
 
 ```
-$ freechains --root=/tmp/peer-B/ chain '#chat' list dag
+$ freechains --root=/tmp/B/ chain '#chat' list dag
                  b52c62f
                     |
                  d6568e4
@@ -236,7 +236,7 @@ As peer `B`, serve a daemon on another port:
 
 ```
 # (switch to new terminal)
-$ freechains --root=/tmp/peer-B/ daemon --hub --port=8331
+$ freechains --root=/tmp/B/ daemon --hub --port=8331
 Serving on port 8331...
 ```
 
@@ -257,13 +257,13 @@ Note that synchronization is always explicitly peer-to-peer, through `recv` (or
 Let's introduce a new user `Bob` that will act through peer `B`:
 
 ```
-$ ssh-keygen -t ed25519 -f /tmp/peer-B/bob
+$ ssh-keygen -t ed25519 -C '' -f /tmp/bob
 ```
 
 Since `Bob` has no previous reputation, he cannot yet post on the chain:
 
 ```
-$ freechains chain '#chat' post inline $'Possibly malicious\n' --sign=/tmp/peer-B/bob
+$ freechains chain '#chat' post inline $'Possibly malicious\n' --sign=/tmp/bob
 ERROR : chain post : insufficient reputation
 ```
 
@@ -271,17 +271,17 @@ Let's query the public keys from both users:
 
 ```
 $ cat /tmp/alice.pub
-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMIF9tHWFQPIoV7vwhk1/Cdh20XxDFme804wcvzTc96I xxx@xxx.com
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMIF9tHWFQPIoV7vwhk1/Cdh20XxDFme804wcvzTc96I
 $ cat /tmp/bob.pub
-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE2Cb41DBUuNgju+Y1pfhgN18N3yE/IRDRtFbje8+xIa yyy@yyy.com
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE2Cb41DBUuNgju+Y1pfhgN18N3yE/IRDRtFbje8+xIa
 ```
 
 Now, let's query their reputations:
 
 ```
-$ freechains chain '#chat' reps author 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMIF9tHWFQPIoV7vwhk1/Cdh20XxDFme804wcvzTc96I'
+$ freechains chain '#chat' reps author $(cat /tmp/alice.pub)
 29
-$ freechains chain '#chat' reps author 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE2Cb41DBUuNgju+Y1pfhgN18N3yE/IRDRtFbje8+xIa'
+$ freechains chain '#chat' reps author $(cat /tmp/bob.pub)
 0
 ```
 
@@ -292,16 +292,16 @@ To welcome new users into the chain, the pioneer needs to redistribute a share
 of its `reps`:
 
 ```
-$ freechains chain '#chat' like 10 author 'ssh-ed25519 ...je8+xIa' --sign=/tmp/alice
+$ freechains chain '#chat' like 10 author $(cat /tmp/bob.pub) --sign=/tmp/alice
 560a55ce9a983ff505429da5719c0fe46a304414
 ```
 
 `Alice` just transferred `10 reps` to `Bob`:
 
 ```
-$ freechains chain '#chat' reps author 'ssh-ed25519 ...vzTc96I'
+$ freechains chain '#chat' reps author $(cat /tmp/alice.pub)
 20
-$ freechains chain '#chat' reps author 'ssh-ed25519 ...je8+xIa'
+$ freechains chain '#chat' reps author $(cat /tmp/bob.pub)
 10
 ```
 
