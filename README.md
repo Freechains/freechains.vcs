@@ -330,3 +330,10 @@ As peer `A`, send the new post to peer `B` on port `8331`:
 $ freechains chain '#chat' sync send localhost:8331
 ```
 -->
+
+### Censorship
+
+<!--
+- self: right to be forgotten
+- abuse
+-->
