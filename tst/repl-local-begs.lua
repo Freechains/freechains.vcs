@@ -240,7 +240,7 @@ do
             cmd = "git -C " .. REPO_B .. " for-each-ref refs/begs/ --format='%(refname)'",
         }
         for ref in refs:gmatch("[^\n]+") do
-            local _, code = exec { err = false,
+            local _, code = exec { err=false,
                 cmd = "git -C " .. REPO_B .. " merge-base --is-ancestor " .. ref .. " HEAD",
             }
             if code == 0 then

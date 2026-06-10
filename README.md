@@ -196,6 +196,7 @@ As peer `B`, we clone the chain `#chat` served by peer `A`:
 $ freechains --root=/tmp/B/ chains add '#chat' clone localhost
 #461cfb4...
 ```
+
 Note that the chain id is the same in both peers (`#461cfb4...`).
 
 We may now list the posts in peer `B`:
