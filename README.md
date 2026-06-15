@@ -2,8 +2,8 @@
 
 [![Tests](https://github.com/Freechains/freechains.vcs/actions/workflows/tests.yml/badge.svg)](https://github.com/Freechains/freechains.vcs/actions/workflows/tests.yml)
 
-Freechains is a peer-to-peer permissionless social media protocol with
-integrated reputation designed on top of Git:
+Freechains is a peer-to-peer permissionless Sybil-resistant social media
+protocol with integrated reputation designed on top of Git:
 
 - Local-first publish-subscribe topic-based model
 - Unstructured peer-to-peer gossip dissemination
@@ -16,12 +16,17 @@ integrated reputation designed on top of Git:
 
 *(In bold we highlight what we believe is particular to Freechains.)*
 
-A user posts a message to a chain (a topic) and other users in the same chain
-eventually receive the message.
-Users spend reputation tokens, known as `reps`, to post new messages and gain
+A member posts a message to a chain (a topic) and other members in the same
+chain eventually receive the message.
+Members spend reputation tokens, known as `reps`, to post new messages and gain
 `reps` as they consolidate.
-Users can like and dislike messages from other users, which transfer `reps`
+Members can like and dislike messages from other members, which transfer `reps`
 between them.
+
+By "Sybil-resistant", we mean that extra identities grant no power:
+    a fresh key holds zero `reps` and cannot act in a chain.
+By "permissionless", we mean that no central authority gatekeeps membership:
+    any member can welcome any newcomer in a chain.
 
 <!--
 - Main concepts:
@@ -250,6 +255,8 @@ $ freechains --root=/tmp/B/ chain '#chat' post inline $'Possibly malicious\n' --
 ERROR : chain post : insufficient reputation
 ```
 
+Reputation is the key aspect that makes Freechains Sybil-resistant.
+
 Let's query the public keys from both users:
 
 ```
@@ -271,7 +278,7 @@ $ freechains chain '#chat' reps author "$(cat /tmp/bob.pub)"
 As the chain pioneer, `Alice` still has `29 reps` to use, whereas `Bob` has no
 reputation and cannot post on the chain.
 
-To welcome new users into the chain, the pioneer needs to redistribute a share
+To welcome new members into the chain, the pioneer needs to redistribute a share
 of its `reps`:
 
 ```
@@ -293,7 +300,7 @@ You might have expected `19` and `10`, not `20` and `9` as `reps`.
 This is due to internal rules that tax transfers and recover `reps` over time,
 which are out of the scope of this guide.
 
-Let's now introduce new user `Charlie`, who is welcomed by `Bob` in peer `B`:
+Let's now introduce new member `Charlie`, who is welcomed by `Bob` in peer `B`:
 
 ```
 $ ssh-keygen -t ed25519 -C '' -f /tmp/charlie
@@ -309,8 +316,9 @@ $ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/charlie.pub)"
 After a few interactions, we already have `Alice`, `Bob`, and `Charlie` with
 non-zero reputation in the chain.
 
-Freechains is permissionless not in the sense that outsiders can post freely,
-but rather that any insider can welcome any outsider to participate.
+In summary, the reputation system makes Freechains
+    Sybil-resistant (write operations spend `reps`) and
+    permissionless (any insider can welcome any outsider spending `reps`).
 
 ### Consensus
 
