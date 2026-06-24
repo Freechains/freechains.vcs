@@ -242,9 +242,8 @@ Note that synchronization is always explicitly peer-to-peer, through `recv` (or
 
 ### Reputation
 
-Members need reputation tokens, known as `reps`, to post new messages on the
-chains.
-Otherwise, chains would be open SPAM and abusive behavior in general.
+Members need reputation tokens, known as `reps`, to post on the chains;
+otherwise chains would be open to spam and abuse.
 
 Let's introduce new user `Bob` who will act through peer `B`:
 
