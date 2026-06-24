@@ -242,6 +242,10 @@ Note that synchronization is always explicitly peer-to-peer, through `recv` (or
 
 ### Reputation
 
+Members need reputation tokens, known as `reps`, to post new messages on the
+chains.
+Otherwise, chains would be open SPAM and abusive behavior in general.
+
 Let's introduce new user `Bob` who will act through peer `B`:
 
 ```
@@ -321,6 +325,21 @@ In summary, the reputation system makes Freechains
     permissionless (any insider can welcome any outsider spending `reps`).
 
 ### Consensus
+
+In our peer-to-peer context, with no central server to impose a global
+message ordering, peers may receive posts in different orders.
+The lack of a consensual order for messages imposes a challenge to preserve
+Sybil-resistance in the network.
+For instance, consider a malicious member with a single `rep` spamming the
+network with thousands of posts from different peers.
+How should correct peers handle all these messages that reach each of
+them in different orders?
+Which single message exactly should be accepted?
+If we could somehow order all these messages unambiguously in all peers, only
+the first one would be accepted, protecting the network from Sybils.
+
+Freechains provides a consensus mechanism that orders the messages based on the
+accumulated `reps` of the authors in each branch.
 
 <!--
 As peer `B`, serve a daemon on another port:
