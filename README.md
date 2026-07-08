@@ -325,6 +325,56 @@ In summary, the reputation system makes Freechains
 
 ### Consensus
 
+Freechains provides a consensus mechanism that orders messages based on the
+accumulated `reps` of authors.
+The mechanism is "consensual" in the sense that peers with the same messages
+always reach the same deterministic order (regardless of each receiving order).
+
+Let's watch consensus resolve a divergence between `Alice` and `Bob`.
+We introduce a neutral peer `X` that authors nothing and takes no side, acting
+as a *hub*: other peers push their posts to it, and `X` merges the branches
+into the single reputation-based order that every peer would compute.
+
+`X` clones `#chat` and serves as a hub others push to:
+
+```
+$ freechains --root=/tmp/X/ chains add '#chat' clone localhost
+#461cfb4...
+# (switch to new terminal)
+$ freechains --root=/tmp/X/ daemon --hub --port=8331
+Serving on port 8331...
+```
+
+Now `Alice` and `Bob` post at the same time, without synchronizing:
+
+```
+$ freechains chain '#chat' post inline $'Alice was here\n' --sign=/tmp/alice
+a1b2c3d...
+$ freechains --root=/tmp/B/ chain '#chat' post inline $'Bob was here\n' --sign=/tmp/bob
+f4e5d6c...
+```
+
+Both send their posts to the neutral hub `X`:
+
+```
+$ freechains chain '#chat' sync send localhost:8331
+$ freechains --root=/tmp/B/ chain '#chat' sync send localhost:8331
+```
+
+`X` resolves the divergence; since `Alice` holds more `reps`, her post is
+ordered first:
+
+```
+$ freechains --root=/tmp/X/ chain '#chat' list order
+...
+a1b2c3d...
+f4e5d6c...
+```
+
+This is the core property of Freechains: **consensus via authoring
+reputation**, reached by every peer without any central authority.
+
+<!--
 In our peer-to-peer context, with no central server to impose a global
 message ordering, peers may receive posts in different orders.
 The lack of a consensual order for messages imposes a challenge to preserve
@@ -336,26 +386,6 @@ them in different orders?
 Which single message exactly should be accepted?
 If we could somehow order all these messages unambiguously in all peers, only
 the first one would be accepted, protecting the network from Sybils.
-
-Freechains provides a consensus mechanism that orders the messages based on the
-accumulated `reps` of the authors in each branch.
-
-<!--
-As peer `B`, serve a daemon on another port:
-
-```
-# (switch to new terminal)
-$ freechains --root=/tmp/B/ daemon --hub --port=8331
-Serving on port 8331...
-```
-
-The option `--hub` allows peers to push changes to it.
-
-As peer `A`, send the new post to peer `B` on port `8331`:
-
-```
-$ freechains chain '#chat' sync send localhost:8331
-```
 -->
 
 ### Censorship
