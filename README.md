@@ -108,6 +108,9 @@ $ freechains chains add '#chat' init inline --sign=/tmp/alice
 This creates the public chain `#chat`, with `Alice` as the sole pioneer.
 The output is the chain's unique identifier across all peers.
 
+A chain is backed by a Git repository, with an independent commit history from
+others.
+
 Note that the exact hash identifiers depend on local creation time and thus
 will differ throughout this guide.
 
@@ -127,6 +130,8 @@ d6568e4...
 ```
 
 The output is each post's unique identifier.
+
+A post is backed by a Git commit in the chain repository.
 
 We can list all posts in the chain:
 
@@ -240,6 +245,8 @@ $ freechains --root=/tmp/B/ chain '#chat' list dag
 Note that synchronization is always explicitly peer-to-peer, through `recv` (or
 `send`).
 
+Synchronization is backed by Git commands like `daemon`, `push` and `fetch`.
+
 ### Reputation
 
 Members need reputation tokens, known as `reps`, to post on the chains;
@@ -259,6 +266,10 @@ ERROR : chain post : insufficient reputation
 ```
 
 Reputation is the key aspect that makes Freechains Sybil-resistant.
+
+Note that Git itself provides no reputation mechanism.
+Therefore, Freechains relies on custom Git hooks to validate commits according
+to its reputation rules.
 
 Let's query the public keys from both users:
 
@@ -325,17 +336,13 @@ In summary, the reputation system makes Freechains
 
 ### Consensus
 
-Freechains provides a consensus mechanism that orders messages based on the
-accumulated `reps` of authors.
+Freechains provides a consensus mechanism in which the diverging branch with
+posts from authors with more `reps` is ordered first.
 The mechanism is "consensual" in the sense that peers with the same messages
 always reach the same deterministic order (regardless of each receiving order).
 
-Let's watch consensus resolve a divergence between `Alice` and `Bob`.
-We introduce a neutral peer `X` that authors nothing and takes no side, acting
-as a *hub*: other peers push their posts to it, and `X` merges the branches
-into the single reputation-based order that every peer would compute.
-
-`X` clones `#chat` and serves as a hub others push to:
+To illustrate how consensus resolves, let's introduce a neutral peer `X` that
+never posts, acting only as a *hub* to which other peers push their posts:
 
 ```
 $ freechains --root=/tmp/X/ chains add '#chat' clone localhost
@@ -345,7 +352,8 @@ $ freechains --root=/tmp/X/ daemon --hub --port=8331
 Serving on port 8331...
 ```
 
-Now `Alice` and `Bob` post at the same time, without synchronizing:
+Now `Alice` and `Bob` post at the same time, each from its own peer, without
+synchronizing:
 
 ```
 $ freechains chain '#chat' post inline $'Alice was here\n' --sign=/tmp/alice
@@ -354,11 +362,43 @@ $ freechains --root=/tmp/B/ chain '#chat' post inline $'Bob was here\n' --sign=/
 f4e5d6c...
 ```
 
+Each peer now holds a diverging history with its own exclusive post:
+
+```
+$ freechains chain '#chat' list dag
+                 ...
+                 560a55c
+                    |
+                 a1b2c3d
+$ freechains --root=/tmp/B/ chain '#chat' list dag
+                 ...
+                 560a55c
+                    |
+                 9a8b7c6
+                    |
+                 f4e5d6c
+```
+
+Note that peer `B` also holds `9a8b7c6`, which is Bob's like on Charlie, still
+unknown to peer `A`.
+
 Both send their posts to the neutral hub `X`:
 
 ```
 $ freechains chain '#chat' sync send localhost:8331
 $ freechains --root=/tmp/B/ chain '#chat' sync send localhost:8331
+```
+
+`X` now holds both branches as a fork in its DAG:
+
+```
+$ freechains --root=/tmp/X/ chain '#chat' list dag
+                 ...
+                 560a55c
+                  /   \
+             a1b2c3d  9a8b7c6
+                         |
+                      f4e5d6c
 ```
 
 `X` resolves the divergence; since `Alice` holds more `reps`, her post is
