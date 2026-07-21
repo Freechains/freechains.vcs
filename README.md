@@ -355,13 +355,13 @@ $ freechains --root=/tmp/X/ daemon --hub --port=8331
 Serving on port 8331...
 ```
 
-Now `Alice` and `Bob` post at the same time, each from its own peer, without
+Now `Alice` and `Charlie` post at the same time, from peers `A` and `B`, without
 synchronizing:
 
 ```
 $ freechains chain '#chat' post inline $'Alice was here\n' --sign=/tmp/alice
 a1b2c3d...
-$ freechains --root=/tmp/B/ chain '#chat' post inline $'Bob was here\n' --sign=/tmp/bob
+$ freechains --root=/tmp/B/ chain '#chat' post inline $'Charlie was here\n' --sign=/tmp/charlie
 f4e5d6c...
 ```
 
