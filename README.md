@@ -338,12 +338,11 @@ In summary, the reputation system makes Freechains
 
 ### Consensus
 
-Freechains provides a consensus mechanism that enforces the same deterministic
-order for posts in all peers, regardless of each peer's local receiving order.
-Again, note that Git itself provides no consensus mechanism to order commits in
-diverging branches.
-Therefore, Freechains relies on custom hooks to order first branches whose
-authors hold more `reps`.
+Freechains provides a consensus mechanism that enforces the same order for all
+posts in all peers, regardless of the receiving order in each peer.
+Since Git itself provides no consensus mechanism for diverging branches,
+Freechains applies a custom hook to order first branches whose authors hold
+more `reps`.
 
 To illustrate how consensus resolves, let's introduce a neutral peer `X` that
 never posts, acting only as a *hub* to which other peers push their posts:
@@ -386,7 +385,7 @@ $ freechains --root=/tmp/B/ chain '#chat' list dag
 Note that peer `B` also holds `9a8b7c6`, which is Bob's like on Charlie, still
 unknown to peer `A`.
 
-Both send their posts to the neutral hub `X`:
+Then, both peers `A` and `B` send their posts to the neutral hub `X`:
 
 ```
 $ freechains chain '#chat' sync send localhost:8331
