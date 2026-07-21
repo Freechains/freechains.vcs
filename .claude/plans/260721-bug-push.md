@@ -58,45 +58,31 @@ cascade, nested cascade), but always drives it through `recv` or
 That is why the algorithm is solid while the push transport is broken:
 the failure happens in the send path, before any consensus code runs.
 
-## Proposed test
+## Test
 
-New step 8 in `tst/cli-send.lua`, after step 7.
-`A` and `B` are bit-equal at the end of step 6.
+`tst/consensus.lua` Test 1 now drives the merge through `send`
+instead of `recv`.
+No duplicated setup, and the transport becomes part of the consensus
+story.
+
+`B sends to A` is equivalent to `A recvs from B`, since the hook makes
+`A` run the recv, so all assertions hold unchanged.
+`B`'s `main` is not a fast-forward of `A`'s, which is the failing case.
 
 ```lua
--- 8. send to a diverged receiver (non-fast-forward)
-do
-    print("==> Step 8: send diverged")
-
-    TEST "A posts (diverge)"
-    local A = exec {
-        cmd = EXE_A .. " --now=10000 chain '#test' post inline 'fifth from A' --sign " .. KEY1,
-    }
-    assert(#A == 40, "hash: " .. A)
-
-    TEST "B posts (diverge)"
-    local B = exec {
-        cmd = EXE_B .. " --now=11000 chain '#test' post inline 'third from B' --sign " .. KEY1,
-    }
-    assert(#B == 40, "hash: " .. B)
-
-    -- B's main is NOT a fast-forward of A's main
-    TEST "B sends to A (non-fast-forward)"
-    exec {
-        cmd = EXE_B .. " --now=11500 chain '#test' sync send " .. REPO_A,
-    }
-
-    TEST "A holds both posts"
-    local posts = dofile(REPO_A .. ".freechains/state/posts.lua")
-    assert(posts[A], "A's post missing in A")
-    assert(posts[B], "B's post missing in A")
-end
+TEST "B sends to A, non-ff (A wins by prefix reps)"
+exec {
+    cmd = EXE_B .. " --now=3000 chain '#cons-a' sync send " .. ROOT_A .. "/chains/#cons-a/",
+}
 ```
 
-Fails today with `! [rejected] ... (fetch first)`;
-passes with the fix below.
+Test 2 stays on `recv`: it asserts on stdout
+(`ERROR : content conflict\nvoided : ...`), which under `send` goes to
+the hook's stderr and would need reworking.
 
-## Proposed fix
+Confirmed failing before the fix.
+
+## Fix
 
 | file                            | place            | change                |
 |---------------------------------|------------------|-----------------------|
@@ -110,13 +96,28 @@ passes with the fix below.
 .. URL(ARGS.remote, ARGS.alias) .. " +main +refs/begs/*:refs/begs/*",
 ```
 
+## Side finding: hook drops `--now`
+
+`lua/freechains/hooks/pre-receive:41-44` invokes the receiver's
+`sync recv` without `--now`.
+Consensus stays deterministic, since `recv` derives time from commit
+dates (`NOW(oct)`, `src/freechains/chain/common.lua:5`) and not from
+`CMD.now`.
+But the receiver's final state commit uses `CMD.git`
+(`src/freechains/chain/sync.lua:454`), which is empty without `--now`,
+so that commit gets a wall-clock date.
+Not covered by any test: the `no wall-clock timestamps` assertion in
+`tst/cli-send.lua` step 5 runs on a direct `recv`.
+
 ## Pending
 
 - [x] Reproduce via the README `### Consensus` flow
 - [x] Locate root cause (`sync.lua:11`, plain `main` refspec)
 - [x] Confirm no existing test covers a diverged receiver
-- [ ] NEXT: add step 8 to `tst/cli-send.lua`
-- [ ] Apply the `+main +refs/begs/*` fix
+- [x] Convert `tst/consensus.lua` Test 1 to `send`; confirmed failing
+- [x] Apply the `+main +refs/begs/*` fix
+- [ ] NEXT: re-run `tst/consensus.lua`, then the full suite
+- [ ] Decide on the `--now` side finding (forward it from the hook?)
 - [ ] Re-run the README flow; both sends print `Freechains: OK`
 - [ ] Paste real hashes / fork DAG / `list order` into `README.md`
       (see `2026-06-14-readme.md`)
