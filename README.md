@@ -109,7 +109,7 @@ This creates the public chain `#chat`, with `Alice` as the sole pioneer.
 The output is the chain's unique identifier across all peers.
 
 A chain is backed by a Git repository, with an independent commit history from
-others.
+other chains.
 
 Note that the exact hash identifiers depend on local creation time and thus
 will differ throughout this guide.
@@ -133,9 +133,9 @@ The output is each post's unique identifier.
 
 A post is backed by a Git commit in the chain repository.
 
-We can list all posts in the chain:
+We can list all posts in the chain...
 
-- As a DAG:
+- ...as a DAG:
 
 ```
 $ freechains chain '#chat' list dag
@@ -144,7 +144,7 @@ $ freechains chain '#chat' list dag
                  d6568e4
 ```
 
-- In consensus order:
+- ...in consensus order:
 
 ```
 $ freechains chain '#chat' list order
@@ -180,8 +180,8 @@ return {
 }
 ```
 
-These are the basic steps to create keys and chains, and to post and read
-content locally.
+These are the basic steps in Freechains to create keys and chains, and to post
+and read content locally.
 
 ### Synchronization
 
@@ -197,10 +197,11 @@ Serving on port 8330...
 
 As peer `A`, we now listen for requests on default port `8330`.
 
-To simulate a remote peer `B`, we will use a separate `--root` as prefix to the
-commands.
+To simulate a remote peer `B`, we will use a separate `--root` as the prefix of
+all commands.
 
-As peer `B`, we clone the chain `#chat` served by peer `A`:
+Now, as peer `B`, we clone the chain `#chat` served by peer `A` at `localhost`
+(default port `8330`):
 
 ```
 $ freechains --root=/tmp/B/ chains add '#chat' clone localhost
@@ -242,15 +243,16 @@ $ freechains --root=/tmp/B/ chain '#chat' list dag
                  e1f2a3b
 ```
 
-Note that synchronization is always explicitly peer-to-peer, through `recv` (or
-`send`).
+Note that synchronization in Freechains is always explicitly peer-to-peer,
+through `recv` (or `send`) commands.
 
 Synchronization is backed by Git commands like `daemon`, `push` and `fetch`.
 
 ### Reputation
 
-Members need reputation tokens, known as `reps`, to post on the chains;
-otherwise chains would be open to spam and abuse.
+Members need reputation tokens, known as `reps`, to post on the chains.
+Without this protection, chains would be open to spam and abuse from malicious
+users.
 
 Let's introduce new user `Bob` who will act through peer `B`:
 
@@ -328,18 +330,20 @@ $ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/charlie.pub)"
 ```
 
 After a few interactions, we already have `Alice`, `Bob`, and `Charlie` with
-non-zero reputation in the chain.
+non-zero reputations in the chain.
 
 In summary, the reputation system makes Freechains
-    Sybil-resistant (write operations spend `reps`) and
-    permissionless (any insider can welcome any outsider spending `reps`).
+    Sybil-resistant (write operations require and spend `reps`) and
+    permissionless (any insider can welcome any outsider transferring `reps`).
 
 ### Consensus
 
-Freechains provides a consensus mechanism in which the diverging branch with
-posts from authors with more `reps` is ordered first.
-The mechanism is "consensual" in the sense that peers with the same messages
-always reach the same deterministic order (regardless of each receiving order).
+Freechains provides a consensus mechanism that enforces the same deterministic
+order for posts in all peers, regardless of each peer's local receiving order.
+Again, note that Git itself provides no consensus mechanism to order commits in
+diverging branches.
+Therefore, Freechains relies on custom hooks to order first branches whose
+authors hold more `reps`.
 
 To illustrate how consensus resolves, let's introduce a neutral peer `X` that
 never posts, acting only as a *hub* to which other peers push their posts:
