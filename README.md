@@ -404,32 +404,22 @@ $ freechains --root=/tmp/X/ chain '#chat' list dag
                       f4e5d6c
 ```
 
-`X` resolves the divergence; since `Alice` holds more `reps`, her post is
-ordered first:
+We can also list the posts in consensus order to see which branch wins:
 
 ```
 $ freechains --root=/tmp/X/ chain '#chat' list order
 ...
 a1b2c3d...
+9a8b7c6...
 f4e5d6c...
 ```
 
-This is the core property of Freechains: **consensus via authoring
-reputation**, reached by every peer without any central authority.
+Since `Alice` holds more `reps` than `Bob` and `Charlie` together, the branch
+with her post is ordered first.
+Note that the same order holds for all peers after they synchronize.
 
-<!--
-In our peer-to-peer context, with no central server to impose a global
-message ordering, peers may receive posts in different orders.
-The lack of a consensual order for messages imposes a challenge to preserve
-Sybil-resistance in the network.
-For instance, consider a malicious member with a single `rep` spamming the
-network with thousands of posts from different peers.
-How should correct peers handle all these messages that reach each of
-them in different orders?
-Which single message exactly should be accepted?
-If we could somehow order all these messages unambiguously in all peers, only
-the first one would be accepted, protecting the network from Sybils.
--->
+Consensus via authoring reputation is the key aspect of Freechains, making all
+peers reach the same state without any central authority.
 
 ### Censorship
 
