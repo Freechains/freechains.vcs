@@ -33,7 +33,8 @@ end
 -- GEN_2: KEY1=15, KEY2=15
 -- Before fork: KEY2 likes seed → KEY2 loses reps → KEY1 > KEY2
 -- A posts with KEY1 (higher), B posts with KEY2 (lower)
--- A recvs B → A wins
+-- B sends to A → A's hook recvs from B → A wins
+-- B's main is not a fast-forward of A's main (non-ff push)
 do
     print("==> Test 1: local wins by prefix reps")
 
@@ -65,9 +66,9 @@ do
         cmd = EXE_B .. " --now=2000 chain '#cons-a' post inline 'beta\n' --file common.txt --sign " .. KEY2,
     }
 
-    TEST "A recvs from B (A wins by prefix reps)"
+    TEST "B sends to A, non-ff (A wins by prefix reps)"
     exec {
-        cmd = EXE_A .. " --now=3000 chain '#cons-a' sync recv " .. ROOT_B .. "/chains/#cons-a/",
+        cmd = EXE_B .. " --now=3000 chain '#cons-a' sync send " .. ROOT_A .. "/chains/#cons-a/",
     }
 
     TEST "A's common.txt has alpha, not beta"
