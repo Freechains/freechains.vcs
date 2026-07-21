@@ -96,18 +96,10 @@ Confirmed failing before the fix.
 .. URL(ARGS.remote, ARGS.alias) .. " +main +refs/begs/*:refs/begs/*",
 ```
 
-## Side finding: hook drops `--now`
+## Side finding
 
-`lua/freechains/hooks/pre-receive:41-44` invokes the receiver's
-`sync recv` without `--now`.
-Consensus stays deterministic, since `recv` derives time from commit
-dates (`NOW(oct)`, `src/freechains/chain/common.lua:5`) and not from
-`CMD.now`.
-But the receiver's final state commit uses `CMD.git`
-(`src/freechains/chain/sync.lua:454`), which is empty without `--now`,
-so that commit gets a wall-clock date.
-Not covered by any test: the `no wall-clock timestamps` assertion in
-`tst/cli-send.lua` step 5 runs on a direct `recv`.
+The hook drops `--now`, which costs test determinism on the send path.
+Split out to `260721-send-now.md`.
 
 ## Pending
 
@@ -116,8 +108,10 @@ Not covered by any test: the `no wall-clock timestamps` assertion in
 - [x] Confirm no existing test covers a diverged receiver
 - [x] Convert `tst/consensus.lua` Test 1 to `send`; confirmed failing
 - [x] Apply the `+main +refs/begs/*` fix
-- [ ] NEXT: re-run `tst/consensus.lua`, then the full suite
-- [ ] Decide on the `--now` side finding (forward it from the hook?)
-- [ ] Re-run the README flow; both sends print `Freechains: OK`
+- [x] Full suite passes
+- [x] Beg refs are immutable (`refs/begs/beg-<hash>` embeds its own
+      commit), so the recv-side fetch needs no `+`
+- [x] Split the `--now` side finding to `260721-send-now.md`
+- [ ] NEXT: re-run the README flow; both sends print `Freechains: OK`
 - [ ] Paste real hashes / fork DAG / `list order` into `README.md`
       (see `2026-06-14-readme.md`)
