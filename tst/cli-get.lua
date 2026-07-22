@@ -30,6 +30,15 @@ local MERGE_LIKE = exec {
     cmd = ENV_EXE .. " chain '#cli-get' like 1 post " .. UNSIGNED .. " --sign " .. KEY2,
 }
 
+-- a separate post + a community revoke of it, to exercise the revoke
+-- kind (revoking POST would hide it and break the payload test above)
+local RPOST = exec {
+    cmd = ENV_EXE .. " chain '#cli-get' post inline 'to be revoked' --sign " .. KEY1,
+}
+local REVOKE = exec {
+    cmd = ENV_EXE .. " chain '#cli-get' revoke 1 " .. RPOST .. " --sign " .. KEY2,
+}
+
 -- GET PAYLOAD
 do
     print("==> freechains chain get payload")
@@ -47,6 +56,14 @@ do
         TEST "payload of like"
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-get' get payload " .. LIKE,
+            err = "ERROR : chain get : unknown post",
+        }
+    end
+
+    do
+        TEST "payload of revoke"
+        FAIL {
+            cmd = ENV_EXE .. " chain '#cli-get' get payload " .. REVOKE,
             err = "ERROR : chain get : unknown post",
         }
     end
@@ -112,6 +129,21 @@ do
         assert(math.type(T.like.n) == "integer", "like.n: " .. tostring(T.like.n))
         assert(#T.backs == 1, "expected 1 back, got: " .. #T.backs)
         assert(T.backs[1] == POST, "back should be POST: " .. tostring(T.backs[1]))
+    end
+
+    do
+        TEST "metadata of revoke"
+        local out, code = exec {
+            cmd = ENV_EXE .. " chain '#cli-get' get metadata " .. REVOKE,
+        }
+        assert(code == 0, "exit code: " .. tostring(code))
+        local T = load(out, "metadata", "t", {})()
+        assert(T.hash == REVOKE, "hash: " .. tostring(T.hash))
+        assert(T.like == nil, "revoke has no like key: " .. tostring(T.like))
+        assert(type(T.revoke) == "table", "revoke type: " .. type(T.revoke))
+        assert(T.revoke.post == RPOST, "revoke.post: " .. tostring(T.revoke.post))
+        assert(math.type(T.revoke.n) == "integer", "revoke.n: " .. tostring(T.revoke.n))
+        assert(T.revoke.n < 0, "revoke.n should be negative: " .. tostring(T.revoke.n))
     end
 
     do

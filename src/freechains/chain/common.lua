@@ -104,7 +104,10 @@ function apply (G, kind, time, T)
                     local discount = C.time.half * math.max(0, 1 - 2*ratio)
 
                     if time >= entry.time + discount then
-                        G.authors[entry.author].reps = G.authors[entry.author].reps + C.reps.cost
+                        -- signed beg?
+                        if entry.author then
+                            G.authors[entry.author].reps = G.authors[entry.author].reps + C.reps.cost
+                        end
                         entry.state = "12-24"
                     end
                 end
@@ -116,10 +119,16 @@ function apply (G, kind, time, T)
             for hash, entry in pairs(G.posts) do
                 if entry.state == "12-24" then
                     if time >= entry.time+C.time.full then
-                        local last = G.authors[entry.author].time
-                        if time-last >= C.time.full then
-                            G.authors[entry.author].reps = G.authors[entry.author].reps + C.reps.cost
-                            G.authors[entry.author].time = last + C.time.full
+                        if entry.author then
+                            local last = G.authors[entry.author].time
+                            if time-last >= C.time.full then
+                                G.authors[entry.author].reps = G.authors[entry.author].reps + C.reps.cost
+                                G.authors[entry.author].time = last + C.time.full
+                                entry.state = nil
+                                entry.time  = nil
+                            end
+                        else
+                            -- authorless (unsigned beg): consolidate, no credit
                             entry.state = nil
                             entry.time  = nil
                         end
