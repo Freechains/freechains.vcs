@@ -454,4 +454,43 @@ do
     )
 end
 
+-- 8. revoked posts: list revokes + ~hash~ in order/dag
+do
+    print("==> Step 8: revoked posts")
+
+    TEST "A creates rev chain + two posts"
+    exec {
+        cmd = EXE_A .. " --now=1000 chains add '#rev' init inline --sign " .. KEY1,
+    }
+    local RP1 = exec {
+        cmd = EXE_A .. " --now=2000 chain '#rev' post inline 'keep' --sign " .. KEY1,
+    }
+    local RP2 = exec {
+        cmd = EXE_A .. " --now=3000 chain '#rev' post inline 'remove' --sign " .. KEY1,
+    }
+
+    TEST "KEY1 self-revokes RP2 (free)"
+    local REV = exec {
+        cmd = EXE_A .. " --now=4000 chain '#rev' revoke 1 " .. RP2 .. " --sign " .. KEY1,
+    }
+    assert(#REV == 40, "expected revoke hash, got: " .. REV)
+
+    TEST "list revokes shows RP2 only"
+    assert(exec {
+        cmd = EXE_A .. " chain '#rev' list revokes",
+    } == RP2)
+
+    TEST "list order wraps revoked RP2 in ~"
+    assert(exec {
+        cmd = EXE_A .. " chain '#rev' list order",
+    } == RP1 .. "\n~" .. RP2 .. "~\n" .. REV .. "\n")
+
+    TEST "list dag wraps revoked RP2 short hash"
+    local dag = exec {
+        cmd = EXE_A .. " chain '#rev' list dag",
+    }
+    assert(dag:find("~" .. RP2:sub(1,7) .. "~", 1, true), "dag should wrap RP2: " .. dag)
+    assert(dag:find(RP1:sub(1,7), 1, true), "dag should have RP1 bare")
+end
+
 print("<== ALL PASSED")

@@ -8,8 +8,21 @@ if ARGS.begs then
     end
 
 elseif ARGS.order then
+    -- consensus order; revoked posts wrapped in ~hash~
     for _, hash in ipairs(G.order) do
-        print(hash)
+        if G.posts[hash] and is_revoked(G.posts[hash]) then
+            print("~" .. hash .. "~")
+        else
+            print(hash)
+        end
+    end
+
+elseif ARGS.revokes then
+    -- revoked posts only, in consensus order (bare hashes)
+    for _, hash in ipairs(G.order) do
+        if G.posts[hash] and is_revoked(G.posts[hash]) then
+            print(hash)
+        end
     end
 
 elseif ARGS.dag then
@@ -130,7 +143,12 @@ elseif ARGS.dag then
         end
         local t = blank()
         for _, h in ipairs(cur) do
-            set_at(t, col[h], h:sub(1, SHORT))
+            -- revoked posts render as ~short~
+            local lbl = h:sub(1, SHORT)
+            if G.posts[h] and is_revoked(G.posts[h]) then
+                lbl = "~" .. lbl .. "~"
+            end
+            set_at(t, col[h], lbl)
         end
         emit(t)
         if #cur == 1 then
