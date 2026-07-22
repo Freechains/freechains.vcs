@@ -110,7 +110,7 @@ already set up there).
       int-overflow path — the affordability gate already rejects
       any un-affordable N, so overflow only affects rolled-back
       commits; low value
-- [ ] run tests (user)
+- [x] all tests pass (2026-07-22)
 
 ## Cross-references
 

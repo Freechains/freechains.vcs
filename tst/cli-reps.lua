@@ -372,9 +372,9 @@ do
 
     do
         TEST "debt-never-negative"
-        local n = tonumber(exec {
+        local n = tonumber((exec {
             cmd = ENV_EXE .. " chain '#cli-reps' reps author '" .. PUB1 .. "'",
-        })
+        }))
         assert(n >= 0, "reps must never go negative: " .. tostring(n))
     end
 
