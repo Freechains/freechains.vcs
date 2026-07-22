@@ -91,7 +91,7 @@ do
         assert(math.type(T.time) == "integer", "time: " .. tostring(T.time))
         assert(type(T.post) == "string", "post type: " .. type(T.post))
         assert(T.post:match("^post%-%d+%-%d+%.txt$"), "post filename: " .. tostring(T.post))
-        assert(T.like == false, "like: " .. tostring(T.like))
+        assert(T.like == nil, "post metadata has no like key: " .. tostring(T.like))
         assert(type(T.sign) == "string", "sign type: " .. type(T.sign))
         assert(T.sign:match("^ssh%-ed25519 "), "sign: " .. tostring(T.sign))
         assert(type(T.backs) == "table", "backs type: " .. type(T.backs))

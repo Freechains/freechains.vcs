@@ -83,6 +83,8 @@ local cmd = {
         },
         like = {},
         dislike = {},
+        revoke = {},
+        unrevoke = {},
         sync = {
             recv = {},
             send = {},
@@ -175,21 +177,24 @@ do
         cmd.chain.get.payload._:argument("hash")
     end
 
-    -- cmd.chain.like
-    cmd.chain.like._ = cmd.chain._:command("like")
-    cmd.chain.like._:argument("number"):convert(positive)
-    cmd.chain.like._:argument("target")
-    cmd.chain.like._:argument("id")
-    cmd.chain.like._:option("--sign"):args("?"):count(1):action(sign)
-    cmd.chain.like._:option("--why")
+    -- cmd.chain.like / dislike : target is a post OR an author
+    for _,c in ipairs { "like", "dislike" } do
+        cmd.chain[c]._ = cmd.chain._:command(c)
+        cmd.chain[c]._:argument("number"):convert(positive)
+        cmd.chain[c]._:argument("target")
+        cmd.chain[c]._:argument("id")
+        cmd.chain[c]._:option("--sign"):args("?"):count(1):action(sign)
+        cmd.chain[c]._:option("--why")
+    end
 
-    -- cmd.chain.dislike
-    cmd.chain.dislike._ = cmd.chain._:command("dislike")
-    cmd.chain.dislike._:argument("number"):convert(positive)
-    cmd.chain.dislike._:argument("target")
-    cmd.chain.dislike._:argument("id")
-    cmd.chain.dislike._:option("--sign"):args("?"):count(1):action(sign)
-    cmd.chain.dislike._:option("--why")
+    -- cmd.chain.revoke / unrevoke : post only (no target argument)
+    for _,c in ipairs { "revoke", "unrevoke" } do
+        cmd.chain[c]._ = cmd.chain._:command(c)
+        cmd.chain[c]._:argument("number"):convert(positive)
+        cmd.chain[c]._:argument("id")
+        cmd.chain[c]._:option("--sign"):args("?"):count(1):action(sign)
+        cmd.chain[c]._:option("--why")
+    end
 
     -- cmd.chain.sync
     cmd.chain.sync._ = cmd.chain._:command("sync")

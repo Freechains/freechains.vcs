@@ -54,6 +54,24 @@ do
         local posts = dofile(DIR1 .. ".freechains/state/posts.lua")
         assert(not posts[BEG], "beg should not be in main posts.lua")
     end
+
+    -- only a positive `like` accepts a beg; other votes cannot act on
+    -- an unaccepted beg (it is not in main posts) -> post not found
+    do
+        TEST "beg-dislike-rejected"
+        FAIL {
+            cmd = ENV_EXE .. " chain '#cli-begs-1' dislike 1 post " .. BEG .. " --sign " .. KEY1,
+            err = "ERROR : chain like : invalid target : post not found",
+        }
+    end
+
+    do
+        TEST "beg-revoke-rejected"
+        FAIL {
+            cmd = ENV_EXE .. " chain '#cli-begs-1' revoke 1 " .. BEG .. " --sign " .. KEY1,
+            err = "ERROR : chain revoke : invalid target : post not found",
+        }
+    end
 end
 
 -- 2. Multiple begs from HEAD

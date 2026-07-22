@@ -242,15 +242,50 @@ This prevents reputation cycling exploits
 
 ### Content Revocation (Rule 3.b)
 
-A post becomes **REVOKED** when:
-- It has **>= 3 dislikes**, AND
-- The number of **dislikes > likes**
+Revocation is an **explicit** vote, separate from dislikes,
+on its own bipolar axis:
 
-When REVOKED, the post's payload is stripped (not
-retransmitted).
-The post hash remains in the DAG (metadata only).
-If the post later receives enough likes to reverse the
-condition, it returns to ACCEPTED.
+```
+freechains chain <alias> revoke   1 <hash> --sign <key>
+freechains chain <alias> unrevoke 1 <hash> --sign <key>
+```
+
+(post-only, so no `post`/`author` target argument — unlike
+`like`/`dislike`.)
+
+Stored as a first-class commit kind: file under
+`.freechains/revokes/`, trailer `Freechains: revoke` (parallel
+to likes under `.freechains/likes/` + `Freechains: like`). The
+dir/trailer marks the revoke axis; `n` sign gives the direction
+(revoke `n<0`, unrevoke `n>0`).
+
+- `revoke` uses **dislike** reps math (removes reps + costs
+  caster); `unrevoke` uses **like** reps math.
+- `like` / `dislike` do NOT affect revocation.
+
+Each post keeps two signed sums of the vote magnitude `T.n`
+(revoke `n<0`, unrevoke `n>0`), in separate channels:
+
+- **Community** (caster != author): `revoke.others += T.n`.
+  Revoked when the net is negative (`others < 0`) — reps-
+  weighted (magnitude matters, not a head count).
+- **Author** (caster == post author): `revoke.author += T.n`.
+  A negative `author` sum is the **absolute** right to be
+  forgotten (forces revoked regardless of the community net);
+  only the author's own `unrevoke` lifts it.
+  - Author `revoke` is **free and ungated** (no reps cost, no
+    transfer, works at 0 reps).
+  - Author `unrevoke` **costs** (normal like reps math), as do
+    all community votes.
+
+```
+p.revoke = { author = <signed sum>, others = <signed sum> }
+is_revoked(p) = (p.revoke.author < 0) OR (p.revoke.others < 0)
+```
+
+Phase 1 hides the payload on read (metadata + blob stay);
+physical stripping / no-retransmit is Phase 2
+(`260721-remove-blob.md`).
 
 ## Block States
 
@@ -260,7 +295,7 @@ A post has three possible states:
 |----------|-----------------------------------------------|
 | ACCEPTED | Author has reps; linked in DAG                |
 | BLOCKED  | Author's reps too low; not linked             |
-| REVOKED  | dislikes >= 3 AND dislikes > likes; no payload|
+| REVOKED  | author sum < 0 OR community sum < 0; hidden   |
 
 ### State Machine
 
@@ -268,8 +303,8 @@ A post has three possible states:
 start -> reps >= 1 -> ACCEPTED <-> +/- reps -> ACCEPTED
       -> reps  = 0 -> BLOCKED  -> +1 like   -> ACCEPTED
                                              -> REVOKED
-ACCEPTED -> dislikes >= 3 AND dislikes > likes -> REVOKED
-REVOKED  -> likes >= dislikes                  -> ACCEPTED
+ACCEPTED -> author sum < 0 OR others sum < 0 -> REVOKED
+REVOKED  -> author sum >= 0 AND others sum >= 0 -> ACCEPTED
 ```
 
 A BLOCKED post can become ACCEPTED if the author

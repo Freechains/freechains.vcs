@@ -163,42 +163,45 @@ elseif ARGS.recv then
                 end
             end
 
-            if kind == 'like' then
+            if kind=='like' or kind=='revoke' then
                 if not key then
-                    error("invalid like : missing sign key", 0)
+                    error("invalid " .. kind .. " : missing sign key", 0)
                 end
 
+                -- vote metadata lives under .freechains/<kind>s/
                 local file = exec {
-                    cmd = "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash .. "^1 " .. hash .. " -- .freechains/likes/",
+                    cmd = "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash .. "^1 " .. hash .. " -- .freechains/" .. kind .. "s/",
                 }
                 file = file:match("(%S+)")
                 if not file then
-                    error("invalid like : missing metadata file", 0)
+                    error("invalid " .. kind .. " : missing metadata file", 0)
                 end
                 local src = exec {
                     cmd = "git -C " .. REPO .. " show " .. hash .. ":" .. file,
                 }
                 local f = load(src)
                 if not f then
-                    error("invalid like : invalid lua metadata", 0)
+                    error("invalid " .. kind .. " : invalid lua metadata", 0)
                 end
-                local ok, like = pcall(f)
-                if (not ok) or type(like)~='table' then
-                    error("invalid like : invalid lua metadata", 0)
+                local ok, t = pcall(f)
+                if (not ok) or type(t)~='table' then
+                    error("invalid " .. kind .. " : invalid lua metadata", 0)
                 end
+                -- only a positive `like` accepts a beg
                 local to_beg = (
-                    like.post and (G.posts[like.post] and G.posts[like.post].state=="beg")
+                    kind == 'like' and t.n > 0
+                    and t.post and (G.posts[t.post] and G.posts[t.post].state=="beg")
                 )
-                local ok, err = apply(G, 'like', tonumber(time), {
+                local ok, err = apply(G, kind, tonumber(time), {
                     hash   = hash,
                     sign   = key,
-                    n      = like.n,
-                    post   = like.post,
-                    author = like.author,
+                    n      = t.n,
+                    post   = t.post,
+                    author = t.author,
                     beg    = to_beg,
                 })
                 if not ok then
-                    error("invalid like : " .. err, 0)
+                    error("invalid " .. kind .. " : " .. err, 0)
                 end
                 G.order[#G.order+1] = hash
             elseif kind == 'post' then
@@ -282,8 +285,9 @@ elseif ARGS.recv then
                     if p2 == nil then
                         climb(G, com, p1, beg)
                     else
-                        local is_like_merge = (trailer(cur) == "like")
-                        meet(G, com, p1, p2, is_like_merge)
+                        -- like positivity (n>0) is enforced commit()
+                        local is_beg_merge = (trailer(cur) == "like")
+                        meet(G, com, p1, p2, is_beg_merge)
                     end
                     commit(G, cur, beg)
                 end

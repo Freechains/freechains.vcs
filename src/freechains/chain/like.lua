@@ -1,10 +1,16 @@
 local ssh = require "freechains.chain.ssh"
 
+-- revoke/unrevoke are content-removal votes: post target only,
+-- so they carry no `target` argument (default it here)
+if ARGS.revoke or ARGS.unrevoke then
+    ARGS.target = "post"
+end
+
 ARGS.id = ARGS.id:match("^%s*(.-)%s*$")
 
--- num
+-- num: dislike and revoke remove reps; like and unrevoke add reps
 local num = ARGS.number * C.reps.unit
-if ARGS.dislike then
+if ARGS.dislike or ARGS.revoke then
     num = -num
 end
 
@@ -14,9 +20,10 @@ if ARGS.target == "author" then
     end
 end
 
--- detect if like targets a beg on refs/begs/
+-- detect if a positive `like` targets a beg on refs/begs/
+-- (only `like` accepts begs; dislike/revoke/unrevoke do not)
 local to_beg = (
-    (ARGS.target == "post") and
+    ARGS.like and (ARGS.target == "post") and
         exec { err=false,
             cmd = "git -C " .. REPO .. " rev-parse --verify refs/begs/beg-" .. ARGS.id,
         } and true
@@ -48,7 +55,11 @@ if to_beg then
     G.posts[ARGS.id] = load(src)()[ARGS.id]
 end
 
--- commit like (content only, no state)
+-- commit the vote (content only, no state). The trailer + dir
+-- distinguish a revoke-axis vote from a like/dislike:
+--   like/dislike -> .freechains/likes/   , 'Freechains: like'
+--   revoke/unrev -> .freechains/revokes/ , 'Freechains: revoke'
+local kind = (ARGS.revoke or ARGS.unrevoke) and "revoke" or "like"
 local hash
 do
     local payload = [[
@@ -58,7 +69,7 @@ do
         }
     ]]
     local rand = math.random(0, 9999999999)
-    local file = ".freechains/likes/like-" .. CMD.now .. "-" .. rand .. ".lua"
+    local file = ".freechains/" .. kind .. "s/" .. kind .. "-" .. CMD.now .. "-" .. rand .. ".lua"
     local f = io.open(REPO .. file, "w")
     f:write(payload)
     f:close()
@@ -69,8 +80,8 @@ do
     local msg = ARGS.why or "(empty message)"
     exec { stderr=false,
         cmd = CMD.git .. "git -C " .. REPO .. s1 .. " commit -S -m '" .. msg ..
-                  "' --trailer 'Freechains: like'",
-        err = "chain like : invalid sign key",
+                  "' --trailer 'Freechains: " .. kind .. "'",
+        err = "chain " .. kind .. " : invalid sign key",
     }
     hash = exec {
         cmd = "git -C " .. REPO .. " rev-parse HEAD",
@@ -86,12 +97,12 @@ do
         n    = num,
         beg  = to_beg,
     }
-    local ok, err = apply(G, 'like', CMD.now, T)
+    local ok, err = apply(G, kind, CMD.now, T)
     if not ok then
         exec {
             cmd = "git -C " .. REPO .. " reset --hard HEAD~1",
         }
-        ERROR("chain like : " .. err)
+        ERROR("chain " .. kind .. " : " .. err)
     end
     G.order[#G.order+1] = hash
 end

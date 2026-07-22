@@ -21,9 +21,6 @@ return {
         tax     = 10,           -- 10% burned on likes
         split   = 2,            -- 50/50 split (divisor)
     },
-    --dislike = {
-    --    min = 3,              -- min dislikes for revocation
-    --},
     --post = {
     --    size = 131072,        -- 128 KB max payload
     --},

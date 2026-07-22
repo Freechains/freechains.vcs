@@ -16,8 +16,8 @@ function trailer (hash)
     return out:match "(%S+)"
 end
 
--- post/like ancestors of `hash`, walking through `state` (and `merge`)
--- commits transparently. Returns an array of hashes (dedup'd).
+-- post/like/revoke ancestors of `hash`, walking through `state` (and
+-- `merge`) commits transparently. Returns an array of hashes (dedup'd).
 function backs (hash)
     local ret = {}
     local see = {}
@@ -32,7 +32,7 @@ function backs (hash)
                 me = false
             else
                 local k = trailer(p)
-                if k=='post' or k=='like' then
+                if k=='post' or k=='like' or k=='revoke' then
                     if not see[p] then
                         see[p] = true
                         ret[#ret+1] = p
@@ -59,6 +59,12 @@ function write (G)
     f(G.authors, FC .. "state/authors.lua")
     f(G.posts,   FC .. "state/posts.lua")
     f(G.order,   FC .. "state/order.lua")
+end
+
+-- REVOKED when either the author's or the community's net revoke sum is negative.
+function is_revoked (p)
+    local r = p.revoke or {}
+    return ((r.author or 0) < 0) or ((r.others or 0) < 0)
 end
 
 function apply (G, kind, time, T)
@@ -153,6 +159,7 @@ function apply (G, kind, time, T)
             time   = time,
             state  = (T.beg and 'beg') or (T.sign and '00-12') or 'beg',
             reps   = 0,
+            revoke = { author=0, others=0 },
         }
         if T.sign then
             G.authors[T.sign] = G.authors[T.sign] or { reps=0 }
@@ -163,7 +170,7 @@ function apply (G, kind, time, T)
             end
         end
 
-    elseif kind == 'like' and T then
+    elseif (kind=='like' or kind=='revoke') and T then
         -- validation
         assert(T.sign, "bug found")
         if math.type(T.n)~='integer' or T.n==0 then
@@ -172,26 +179,55 @@ function apply (G, kind, time, T)
         if (T.post and T.author) or (not T.post and not T.author) then
             return false, "invalid target : expects 'post' or 'author'"
         end
+        -- revoke/unrevoke are post-only
+        if kind=='revoke' and (not T.post) then
+            return false, "invalid target : expects 'post'"
+        end
         if T.post and (not G.posts[T.post]) then
             return false, "invalid target : post not found"
         end
+
+        -- author self-revoke (right to be forgotten) is free and ungated
+        local self_revoke = (
+            kind=='revoke' and T.n<0 and G.posts[T.post].author==T.sign
+        )
+
         local reps = (G.authors[T.sign] and G.authors[T.sign].reps) or 0
-        if reps <= 0 then
+        if (not self_revoke) and reps<=0 then
             return false, "insufficient reputation"
         end
 
         -- mutation
-        G.authors[T.sign].reps = G.authors[T.sign].reps - math.abs(T.n)
+        if not self_revoke then
+            G.authors[T.sign].reps = reps - math.abs(T.n)
+        end
         local n = T.n * (100 - C.like.tax) // 100
         if T.post then
             local a = G.posts[T.post].author
-            if a then
-                G.authors[a] = G.authors[a] or { reps=0 }
-                G.authors[a].reps = G.authors[a].reps + n//C.like.split
-            else
-                assert(T.beg)
+            if not self_revoke then
+                if a then
+                    G.authors[a] = G.authors[a] or { reps=0 }
+                    G.authors[a].reps = G.authors[a].reps + n//C.like.split
+                else
+                    assert(T.beg)
+                end
+                G.posts[T.post].reps = G.posts[T.post].reps + n//C.like.split
             end
-            G.posts[T.post].reps = G.posts[T.post].reps + n//C.like.split
+
+            -- revoke axis: sum the signed magnitude T.n (revoke n<0,
+            -- unrevoke n>0). Author self-revoke feeds the absolute
+            -- `author` channel; everyone else the `others` channel.
+            if kind == 'revoke' then
+                local author = G.posts[T.post].author
+                local r = G.posts[T.post].revoke or { author=0, others=0 }
+                G.posts[T.post].revoke = r
+                if author and T.sign==author then
+                    r.author = r.author + T.n
+                else
+                    r.others = r.others + T.n
+                end
+            end
+
             if T.beg then
                 G.posts[T.post].state = "00-12"
                 G.posts[T.post].time = time

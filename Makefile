@@ -13,6 +13,7 @@ tests:
 	$(L) cli-get.lua
 	$(L) cli-get-merge.lua
 	$(L) cli-reps.lua
+	$(L) cli-revoke.lua
 	$(L) cli-now.lua
 	$(L) cli-time.lua
 	$(L) cli-begs.lua

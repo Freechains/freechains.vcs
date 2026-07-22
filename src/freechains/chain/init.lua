@@ -25,7 +25,7 @@ else
         require "freechains.chain.reps"
     elseif ARGS.post then
         require "freechains.chain.post"
-    elseif ARGS.like or ARGS.dislike then
+    elseif ARGS.like or ARGS.dislike or ARGS.revoke or ARGS.unrevoke then
         require "freechains.chain.like"
     elseif ARGS.get then
         require "freechains.chain.get"

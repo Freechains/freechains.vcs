@@ -30,6 +30,10 @@ if ARGS.payload then
         ERROR("chain get : unknown post")
     end
 
+    if G.posts[ARGS.hash] and is_revoked(G.posts[ARGS.hash]) then
+        ERROR("chain get : revoked post")
+    end
+
     local file = commit_file()
     local out = exec { trim=false,
         cmd = "git -C " .. REPO .. " show " .. ARGS.hash .. ":" .. file,
@@ -37,7 +41,7 @@ if ARGS.payload then
     io.write(out)
 
 elseif ARGS.metadata then
-    if kind~='post' and kind~='like' then
+    if kind~='post' and kind~='like' and kind~='revoke' then
         ERROR("chain get : unknown post")
     end
 
@@ -56,13 +60,13 @@ elseif ARGS.metadata then
     -- state/merge commits)
     local backs = backs(ARGS.hash)
 
-    -- like: only for like-trailer commits
-    local like = false
-    if kind == 'like' then
+    -- value keyed by kind: post -> filename; like/revoke -> vote table
+    local val = file
+    if kind=='like' or kind=='revoke' then
         local f = exec {
             cmd = "git -C " .. REPO .. " show " .. ARGS.hash .. ":" .. file,
         }
-        like = assert(assert(load(f))())
+        val = assert(assert(load(f))())
     end
 
     local T = {
@@ -72,8 +76,7 @@ elseif ARGS.metadata then
         why   = why,
         backs = backs,
         --
-        post  = (kind=='post' and file) or false,
-        like  = like,
+        [kind] = val,
     }
     io.write(serial(T))
 end
