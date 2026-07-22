@@ -321,7 +321,7 @@ do
         local pb = dofile(REPO_B .. ".freechains/state/posts.lua")
         for k, v in pairs(pa) do
             assert(pb[k], "post missing in B: " .. k)
-            assert(pb[k].state == v.state, "state mismatch for " .. k)
+            assert(pb[k].maturity == v.maturity, "maturity mismatch for " .. k)
         end
         for k, v in pairs(pb) do
             assert(pa[k], "post missing in A: " .. k)

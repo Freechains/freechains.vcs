@@ -80,7 +80,7 @@ function apply (G, kind, time, T)
         -- discount scan (maybe signed at same G.now)
         if time>G.now or sign then
             for hash, entry in pairs(G.posts) do
-                if entry.state == "00-12" then
+                if entry.maturity == "00-12" then
                     local subs = {}
                     for h2, other in pairs(G.posts) do
                         if other.author and other.time and other.time>entry.time then
@@ -108,7 +108,7 @@ function apply (G, kind, time, T)
                         if entry.author then
                             G.authors[entry.author].reps = G.authors[entry.author].reps + C.reps.cost
                         end
-                        entry.state = "12-24"
+                        entry.maturity = "12-24"
                     end
                 end
             end
@@ -117,19 +117,19 @@ function apply (G, kind, time, T)
         -- consolidation scan
         if time > G.now then
             for hash, entry in pairs(G.posts) do
-                if entry.state == "12-24" then
+                if entry.maturity == "12-24" then
                     if time >= entry.time+C.time.full then
                         if entry.author then
                             local last = G.authors[entry.author].time
                             if time-last >= C.time.full then
                                 G.authors[entry.author].reps = G.authors[entry.author].reps + C.reps.cost
                                 G.authors[entry.author].time = last + C.time.full
-                                entry.state = nil
+                                entry.maturity = nil
                                 entry.time  = nil
                             end
                         else
                             -- authorless (unsigned beg): consolidate, no credit
-                            entry.state = nil
+                            entry.maturity = nil
                             entry.time  = nil
                         end
                     end
@@ -164,11 +164,11 @@ function apply (G, kind, time, T)
 
         -- mutation
         G.posts[T.hash] = {
-            author = T.sign,
-            time   = time,
-            state  = (T.beg and 'beg') or (T.sign and '00-12') or 'beg',
-            reps   = 0,
-            revoke = { author=0, others=0 },
+            author   = T.sign,
+            time     = time,
+            maturity = (T.beg and 'beg') or (T.sign and '00-12') or 'beg',
+            reps     = 0,
+            revoke   = { author=0, others=0 },
         }
         if T.sign then
             G.authors[T.sign] = G.authors[T.sign] or { reps=0 }
@@ -238,7 +238,7 @@ function apply (G, kind, time, T)
             end
 
             if T.beg then
-                G.posts[T.post].state = "00-12"
+                G.posts[T.post].maturity = "00-12"
                 G.posts[T.post].time = time
                 if a then
                     G.authors[a].time = G.authors[a].time or time

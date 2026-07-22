@@ -54,11 +54,23 @@ in tests). No migration shim unless real chains exist.
 
 ## Progress
 
-- [ ] grep-confirm all `.state` field sites (only the 6 above)
-- [ ] rename field `state` -> `maturity` at the 6 sites
-- [ ] confirm no path/trailer `state` was touched
-- [ ] update `260721-revoke.md` "state field clash" note
+- [x] grep-confirmed sites: 8 source + 3 tests (plan's 6 was
+      stale — also `sync.lua:193` `.maturity=="beg"` and the
+      test reads in `cli-send`/`cli-recv`/`cli-begs`)
+- [x] renamed `state` -> `maturity` at all sites (+ re-aligned
+      the post-record literal)
+- [x] confirmed `state/` dir, `Freechains: state` trailer,
+      `state/*.lua` writes all untouched
 - [ ] tests (user runs)
+
+## Actual sites renamed
+
+| file | change |
+|-----------------|-------------------------------------------|
+| `common.lua`    | `entry.maturity` ×5, record literal, `G.posts[T.post].maturity` |
+| `sync.lua:193`  | `.maturity=="beg"` (beg detection) |
+| `cli-send.lua`, `cli-recv.lua` | post-record `.maturity` compare |
+| `cli-begs.lua`  | `posts[BEG].maturity ~= "beg"` |
 
 ## Cross-references
 

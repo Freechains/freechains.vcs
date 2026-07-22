@@ -219,7 +219,7 @@ do
         TEST "like-beg-unblocks"
         local posts = dofile(DIR4 .. ".freechains/state/posts.lua")
         assert(posts[BEG], "post entry not found: " .. BEG)
-        assert(posts[BEG].state ~= "beg", "state should no longer be beg")
+        assert(posts[BEG].maturity ~= "beg", "maturity should no longer be beg")
     end
 
     do
