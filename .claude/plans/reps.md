@@ -201,11 +201,16 @@ freechains chain <alias> like 1 post <hash> --sign <key>
 freechains chain <alias> dislike 1 post <hash> --sign <key>
 ```
 
+Gate: the liker must **afford the full magnitude** —
+`reps >= N * 1000` — else "insufficient reputation". This
+prevents debt (spending more than you hold). The liker pays the
+full `N * 1000`, so the transfer conserves reps.
+
 #### Like targeting a post
 
 ```
 Like(+N, post):
-    liker.reps -= 1000          (cost)
+    liker.reps -= N * 1000      (cost = full magnitude)
     tax = N * 1000 * 10 / 100   (10% burned)
     delivered = N * 1000 - tax
     post_author.reps += delivered / 2
@@ -216,8 +221,8 @@ Like(+N, post):
 
 ```
 Like(+N, author):
-    liker.reps    -= 1000        (cost)
-    tax = N * 1000 * 10 / 100    (10% burned)
+    liker.reps    -= N * 1000     (cost = full magnitude)
+    tax = N * 1000 * 10 / 100     (10% burned)
     delivered = N * 1000 - tax
     target_author.reps += delivered
 ```
@@ -417,9 +422,9 @@ on every commit (post, like, or dislike):
                     with cost = N * 1000
                 if authors[author].time is nil:
                     authors[author].time = NOW
-       like:    liker.reps -= 1000
+       like:    liker.reps -= N * 1000   (must afford it)
                 tax + split to target
-       dislike: liker.reps -= 1000
+       dislike: liker.reps -= N * 1000
                 tax + split (negative) to target
                 check revocation threshold
     3. gate: check author has >= 1 rep (Rule 4.a)

@@ -201,8 +201,9 @@ function apply (G, kind, time, T)
             kind=='revoke' and T.n<0 and G.posts[T.post].author==T.sign
         )
 
+        -- must afford the full vote magnitude (no debt); self-revoke is free
         local reps = (G.authors[T.sign] and G.authors[T.sign].reps) or 0
-        if (not self_revoke) and reps<=0 then
+        if (not self_revoke) and reps<math.abs(T.n) then
             return false, "insufficient reputation"
         end
 

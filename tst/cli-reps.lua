@@ -328,4 +328,59 @@ do
     }
 end
 
+-- DEBT GATE (Rule 4.a: must afford the full vote magnitude)
+do
+    print("==> Debt gate")
+
+    exec {
+        cmd = "rm -rf " .. TMP,
+    }
+    exec {
+        cmd = "mkdir -p " .. ROOT,
+    }
+    exec {
+        cmd = ENV_EXE .. " chains add '#cli-reps' init file " .. GEN_1,
+    }
+    -- KEY1 pioneer caps at 30 ext; a post to target
+    local post = exec {
+        cmd = ENV_EXE .. " chain '#cli-reps' post inline 'target' --sign " .. KEY1,
+    }
+
+    do
+        TEST "debt-overspend-rejected"
+        -- like 100 (ext) is far beyond the 30-ext cap -> always unaffordable
+        local before = exec {
+            cmd = ENV_EXE .. " chain '#cli-reps' reps author '" .. PUB1 .. "'",
+        }
+        FAIL {
+            cmd = ENV_EXE .. " chain '#cli-reps' like 100 post " .. post .. " --sign " .. KEY1,
+            err = "ERROR : chain like : insufficient reputation",
+        }
+        local after = exec {
+            cmd = ENV_EXE .. " chain '#cli-reps' reps author '" .. PUB1 .. "'",
+        }
+        assert(before == after, "reps unchanged after rejected vote: " .. before .. " -> " .. after)
+    end
+
+    do
+        TEST "debt-affordable-ok"
+        local out, code = exec {
+            cmd = ENV_EXE .. " chain '#cli-reps' like 1 post " .. post .. " --sign " .. KEY1,
+        }
+        assert(code == 0, "affordable like should succeed: " .. tostring(code))
+    end
+
+    do
+        TEST "debt-never-negative"
+        local n = tonumber(exec {
+            cmd = ENV_EXE .. " chain '#cli-reps' reps author '" .. PUB1 .. "'",
+        })
+        assert(n >= 0, "reps must never go negative: " .. tostring(n))
+    end
+
+    exec {
+        cmd = ENV_EXE .. " chains rem '#cli-reps'",
+    }
+end
+
 print("<== ALL PASSED")

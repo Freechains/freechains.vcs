@@ -100,11 +100,17 @@ already set up there).
 
 ## Progress
 
-- [ ] fix gate: `reps < math.abs(T.n)` in `common.lua`
-- [ ] update `reps.md` rule 4.a wording
-- [ ] add tests to `cli-reps.lua`
-- [ ] (optional) cap `ARGS.number` to kill int-overflow path
-- [ ] run tests
+- [x] fix gate: `reps < math.abs(T.n)` in `common.lua`
+- [x] fixed the `reps.md` like/dislike **cost formula** too — it
+      said `liker.reps -= 1000` (fixed) but code deducts the full
+      `N*1000`; only the code's version conserves reps
+- [x] added tests: `cli-reps.lua` "Debt gate" (overspend
+      rejected, reps unchanged, never negative)
+- [ ] (optional / won't-do) cap `ARGS.number` for the
+      int-overflow path — the affordability gate already rejects
+      any un-affordable N, so overflow only affects rolled-back
+      commits; low value
+- [ ] run tests (user)
 
 ## Cross-references
 
