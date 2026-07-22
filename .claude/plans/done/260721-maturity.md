@@ -61,7 +61,7 @@ in tests). No migration shim unless real chains exist.
       the post-record literal)
 - [x] confirmed `state/` dir, `Freechains: state` trailer,
       `state/*.lua` writes all untouched
-- [ ] tests (user runs)
+- [x] all tests pass (2026-07-22)
 
 ## Actual sites renamed
 
