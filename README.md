@@ -421,9 +421,13 @@ Note that the same order holds for all peers after they synchronize.
 Consensus via authoring reputation is the key aspect of Freechains, making all
 peers reach the same state without any central authority.
 
-### Censorship
+### Hard Forks
+
+### Moderation
 
 <!--
 - self: right to be forgotten
+- moderation vs censorship
+- (so criar outra cadeia, ninguem é obrigado a perpetuar e disseminar o que não quer)
 - abuse
 -->
