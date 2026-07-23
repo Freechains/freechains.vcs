@@ -108,6 +108,38 @@ do
     end
 end
 
+do
+    print("==> Revoke: votes (like/revoke) are not posts")
+
+    -- a throwaway post + its like and revoke commits, to target;
+    -- revoking those vote commits must fail (they are not posts)
+    local RP = exec {
+        cmd = ENV_EXE .. " chain '#cli-revoke' post inline 'aux' --sign " .. KEY1,
+    }
+    local L = exec {
+        cmd = ENV_EXE .. " chain '#cli-revoke' like 1 post " .. RP .. " --sign " .. KEY2,
+    }
+    local R = exec {
+        cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1 " .. RP .. " --sign " .. KEY2,
+    }
+
+    do
+        TEST "revoke-a-like-rejected"
+        FAIL {
+            cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1 " .. L .. " --sign " .. KEY2,
+            err = "ERROR : chain revoke : invalid target : post not found",
+        }
+    end
+
+    do
+        TEST "revoke-a-revoke-rejected"
+        FAIL {
+            cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1 " .. R .. " --sign " .. KEY2,
+            err = "ERROR : chain revoke : invalid target : post not found",
+        }
+    end
+end
+
 exec {
     cmd = ENV_EXE .. " chains rem '#cli-revoke'",
 }
