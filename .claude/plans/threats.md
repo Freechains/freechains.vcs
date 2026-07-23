@@ -60,7 +60,7 @@ spam, no equivocation, just one branch arriving at
 slightly different times.
 
 **Mitigation direction**: Replace the hard 7-day cutoff
-with a continuous decay function (see 7-day.md). No
+with a continuous decay function (see 260723-fork-7day.md). No
 sharp boundary means no exploitable threshold.
 
 ---
@@ -417,7 +417,7 @@ is correct by design.
    checkpoint commits** (T1, T1a) — continuous decay
    removes the sharp boundary; checkpoint commits
    (trust ring via DAG) ensure peers unanimously agree
-   on when local-wins applies. See 7-day.md.
+   on when local-wins applies. See 260723-fork-7day.md.
 
 4. **Add size limits to non-owner fetch validation**
    (T6a) — max payload size, max commits per fetch.
@@ -446,7 +446,7 @@ is correct by design.
 
 ## Related Plans
 
-- [7-day.md](7-day.md) — Deep analysis of the 7-day rule
+- [260723-fork-7day.md](260723-fork-7day.md) — Deep analysis of the 7-day rule
   and continuous decay alternative
 - [consensus.md](consensus.md) — Merge ordering rules
 - [time.md](time.md) — Timestamp trust model and 12h rule
