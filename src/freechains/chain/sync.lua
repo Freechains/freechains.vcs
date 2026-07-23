@@ -111,7 +111,7 @@ elseif ARGS.recv then
             end
         end
 
-        -- Hard fork (rule 1): a mature local branch wins unconditionally
+        -- Hard fork (rule 1): an entrenched local branch wins unconditionally
         --  - time:  tip timestamp - common ancestor timestamp
         --  - posts: post commits in com..tip
         --  - both axes are OR-combined and monotonic (no flapping)
@@ -280,7 +280,7 @@ elseif ARGS.recv then
 
         -- 4: needs fst/winner - snd/loser (do now b/c 3 mutates G_oct)
         -- rule 1 (hard fork) is a pre-check on the local branch only:
-        -- a mature local branch skips the reps-based consensus
+        -- an entrenched local branch skips the reps-based consensus
         local fst, snd
         if hardfork(oct, loc) then
             fst, snd = loc, rem
