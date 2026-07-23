@@ -10,6 +10,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 FC () {
+    echo "\$ freechains $*"
     LUA_PATH="src/?.lua;src/?/init.lua;;" lua5.4 src/freechains.lua "$@"
 }
 
@@ -20,22 +21,19 @@ B=$BASE/B
 X=$BASE/X
 KEYS=$BASE/keys
 
-rm -rf "$BASE"
-mkdir -p "$A" "$B" "$X" "$KEYS"
-
-# background daemons: killed on exit
-DAEMONS=()
-cleanup () {
-    for pid in "${DAEMONS[@]:-}"; do
-        kill "$pid" 2>/dev/null || true
-    done
-}
-trap cleanup EXIT
-
 # daemon ports (A serves, X is the hub; B does not serve)
 A_PORT=10000
 B_PORT=10001
 X_PORT=10002
+
+# kill daemons left over from a previous run (we do not clean up on
+# exit; each run clears the old daemons on enter). Match on base-path:
+# the real listener is "git-daemon" (hyphen), not "git daemon".
+pkill -f "base-path=$BASE" 2>/dev/null || true
+sleep 1
+
+rm -rf "$BASE"
+mkdir -p "$A" "$B" "$X" "$KEYS"
 
 # time base (epoch seconds); increments simulate elapsed time
 T0=1780000000
@@ -55,8 +53,9 @@ FC --root="$A" chain '#chat' list order
 echo "############ Synchronization ############"
 
 # peer A serves on $A_PORT (upload-pack)
-FC --root="$A" daemon --port=$A_PORT &
-DAEMONS+=($!)
+# --listen=127.0.0.1 forces IPv4-only: a dual-stack [::] bind would
+# reserve the port and then fail its own 0.0.0.0 bind
+FC --root="$A" daemon --port=$A_PORT -- --listen=127.0.0.1 --reuseaddr &
 sleep 1
 
 FC --root="$B" chains add '#chat' clone localhost:$A_PORT
@@ -92,8 +91,7 @@ echo "############ Consensus ############"
 
 # neutral hub X clones from A, then serves on $X_PORT (hub: recv + upload)
 FC --root="$X" chains add '#chat' clone localhost:$A_PORT
-FC --root="$X" daemon --hub --port=$X_PORT &
-DAEMONS+=($!)
+FC --root="$X" daemon --hub --port=$X_PORT -- --listen=127.0.0.1 --reuseaddr &
 sleep 1
 
 # Alice and Charlie post at the same time, without syncing
