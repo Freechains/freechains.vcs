@@ -62,6 +62,33 @@ disagree on *which* post consolidated. The receiver's re-derivation no
 longer matches the sender's committed `posts.lua` → `remote state
 mismatch`.
 
+### The divergence is representational, not semantic
+
+Consolidating a different post does NOT change reps: consolidation
+always does `author.reps += cost` once and `author.time += full` once,
+regardless of which of the author's posts is cleared.
+
+| quantity                 | peer B            | peer X            |
+|--------------------------|-------------------|-------------------|
+| author reps              | +1                | +1 (same)         |
+| author `time`            | +24h              | +24h (same)       |
+| consensus ordering       | unaffected        | unaffected        |
+| `posts.lua` bytes        | post P consolidated | post Q consolidated |
+
+It is also transient: on the next 24h step each peer consolidates its
+*remaining* post, so both posts consolidate on both sides and reps fully
+converge.
+
+The only thing it breaks is the sync **exact-state check**
+(`git diff --quiet HEAD -- .freechains/state/`, `sync.lua:362`), which
+demands the receiver's re-derived `posts.lua` match the sender's
+committed bytes verbatim. Two honest peers → same reps, different bytes
+→ rejected.
+
+We fix the derivation (make order stable) rather than relax the check:
+the exact-match check is what proves a remote did not tamper with
+state, so it stays strict.
+
 ## Evidence
 
 Guide state: Alice posts `Hello`/`I am here`/`Sync me` (t = +10/+20/+30),
@@ -112,13 +139,75 @@ work. It only manifests when a single author has multiple posts
 crossing the 24h boundary within one `apply`, and two peers derive the
 state in separate processes.
 
-## Pending
+## Next step (explicit — start here on the other machine)
+
+All in `src/freechains/chain/common.lua`, inside `apply()`.
+
+### 1. Add a deterministic key-order helper (near top of file)
+
+```lua
+-- posts hashes in a stable order: (time, hash); consolidated posts
+-- (time == nil) sort last, then lexicographically by hash
+local function ordered (posts)
+    local hs = {}
+    for h in pairs(posts) do
+        hs[#hs+1] = h
+    end
+    table.sort(hs, function (a, b)
+        local ta = posts[a].time or math.huge
+        local tb = posts[b].time or math.huge
+        if ta ~= tb then
+            return ta < tb
+        end
+        return a < b
+    end)
+    return hs
+end
+```
+
+### 2. Consolidation scan (currently `common.lua:119`)
+
+Replace the outer loop header:
+
+```lua
+-- from:
+for hash, entry in pairs(G.posts) do
+-- to:
+for _, hash in ipairs(ordered(G.posts)) do
+    local entry = G.posts[hash]
+```
+
+Body unchanged. This makes the per-author 24h gate consolidate the
+**oldest** eligible post first, identically on every peer.
+
+### 3. Discount scan (currently `common.lua:82`)
+
+Same substitution on its outer `for hash, entry in pairs(G.posts)` loop
+(defensive: order is only a tiebreak there, but keep it stable). The
+inner `subs` loop at `common.lua:85` reads posts into a set and does not
+need ordering.
+
+### 4. Verify
+
+```
+make tests          # full suite must stay green
+./guide.sh          # Bob's `day 1` send must now be ACCEPTED,
+                    # and the Hard Forks section must complete
+```
+
+- `guide.sh` needs `git`, `lua5.4`, and free ports 10000/10002; it
+  kills stale daemons on enter.
+- Note: `guide.sh` uses `sleep` and background `git daemon`, so run it
+  in a real shell, not a restricted sandbox.
+
+## Checklist
 
 - [x] Diagnose (consolidation scan `pairs()` order; evidence captured)
-- [ ] Add `sorted_hashes` helper in `common.lua`
-- [ ] Convert consolidation scan to sorted iteration
-- [ ] Convert discount scan to sorted iteration
-- [ ] Re-run `guide.sh`: `day 1` send accepted
+- [ ] Add `ordered()` helper in `common.lua`
+- [ ] Convert consolidation scan (`common.lua:119`) to `ordered()`
+- [ ] Convert discount scan (`common.lua:82`) to `ordered()`
+- [ ] `make tests` green
+- [ ] `./guide.sh`: `day 1` send accepted, Hard Forks completes
 
 ## References
 
