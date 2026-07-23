@@ -58,10 +58,34 @@ works because it drives a direct `recv`; the same assertion after a
    But it lets a remote peer dictate local commit dates unless gated to
    tests, which is a footgun for a small test convenience.
 
+## Reproduced
+
+`tst/cli-send.lua` Step 8 (divergent send + `%at` assertion) fails:
+`wall-clock leak: 1784838887` (~Jul 2026).
+Confirms only the divergent send path leaks: FF sends create no
+receiver commit (`sync.lua:352`), case-4 does (`sync.lua:486`).
+
+## Decision: option 2, ungated
+
+The gate is dropped: the hook honors any `now=` push option.
+This is acceptable in the current design because `recv` runs on the
+peer as a side effect of `send`: the sender pushes, the receiver's
+hook runs `sync recv` fetching back.
+Sync is already push-triggered and mutual, so `now=` adds no new
+trust boundary that the push itself did not already grant.
+
+Revisit the gate when a real, independent `recv` lands (one that
+pulls without a push-triggered hook on the peer).
+There a remote peer's `now=` would be trusted with no reciprocal
+push, so it must be gated (env flag) or dropped.
+
 ## Pending
 
-- [x] Diagnose (hook drops `--now`; only `sync.lua:454` is affected)
+- [x] Diagnose (hook drops `--now`; only `sync.lua:486` is affected)
 - [x] Confirm consensus is unaffected
-- [ ] NEXT: pick option 1 or 2
-- [ ] If 1: note the constraint next to the send tests
-- [ ] If 2: forward `--now` as a push option + gate it
+- [x] Reproduce with a red test (Step 8)
+- [x] Pick option 2 (forward `--now`, ungated — see Decision)
+- [x] `sync.lua` send: add `-o now=N` when `--now` set
+- [x] hook: parse `now=`, append `--now=N` (no gate)
+- [x] Cleanup leftovers from the dropped gate (comment + dead `ENV`)
+- [ ] NEXT: run `make test`; Step 8 should pass

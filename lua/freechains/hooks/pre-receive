@@ -13,6 +13,7 @@ for line in io.lines() do
 end
 
 local url
+local now = ''
 do
     local freechains
     local n = tonumber(os.getenv("GIT_PUSH_OPTION_COUNT") or "0") or 0
@@ -24,6 +25,10 @@ do
         local u = opt:match("^url=(.*)$")
         if u then
             url = u
+        end
+        local t = opt:match("^now=(%d+)$")
+        if t then
+            now = " --now=" .. t
         end
     end
     if not freechains then
@@ -41,7 +46,8 @@ local fc_chain = repo_dir:match("([^/]+)$")
 
 local cmd = (
     "unset GIT_DIR GIT_QUARANTINE_PATH GIT_OBJECT_DIRECTORY;" ..
-        " freechains --root='" .. fc_root ..  "' chain '" .. fc_chain ..
+        " freechains --root='" .. fc_root ..  "'" .. now ..
+        " chain '" .. fc_chain ..
         "' sync recv '" .. url ..  "' 1>&2"
 )
 local ok = os.execute(cmd)
