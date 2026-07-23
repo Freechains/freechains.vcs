@@ -431,9 +431,9 @@ do
     assert(before == after, "B's HEAD changed: " .. before .. " vs " .. after)
 end
 
--- 8. divergent send leaks wall-clock (demonstrates send-now bug)
+-- 8. divergent send pins commit dates (send forwards --now to recv)
 do
-    print("==> Step 8: divergent send timestamp leak")
+    print("==> Step 8: divergent send timestamp")
 
     TEST "A posts (diverge)"
     exec {
@@ -445,8 +445,9 @@ do
         cmd = EXE_B .. " --now=9600 chain '#test' post inline 'diverge B' --sign " .. KEY1,
     }
 
-    -- A,B diverge; A sends to B -> B's hook runs recv without --now,
-    -- so B's case-4 state commit (sync.lua:486) is dated by wall clock
+    -- A,B diverge; A sends to B -> B's hook runs recv with the
+    -- forwarded --now, so B's case-4 state commit (sync.lua:490)
+    -- is pinned, not dated by wall clock
     TEST "A sends to B (divergent -> B merges)"
     exec {
         cmd = EXE_A .. " --now=9700 chain '#test' sync send " .. REPO_B,

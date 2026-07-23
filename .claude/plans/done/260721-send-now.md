@@ -88,4 +88,6 @@ push, so it must be gated (env flag) or dropped.
 - [x] `sync.lua` send: add `-o now=N` when `--now` set
 - [x] hook: parse `now=`, append `--now=N` (no gate)
 - [x] Cleanup leftovers from the dropped gate (comment + dead `ENV`)
-- [ ] NEXT: run `make test`; Step 8 should pass
+- [x] `make test` green (Step 8 passes)
+
+Done. Suggest moving to `.claude/plans/done/`.
