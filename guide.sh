@@ -39,7 +39,9 @@ mkdir -p "$A" "$B" "$X" "$KEYS"
 T0=1780000000
 DAY=86400
 
+echo
 echo "############ Basics ############"
+echo
 
 ssh-keygen -t ed25519 -C '' -N '' -q -f "$KEYS/alice"
 
@@ -50,7 +52,9 @@ FC --root="$A" --now=$((T0+20)) chain '#chat' post inline $'I am here\n'   --sig
 FC --root="$A" chain '#chat' list dag
 FC --root="$A" chain '#chat' list order
 
+echo
 echo "############ Synchronization ############"
+echo
 
 # peer A serves on $A_PORT (upload-pack)
 # --listen=127.0.0.1 forces IPv4-only: a dual-stack [::] bind would
@@ -65,7 +69,9 @@ FC --root="$A" --now=$((T0+30)) chain '#chat' post inline $'Sync me\n' --sign="$
 FC --root="$B" --now=$((T0+40)) chain '#chat' sync recv localhost:$A_PORT
 FC --root="$B" chain '#chat' list dag
 
+echo
 echo "############ Reputation ############"
+echo
 
 ssh-keygen -t ed25519 -C '' -N '' -q -f "$KEYS/bob"
 
@@ -87,7 +93,9 @@ ssh-keygen -t ed25519 -C '' -N '' -q -f "$KEYS/charlie"
 FC --root="$B" --now=$((T0+80)) chain '#chat' like 5 author "$(awk '{print $1" "$2}' "$KEYS/charlie.pub")" --sign="$KEYS/bob"
 FC --root="$B" chain '#chat' reps author "$(awk '{print $1" "$2}' "$KEYS/charlie.pub")"
 
+echo
 echo "############ Consensus ############"
+echo
 
 # neutral hub X clones from A, then serves on $X_PORT (hub: recv + upload)
 FC --root="$X" chains add '#chat' clone localhost:$A_PORT
@@ -108,7 +116,9 @@ FC --root="$B" --now=$((T0+100)) chain '#chat' sync send localhost:$X_PORT
 FC --root="$X" chain '#chat' list dag
 FC --root="$X" chain '#chat' list order
 
+echo
 echo "############ Hard Forks ############"
+echo
 
 # fork reference = Alice's last synced post (t = T0+90)
 FORK=$((T0+90))
@@ -138,4 +148,6 @@ FC --root="$A" --now=$((FORK+7*DAY+300)) chain '#chat' sync send localhost:$X_PO
 echo "-- hub X order (community first, Alice last):"
 FC --root="$X" chain '#chat' list order
 
+echo
 echo "############ DONE ############"
+echo
