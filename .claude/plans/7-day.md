@@ -209,6 +209,64 @@ checkpoint commits) remain necessary for chains that require
 Byzantine-resilient consensus, regardless of connectivity
 assumptions.
 
+## Reassessment: Sync Cadence Makes the Rule Adequate
+
+The boundary flaw looks fatal in isolation, but it is
+**unreachable in honest operation** once sync cadence is
+bounded below the threshold.
+
+### The rule is dormant unless a branch crosses 7 days
+
+Rule 1 (local-wins) only fires when a local branch has
+diverged past the threshold. Every merge **resets the fork
+clock** — after sync, both peers share HEAD and a new fork
+starts at 0 days. So if the honest majority syncs every
+~6 days:
+
+- No honest branch ever reaches 7 days
+- Rule 1 never fires
+- Consensus is pure reputation (rules 2/3)
+- All honest peers converge
+
+The 6.999 vs 7.001 boundary is never touched. The entire
+hard-fork mechanism stays inert for a well-connected
+network.
+
+### Stragglers self-fork only on their own content
+
+A small subgroup that happens to diverge for 6.9–7.1 days
+is the only honest party that can cross the threshold.
+Consensus is computed per-peer (no quorum vote), so a
+straggler does freeze its own ordering and diverge from the
+majority. But the damage is bounded:
+
+| Aspect            | Effect                                    |
+|-------------------|-------------------------------------------|
+| Who forks         | Only the straggler, not the majority      |
+| What diverges     | Only the straggler's own offline posts    |
+| Everyone else     | In the shared prefix — identical          |
+| Recovery          | Re-sync / revert; majority order is canon |
+
+The honest majority stays converged. A straggler heals on
+re-sync.
+
+### Residual risk collapses to the majority attacker
+
+With honest operation neutralized, the only way to actually
+land on the boundary is **deliberate delivery timing** by a
+party holding >50% prefix rep ~7 days before the attack
+(T1a). That is the standard Byzantine bound, already judged
+acceptable.
+
+**Conclusion**: under a bounded sync cadence (sync interval
+< threshold), the 7-day rule is **adequate as-is**. The
+boundary flaw is unreachable in honest operation and
+reduces to the accepted majority-attacker case. The
+replacement designs below are therefore **optional
+hardening** for chains that cannot assume bounded cadence
+or want Byzantine resilience against a timing-capable
+majority — not a required fix.
+
 ## Toward a Replacement: Design Constraints
 
 Analysis of alternatives to the 7-day rule, exploring what
