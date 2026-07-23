@@ -9,7 +9,10 @@ return {
         diff    = 1*h,          -- max post time diff tolerance (clock drift)
         half    = 12*h,         -- halfway post discount period
         full    = 24*h,         -- fullway post consolidation period
-        --hardfork = 7*24*h,    -- branch divergence limit
+    },
+    fork = {
+        time    = 7*24*h,       -- branch divergence limit (hard fork)
+        posts   = 100,          -- branch post count limit (hard fork)
     },
     reps = {
         unit    = 1*unit,       -- 1 ext rep = 1000 internal

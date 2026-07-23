@@ -22,6 +22,7 @@ tests:
 	$(L) cli-list.lua
 	$(L) sync.lua
 	$(L) consensus.lua
+	$(L) fork-7-days.lua
 	$(L) err-post.lua
 	$(L) err-like.lua
 	$(L) repl-local-head.lua

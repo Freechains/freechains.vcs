@@ -111,6 +111,27 @@ elseif ARGS.recv then
             end
         end
 
+        -- Hard fork (rule 1): a mature local branch wins unconditionally
+        --  - time:  tip timestamp - common ancestor timestamp
+        --  - posts: post commits in com..tip
+        --  - both axes are OR-combined and monotonic (no flapping)
+        local function hardfork (com, tip)
+            if NOW(tip)-NOW(com) >= C.fork.time then
+                return true
+            else
+                local n = 0
+                local out = exec {
+                    cmd = "git -C " .. REPO .. " log --format=%H " .. com .. ".." .. tip,
+                }
+                for hash in out:gmatch("%x+") do
+                    if trailer(hash) == 'post' then
+                        n = n + 1
+                    end
+                end
+                return n >= C.fork.posts
+            end
+        end
+
         local function commit (G, hash, beg)
             local key, err = ssh.verify(REPO, hash)
 
@@ -258,7 +279,14 @@ elseif ARGS.recv then
         end
 
         -- 4: needs fst/winner - snd/loser (do now b/c 3 mutates G_oct)
-        local fst, snd = consensus(G_oct, oct, loc, rem)
+        -- rule 1 (hard fork) is a pre-check on the local branch only:
+        -- a mature local branch skips the reps-based consensus
+        local fst, snd
+        if hardfork(oct, loc) then
+            fst, snd = loc, rem
+        else
+            fst, snd = consensus(G_oct, oct, loc, rem)
+        end
 
         -- 3,4: need remote validation: replay remote branch from G_oct
         local G_rem = G_oct -- (G_oct no longer required)
