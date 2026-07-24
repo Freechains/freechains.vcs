@@ -77,19 +77,51 @@ the recv:
 
 Wire it into the `tests:` target together with the fix.
 
-## Fix direction (not yet done)
+## Fix part 1 — climb underflow (validated)
 
-In `meet`, `climb(G, com, up)` must not walk below `com`. Options:
+Global-`oct` floor. Precompute `anc = ancestors(oct)` once
+(`git rev-list oct`); `climb` stops when `cur == com` OR `anc[cur]`.
 
-- if `up` is an ancestor of `com` (`merge-base(up, com) == up` and
-  `up ~= com`), clamp: skip the `climb(G, com, up)` (com already covers
-  it) or climb from `com` instead.
-- more directly: make `climb` stop when `cur` is an ancestor of `com`
-  (not only when `cur == com`).
+- stops the underflow `climb(F2, seed)` (seed is an oct-ancestor)
+- stops the erroneous re-apply `climb(seed, AW)` (AW == oct)
+- CW (sibling of oct, not an ancestor) is still applied once
 
-Need to confirm the reconciliation state stays correct when the two
-merge sides fork below `oct` (their shared history is already in
-`G_oct`).
+VALIDATED in scratch: eliminates the `parents(nil)` crash.
+
+## Fix part 2 — ordering determinism (the real wall)
+
+With the crash gone, the recv fails the strict state check:
+`ERROR : chain sync : remote state mismatch`.
+
+Diagnosed (scratch, dumped the diff): the ONLY difference is
+`order.lua` positions [2]/[3] SWAPPED — the two concurrent posts
+`CW`/`AW` (both @1100, forking at seed). `posts.lua` and `authors.lua`
+(reps) are byte-identical.
+
+Root: the relative order of two concurrent sibling posts is NOT a pure
+function of the DAG:
+
+- sender A fixed it via the reorder-append path (`fst`/`snd`) when it
+  merged the community in
+- receiver H re-derives it via climb + `consensus()` at the fork
+
+The two mechanisms break the tie differently -> byte mismatch -> the
+tamper-proof exact-match check (rightly) rejects it. Same CLASS as
+[260723-consolidation-order](done/260723-consolidation-order.md), but
+for MERGE ORDERING instead of consolidation.
+
+So the underflow fix is necessary but not sufficient. To make divergent
+nested-merge recvs pass, the merged order must be `oct`-independent:
+
+| direction | idea |
+|-----------|------|
+| canonical order | one deterministic fold over the reachable post/like set (consensus + stable hash tiebreak) that climb and reorder both produce identically |
+| single floor | always re-derive from a fixed anchor (genesis / deepest fork), not the per-recv `oct` |
+| (rejected) relax check | compare semantic state not bytes -- weakens tamper-proofing |
+
+Need: confirm whether `consensus()`'s tiebreak is being applied
+consistently, and whether the reorder-append path can be replaced by
+the same canonical fold climb uses.
 
 ## Checklist
 
