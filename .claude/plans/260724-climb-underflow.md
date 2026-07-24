@@ -43,28 +43,31 @@ of the `loc...rem` boundary, which lands exactly on that merge's fork,
 so `up == com` and the climb returns immediately. The bug needs an
 inner merge forking below an outer merge.
 
-## Minimal reproduction (3 peers) — CONFIRMED
+## Minimal reproduction (2 peers, 3 posts) — CONFIRMED
 
 ```
-            AW[K1] (F2) ------------------ takeover[K1] --\
-           /       \                                       M2  (fork = AW = F2)
- seed[K1] (F1)      M1 -- day1[K2] -- day7[K2] -----------/
-           \       /   (M1 = merge(CW, AW), fork = seed = F1)
-            CW[K2]
+              genesis            (F1: deepest fork)
+             /       \
+        AW[K1]        CW[K2]
+         |   \        /
+         |    M1 = merge(CW, AW)      (M1 forks at genesis = F1)
+         |         |
+     takeover[K1]  |
+          \        /
+           M2 = merge(takeover, M1)  (M2 forks at AW = F2)
 ```
 
-- A: seed, AW(K1).  B: CW(K2) — AW, CW fork at seed (F1).
-- B recv A -> inner merge `M1 = merge(CW, AW)`, fork = seed (F1).
-- B posts day1, day7 (community advances past M1).
-- H recvs community (day7); A (still at AW=F2) posts takeover.
-- A recv community -> outer merge `M2 = merge(takeover, day7)`,
-  fork = AW (F2). M2's community side nests M1 (forks at F1 < F2).
-- H recv A: climb M2 -> meet(up=F2) -> climb community side re-enters
-  M1 -> meet(com=F2, up=seed=F1) -> `climb(F2, F1)` underflows ->
-  `parents(nil)` -> crash. (Verified: `sync.lua:300`.)
+- A posts AW(K1); B posts CW(K2) — concurrent, fork at genesis (F1).
+- B recv A -> inner merge `M1 = merge(CW, AW)`, fork = genesis (F1).
+- A posts takeover (child of AW=F2); A recv B -> outer merge
+  `M2 = merge(takeover, M1)`, fork = AW (F2). M2 nests M1 (F1 < F2).
+- B recv A: climb M2 -> meet(up=F2) -> climb M1's side -> meet(com=F2,
+  up=genesis=F1) -> `climb(F2, F1)` underflows -> `parents(nil)`.
+  (Verified: `sync.lua:300`.)
 
-Distinct files per post so git merges succeed (no content conflict) and
-`climb` reaches the bug.
+B is the recv target (it already holds M1 but not takeover), so no
+third peer is needed. Distinct files per post so the git merges succeed
+(no content conflict) and `climb` reaches the bug.
 
 ## Test
 
@@ -122,6 +125,52 @@ nested-merge recvs pass, the merged order must be `oct`-independent:
 Need: confirm whether `consensus()`'s tiebreak is being applied
 consistently, and whether the reorder-append path can be replaced by
 the same canonical fold climb uses.
+
+## Dig results (2026-07-24) — it's a redesign, not a patch
+
+Traced all derivations of the CW/AW pair:
+
+| derivation           | CW/AW order       |
+|----------------------|-------------------|
+| B (creates M1)       | CW before AW      |
+| H community (from B) | CW before AW      |
+| A (stores M2)        | CW before AW      |
+| H climb re-derive    | **AW before CW**  |
+
+Only H's climb flips it. Cause: `oct = AW` (octopus-boundary picks the
+fork of the NEW commits = takeover's fork), and `G_oct = AW`'s state
+`[seed, AW]` PREDATES CW. climb inherits that order and can only append
+CW after AW. Diff is purely `order.lua` [2]/[3]; reps identical.
+
+Rejected fixes (validated in scratch):
+- `(time, hash)` sort of `G.order` -> DISCARDS reps-consensus. NO.
+- deepen `oct` below nested forks -> STILL crashes: `meet` recurses with
+  `com = local up` (=AW), not the global oct, so inner M1 still
+  underflows at seed. And it double-applies AW (outer meet applies it,
+  inner M1 meet re-climbs it).
+
+Root: `climb`/`meet` assume (a) every merge fork is >= the segment
+floor and (b) no commit is visited twice. Nested RE-merges (a merge
+whose side contains a deeper merge) break both.
+
+Correct direction (design change to `sync.lua` re-derivation):
+1. collect the post/like set reachable from `rem` but not `oct`
+2. order it by a canonical consensus fold (reps, then hash tiebreak)
+   with a `visited` guard so nothing is applied twice
+3. ensure the SENDER's stored order uses the same fold, so the strict
+   byte-check passes
+
+This subsumes part 1 (no recursion underflow) and part 2 (order becomes
+a pure function of the DAG) while KEEPING reps-consensus.
+
+## Checklist (revised)
+
+- [x] Repro test (red) — minimized to 2 peers / 3 posts (AW, CW, takeover)
+- [x] Diagnose: nested-merge underflow + oct-dependent ordering
+- [ ] DESIGN the canonical consensus fold (visited-guarded)
+- [ ] Implement in `sync.lua`; sender + receiver agree byte-for-byte
+- [ ] `climb-underflow.lua` green; `make tests` green
+- [ ] `./guide.sh` completes
 
 ## Checklist
 
