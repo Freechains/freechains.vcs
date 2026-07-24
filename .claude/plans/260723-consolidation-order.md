@@ -203,9 +203,9 @@ make tests          # full suite must stay green
 ## Checklist
 
 - [x] Diagnose (consolidation scan `pairs()` order; evidence captured)
-- [ ] Add `ordered()` helper in `common.lua`
-- [ ] Convert consolidation scan (`common.lua:119`) to `ordered()`
-- [ ] Convert discount scan (`common.lua:82`) to `ordered()`
+- [x] Add `ordered()` helper in `common.lua`
+- [x] Convert consolidation scan (`common.lua:119`) to `ordered()`
+- [x] Convert discount scan (`common.lua:82`) to `ordered()`
 - [ ] `make tests` green
 - [ ] `./guide.sh`: `day 1` send accepted, Hard Forks completes
 

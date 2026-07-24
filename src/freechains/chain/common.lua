@@ -67,6 +67,26 @@ function is_revoked (p)
     return ((r.author or 0) < 0) or ((r.others or 0) < 0)
 end
 
+-- posts hashes in a stable order: (time, hash); consolidated posts
+-- (time == nil) sort last, then lexicographically by hash. Makes the
+-- discount/consolidation scans deterministic across OS processes.
+local function ordered (posts)
+    local hs = {}
+    for h in pairs(posts) do
+        hs[#hs+1] = h
+    end
+    table.sort(hs, function (a, b)
+        local ta = posts[a].time or math.huge
+        local tb = posts[b].time or math.huge
+        if ta == tb then
+            return a < b
+        else
+            return ta < tb
+        end
+    end)
+    return hs
+end
+
 function apply (G, kind, time, T)
     local sign = T and T.sign
 
@@ -79,7 +99,8 @@ function apply (G, kind, time, T)
 
         -- discount scan (maybe signed at same G.now)
         if time>G.now or sign then
-            for hash, entry in pairs(G.posts) do
+            for _, hash in ipairs(ordered(G.posts)) do
+                local entry = G.posts[hash]
                 if entry.maturity == "00-12" then
                     local subs = {}
                     for h2, other in pairs(G.posts) do
@@ -116,7 +137,8 @@ function apply (G, kind, time, T)
 
         -- consolidation scan
         if time > G.now then
-            for hash, entry in pairs(G.posts) do
+            for _, hash in ipairs(ordered(G.posts)) do
+                local entry = G.posts[hash]
                 if entry.maturity == "12-24" then
                     if time >= entry.time+C.time.full then
                         if entry.author then
