@@ -1,49 +1,46 @@
-# Climb Underflow: `meet` descends below `oct` (`parents(nil)`)
+# Climb Underflow -> Canonical Consensus Fold
+
+## Status: FIX COMMITTED — pending `make tests` + `./guide.sh`
+
+Branch `260724-climb-underflow`, pushed to origin. The code fix
+(`sync.lua` derive fold, `tst/climb-underflow.lua`, `Makefile`) is
+COMMITTED and PUSHED. On another machine:
+`git checkout 260724-climb-underflow && git pull`. Not yet run: the full
+suite and the guide. START AT "## NEXT STEP".
 
 ## Symptom
 
-A `sync send`/`recv` of a branch containing a "deep" merge crashes the
-receiver:
+`sync recv`/`send` of a branch with NESTED merges crashed the receiver:
 
 ```
-ERROR : chain sync : sync.lua:300: attempt to concatenate a nil
-value (local 'tip')
+ERROR : chain sync : sync.lua:300: attempt to concatenate a nil value (local 'tip')
 ```
 
-Surfaced in the README guide (`guide.sh`), final step: after A's recv
-appends the community branch (fixed by
-[260724-reorder-ancient](done/260724-reorder-ancient.md)), A's `sync
-send` back to the hub `X` crashes X's replay.
-
-## Root cause
-
-`meet` (`sync.lua`) reconciles a merge by climbing from the merge-base
-of its two parents:
+Then, once the crash was patched, it failed the strict state check:
 
 ```
-meet(G, com, left, right, ...):
-    up = merge-base(left, right)
-    climb(G, com, up, false)      -- climb from `up` toward `com`
-    ...
-    climb(G, up, winner);  climb(G, up, loser)
+ERROR : chain sync : remote state mismatch
 ```
 
-`climb(G, com, cur)` walks parents UP until `cur == com`; a root commit
-returns `parents = nil` -> `climb(G, com, nil)` -> `.. tip` on nil at
-`parents()` (`sync.lua:300`).
+Surfaced in `guide.sh` final step (A's `sync send` back to hub X).
 
-This assumes `up` is a descendant of `com`. It is NOT with NESTED
-merges: `meet` recurses `climb(G, up, side)` using its own fork `up` as
-the com; if that side contains an INNER merge whose fork is DEEPER than
-`up`, the inner `meet` computes `up' < up` and `climb(G, up, up')`
-descends past `up` to a root.
+## Root cause (two coupled bugs)
 
-Note: a SINGLE merge never underflows. `oct` is `merge-base --octopus`
-of the `loc...rem` boundary, which lands exactly on that merge's fork,
-so `up == com` and the climb returns immediately. The bug needs an
-inner merge forking below an outer merge.
+1. UNDERFLOW: `meet(com, left, right)` recursed `climb(up, side)` using
+   its LOCAL fork `up` as the floor. A nested inner merge forking DEEPER
+   than `up` made `climb(up, up')` with `up' < up` descend past a root ->
+   `parents(nil)`.
+2. ORDER: even patched, the merged order was NOT a pure function of the
+   DAG. Sender stored via the reorder-append path; receiver re-derived
+   via `climb`; the two broke the CW/AW tie differently -> byte mismatch.
+   (Diff was purely `order.lua`; reps identical.)
 
-## Minimal reproduction (2 peers, 3 posts) — CONFIRMED
+Both stem from `climb`/`meet` assuming every merge fork is >= the
+segment floor and no commit is visited twice — nested re-merges break
+both. Deepening `oct` does NOT help (meet still recurses on local `up`).
+A `(time,hash)` sort was REJECTED (discards reps-consensus).
+
+## Minimal reproduction — `tst/climb-underflow.lua` (2 peers, 3 posts)
 
 ```
               genesis            (F1: deepest fork)
@@ -57,129 +54,87 @@ inner merge forking below an outer merge.
            M2 = merge(takeover, M1)  (M2 forks at AW = F2)
 ```
 
-- A posts AW(K1); B posts CW(K2) — concurrent, fork at genesis (F1).
-- B recv A -> inner merge `M1 = merge(CW, AW)`, fork = genesis (F1).
-- A posts takeover (child of AW=F2); A recv B -> outer merge
-  `M2 = merge(takeover, M1)`, fork = AW (F2). M2 nests M1 (F1 < F2).
-- B recv A: climb M2 -> meet(up=F2) -> climb M1's side -> meet(com=F2,
-  up=genesis=F1) -> `climb(F2, F1)` underflows -> `parents(nil)`.
-  (Verified: `sync.lua:300`.)
+A posts AW, B posts CW (fork at genesis); B recv A -> M1; A posts
+takeover, A recv B -> M2 (nests M1, F1 < F2); B recv A -> crash.
+The test asserts B's order contains `takeover` (red before fix, green
+after).
 
-B is the recv target (it already holds M1 but not takeover), so no
-third peer is needed. Distinct files per post so the git merges succeed
-(no content conflict) and `climb` reaches the bug.
+## Solution: one canonical `derive` fold, used by store AND check
 
-## Test
+A canonical order provably EXISTS (B, A, H-community all agreed via
+non-underflowing paths). The fold that reproduces it, PROTOTYPE-VALIDATED
+(nested == canonical; simple fork == existing algo, byte-for-byte):
 
-`tst/climb-underflow.lua` (NOT yet wired into `make tests`; run via
-`make T=climb-underflow test`). Asserts X's order contains `Q1` after
-the recv:
+```
+derive(loc, rem):
+  Gd = state at genesis ROOT; visited = Gd.order
+  for M in `rev-list --topo-order --reverse --merges loc rem`:  -- ancestors first
+      p1,p2 = parents(M); fork = merge-base(p1,p2)
+      emit(fork); w,l = consensus(Gd, fork, p1, p2); emit(w); emit(l)
+  emit(merge-base(loc,rem)); emit(fst); emit(snd)   -- top split: fst wins
+  emit(h): if visited[h] return; emit(p1); emit(p2); visited[h]=true; commit(Gd,h,nil,false)
+```
 
-- red now: recv crashes at `parents(nil)`
-- green after fix
+Why it fixes both: deepest-fork-first => no underflow AND siblings
+ordered together at their true fork; `visited` => no double-apply;
+`consensus()` unchanged => reps-consensus preserved; same function for
+sender store + receiver check => can't diverge.
 
-Wire it into the `tests:` target together with the fix.
+## Changes ALREADY made (working tree)
 
-## Fix part 1 — climb underflow (validated)
+| file | place | change |
+|------|-------|--------|
+| `src/freechains/chain/sync.lua` | recv derivation block (was `climb`/`meet`, ~l.295) | replaced with the `derive` fold producing `G_rem` = canonical merged state |
+| `src/freechains/chain/sync.lua` | divergent final-state block (~l.404) | dropped `G_fst` state-building; git-merge loop now only shapes the DAG + detects content conflicts; iterates loser commits in `G_rem.order` |
+| `src/freechains/chain/sync.lua` | final state write (~l.512) | `write(G_fst)` -> `write(G_rem)` |
+| `src/freechains/chain/sync.lua` | doc comment (~l.46) | `climb / meet` -> `derive` |
+| `Makefile` | `tests:` target | added `$(L) climb-underflow.lua` |
 
-Global-`oct` floor. Precompute `anc = ancestors(oct)` once
-(`git rev-list oct`); `climb` stops when `cur == com` OR `anc[cur]`.
+Scratch smoke (all passed): nested fixed (B order == A order); simple
+fork diverge+converge (A==B SAME); hard-fork 7-day local-first
+preserved; likes/reps ok. `luac5.4 -p` clean; no stale `G_fst`/`climb`/
+`meet` refs.
 
-- stops the underflow `climb(F2, seed)` (seed is an oct-ancestor)
-- stops the erroneous re-apply `climb(seed, AW)` (AW == oct)
-- CW (sibling of oct, not an ancestor) is still applied once
+## NEXT STEP (start here on the other machine)
 
-VALIDATED in scratch: eliminates the `parents(nil)` crash.
+1. `git checkout 260724-climb-underflow && git pull` (the code fix is
+   already committed/pushed; verify with `git log --oneline -5`).
+2. RUN: `make tests`
+   - MUST be fully green, especially `consensus`, `fork-7-days`,
+     `fork-100-posts`, `reorder-ancient`, and the new `climb-underflow`.
+   - If `consensus`/`fork-*` regress: the top-level split `emit(fst);
+     emit(snd)` or the hard-fork winner choice is off — compare a failing
+     case's `order.lua` against a pre-change checkout.
+   - If a state mismatch reappears: dump the derived vs committed
+     `order.lua`/`posts.lua` diff (see prior technique: patch the
+     mismatch branch to print `git diff HEAD -- .freechains/state/`).
+3. RUN: `./guide.sh` — must complete past the old `sync.lua:300` crash;
+   A's final `sync send` should succeed and X's `list order` print the
+   full merged order.
+4. If both green: mark checklist done, move this plan to
+   `.claude/plans/done/`.
 
-## Fix part 2 — ordering determinism (the real wall)
+## Known follow-ups (not blockers)
 
-With the crash gone, the recv fails the strict state check:
-`ERROR : chain sync : remote state mismatch`.
-
-Diagnosed (scratch, dumped the diff): the ONLY difference is
-`order.lua` positions [2]/[3] SWAPPED — the two concurrent posts
-`CW`/`AW` (both @1100, forking at seed). `posts.lua` and `authors.lua`
-(reps) are byte-identical.
-
-Root: the relative order of two concurrent sibling posts is NOT a pure
-function of the DAG:
-
-- sender A fixed it via the reorder-append path (`fst`/`snd`) when it
-  merged the community in
-- receiver H re-derives it via climb + `consensus()` at the fork
-
-The two mechanisms break the tie differently -> byte mismatch -> the
-tamper-proof exact-match check (rightly) rejects it. Same CLASS as
-[260723-consolidation-order](done/260723-consolidation-order.md), but
-for MERGE ORDERING instead of consolidation.
-
-So the underflow fix is necessary but not sufficient. To make divergent
-nested-merge recvs pass, the merged order must be `oct`-independent:
-
-| direction | idea |
-|-----------|------|
-| canonical order | one deterministic fold over the reachable post/like set (consensus + stable hash tiebreak) that climb and reorder both produce identically |
-| single floor | always re-derive from a fixed anchor (genesis / deepest fork), not the per-recv `oct` |
-| (rejected) relax check | compare semantic state not bytes -- weakens tamper-proofing |
-
-Need: confirm whether `consensus()`'s tiebreak is being applied
-consistently, and whether the reorder-append path can be replaced by
-the same canonical fold climb uses.
-
-## Dig results (2026-07-24) — it's a redesign, not a patch
-
-Traced all derivations of the CW/AW pair:
-
-| derivation           | CW/AW order       |
-|----------------------|-------------------|
-| B (creates M1)       | CW before AW      |
-| H community (from B) | CW before AW      |
-| A (stores M2)        | CW before AW      |
-| H climb re-derive    | **AW before CW**  |
-
-Only H's climb flips it. Cause: `oct = AW` (octopus-boundary picks the
-fork of the NEW commits = takeover's fork), and `G_oct = AW`'s state
-`[seed, AW]` PREDATES CW. climb inherits that order and can only append
-CW after AW. Diff is purely `order.lua` [2]/[3]; reps identical.
-
-Rejected fixes (validated in scratch):
-- `(time, hash)` sort of `G.order` -> DISCARDS reps-consensus. NO.
-- deepen `oct` below nested forks -> STILL crashes: `meet` recurses with
-  `com = local up` (=AW), not the global oct, so inner M1 still
-  underflows at seed. And it double-applies AW (outer meet applies it,
-  inner M1 meet re-climbs it).
-
-Root: `climb`/`meet` assume (a) every merge fork is >= the segment
-floor and (b) no commit is visited twice. Nested RE-merges (a merge
-whose side contains a deeper merge) break both.
-
-Correct direction (design change to `sync.lua` re-derivation):
-1. collect the post/like set reachable from `rem` but not `oct`
-2. order it by a canonical consensus fold (reps, then hash tiebreak)
-   with a `visited` guard so nothing is applied twice
-3. ensure the SENDER's stored order uses the same fold, so the strict
-   byte-check passes
-
-This subsumes part 1 (no recursion underflow) and part 2 (order becomes
-a pure function of the DAG) while KEEPING reps-consensus.
-
-## Checklist (revised)
-
-- [x] Repro test (red) — minimized to 2 peers / 3 posts (AW, CW, takeover)
-- [x] Diagnose: nested-merge underflow + oct-dependent ordering
-- [ ] DESIGN the canonical consensus fold (visited-guarded)
-- [ ] Implement in `sync.lua`; sender + receiver agree byte-for-byte
-- [ ] `climb-underflow.lua` green; `make tests` green
-- [ ] `./guide.sh` completes
+- EFFICIENCY: `derive` re-derives from the genesis ROOT every recv
+  (O(history) git calls). Correctness-first was the deliberate choice.
+  Optimize later by seeding from a deep `oct` whose committed order is a
+  canonical prefix (oct = deepest fork in region).
+- CONTENT CONFLICTS: the git-merge loop can partial-merge on a real
+  content conflict while `G_rem` accounts for all commits; tests use
+  distinct files so this is untested. Revisit if same-file edits matter.
 
 ## Checklist
 
-- [x] Add `tst/climb-underflow.lua` (red: reproduces the crash)
-- [x] Confirm crash (verified in scratch: `sync.lua:300` parents(nil))
-- [x] Re-confirm via `make T=climb-underflow test` (red at l.115)
-- [ ] Fix `meet`/`climb` underflow
-- [ ] Flip test to green; wire into `make tests`
-- [ ] `./guide.sh`: A's final `sync send` succeeds end to end
+- [x] Repro test (red) — minimized to 2 peers / 3 posts
+- [x] Diagnose: nested-merge underflow + oct-dependent ordering
+- [x] Design + prototype the canonical `derive` fold (validated)
+- [x] Implement in `sync.lua` (derive fold; divergent stores `G_rem`)
+- [x] `climb-underflow.lua` wired into `make tests`
+- [x] Scratch smoke: nested fixed; simple/hard-fork/likes intact
+- [ ] `make tests` green  <-- NEXT
+- [ ] `./guide.sh` completes end to end
+- [ ] move plan to `done/`
 
 ## References
 
