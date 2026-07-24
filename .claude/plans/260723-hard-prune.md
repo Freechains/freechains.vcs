@@ -93,17 +93,14 @@ repo `rev-list --max-parents=0` returns the **shallow boundary
 root `c1` while a full peer reports `G` → this specific guard
 still trips `incompatible genesis`.
 
-Fix — the guard must compare on a **shared reference**, not the
-traversal root:
-
-| alt | approach |
-|-----|----------|
-| **1a** (preferred) | carry the true genesis hash forward (e.g. in `.freechains/` state) and compare that, independent of shallow depth |
-| **1b** | compare on the shared checkpoint `c1` when either side is shallow |
-
-Merge-base already works, so this is a narrow guard change, not
-a redesign. Resolves the old "does sync need a flattened mode"
-question: **yes, but minimal.**
+Fix — compare on the true genesis hash, which is **already known
+out-of-band**: the chain dir is named `#<genesis-hash>`
+(`chains.lua` — `hash = "#" .. rev-parse HEAD` of the genesis
+commit). So the guard can compare that chain id, independent of
+shallow depth, with **no new field to carry**. Merge-base
+already works, so this is a narrow guard change, not a redesign.
+Resolves the old "does sync need a flattened mode" question:
+**yes, but minimal.**
 
 ### (removed) deterministic-root blocker
 
@@ -121,8 +118,13 @@ the pre-checkpoint mainline (`post.lua` parks them, then
 `reset --hard HEAD~2`; `sync.lua` mirrors `+refs/begs/*`). A beg
 ref is a gc root, so it keeps the whole old DAG below `c1`
 reachable — `gc --prune=now` then **frees nothing**, defeating
-the shallow graft. Flatten must also expire / re-anchor / drop
-`refs/begs/*`.
+the shallow graft.
+
+Resolved: **drop sub-boundary begs.** `sync.lua:499` already has
+stale-beg cleanup (drops begs whose post is already in main);
+flatten extends it — begs parked below `c1` are unaccepted *and*
+past `T_keep`, so drop them the same way. No re-anchor needed
+(re-anchoring would change their hashes anyway).
 
 ### Retrieval + metadata (the real feature work)
 
@@ -133,12 +135,18 @@ through commit-level ops keyed by that id
 (`merge-base --is-ancestor <hash>`, `trailer(<hash>)`,
 `diff-tree <hash>`, `git show <hash>:<file>`), so all of them
 break for old posts — even though the payload **bytes are still
-in the tree** (see appendix). "Metadata must be complete" is
-therefore not a footnote but the bulk of the work: fold the
-commit-derived set — `blob` hash, `sign` (pubkey), `why`
-(message), `time` — into `posts.lua`, and rework the resolvers
-to read state + blob store instead of the commit. See
-"Retrieval after truncation" below for the mechanism and its
+in the tree** (see appendix). The fold is **smaller than it
+looks**: `posts.lua` already stores `author` (= the `sign`
+pubkey), `time`, `reps`, `revoke` (`common.lua:193`). Only
+**`blob`** (payload location) and **`why`** (message) are
+missing, plus **`backs`** (currently a DAG walk that breaks
+below `c1`). Add those to `posts.lua` and rework the resolvers
+to read state + blob store instead of the commit.
+
+The fold **must be eager** — populated *before* the graft, while
+the commits still exist. Lazy population is impossible: the
+prune destroys the very commit the fields would be read from.
+See "Retrieval after truncation" below for the mechanism and its
 limits.
 
 ### Blocker 3 — sub-boundary straggler merge (and its DoS)
@@ -202,16 +210,16 @@ question arises (unlike the old orphan design).
 
 ### Smaller checks
 
-- **Revoked payloads** — if a revoked/removed post's file is
-  still present in `c1`'s tree, it survives the shallow graft
-  (graft only drops ancestors, never edits the kept tree). To
-  actually forget it, an explicit `git rm` on `c1`'s tree is
-  needed — a Track B action, not a graft side-effect. Confirm
-  revoke / remove-blob already `git rm`s the payload.
+- **Revoked payloads** — verified: **no `git rm` exists anywhere
+  in `src/`**, so revoke (`common.lua`, a negative like) never
+  removes the payload file; it survives in `c1`'s tree
+  regardless. Forgetting a revoked payload is unimplemented and
+  belongs to `260721-remove-blob.md`, not this plan. Out of
+  scope here.
 - **`.git/shallow` is low-level** — writing it by hand then
   `gc --prune=now` is the local-repo path to shallowness; verify
-  git honors the graft for prune and that no other ref (tag,
-  reflog, beg) keeps ancestors alive.
+  (test) git honors the graft for prune and that no other ref
+  (tag, reflog, beg) keeps ancestors alive.
 
 ## Two tracks, two risk profiles
 
@@ -326,27 +334,36 @@ peers coexist, same as full-payload holders vs not today.
 
 ## Open questions
 
-- **Blocker 1 guard** — pick 1a (carry true genesis hash in
-  state, compare that) vs 1b (compare on shared `c1` when either
-  side is shallow). Narrow `sync.lua` change either way.
-- **Blocker 2 beg refs** — re-anchor pending begs onto `c1`, or
-  drop them, so they stop pinning the ancestry.
+Only three real decisions remain, all policy/values:
+
 - **Blocker 3 policy** — the deepen floor/cap (max depth/bytes);
   designated archive peers vs opportunistic; blacklist rule for
   repeat deep-fork advertisers.
 - **`T_keep` value** — 30 days a good default? Make it a
   configurable constant (alongside `T_fork`); must stay
   `≥ straggler_tolerance > T_fork`.
-- **Metadata fold** — eager vs lazy population of
-  `blob`/`sign`/`why`/`time` into `posts.lua`.
 - **Automatic vs opt-in** — shallow-flatten on a rolling
   `T_keep` schedule (max savings, archive tier shrinks) or
   manual (preserves the archive tier)?
+
+Plus one test (not a decision): confirm `git gc` honors a
+hand-written `.git/shallow` for prune.
 
 Resolved:
 - **Shallow graft, not `--orphan`** — keep `c1`'s real,
   network-shared hash; only forget ancestors. Dissolves the
   minted-root identity break and its determinism requirement.
+- **Blocker 1 guard = 1a, ~free** — compare on the genesis hash,
+  already known as the chain dir name `#<genesis-hash>`
+  (`chains.lua`); no new field.
+- **Blocker 2 begs = drop** — sub-boundary begs are unaccepted
+  and past `T_keep`; extend the existing `sync.lua:499` stale-beg
+  cleanup.
+- **Metadata fold = eager, small** — only `blob`/`why`/`backs`
+  missing (`author`/`time`/`reps` already in `posts.lua`); lazy
+  is impossible (prune destroys the source).
+- **Revoked-payload removal = out of scope** — no `git rm` in
+  `src/`; belongs to `260721-remove-blob.md`.
 - Sparse-checkout / bare-repo is **not** needed: shallow never
   rewrites interior history or rebuilds the tree, so the
   remove-blob `add -A` resurrection vector never arises here.
