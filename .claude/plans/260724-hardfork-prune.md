@@ -163,6 +163,80 @@ full-payload holders vs not today.
   maximizes storage savings but means the "full archive" tier
   shrinks over time as fewer peers retain deep history.
 
+## Appendix: worked example (front-truncation vs in-place compaction)
+
+Fake short hashes throughout.
+
+### Starting chain
+
+```
+G (genesis)
+ └─ a1 = commit(parent=G,    tree={post: "hello"})        -- POST, id = a1
+     └─ b1 = commit(parent=a1, tree={like on a1, ...})     -- LIKE on a1, id = b1
+         └─ c1 = commit(parent=b1, tree={state/*.lua})     -- "freechains: state" checkpoint,
+                                                              right after hardfork() fires
+```
+
+Other files on disk name posts **by their commit hash**:
+
+```
+.freechains/likes/a1/KEY2      <- path embeds "a1"
+.freechains/revokes/a1/KEY3
+```
+
+That's the concrete meaning of "post ID = commit hash"
+(`git.md`): the hash `a1` isn't just an address, it's the
+*name* other data structures point at.
+
+### Front-truncation (this plan) — works
+
+```
+z1 = commit(parent=NONE, tree=c1's tree)   -- orphan root, grafted AT c1,
+                                               nothing after it exists yet
+      └─ (future posts build on z1 normally)
+```
+
+`a1` and `b1` are simply **gone** — not renamed, not
+preserved. Their *effect* survives because it's already summed
+into `z1`'s tree (reps total, revoke sums). Nothing downstream
+ever needed to say "a1" again — `z1` is a fresh root, and
+`.freechains/likes/a1/...` was inside `b1`'s tree, discarded
+along with it. No dangling reference, because nothing after
+`z1` was ever created yet to hold one.
+
+This only works because truncation happens **at the current
+tip**, before anything new points back at `a1`/`b1`.
+
+### In-place compaction trying to *keep* `a1` addressable — breaks
+
+Suppose instead you squash `G+a1` into one commit to shrink
+history, but still want the post answerable at "a1" (so
+existing `.freechains/likes/a1/KEY2` files elsewhere on the
+network still resolve):
+
+```
+a1' = commit(parent=NONE, tree=a1's tree)   -- same payload bytes, different parent field
+```
+
+`parent` is inside the hash. Same tree, different parent ⇒
+**different hash**. Call it `a1' = "x9f..."`, not `a1`. Every
+`.freechains/likes/a1/...` file — on this peer and every peer
+that already synced it — now names an object that doesn't
+exist in the compacted repo. The like isn't "moved," it's
+orphaned. No squash can reproduce the string `a1` again; that
+would require breaking the hash function.
+
+### The fix, if compaction-with-identity is ever wanted
+
+Stop using the commit hash as the post's name. Add a stable id
+inside the tree/trailer, e.g. `Freechains-post-id:
+sha256(payload)`, and change `like.lua`/`revoke`/`sync.lua`/
+`get.lua` to key off that trailer instead of `git rev-parse`.
+Then `a1` can become `a1'` under any history rewrite and
+`.freechains/likes/<post-id>/...` still resolves — but that's
+the larger, decoupled-ID feature flagged above, not something
+front-truncation needs.
+
 ## References
 
 - `260721-revoke.md` — explicit, vote-driven Phase 1 revoke
