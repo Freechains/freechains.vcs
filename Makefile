@@ -23,6 +23,7 @@ tests:
 	$(L) sync.lua
 	$(L) consensus.lua
 	$(L) reorder-ancient.lua
+	$(L) climb-underflow.lua
 	$(L) fork-7-days.lua
 	$(L) fork-100-posts.lua
 	$(L) err-post.lua
