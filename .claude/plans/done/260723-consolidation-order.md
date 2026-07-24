@@ -206,8 +206,8 @@ make tests          # full suite must stay green
 - [x] Add `ordered()` helper in `common.lua`
 - [x] Convert consolidation scan (`common.lua:119`) to `ordered()`
 - [x] Convert discount scan (`common.lua:82`) to `ordered()`
-- [ ] `make tests` green
-- [ ] `./guide.sh`: `day 1` send accepted, Hard Forks completes
+- [x] `make tests` green
+- [x] `./guide.sh`: `day 1` send accepted, Hard Forks completes
 
 ## References
 
