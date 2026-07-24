@@ -22,146 +22,260 @@ before that checkpoint, the way `260721-remove-blob.md`
 cooperatively discards one revoked payload — but for an
 entire pre-fork slice at once?
 
+## Flatten recipe (concrete)
+
+Trigger: the 7-day / 100+ posts checkpoint is reached
+(`done/260723-fork-7day.md`), flattening at the peer's own
+current HEAD, before anything new is built on top locally.
+
+```
+git checkout --orphan tmp        # new root, keeps index + worktree
+git add -A                       # capture full current tree (all blobs)
+git commit ...                   # PINNED metadata -- see Blocker 2
+git branch -D main
+git branch -m main               # tmp -> main
+git reflog expire --expire=now --all
+git gc --prune=now               # reclaim now-unreachable old DAG
+```
+
+This is a squash-to-single-orphan-root: it **keeps the entire
+current tree** (Track A — every payload blob retained with its
+correct content hash) and drops only the commit DAG behind it.
+The git is mechanically valid. The obstacles are all at the
+Freechains layer, below.
+
+## Blockers
+
+Ordered by severity. Blocker 1 alone makes the recipe
+unusable as written.
+
+### Blocker 1 — chain identity (FATAL, `sync.lua:54-61`)
+
+```lua
+loc_root = git rev-list --max-parents=0 loc   -- root commit hash
+rem_root = git rev-list --max-parents=0 rem
+if loc_root ~= rem_root then ERROR("chain sync : incompatible genesis")
+```
+
+**Chain id = the root (genesis) commit hash.** Sync rejects any
+peer whose root differs. Squashing mints a *new* root, so its
+`--max-parents=0` hash ≠ every non-flattened peer's genesis →
+`ERROR : chain sync : incompatible genesis`. The flattened peer
+can no longer sync with anyone on the chain.
+
+Fix — two alternatives:
+
+| alt | approach | cost |
+|-----|----------|------|
+| **1a** (preferred) | match chains on **genesis content**, not root-commit hash — `add -A` already carries `.freechains/genesis.lua` + `random` forward into the flattened tree; sync compares that instead of `rev-list --max-parents=0` | changes the identity check in `sync.lua` |
+| **1b** | accept flatten = a deliberate hard fork off the network: only *other* flatteners with a byte-identical deterministic root interoperate | network partitions into archive-tier vs flattened-tier |
+
+This resolves the old "does sync need a flattened mode" open
+question: **yes, mandatory.**
+
+### Blocker 2 — deterministic root (mandatory for any interop)
+
+Plain `git commit` stamps wall-clock date + local committer +
+free-text message → a **non-deterministic** root. Two honest
+peers who both flatten the same checkpoint then get different
+root hashes → mutual "incompatible genesis" even between each
+other. The commit must be pinned from checkpoint data:
+
+| field | must be |
+|-------------------------|------------------------------------|
+| author+committer date   | the checkpoint commit's timestamp  |
+| author+committer id     | a fixed constant                   |
+| message                 | a fixed constant                   |
+| parent                  | none                               |
+
+The tree is already deterministic: git sorts tree entries, blob
+hash = content, payload filenames sync identically across peers,
+and `.freechains/state/*` is byte-identical by `state-hash.md`.
+So a *pinned* commit over that tree yields an identical root on
+every honest peer. Still open: nail the exact construction and
+test peer-to-peer convergence.
+
+### Blocker 3 — beg refs pin the old history
+
+`refs/begs/beg-<hash>` point at commits whose parent chain **is**
+the pre-squash mainline (`post.lua` parks them, then
+`reset --hard HEAD~2`; `sync.lua` mirrors `+refs/begs/*`). After
+squashing `main`, those refs still reach the whole old DAG, so
+`gc --prune=now` **frees nothing**, and the begs dangle off a
+history disconnected from the new root. Flatten must also
+expire / re-anchor / drop `refs/begs/*`.
+
+### Retrieval + metadata (the real feature work)
+
+Squash destroys every pre-checkpoint commit, hence every
+commit-hash post id. `get.lua`/`like.lua`/revoke resolve posts
+through commit-level ops keyed by that id
+(`merge-base --is-ancestor <hash>`, `trailer(<hash>)`,
+`diff-tree <hash>`, `git show <hash>:<file>`), so all of them
+break for old posts — even though the payload **bytes are still
+in the tree** (see appendix). "Metadata must be complete" is
+therefore not a footnote but the bulk of the work: fold the
+commit-derived set — `blob` hash, `sign` (pubkey), `why`
+(message), `time` — into `posts.lua`, and rework the resolvers
+to read state + blob store instead of the commit. See
+"Retrieval after truncation" below for the mechanism and its
+limits.
+
+### Signatures (trust model, with a caveat)
+
+Treating the flattened root like genesis (unsigned, trusted —
+`genesis.md`) is acceptable *as a trust model* and matches
+Track B's "trust the checkpoint". Own the consequences:
+
+- All per-post signatures are gone (the signed commits are
+  gone). The peer can only *assert* authorship via trusted
+  state, never *prove* it; full-history peers still can.
+- Consensus / `pre-receive` must be confirmed to **accept** an
+  unsigned root — tied to Blocker 1's flattened mode.
+
+### Smaller checks
+
+- **`add -A` scope** — OK-ish: `.freechains/tmp/*` is gitignored
+  (skel `.gitignore`), so runtime scratch does not leak. But any
+  *untracked-and-unignored* stray file gets absorbed → breaks
+  determinism; `git clean` / verify first. (`layout.md` is stale:
+  it says `now.lua` untracked; real path is `.freechains/tmp/`.)
+- **Revoked payloads** — if a revoked/removed post's file is
+  still on disk, `add -A` re-commits it → resurrects forgotten
+  content. Confirm revoke / remove-blob `git rm`s the payload
+  before trusting `add -A`.
+- **Atomicity** — `branch -D main` before verifying `tmp` risks
+  losing `main` on interrupt; build `tmp` → verify → swap.
+
 ## Two tracks, two risk profiles
 
-### Track A — prune old STATE commits only (safe)
+### Track A — keep the whole tree (safe)
 
-`.freechains/state/*.lua` is a pure cache: `apply()` replayed
-over the post/like/revoke commit trailers reproduces it
-exactly (that is the whole premise of `state-hash.md`'s
-exact-match check — trust comes from *recomputing and
-comparing*, never from reading the file blindly).
+The recipe above is Track A: drop the DAG, keep every blob.
+`.freechains/state/*.lua` is a pure cache — `apply()` replayed
+over the post/like/revoke trailers reproduces it exactly (the
+premise of `state-hash.md`'s exact-match check: trust comes from
+*recomputing and comparing*, never from reading the file
+blindly). A fresh peer can always fall back to a full replay
+from genesis and rederive current state without any historical
+snapshot; checkpoints (`consensus.md:60-98`) are an
+optimization, not a trust dependency.
 
-Consequence: a fresh peer can always fall back to a full
-replay from genesis over the raw commit DAG and rederive
-current state **without consulting any historical state
-snapshot**. Checkpoints (`consensus.md:60-98`) exist purely
-so *normal* merges don't pay that genesis-to-tip replay cost
-every time — they are an optimization, not a trust
-dependency.
+Cost: a future full-replay instead of a checkpoint-jump the next
+time something walks back past the newest remaining checkpoint.
+**Zero** verifiability lost. Modest storage reward — state files
+are small; payloads are where the bloat is.
 
-So: dropping old state-commit tree content costs a future
-full-replay (instead of checkpoint-jump) the next time
-something needs to walk further back than the newest
-remaining checkpoint. It costs **zero** verifiability. Low
-risk, modest reward (state files are small; payloads are
-where the real bloat is).
+### Track B — also prune payloads (remove-blob's tradeoff)
 
-### Track B — prune PAYLOADS too (remove-blob's tradeoff, wholesale)
-
-Payloads are the actual signed content — not a derived
-cache. Discarding them before a checkpoint is exactly
-`260721-remove-blob.md`'s cooperative, non-guaranteed
-forgetting, just applied to an entire pre-fork slice instead
-of one revoked post. Same non-goal applies: any peer who
-already holds the bytes can still prove and re-serve them;
-a NEW peer who only talks to peers that flattened gets a
-checkpoint they must **trust**, not one they can independently
-rederive. This is the real storage win, and the real cost.
+Alternative to A, higher risk/reward. Payloads are signed
+content, not a derived cache. Reclaiming their storage needs an
+explicit `git rm` of the accumulated files at the graft — it is
+**not** a free side-effect of orphaning (the files rode forward
+into the tree; see appendix). Discarding them is exactly
+`260721-remove-blob.md`'s cooperative, non-guaranteed forgetting,
+wholesale: any peer holding the bytes can still re-serve them; a
+NEW peer talking only to flatteners gets a checkpoint it must
+**trust**, not rederive. Real storage win, real cost.
 
 Track A and B are independent — a peer can do A without B.
 
-## Mechanism: orphan-at-checkpoint, not history rewrite
+### Retrieval after truncation: blob-hash in metadata
 
-`prune.md`'s `--orphan` technique is the right primitive, with
-one timing constraint: **flatten only at the peer's own
-current HEAD**, immediately after the hard-fork-resolving
-state commit lands, before anything new is built on top of it
-locally.
+The mechanism behind the "Retrieval + metadata" blocker. Fold
+the commit-derived fields into `posts.lua` so retrieval never
+touches the old commit. Minimum is the payload's **blob hash**:
 
-Why the timing matters: a git commit hash is a Merkle chain —
-`parent` is inside the hash (`git.md:62-77`). Editing an
-*interior* commit (stripping old state/payload content) changes
-its hash, which cascades forward and changes every descendant's
-hash too. That is full history rewrite, already rejected in
+```
+posts[a1] = { author=…, time=…, reps=…, blob = h }
+```
+
+Then `get --payload a1` becomes `git cat-file blob h` — blob `h`
+is still reachable via the kept tree, no commit `a1` needed.
+This is a **lighter decouple** than the full `sha256(payload)`
+id (see Q below): the id stays the commit hash, so `likes/a1/…`,
+`revokes/a1/…`, `posts[a1]` keep `a1` as their key — you only
+stop *resolving* through the commit. For `get --metadata`, fold
+`sign` / `why` / `time` in too.
+
+Scope and limits:
+- **keep-tree only.** Under Track B the `git rm` gc's the blob,
+  so the stored blob hash **dangles**. Blob-hash helps A, not B.
+- **content-only, trust-not-verify.** The SSH signature signs
+  the *commit*, not the blob. Discarding the commit leaves the
+  payload servable but no longer provably authored; blob-hash
+  cannot recover the signature.
+
+## Why orphan-at-tip, not interior rewrite
+
+`prune.md`'s `--orphan` is the right primitive because of one
+timing constraint: **flatten only at the current tip**. A git
+commit hash is a Merkle chain — `parent` is inside the hash
+(`git.md:62-77`). Editing an *interior* commit cascades new
+hashes to every descendant: full history rewrite, rejected in
 `260721-remove-blob.md` ("#1 rewrite: sacrifices the DAG").
-
-Grafting a **new root** exactly at the current tip sidesteps
-this: there are no descendants yet to break. Nothing after the
-checkpoint is touched; only what's strictly before it is
-discarded. Future local commits build on the new orphan hash
-going forward — no already-published commit changes hash.
-
-### Determinism requirement
-
-If two honest peers independently hard-fork against the same
-rejected remote, they compute byte-identical derived state
-(that's what makes the FF exact-match check meaningful at all).
-For their independently-minted orphan roots to also match, the
-orphan commit's hash-relevant fields must be **derived from the
-checkpoint's own data**, not wall-clock "now" — e.g. reuse the
-original checkpoint commit's author/committer timestamp, not
-the flatten time. Otherwise two honest peers who both flattened
-produce different roots and can no longer FF against each other
-even though nothing substantive diverged. This needs to be
-nailed down precisely, not just a "same-ish" approximation.
+Grafting a new root at the tip has no descendants yet to break;
+only what's strictly before it is discarded, and no
+already-published commit changes hash.
 
 ## Q: can post IDs survive a rewrite?
 
-No, not in general, and this is a hash-of-a-Merkle-chain fact,
-not an engineering gap: `git.md:5-8` — **post ID = commit
-hash**, and the hash includes `parent` (`git.md:62-77`). Any
-restructuring of the parent graph (squash, compact, reparent)
-changes the hash of every touched commit, i.e. changes the
-post's own ID. Every existing reference to that ID elsewhere in
-the DAG — `.freechains/likes/<hash>`, `.freechains/revokes/
-<hash>` (`260721-revoke.md`) — goes stale, and every remote
-peer's copy disagrees with the rewriter's.
+No, not in general — a hash-of-a-Merkle-chain fact, not an
+engineering gap: `git.md:5-8` — **post ID = commit hash**, and
+the hash includes `parent`. Any restructuring of the parent
+graph changes the hash of every touched commit, i.e. the post's
+own ID; every reference (`likes/<hash>`, `revokes/<hash>`) goes
+stale and every remote copy disagrees.
 
-Front-truncation (this plan) does not hit that wall, because it
-does not try to *preserve* the discarded IDs — it forgets them
-outright. Their effect is already folded into the checkpoint's
-derived reps/revoke sums; nothing after the checkpoint needs to
-dereference the original commit object again.
+Front-truncation does not hit that wall: it does not *preserve*
+discarded IDs, it forgets them. Their effect is already folded
+into the checkpoint's reps/revoke sums; nothing after the
+checkpoint dereferences the original commit again.
 
-**General, identity-preserving rewrite** (squash history but
-keep old posts individually addressable/likeable) is a
-different, larger feature: it requires decoupling "post ID"
-from "commit hash" entirely — e.g. a content hash of the
-payload+signature carried as an explicit trailer, used as the
-key everywhere IDs are used today (`like.lua`, revoke,
-`sync.lua` trailers, `get.lua`). That touches most of the
-commit-mapping surface (`commands.md`) and is out of scope
-here; noted as a prerequisite if compaction-with-identity is
-ever wanted instead of forgetting.
+Alternatives for keeping old posts individually addressable:
+
+| alt | what | scope |
+|-----|------|-------|
+| **blob-hash value** (this plan) | keep id = commit hash, add `blob` as a value in `posts.lua`; survives front-*truncation* only | small, `posts.lua` + resolvers |
+| **full decouple** | stable id `sha256(payload)` as a trailer, keyed everywhere ids are used; survives history *rewrite* too | large — most of the commit-mapping surface (`commands.md`), out of scope |
 
 ## Peer-compatibility consequence
 
 Minting a new root is itself a divergence event between "did
-flatten" and "did not flatten" peers — structurally the same
-shape as a hard fork, just deliberately chosen instead of
-adversarial. A peer that flattens can only be cloned from
-**filtered/partial** going forward (`260721-remove-blob.md`'s
-already-proven `filter=blob:none` + by-hash payload fetch), and
-only by peers willing to accept the checkpoint as trusted
-(Track B) or willing to redo a genesis replay to confirm it
-(Track A, still possible since nothing was discarded that
-verification depends on... except the discarded objects
-themselves, which is the point). This mirrors remove-blob's
-"eager replication -> lazy fetch" shift
-(`260721-remove-blob.md:247-259`): full-history archive peers
-and flattened peers become two coexisting tiers, same as
-full-payload holders vs not today.
+flatten" and "did not flatten" peers — structurally a hard fork,
+deliberately chosen. A flattened peer can only be cloned from
+**filtered/partial** going forward
+(`260721-remove-blob.md`'s `filter=blob:none` + by-hash payload
+fetch), by peers willing to accept the checkpoint as trusted
+(Track B) or redo a genesis replay to confirm it (Track A).
+Mirrors remove-blob's "eager replication -> lazy fetch" shift
+(`260721-remove-blob.md:247-259`): archive-tier and flattened-
+tier peers coexist, same as full-payload holders vs not today.
 
 ## Open questions
 
-- Pin down the deterministic-orphan-hash construction (see
-  above) precisely enough to test peer-to-peer convergence.
-- Track A alone: is checkpoint-cache pruning worth a dedicated
-  feature given state files are small, or should it just be a
-  side effect of Track B when a peer opts in?
-- Does `sync.lua`'s existing FF/state-hash check
-  (`state-hash.md`) need a new "peer is flattened, don't expect
-  full ancestry" mode, or does it already degrade gracefully
-  (shallow history) the same way partial clone does in
-  `260721-remove-blob.md`'s tests?
-- Bare-repo / sparse-checkout prerequisite from
-  `260721-remove-blob.md` (non-bare chains resurrect removed
-  blobs via `git add`) applies here too for Track B.
-- Should flattening be automatic (every peer does it the
-  instant it locally hard-forks) or opt-in/manual? Automatic
-  maximizes storage savings but means the "full archive" tier
-  shrinks over time as fewer peers retain deep history.
+- **Blocker 1 fix** — pick 1a (content-based identity) vs 1b
+  (flatten = hard fork). 1a keeps flatteners on the network.
+- **Blocker 2 construction** — pin the exact orphan-commit
+  fields and test peer-to-peer convergence.
+- **Blocker 3** — decide beg-ref fate: re-anchor pending begs
+  onto the new root, or drop them.
+- **Metadata fold** — eager vs lazy population of
+  `sign`/`why`/`time` into `posts.lua`.
+- **Automatic vs opt-in** — flatten the instant a peer
+  hard-forks (max storage savings, archive tier shrinks) or
+  manual (preserves the archive tier)?
+
+Resolved:
+- Sparse-checkout / bare-repo is **not** needed here (unlike
+  remove-blob): orphan-at-tip has no interior-rewrite
+  resurrection vector. Holds only while every `git add` stays
+  targeted — grep confirms zero `git add -A` in the write path
+  (the recipe's one-shot `add -A` is a deliberate flatten step,
+  not a per-write add). Invariant: never add a blanket add to
+  `post`/`like`/`sync`.
+- Track A is worth it as its own tier (drop DAG, keep tree,
+  serve old posts by id), not just cache pruning.
 
 ## Appendix: worked example (front-truncation vs in-place compaction)
 
@@ -196,15 +310,28 @@ z1 = commit(parent=NONE, tree=c1's tree)   -- orphan root, grafted AT c1,
       └─ (future posts build on z1 normally)
 ```
 
-`a1` and `b1` are simply **gone** — not renamed, not
-preserved. Their *effect* survives because it's already summed
-into `z1`'s tree (reps total, revoke sums). Nothing downstream
-ever needed to say "a1" again — `z1` is a fresh root, and
-`.freechains/likes/a1/...` was inside `b1`'s tree, discarded
-along with it. No dangling reference, because nothing after
-`z1` was ever created yet to hold one.
+Commits `a1` and `b1` are **gone** — not renamed, not
+preserved as commit objects, so nothing resolves them by their
+commit-hash id anymore (that is what the blob-hash-in-metadata
+section fixes for retrieval).
 
-This only works because truncation happens **at the current
+But their *tree content is not discarded by the orphan*.
+Freechains chains are non-bare working trees and every write is
+a `git add` of a tracked file, so git trees **accumulate**: the
+post payload file and `.freechains/likes/a1/...` were committed
+in `a1`/`b1` and then rode forward unchanged into `c1`'s tree.
+Since `z1 = commit(tree=c1's tree)`, both files are **still
+present in `z1`**. What the orphan drops is the *commit DAG*
+(ancestry, and with it commit-hash addressability and the GPG
+signatures), not the tip tree.
+
+Consequence for Track B: actually reclaiming payload storage
+needs an explicit `git rm` of the accumulated files at the
+graft — it is **not** a free side-effect of orphaning. The
+reps/revoke effect is independently summed into `z1`'s state
+tables, so the raw files can go without losing derived state.
+
+This all only works because truncation happens **at the current
 tip**, before anything new points back at `a1`/`b1`.
 
 ### In-place compaction trying to *keep* `a1` addressable — breaks
