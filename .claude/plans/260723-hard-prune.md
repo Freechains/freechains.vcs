@@ -336,12 +336,16 @@ everywhere, and the reason sub-boundary forks are rejected
 
 ## Open questions
 
-All policy decisions are made (below). Remaining is a single
-test, not a decision: confirm `git gc` honors a hand-written
-`.git/shallow` for prune, with no other ref keeping ancestors
-alive.
+None — design complete. All policy decisions made and the one
+mechanism test passed (below). Remaining work is implementation
+(see "Implementation order").
 
 Resolved:
+- **`git gc` honors hand-written `.git/shallow`** — verified:
+  boundary keeps its real hash, HEAD/descendants intact,
+  sub-boundary ancestors pruned, `fsck` clean. Also confirmed a
+  beg ref below the boundary blocks the prune until dropped
+  (validates step 4).
 - **Trigger = rolling auto** — every peer shallow-flattens on a
   rolling `T_keep` schedule. Consistent with Blocker 3
   reject-only: no node depends on another retaining deep
