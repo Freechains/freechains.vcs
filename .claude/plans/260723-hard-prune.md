@@ -55,21 +55,28 @@ valid. The obstacles are all at the Freechains layer, below.
 The 7-day hardfork threshold and the prune boundary answer
 **different** questions and should be **separate knobs**:
 
-| period | governs | concern |
-|--------|---------|---------|
-| `T_fork` = 7 days | consensus: local activity freezes ordering (rule 1, `done/260723-fork-7day.md`) | ordering / attacker |
-| `T_keep` = 30 days | retention: how much ancestry to keep before grafting | storage / sync |
+| period | value | governs | concern |
+|--------|-------|---------|---------|
+| `T_fork` | 7 days **or** 100 posts | consensus: local activity freezes ordering (rule 1, `done/260723-fork-7day.md`) | ordering / attacker |
+| `T_keep` | 30 days **or** 500 posts | retention: how much ancestry to keep before grafting | storage / sync |
 
-The graft boundary `c1` trails `T_keep`, not `T_fork`. So any
-peer offline **less than `T_keep`** forks *inside retained
-history* — merge-base resolves locally, no deepen, no DoS. Only
-forks older than `T_keep` hit the sub-boundary path (Blocker 3),
-where default-reject is defensible.
+Both live in `constants.lua` next to the existing
+`fork = { time, posts }`; add `keep = { time = 30*24*h, posts = 500 }`.
 
-Invariant: `T_keep ≥ straggler_tolerance > T_fork`. Pruning
-trails consensus by a safety margin; grafting right at the
-7-day checkpoint (as an earlier draft did) is what forced every
-straggler onto the expensive deepen path.
+**Opposite polarity** — each is conservative for what it guards:
+
+- `T_fork` fires **early**: `crossed = days≥7 or posts≥100`.
+- `T_keep` prunes **late**: keep if `days<30 or posts<500`, i.e.
+  prune only what is beyond **both**. A fast chain keeps 30 days
+  (≫ 500 posts); a slow chain keeps until 500 posts accumulate
+  (tiny history, cheap to hold).
+
+The graft boundary `c1` trails `T_keep`, not `T_fork`. Peers
+offline past `T_keep` fork below `c1` and are **rejected**
+(Blocker 3 — a pruned node cannot verify below its boundary);
+they recover by re-anchoring. Invariant:
+`T_keep ≥ straggler_tolerance > T_fork` — pruning trails
+consensus by a safety margin.
 
 ## Blockers
 
@@ -156,47 +163,42 @@ A peer P offline longer than `T_keep` forks at `oct`, now **below**
 consensus rule 2 needs the `G..oct` prefix reps — also pruned. So
 the merge cannot compute as-is.
 
-Recovery is possible because P still holds the pruned slice: a
-normal fetch of P's branch re-transfers `oct` and its ancestry
-(git fills our gap), deepening us past `c1`; we then replay-
-validate (signatures are self-contained, reps replay is
-deterministic → **verify, not trust**), merge (rule 1 → P after
-us), and optionally re-prune. Hard-fail only if the prefix
-exists **nowhere** (P also flattened above `oct`, no archive
-peer) — then only weak options remain: trust P's presented
-`oct`-state, or have P re-anchor its wanted posts as fresh posts
-on our tip (new ids, P pays current reps).
-
-**But automatic deepen-on-fetch is a DoS.** Flattening does not
-create this cost, it *moves* it: un-flattened, straggler merge
-is cheap (we still hold `oct`); flattened, each sub-boundary
-merge costs a re-fetch + replay. Asymmetry:
+**Decision: reject sub-boundary forks.** A pruned node *cannot*
+verify anything below its boundary — and this is the key point,
+not a limitation to engineer around. To validate P's fork at
+`oct`, the node needs `oct`'s reps state; deriving it means
+replaying `genesis..oct`, which the node **pruned**. So it would
+have to re-fetch and replay the *entire* prefix — which is
+exactly the DoS below. There is no cheap trustless deepen:
 
 | | |
 |---|---|
 | trigger | any peer advertises a branch forking below `c1` |
-| victim cost | re-fetch pruned prefix + replay-validate + storage re-inflates |
+| to verify it | re-fetch `genesis..oct` + full replay (un-prune) |
 | attacker cost | ~nil — one advertisement pointing at *real* old history |
-| amplification | fork from genesis for maximal deepen; repeat from sock-puppets |
+| amplification | fork from genesis for maximal replay; repeat from sock-puppets |
 
-The prefix is signed by others, so it can't be *fabricated* —
-this is resource exhaustion, not a consensus attack. You cannot
-pre-filter by merit (the merit-reps are in the pruned prefix),
-so the defense is to **bound the work**:
+The prefix is signed by others so it can't be *fabricated* (this
+is resource exhaustion, not a consensus attack), and you can't
+pre-filter by merit (the merit-reps live in the pruned prefix).
+So the only coherent options are **reject** or **trust blindly**
+— and trust-blindly is unacceptable. Therefore:
 
-1. **Default-reject** inbound sub-boundary forks in
-   `pre-receive` / `sync recv` — consistent with the permanent
-   boundary. No unsolicited peer can force a deepen.
-2. **Deepen only as explicit, operator-initiated pull**
-   (`sync recv --deepen P`), never a reflex to an inbound sync.
-3. **Cap** deepen depth / bytes; hard floor below which you
-   refuse.
-4. **Delegate depth to archive peers**; normal peers stay
-   shallow and un-DoS-able.
-5. **Blacklist** peers that repeatedly advertise deep forks.
+- **`pre-receive` / `sync recv` rejects any inbound branch
+  forking below the local boundary.** No deepen path exists to
+  DoS.
+- **Blacklist** peers that repeatedly advertise deep forks.
+- **Straggler recovery = re-anchor.** A peer offline past
+  `T_keep` re-posts its still-wanted content as *new* posts on
+  the current tip (new ids, pays current reps). Its old
+  DAG-position and pre-boundary reps are gone — consistent with
+  the boundary being permanent.
 
-`T_keep` (Two periods) shrinks this surface: only forks older
-than 30 days reach here at all.
+Note this **corrects an earlier draft** that claimed deepen was
+a cheap "verify, not trust" recovery. It is not: verify requires
+the pruned prefix, so deepen ≡ un-prune ≡ the DoS. `T_keep`
+(Two periods) still helps: sub-boundary forks only arise for
+peers offline longer than 30 days / 500 posts.
 
 ### Signatures (trust model, with a caveat)
 
@@ -323,33 +325,35 @@ Alternatives for keeping old posts individually addressable:
 
 Because shallow keeps `c1`'s real hash, a flattened peer is
 **not** a fork of the network — it agrees on `c1` and every
-descendant, it just cannot serve history below `c1`. Cloning it
-is a shallow/partial fetch (`260721-remove-blob.md`'s
-`filter=blob:none` + by-hash payload fetch is the same tier),
-usable by peers that accept the checkpoint as trusted (Track B)
-or that fetch deeper from an archive peer to replay (Track A).
-Mirrors remove-blob's "eager replication -> lazy fetch" shift
-(`260721-remove-blob.md:247-259`): archive-tier and shallow-tier
-peers coexist, same as full-payload holders vs not today.
+descendant, it just cannot serve or verify history below `c1`.
+With rolling-auto flattening every peer converges to the same
+shallow tier, so a newcomer clones from `c1` forward and
+**trusts** the checkpoint state (Track B, network-wide) rather
+than replaying from genesis. Nothing below any peer's boundary
+is verifiable anymore — that is the accepted cost of pruning
+everywhere, and the reason sub-boundary forks are rejected
+(Blocker 3) rather than reconciled.
 
 ## Open questions
 
-Only three real decisions remain, all policy/values:
-
-- **Blocker 3 policy** — the deepen floor/cap (max depth/bytes);
-  designated archive peers vs opportunistic; blacklist rule for
-  repeat deep-fork advertisers.
-- **`T_keep` value** — 30 days a good default? Make it a
-  configurable constant (alongside `T_fork`); must stay
-  `≥ straggler_tolerance > T_fork`.
-- **Automatic vs opt-in** — shallow-flatten on a rolling
-  `T_keep` schedule (max savings, archive tier shrinks) or
-  manual (preserves the archive tier)?
-
-Plus one test (not a decision): confirm `git gc` honors a
-hand-written `.git/shallow` for prune.
+All policy decisions are made (below). Remaining is a single
+test, not a decision: confirm `git gc` honors a hand-written
+`.git/shallow` for prune, with no other ref keeping ancestors
+alive.
 
 Resolved:
+- **Trigger = rolling auto** — every peer shallow-flattens on a
+  rolling `T_keep` schedule. Consistent with Blocker 3
+  reject-only: no node depends on another retaining deep
+  history, so auto-flatten everywhere is safe. Cost accepted:
+  newcomers trust the checkpoint (Track B network-wide);
+  >`T_keep` stragglers re-anchor.
+- **`T_keep` = 30 days or 500 posts** — in `constants.lua` as
+  `keep = { time, posts }`; keep-if-recent-by-either polarity
+  (dual of `T_fork`'s or-trigger).
+- **Blocker 3 = reject sub-boundary forks** — a pruned node
+  cannot verify below its boundary (verify ⇒ un-prune ⇒ DoS);
+  reject + blacklist repeat offenders; stragglers re-anchor.
 - **Shallow graft, not `--orphan`** — keep `c1`'s real,
   network-shared hash; only forget ancestors. Dissolves the
   minted-root identity break and its determinism requirement.

@@ -91,9 +91,32 @@ merge). Any divergence with a >1h winner/loser time gap hits it.
 - [x] Confirm it fails: `make T=reorder-ancient test` (line 80, beta)
 - [x] Fix reorder replay: `reorder` flag skips the `too old` guard
       (`apply` `common.lua`, threaded via `commit(..., reorder)`)
-- [ ] `make tests` green (incl. new test)
-- [ ] `./guide.sh`: A recv no longer prints `too old`, order includes
-      the community branch
+- [x] `make tests` green (incl. new test)
+- [x] refactor: flag renamed `reorder`→`monotonic`, moved out of `T`
+      into an `apply` param, both `commit` calls explicit (`true`/`false`)
+- [x] `./guide.sh`: A recv no longer prints `too old`, order includes
+      the community branch (`2f0df65` day1, `11d0c7e` day7 appended)
+
+## Out of scope: follow-up climb underflow (discovered 2026-07-24)
+
+The reorder fix works. It made A's branch rich enough (an extra top
+merge of Alice + community) to expose a SEPARATE pre-existing bug on
+A's subsequent `sync send`:
+
+```
+ERROR : chain sync : sync.lua:302: attempt to concatenate a nil
+value (local 'tip')
+```
+
+Root cause: in `meet` (`sync.lua:330-334`) `up = merge-base(left,
+right)`, then `climb(G, com, up)`. When a nested merge's parent
+merge-base falls BELOW the recv common ancestor `oct`, `climb` descends
+past `com` to a root; `parents(root)` returns nil -> `climb(.., nil)`
+-> concat nil at l.302.
+
+Needs its own plan (e.g. `260724-climb-underflow.md`): make `climb`
+stop when `cur` is an ancestor of `com` (or when `up` is at/below
+`com`), instead of underflowing to a root.
 
 ## References
 
