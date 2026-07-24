@@ -87,14 +87,19 @@ local function ordered (posts)
     return hs
 end
 
-function apply (G, kind, time, T)
+function apply (G, kind, time, T, monotonic)
     local sign = T and T.sign
 
     -- TIME: monotonicity, discount, consolidation
     do
         -- monotonic timestamp
-        if time < G.now-C.time.diff then
-            return false, "too old"
+        -- reorder replay re-applies already-validated commits onto a
+        -- winner tip that may be far ahead: the loser's older commits
+        -- were freshness-checked on first receipt, so skip the guard.
+        if monotonic then
+            if time < G.now-C.time.diff then
+                return false, "too old"
+            end
         end
 
         -- discount scan (maybe signed at same G.now)

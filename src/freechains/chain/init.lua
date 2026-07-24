@@ -21,7 +21,7 @@ else
     if ARGS.list then
         require "freechains.chain.list"
     elseif ARGS.reps then
-        apply(G, 'reps', CMD.now, nil)
+        apply(G, 'reps', CMD.now, nil, true)
         require "freechains.chain.reps"
     elseif ARGS.post then
         require "freechains.chain.post"

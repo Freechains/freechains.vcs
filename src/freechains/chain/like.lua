@@ -97,7 +97,7 @@ do
         n    = num,
         beg  = to_beg,
     }
-    local ok, err = apply(G, kind, CMD.now, T)
+    local ok, err = apply(G, kind, CMD.now, T, true)
     if not ok then
         exec {
             cmd = "git -C " .. REPO .. " reset --hard HEAD~1",

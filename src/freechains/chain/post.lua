@@ -66,7 +66,7 @@ do
         sign = ARGS.sign and ssh.pubkey(REPO, hash),
         beg  = ARGS.beg,
     }
-    local ok, err = apply(G, 'post', CMD.now, T)
+    local ok, err = apply(G, 'post', CMD.now, T, true)
     if not ok then
         exec {
             cmd = "git -C " .. REPO .. " reset --hard HEAD~1",

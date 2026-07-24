@@ -136,7 +136,7 @@ elseif ARGS.recv then
             end
         end
 
-        local function commit (G, hash, beg)
+        local function commit (G, hash, beg, monotonic)
             local key, err = ssh.verify(REPO, hash)
 
             local out = exec {
@@ -224,7 +224,7 @@ elseif ARGS.recv then
                     post   = t.post,
                     author = t.author,
                     beg    = to_beg,
-                })
+                }, monotonic)
                 if not ok then
                     error("invalid " .. kind .. " : " .. err, 0)
                 end
@@ -234,7 +234,7 @@ elseif ARGS.recv then
                     hash = hash,
                     sign = key,
                     beg  = beg or (key == nil),
-                })
+                }, monotonic)
                 if not ok then
                     error("invalid post : " .. err, 0)
                 end
@@ -321,7 +321,7 @@ elseif ARGS.recv then
                         local is_beg_merge = (trailer(cur) == "like")
                         meet(G, com, p1, p2, is_beg_merge)
                     end
-                    commit(G, cur, beg)
+                    commit(G, cur, beg, true)
                 end
             end
 
@@ -437,7 +437,7 @@ elseif ARGS.recv then
                     }
                 end
 
-                ok, err = pcall(commit, G_fst, hash)
+                ok, err = pcall(commit, G_fst, hash, nil, false)
                 if not ok then
                     goto DONE
                 end
