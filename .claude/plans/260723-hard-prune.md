@@ -24,91 +24,111 @@ entire pre-fork slice at once?
 
 ## Flatten recipe (concrete)
 
-Trigger: the 7-day / 100+ posts checkpoint is reached
-(`done/260723-fork-7day.md`), flattening at the peer's own
-current HEAD, before anything new is built on top locally.
+Flatten by **shallow graft** at a retention-boundary checkpoint
+`c1` — the newest state checkpoint older than `T_keep` (see
+"Two periods" below), **not** the 7-day hardfork checkpoint.
+Keep `c1` and every descendant at their **real, network-shared
+hashes**; drop only the ancestors below `c1`.
 
 ```
-git checkout --orphan tmp        # new root, keeps index + worktree
-git add -A                       # capture full current tree (all blobs)
-git commit ...                   # PINNED metadata -- see Blocker 2
-git branch -D main
-git branch -m main               # tmp -> main
+git rev-parse <c1> > .git/shallow    # treat c1 as parentless (graft)
 git reflog expire --expire=now --all
-git gc --prune=now               # reclaim now-unreachable old DAG
+git gc --prune=now                   # prunes everything below c1
 ```
 
-This is a squash-to-single-orphan-root: it **keeps the entire
-current tree** (Track A — every payload blob retained with its
-correct content hash) and drops only the commit DAG behind it.
-The git is mechanically valid. The obstacles are all at the
-Freechains layer, below.
+Why shallow, not `--orphan`: `c1` is the checkpoint that forms
+right after the rule-1 merge, and it is **shared by propagation**
+— one peer bakes it, the rest fetch that same object via
+`sync`'s `+main` (`done/260723-fork-7day.md`). Its hash is the
+common commit the whole side of the fork already agrees on, and
+the one `sync` feeds to merge-base to compute the fork point.
+`--orphan` would throw that shared hash away and mint a local
+one → guaranteed divergence (see rejected alt below). Shallow
+keeps `c1`'s real hash and merely forgets its ancestors.
+
+This retains the entire current tree (Track A — every payload
+blob still reachable via `c1`'s tree). The git is mechanically
+valid. The obstacles are all at the Freechains layer, below.
+
+## Two periods: consensus vs retention
+
+The 7-day hardfork threshold and the prune boundary answer
+**different** questions and should be **separate knobs**:
+
+| period | governs | concern |
+|--------|---------|---------|
+| `T_fork` = 7 days | consensus: local activity freezes ordering (rule 1, `done/260723-fork-7day.md`) | ordering / attacker |
+| `T_keep` = 30 days | retention: how much ancestry to keep before grafting | storage / sync |
+
+The graft boundary `c1` trails `T_keep`, not `T_fork`. So any
+peer offline **less than `T_keep`** forks *inside retained
+history* — merge-base resolves locally, no deepen, no DoS. Only
+forks older than `T_keep` hit the sub-boundary path (Blocker 3),
+where default-reject is defensible.
+
+Invariant: `T_keep ≥ straggler_tolerance > T_fork`. Pruning
+trails consensus by a safety margin; grafting right at the
+7-day checkpoint (as an earlier draft did) is what forced every
+straggler onto the expensive deepen path.
 
 ## Blockers
 
 Ordered by severity. Blocker 1 alone makes the recipe
 unusable as written.
 
-### Blocker 1 — chain identity (FATAL, `sync.lua:54-61`)
+### Blocker 1 — the genesis-identity guard (`sync.lua:54-61`)
 
 ```lua
-loc_root = git rev-list --max-parents=0 loc   -- root commit hash
+loc_root = git rev-list --max-parents=0 loc   -- traversal root
 rem_root = git rev-list --max-parents=0 rem
 if loc_root ~= rem_root then ERROR("chain sync : incompatible genesis")
 ```
 
-**Chain id = the root (genesis) commit hash.** Sync rejects any
-peer whose root differs. Squashing mints a *new* root, so its
-`--max-parents=0` hash ≠ every non-flattened peer's genesis →
-`ERROR : chain sync : incompatible genesis`. The flattened peer
-can no longer sync with anyone on the chain.
+Shallow graft **preserves** the shared checkpoint hash `c1`, so
+merge-base with peers still resolves on `c1` — this works even
+between a shallow peer and a full-history peer, since both hold
+`c1`. Identity as a whole is fine. The one residual: on a shallow
+repo `rev-list --max-parents=0` returns the **shallow boundary
+`c1`**, not the true genesis `G`. So a flattened peer reports
+root `c1` while a full peer reports `G` → this specific guard
+still trips `incompatible genesis`.
 
-Fix — two alternatives:
+Fix — the guard must compare on a **shared reference**, not the
+traversal root:
 
-| alt | approach | cost |
-|-----|----------|------|
-| **1a** (preferred) | match chains on **genesis content**, not root-commit hash — `add -A` already carries `.freechains/genesis.lua` + `random` forward into the flattened tree; sync compares that instead of `rev-list --max-parents=0` | changes the identity check in `sync.lua` |
-| **1b** | accept flatten = a deliberate hard fork off the network: only *other* flatteners with a byte-identical deterministic root interoperate | network partitions into archive-tier vs flattened-tier |
+| alt | approach |
+|-----|----------|
+| **1a** (preferred) | carry the true genesis hash forward (e.g. in `.freechains/` state) and compare that, independent of shallow depth |
+| **1b** | compare on the shared checkpoint `c1` when either side is shallow |
 
-This resolves the old "does sync need a flattened mode" open
-question: **yes, mandatory.**
+Merge-base already works, so this is a narrow guard change, not
+a redesign. Resolves the old "does sync need a flattened mode"
+question: **yes, but minimal.**
 
-### Blocker 2 — deterministic root (mandatory for any interop)
+### (removed) deterministic-root blocker
 
-Plain `git commit` stamps wall-clock date + local committer +
-free-text message → a **non-deterministic** root. Two honest
-peers who both flatten the same checkpoint then get different
-root hashes → mutual "incompatible genesis" even between each
-other. The commit must be pinned from checkpoint data:
+The earlier `--orphan` design minted a new root and so needed
+its commit fields pinned for two honest flatteners to converge.
+Shallow graft **mints nothing** — `c1`'s hash comes from
+propagation, exactly like normal sync — so this blocker is gone.
+Any determinism concern about `c1` itself is pre-existing in the
+consensus/merge layer, not introduced by pruning.
 
-| field | must be |
-|-------------------------|------------------------------------|
-| author+committer date   | the checkpoint commit's timestamp  |
-| author+committer id     | a fixed constant                   |
-| message                 | a fixed constant                   |
-| parent                  | none                               |
-
-The tree is already deterministic: git sorts tree entries, blob
-hash = content, payload filenames sync identically across peers,
-and `.freechains/state/*` is byte-identical by `state-hash.md`.
-So a *pinned* commit over that tree yields an identical root on
-every honest peer. Still open: nail the exact construction and
-test peer-to-peer convergence.
-
-### Blocker 3 — beg refs pin the old history
+### Blocker 2 — beg refs pin the old history
 
 `refs/begs/beg-<hash>` point at commits whose parent chain **is**
-the pre-squash mainline (`post.lua` parks them, then
-`reset --hard HEAD~2`; `sync.lua` mirrors `+refs/begs/*`). After
-squashing `main`, those refs still reach the whole old DAG, so
-`gc --prune=now` **frees nothing**, and the begs dangle off a
-history disconnected from the new root. Flatten must also
-expire / re-anchor / drop `refs/begs/*`.
+the pre-checkpoint mainline (`post.lua` parks them, then
+`reset --hard HEAD~2`; `sync.lua` mirrors `+refs/begs/*`). A beg
+ref is a gc root, so it keeps the whole old DAG below `c1`
+reachable — `gc --prune=now` then **frees nothing**, defeating
+the shallow graft. Flatten must also expire / re-anchor / drop
+`refs/begs/*`.
 
 ### Retrieval + metadata (the real feature work)
 
-Squash destroys every pre-checkpoint commit, hence every
-commit-hash post id. `get.lua`/`like.lua`/revoke resolve posts
+The shallow graft prunes every pre-checkpoint commit, hence
+every commit-hash post id below `c1`.
+`get.lua`/`like.lua`/revoke resolve posts
 through commit-level ops keyed by that id
 (`merge-base --is-ancestor <hash>`, `trailer(<hash>)`,
 `diff-tree <hash>`, `git show <hash>:<file>`), so all of them
@@ -121,37 +141,84 @@ to read state + blob store instead of the commit. See
 "Retrieval after truncation" below for the mechanism and its
 limits.
 
+### Blocker 3 — sub-boundary straggler merge (and its DoS)
+
+A peer P offline longer than `T_keep` forks at `oct`, now **below**
+`c1`. `merge-base(our_tip, P_tip) = oct`, which we pruned, and
+consensus rule 2 needs the `G..oct` prefix reps — also pruned. So
+the merge cannot compute as-is.
+
+Recovery is possible because P still holds the pruned slice: a
+normal fetch of P's branch re-transfers `oct` and its ancestry
+(git fills our gap), deepening us past `c1`; we then replay-
+validate (signatures are self-contained, reps replay is
+deterministic → **verify, not trust**), merge (rule 1 → P after
+us), and optionally re-prune. Hard-fail only if the prefix
+exists **nowhere** (P also flattened above `oct`, no archive
+peer) — then only weak options remain: trust P's presented
+`oct`-state, or have P re-anchor its wanted posts as fresh posts
+on our tip (new ids, P pays current reps).
+
+**But automatic deepen-on-fetch is a DoS.** Flattening does not
+create this cost, it *moves* it: un-flattened, straggler merge
+is cheap (we still hold `oct`); flattened, each sub-boundary
+merge costs a re-fetch + replay. Asymmetry:
+
+| | |
+|---|---|
+| trigger | any peer advertises a branch forking below `c1` |
+| victim cost | re-fetch pruned prefix + replay-validate + storage re-inflates |
+| attacker cost | ~nil — one advertisement pointing at *real* old history |
+| amplification | fork from genesis for maximal deepen; repeat from sock-puppets |
+
+The prefix is signed by others, so it can't be *fabricated* —
+this is resource exhaustion, not a consensus attack. You cannot
+pre-filter by merit (the merit-reps are in the pruned prefix),
+so the defense is to **bound the work**:
+
+1. **Default-reject** inbound sub-boundary forks in
+   `pre-receive` / `sync recv` — consistent with the permanent
+   boundary. No unsolicited peer can force a deepen.
+2. **Deepen only as explicit, operator-initiated pull**
+   (`sync recv --deepen P`), never a reflex to an inbound sync.
+3. **Cap** deepen depth / bytes; hard floor below which you
+   refuse.
+4. **Delegate depth to archive peers**; normal peers stay
+   shallow and un-DoS-able.
+5. **Blacklist** peers that repeatedly advertise deep forks.
+
+`T_keep` (Two periods) shrinks this surface: only forks older
+than 30 days reach here at all.
+
 ### Signatures (trust model, with a caveat)
 
-Treating the flattened root like genesis (unsigned, trusted —
-`genesis.md`) is acceptable *as a trust model* and matches
-Track B's "trust the checkpoint". Own the consequences:
-
-- All per-post signatures are gone (the signed commits are
-  gone). The peer can only *assert* authorship via trusted
-  state, never *prove* it; full-history peers still can.
-- Consensus / `pre-receive` must be confirmed to **accept** an
-  unsigned root — tied to Blocker 1's flattened mode.
+The kept checkpoint `c1` keeps its real hash, but the **signed
+post commits below it are pruned**. Their per-post signatures go
+with them; the peer can only *assert* pre-checkpoint authorship
+via trusted state, never *prove* it (full-history peers still
+can). That matches Track B's "trust the checkpoint". `c1` itself
+stays whatever it was — signed or not — so no unsigned-root
+question arises (unlike the old orphan design).
 
 ### Smaller checks
 
-- **`add -A` scope** — OK-ish: `.freechains/tmp/*` is gitignored
-  (skel `.gitignore`), so runtime scratch does not leak. But any
-  *untracked-and-unignored* stray file gets absorbed → breaks
-  determinism; `git clean` / verify first. (`layout.md` is stale:
-  it says `now.lua` untracked; real path is `.freechains/tmp/`.)
 - **Revoked payloads** — if a revoked/removed post's file is
-  still on disk, `add -A` re-commits it → resurrects forgotten
-  content. Confirm revoke / remove-blob `git rm`s the payload
-  before trusting `add -A`.
-- **Atomicity** — `branch -D main` before verifying `tmp` risks
-  losing `main` on interrupt; build `tmp` → verify → swap.
+  still present in `c1`'s tree, it survives the shallow graft
+  (graft only drops ancestors, never edits the kept tree). To
+  actually forget it, an explicit `git rm` on `c1`'s tree is
+  needed — a Track B action, not a graft side-effect. Confirm
+  revoke / remove-blob already `git rm`s the payload.
+- **`.git/shallow` is low-level** — writing it by hand then
+  `gc --prune=now` is the local-repo path to shallowness; verify
+  git honors the graft for prune and that no other ref (tag,
+  reflog, beg) keeps ancestors alive.
 
 ## Two tracks, two risk profiles
 
 ### Track A — keep the whole tree (safe)
 
-The recipe above is Track A: drop the DAG, keep every blob.
+The recipe above is Track A: drop the ancestry below `c1`, keep
+`c1`'s tree (every blob) intact.
 `.freechains/state/*.lua` is a pure cache — `apply()` replayed
 over the post/like/revoke trailers reproduces it exactly (the
 premise of `state-hash.md`'s exact-match check: trust comes from
@@ -170,9 +237,10 @@ are small; payloads are where the bloat is.
 
 Alternative to A, higher risk/reward. Payloads are signed
 content, not a derived cache. Reclaiming their storage needs an
-explicit `git rm` of the accumulated files at the graft — it is
-**not** a free side-effect of orphaning (the files rode forward
-into the tree; see appendix). Discarding them is exactly
+explicit `git rm` on `c1`'s tree — it is **not** a free
+side-effect of the shallow graft, which only drops ancestor
+objects and never touches the kept tree (the payload files rode
+forward into `c1`; see appendix). Discarding them is exactly
 `260721-remove-blob.md`'s cooperative, non-guaranteed forgetting,
 wholesale: any peer holding the bytes can still re-serve them; a
 NEW peer talking only to flatteners gets a checkpoint it must
@@ -206,17 +274,21 @@ Scope and limits:
   payload servable but no longer provably authored; blob-hash
   cannot recover the signature.
 
-## Why orphan-at-tip, not interior rewrite
+## Mechanism: shallow graft vs orphan vs interior rewrite
 
-`prune.md`'s `--orphan` is the right primitive because of one
-timing constraint: **flatten only at the current tip**. A git
-commit hash is a Merkle chain — `parent` is inside the hash
-(`git.md:62-77`). Editing an *interior* commit cascades new
-hashes to every descendant: full history rewrite, rejected in
-`260721-remove-blob.md` ("#1 rewrite: sacrifices the DAG").
-Grafting a new root at the tip has no descendants yet to break;
-only what's strictly before it is discarded, and no
-already-published commit changes hash.
+Three ways to shed pre-checkpoint history; only shallow keeps
+the shared hash.
+
+| approach | `c1` hash | verdict |
+|----------|-----------|---------|
+| **interior rewrite** (strip old commits in place) | changes (Merkle cascade — `parent` is in the hash, `git.md:62-77`) | rejected in `260721-remove-blob.md` ("#1 rewrite: sacrifices the DAG") |
+| **`--orphan`** (mint new parentless root at the tip) | changes (new root) | **rejected here** — destroys the checkpoint hash the network shares by propagation; merge-base with peers breaks |
+| **shallow graft** (`.git/shallow` = `c1`, gc ancestors) | **unchanged** | chosen — `c1` keeps its real hash; only ancestors are forgotten |
+
+Shallow is strictly better than orphan for this case: the
+checkpoint is not a fresh boundary we get to invent, it is an
+already-agreed commit, so the goal is to *keep* its hash while
+forgetting what's below — exactly what a shallow graft does.
 
 ## Q: can post IDs survive a rewrite?
 
@@ -241,41 +313,47 @@ Alternatives for keeping old posts individually addressable:
 
 ## Peer-compatibility consequence
 
-Minting a new root is itself a divergence event between "did
-flatten" and "did not flatten" peers — structurally a hard fork,
-deliberately chosen. A flattened peer can only be cloned from
-**filtered/partial** going forward
-(`260721-remove-blob.md`'s `filter=blob:none` + by-hash payload
-fetch), by peers willing to accept the checkpoint as trusted
-(Track B) or redo a genesis replay to confirm it (Track A).
+Because shallow keeps `c1`'s real hash, a flattened peer is
+**not** a fork of the network — it agrees on `c1` and every
+descendant, it just cannot serve history below `c1`. Cloning it
+is a shallow/partial fetch (`260721-remove-blob.md`'s
+`filter=blob:none` + by-hash payload fetch is the same tier),
+usable by peers that accept the checkpoint as trusted (Track B)
+or that fetch deeper from an archive peer to replay (Track A).
 Mirrors remove-blob's "eager replication -> lazy fetch" shift
-(`260721-remove-blob.md:247-259`): archive-tier and flattened-
-tier peers coexist, same as full-payload holders vs not today.
+(`260721-remove-blob.md:247-259`): archive-tier and shallow-tier
+peers coexist, same as full-payload holders vs not today.
 
 ## Open questions
 
-- **Blocker 1 fix** — pick 1a (content-based identity) vs 1b
-  (flatten = hard fork). 1a keeps flatteners on the network.
-- **Blocker 2 construction** — pin the exact orphan-commit
-  fields and test peer-to-peer convergence.
-- **Blocker 3** — decide beg-ref fate: re-anchor pending begs
-  onto the new root, or drop them.
+- **Blocker 1 guard** — pick 1a (carry true genesis hash in
+  state, compare that) vs 1b (compare on shared `c1` when either
+  side is shallow). Narrow `sync.lua` change either way.
+- **Blocker 2 beg refs** — re-anchor pending begs onto `c1`, or
+  drop them, so they stop pinning the ancestry.
+- **Blocker 3 policy** — the deepen floor/cap (max depth/bytes);
+  designated archive peers vs opportunistic; blacklist rule for
+  repeat deep-fork advertisers.
+- **`T_keep` value** — 30 days a good default? Make it a
+  configurable constant (alongside `T_fork`); must stay
+  `≥ straggler_tolerance > T_fork`.
 - **Metadata fold** — eager vs lazy population of
-  `sign`/`why`/`time` into `posts.lua`.
-- **Automatic vs opt-in** — flatten the instant a peer
-  hard-forks (max storage savings, archive tier shrinks) or
+  `blob`/`sign`/`why`/`time` into `posts.lua`.
+- **Automatic vs opt-in** — shallow-flatten on a rolling
+  `T_keep` schedule (max savings, archive tier shrinks) or
   manual (preserves the archive tier)?
 
 Resolved:
-- Sparse-checkout / bare-repo is **not** needed here (unlike
-  remove-blob): orphan-at-tip has no interior-rewrite
-  resurrection vector. Holds only while every `git add` stays
-  targeted — grep confirms zero `git add -A` in the write path
-  (the recipe's one-shot `add -A` is a deliberate flatten step,
-  not a per-write add). Invariant: never add a blanket add to
-  `post`/`like`/`sync`.
-- Track A is worth it as its own tier (drop DAG, keep tree,
-  serve old posts by id), not just cache pruning.
+- **Shallow graft, not `--orphan`** — keep `c1`'s real,
+  network-shared hash; only forget ancestors. Dissolves the
+  minted-root identity break and its determinism requirement.
+- Sparse-checkout / bare-repo is **not** needed: shallow never
+  rewrites interior history or rebuilds the tree, so the
+  remove-blob `add -A` resurrection vector never arises here.
+  (Invariant still worth keeping: no blanket `git add` in
+  `post`/`like`/`sync`.)
+- Track A is worth it as its own tier (drop ancestry, keep
+  tree, serve old posts by id), not just cache pruning.
 
 ## Appendix: worked example (front-truncation vs in-place compaction)
 
@@ -302,37 +380,41 @@ That's the concrete meaning of "post ID = commit hash"
 (`git.md`): the hash `a1` isn't just an address, it's the
 *name* other data structures point at.
 
-### Front-truncation (this plan) — works
+### Shallow graft at `c1` (this plan) — works
 
 ```
-z1 = commit(parent=NONE, tree=c1's tree)   -- orphan root, grafted AT c1,
-                                               nothing after it exists yet
-      └─ (future posts build on z1 normally)
+.git/shallow = { c1 }        -- c1 kept at its REAL hash, treated as parentless
+G, a1, b1  -> pruned by gc    -- ancestors below c1 forgotten
+      └─ c1 ── (future posts build on c1 normally)
 ```
 
-Commits `a1` and `b1` are **gone** — not renamed, not
+`c1` keeps its real, network-shared hash — that is the point:
+peers still agree on `c1` and merge-base against it. Commits
+`a1` and `b1` (its ancestors) are **gone** — not renamed, not
 preserved as commit objects, so nothing resolves them by their
 commit-hash id anymore (that is what the blob-hash-in-metadata
 section fixes for retrieval).
 
-But their *tree content is not discarded by the orphan*.
+But their *tree content is not discarded by the graft*.
 Freechains chains are non-bare working trees and every write is
 a `git add` of a tracked file, so git trees **accumulate**: the
 post payload file and `.freechains/likes/a1/...` were committed
 in `a1`/`b1` and then rode forward unchanged into `c1`'s tree.
-Since `z1 = commit(tree=c1's tree)`, both files are **still
-present in `z1`**. What the orphan drops is the *commit DAG*
-(ancestry, and with it commit-hash addressability and the GPG
-signatures), not the tip tree.
+`c1`'s tree is untouched by the graft, so both files are **still
+present**. What the graft drops is the *ancestor commit objects*
+(and with them commit-hash addressability and the pre-checkpoint
+GPG signatures), not `c1`'s tree.
 
 Consequence for Track B: actually reclaiming payload storage
-needs an explicit `git rm` of the accumulated files at the
-graft — it is **not** a free side-effect of orphaning. The
-reps/revoke effect is independently summed into `z1`'s state
-tables, so the raw files can go without losing derived state.
+needs an explicit `git rm` on `c1`'s tree — it is **not** a free
+side-effect of the graft. The reps/revoke effect is
+independently summed into `c1`'s state tables, so the raw files
+can go without losing derived state.
 
-This all only works because truncation happens **at the current
-tip**, before anything new points back at `a1`/`b1`.
+Contrast with `--orphan`: that would rebuild `c1` as a new
+parentless commit with a *different* hash — same tree, but the
+network no longer recognizes it. Shallow keeps the hash;
+that is the whole reason it is chosen over orphan here.
 
 ### In-place compaction trying to *keep* `a1` addressable — breaks
 
