@@ -376,6 +376,23 @@ Resolved:
 - Track A is worth it as its own tier (drop ancestry, keep
   tree, serve old posts by id), not just cache pruning.
 
+## Implementation order
+
+Dependency-ordered. The metadata fold (step 2) must ship and be
+populating **before** any prune runs (steps 3+), or pruned posts
+become unresolvable; reject (step 5) must precede rolling-auto
+(step 6) so no prune opens a deepen-DoS window.
+
+| # | step | file / place | notes |
+|---|------|--------------|-------|
+| 1 | `T_keep` constant | `constants.lua` — new `keep = { time = 30*24*h, posts = 500 }` next to `fork` | knob for boundary select |
+| 2 | eager metadata fold | `common.lua` ~193 (post entry): add `blob`, `why`, `backs`; `get.lua`: resolve `--payload`/`--metadata` from `posts.lua` + blob store, not the commit | prerequisite for every later step |
+| 3 | boundary select + shallow graft | new `chain/flatten.lua` (or maintenance path): pick newest checkpoint older than `T_keep` (either axis) as `c1`; write `.git/shallow`, `reflog expire`, `gc --prune=now` | keeps `c1` real hash |
+| 4 | beg drop | `sync.lua` ~499: extend stale-beg cleanup to drop `refs/begs/*` below the boundary | else begs pin the ancestry |
+| 5 | Blocker-1 guard | `sync.lua:54-61`: compare on the chain-id genesis hash (`#<genesis-hash>` dir name) instead of `rev-list --max-parents=0` | lets shallow peers sync |
+| 6 | reject sub-boundary forks | `pre-receive` / `sync recv`: reject inbound branch forking below local boundary; blacklist repeat offenders | closes the DoS |
+| 7 | rolling-auto trigger | invoke step 3 on a rolling `T_keep` schedule (e.g. post-`sync`) | only after 3–6 exist |
+
 ## Appendix: worked example (front-truncation vs in-place compaction)
 
 Fake short hashes throughout.
