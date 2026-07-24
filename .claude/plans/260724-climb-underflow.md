@@ -163,14 +163,159 @@ Correct direction (design change to `sync.lua` re-derivation):
 This subsumes part 1 (no recursion underflow) and part 2 (order becomes
 a pure function of the DAG) while KEEPING reps-consensus.
 
+## Design (2026-07-24)
+
+### Two derivation paths that must agree
+
+The strict state check compares a receiver's RE-DERIVED state against
+the sender's STORED bytes. But merged order is produced by TWO different
+code paths:
+
+- ff path (`sync.lua:354-371`): the `climb`-derived `G_rem` IS the
+  answer, checked byte-for-byte.
+- divergent path (`sync.lua:377-456`): `fst` (winner) state + `O_snd`
+  (loser order) appended via git merges — the REORDER path.
+
+The sender A built M2 via the divergent/reorder path; the receiver B
+validates via `climb` (ff path). The two disagree on nested-merge order.
+
+### Why no local fix works
+
+`meet(com, left, right)` sets `up = merge-base(left, right)` and recurses
+`climb(up, arm)`. For `M2 = merge(takeover, M1)`, `up = AW`, and the arm
+`M1 = merge(CW, AW)` re-merges `up` (AW) with `CW`, which forks at
+genesis < up. So:
+
+- the inner meet's floor is `AW` (the outer `up`), never the global oct
+  -> deepening oct does NOT help (validated: still crashes).
+- `AW` is already EMITTED by the time M1 asks to order `CW` vs `AW`
+  -> append-only order cannot reposition it -> `CW` lands after `AW`,
+  but canonical is `CW` before `AW`.
+
+Binary merge-tree recursion is insufficient: `M2` effectively reconciles
+THREE branches (takeover, AW-line, CW-line) forking at TWO depths
+(AW, genesis). Pairwise `merge-base(takeover, M1) = AW` hides the deeper
+CW fork.
+
+### Target invariant
+
+ONE canonical order = pure function of (DAG, reps-at-forks),
+independent of oct and of which peer derives it. Both the store and the
+re-derivation must emit it. Reps-consensus preserved (no time/hash
+shortcut).
+
+Requirement that forces the shape: nothing may be emitted until every
+fork that could order a commit before it is resolved. => reconcile
+DEEPEST fork first (bottom-up), from a floor below ALL forks in the
+divergent region.
+
+### Candidate algorithms
+
+- **B1 — bottom-up fold**: collect all merges in the region; reconcile
+  from the deepest merge-base up. At each fork run `consensus` and
+  concatenate winner-then-loser; a `visited` set prevents re-emit.
+  Preserves current semantics for simple forks; fixes nesting.
+- **B2 — comparator sort**: define `before(X,Y)` = winner side at
+  `merge-base(X,Y)` (tie: hash); topologically stable-sort the reachable
+  post/like set. Cleanest spec, but must prove transitivity and cost
+  (per-pair merge-base + reps-at-fork).
+- **B3 — unify paths only**: make the divergent/reorder path ALSO run
+  the canonical fold to store, and `climb` reuse the SAME function, so
+  sender and receiver can't diverge by construction.
+
+Lean: **B1 + B3** — one `derive(tips)` fold used by BOTH the ff check
+and the divergent store; reconcile bottom-up with a visited guard.
+Significant rewrite of `sync.lua`'s `climb`/`meet` + the reorder block.
+
+### B1 fold — CONCRETE (traced, matches canonical)
+
+A canonical order provably EXISTS: B, A, H-community all produced
+`[.., CW, AW, day1, day7, takeover]` via non-underflowing paths. The
+fold that reproduces it:
+
+```
+-- oct = deepest fork in region (octopus of all merge-bases of merges
+-- reachable from tips). G, visited, order seeded from G_oct (canonical
+-- prefix, since oct is below all forks).
+for M in merges_reachable_from_tips (TOPOLOGICAL order, ancestors first):
+    p1, p2 = parents(M)
+    fork   = merge-base(p1, p2)
+    emit(fork)                    -- ensure trunk to fork emitted
+    w, l   = consensus(fork, p1, p2)
+    emit(w); emit(l)              -- winner side then loser side
+for tip in tips: emit(tip)        -- remaining above the last merge
+
+emit(h):                          -- oldest-first, visited-guarded
+    walk h's ancestors down to the deepest UNVISITED post/like,
+    skipping visited and already-processed merges; apply + append
+    each post/like once; mark visited.
+```
+
+Fixes both bugs: deepest-fork-first => no underflow and no stale
+inheritance (CW/AW ordered together at genesis before anything above);
+`consensus()` unchanged => reps-consensus preserved.
+
+### B3 — unify
+
+`derive(tips)` replaces: (a) `climb`/`meet` in the ff-check path, and
+(b) the append-ordering in the divergent/reorder block (git merge
+commits still created for the DAG; STATE/order come from `derive`).
+Sender store and receiver check run the SAME code => can't diverge.
+
+### PROTOTYPE VALIDATED (2026-07-24, scratch)
+
+Implemented `derive` in scratch (reusing in-scope `consensus`/`commit`/
+`parents`), derived from genesis root over BOTH tips:
+
+```
+Gd = state at root; visited = Gd.order
+for M in `rev-list --topo-order --reverse --merges loc rem`:  -- ancestors first
+    p1,p2 = parents(M); fork = merge-base(p1,p2)
+    emit(fork); w,l = consensus(Gd, fork, p1, p2); emit(w); emit(l)
+-- virtual top merge of the two recv tips:
+fork = merge-base(loc, rem); emit(fork)
+w,l = consensus(Gd, fork, loc, rem); emit(w); emit(l)
+
+emit(h): if visited[h] return; emit(p1); emit(p2); visited[h]=true;
+         commit(Gd, h)   -- appends post/like to Gd.order; merge/state noop
+```
+
+Results:
+- nested case: `derive` == A's canonical order  (bug FIXED)
+- simple fork: `derive` == existing algo order   (NO regression, byte-eq)
+
+Key correction vs first attempt: must derive over BOTH `loc` and `rem`
+(the merge commit doesn't exist yet during a divergent recv) + a final
+VIRTUAL reconcile of `loc`/`rem`.
+
+### Open impl details
+- topo-order the merges cheaply: `git rev-list --topo-order --merges`
+  (reverse for ancestors-first).
+- `emit()` must stop cleanly at processed merges (their subtree already
+  visited) -- guaranteed by ancestors-first processing.
+- confirm `derive` reproduces EXISTING simple-fork order byte-for-byte
+  (regression: run full `make tests`).
+
+Open questions for implementation:
+- efficient "deepest fork in region" without O(n^2) merge-bases
+- reps-at-fork are already in `G` during a single fold pass if we go
+  bottom-up (compute the shared trunk once, then each arm)
+- does the git commit topology (real merge commits) still get written
+  the same, or only the state files?
+
 ## Checklist (revised)
 
 - [x] Repro test (red) — minimized to 2 peers / 3 posts (AW, CW, takeover)
 - [x] Diagnose: nested-merge underflow + oct-dependent ordering
-- [ ] DESIGN the canonical consensus fold (visited-guarded)
-- [ ] Implement in `sync.lua`; sender + receiver agree byte-for-byte
-- [ ] `climb-underflow.lua` green; `make tests` green
-- [ ] `./guide.sh` completes
+- [x] DESIGN the canonical consensus fold (visited-guarded)
+- [x] Prototype validated (nested == canonical; simple == existing)
+- [x] Implement in `sync.lua`: `climb`/`meet` -> `derive` fold; divergent
+      path stores `G_rem` (canonical); drop `G_fst` state-building
+- [x] Smoke (scratch): nested fixed (B==A order); simple fork converges;
+      hard-fork local-first preserved; likes/reps ok
+- [x] `climb-underflow.lua` wired into `make tests`
+- [ ] `make tests` green (USER to run)
+- [ ] `./guide.sh` completes (USER to run)
 
 ## Checklist
 
