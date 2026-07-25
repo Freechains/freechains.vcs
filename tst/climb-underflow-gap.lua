@@ -1,22 +1,41 @@
 #!/usr/bin/env lua5.4
 
--- KNOWN FAILURE (not wired into `make tests`): run via
---   make T=climb-underflow-gap test
+-- Same nested-merge shape as tst/climb-underflow.lua, but the community
+-- advances across a LARGE time gap (day7 ~7 days after the fork), which
+-- makes the SENDER take rule 1 (hard fork) at the outer merge.
 --
--- The simple `climb` fix (visited + ancestor guards, tst/climb-underflow.lua)
--- resolves the nested-merge underflow and matches across peers WHEN the
--- posts are close in time. But when the nested merge spans a large time gap
--- (crossing the 24h maturation/consolidation window, as the README guide
--- does), the two derivation paths -- `climb` (ff-check, from the shallow
--- `oct`) and the reorder-append (divergent store) -- DIVERGE, and the strict
--- state check rejects the recv:
+-- The replay must mirror the sender's decision exactly, or the strict state
+-- check rejects the recv:
 --
 --   ERROR : chain sync : remote state mismatch
 --
--- Same nested topology as climb-underflow.lua, but `day7` sits ~7 days after
--- the fork so maturation kicks in. Asserts H's order == A's order after the
--- recv; RED today. A full fix (single canonical `derive` fold over both tips
--- from genesis) makes it green -- see .claude/plans/260724-climb-underflow.md.
+-- That needs `meet` to (a) use the same ancestor definition as the
+-- top-level `oct` (boundary octopus, not the pairwise merge-base) and
+-- (b) apply `hardfork` before `consensus`.
+--
+-- GEN_2: KEY1=15, KEY2=15. KEY2 likes seed before the fork so KEY1 > KEY2:
+-- consensus is decided by REPS, not by the hash tiebreak (commit hashes vary
+-- run to run, which would make the expected order non-deterministic).
+--
+-- Full DAG (top-down). F1 = seed/like (deepest fork), F2 = AW:
+--
+--                      seed[K1]          (F1: deepest fork)
+--                    /       \
+--               AW[K1]        CW[K2]      (concurrent, fork at F1)
+--                |   \        /
+--                |    M1 = merge(AW, CW) (inner merge, forks at F1)
+--                |         |
+--                |      day1[K2]
+--                |         |
+--                |      day7[K2]          (~7 days later: crosses maturation)
+--                |         |
+--           takeover[K1]   |
+--                 \        /
+--                  M2 = merge(takeover, day7)   (outer merge, forks at F2)
+--
+-- M2's community side nests M1 (F1 < F2), and day7 makes the sender
+-- entrench (rule 1). Asserts H's order == A's order after H recvs A.
+-- See .claude/plans/260724-climb-underflow.md.
 
 require "tests"
 
@@ -49,14 +68,26 @@ local function order (exe, chain)
     return T
 end
 
--- reuse the nested topology, but the community advances across a 7-day gap
 do
-    print("==> Test: nested merge across a maturation gap (KNOWN FAILURE)")
+    print("==> Test: nested merge across a hard-fork time gap")
 
-    TEST "A creates chain, B and H clone"
+    -- A: G -- seed[K1]
+    TEST "A creates chain + seeds seed.txt"
     exec {
         cmd = EXE_A .. " --now=1000 chains add '#cg' init file " .. GEN_2,
     }
+    local seed = exec {
+        cmd = EXE_A .. " --now=1020 chain '#cg' post inline 'seed\n' --file seed.txt --sign " .. KEY1,
+    }
+
+    -- K2 pays 1, 10% burned, half credited to K1 -> K1 > K2 (no hash tiebreak)
+    TEST "KEY2 likes seed (loses reps, KEY1 > KEY2 at fork)"
+    exec {
+        cmd = EXE_A .. " --now=1040 chain '#cg' like 1 post " .. seed .. " --sign " .. KEY2,
+    }
+
+    -- A / B / H all at the like (= F1)
+    TEST "B and H clone cg (at the like = F1)"
     exec {
         cmd = EXE_B .. " chains add '#cg' clone " .. ROOT_A .. "/chains/#cg/",
     }
@@ -64,7 +95,8 @@ do
         cmd = EXE_H .. " chains add '#cg' clone " .. ROOT_A .. "/chains/#cg/",
     }
 
-    TEST "A posts AW, B posts CW (fork at genesis)"
+    -- A: ... -- AW[K1]      B: ... -- CW[K2]     (both fork at F1)
+    TEST "A posts AW (higher reps), B posts CW (fork at F1)"
     exec {
         cmd = EXE_A .. " --now=1100 chain '#cg' post inline 'AW\n' --file aw.txt --sign " .. KEY1,
     }
@@ -72,11 +104,13 @@ do
         cmd = EXE_B .. " --now=1100 chain '#cg' post inline 'CW\n' --file cw.txt --sign " .. KEY2,
     }
 
-    TEST "B recvs A -> inner merge M1"
+    -- B: G -- {AW, CW} -- M1        (inner merge, forks at genesis = F1)
+    TEST "B recvs A -> inner merge M1 = merge(AW, CW)"
     exec {
         cmd = EXE_B .. " --now=1150 chain '#cg' sync recv " .. ROOT_A .. "/chains/#cg/",
     }
 
+    -- B: ... M1 -- day1[K2] -- day7[K2]      (day7 ~7 days later)
     TEST "B posts day1, then day7 ~7 days later (crosses maturation)"
     exec {
         cmd = EXE_B .. " --now=1200 chain '#cg' post inline 'day1\n' --file d1.txt --sign " .. KEY2,
@@ -85,20 +119,27 @@ do
         cmd = EXE_B .. " --now=1780000000 chain '#cg' post inline 'day7\n' --file d7.txt --sign " .. KEY2,
     }
 
-    TEST "H recvs the community branch"
+    -- H: ... M1 -- day1 -- day7      (community, no takeover)
+    TEST "H recvs the community branch (day7)"
     exec {
         cmd = EXE_H .. " --now=1780000001 chain '#cg' sync recv " .. ROOT_B .. "/chains/#cg/",
     }
 
-    TEST "A posts takeover, then recvs community -> outer merge M2"
+    -- A: G -- AW -- takeover[K1]     (AW = F2, A still has no M1)
+    TEST "A posts takeover (child of AW = F2)"
     exec {
         cmd = EXE_A .. " --now=1780000002 chain '#cg' post inline 'takeover\n' --file to.txt --sign " .. KEY1,
     }
+
+    -- A: ... -- M2 = merge(takeover, day7)   (outer merge, forks at AW = F2)
+    TEST "A recvs community -> outer merge M2 (fork = AW), nesting M1"
     exec {
         cmd = EXE_A .. " --now=1780000003 chain '#cg' sync recv " .. ROOT_B .. "/chains/#cg/",
     }
 
-    -- RED: the simple fix fails here with "remote state mismatch"
+    -- H holds the community (M1, day1, day7) but not takeover; replaying A's
+    -- M2 must reach the same order the sender stored (rule 1 at the outer
+    -- merge, reps-consensus at the inner one).
     TEST "H recvs A (nested merge across the gap) -- must not mismatch"
     exec {
         cmd = EXE_H .. " --now=1780000004 chain '#cg' sync recv " .. ROOT_A .. "/chains/#cg/",

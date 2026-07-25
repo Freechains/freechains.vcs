@@ -24,6 +24,7 @@ tests:
 	$(L) consensus.lua
 	$(L) reorder-ancient.lua
 	$(L) climb-underflow.lua
+	$(L) climb-underflow-gap.lua
 	$(L) fork-7-days.lua
 	$(L) fork-100-posts.lua
 	$(L) err-post.lua

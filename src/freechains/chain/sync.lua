@@ -115,25 +115,37 @@ elseif ARGS.recv then
             end
         end
 
-        -- Hard fork (rule 1): an entrenched local branch wins unconditionally
-        --  - time:  tip timestamp - common ancestor timestamp
-        --  - posts: post commits in com..tip
-        --  - both axes are OR-combined and monotonic (no flapping)
-        local function hardfork (com, tip)
-            if NOW(tip)-NOW(com) >= C.fork.time then
-                return true
-            else
-                local n = 0
-                local out = exec {
-                    cmd = "git -C " .. REPO .. " log --format=%H " .. com .. ".." .. tip,
-                }
-                for hash in out:gmatch("%x+") do
-                    if trailer(hash) == 'post' then
-                        n = n + 1
-                    end
+        -- Hard fork (rule 1): is `loc` entrenched against `rem`?
+        -- Direct local-vs-remote comparison over `exc`, the commits
+        -- EXCLUSIVE to loc (`git rev-list rem..loc`):
+        --   time  : newest(exc) - oldest(exc) >= fork.time
+        --   posts : posts in exc              >= fork.posts
+        -- Both inputs are loc's own commits, frozen in the DAG: the remote
+        -- cannot inflate them, and any peer replaying this merge re-derives
+        -- the same answer. Time is the SPAN of the exclusive commits, not
+        -- the age of the fork: idling after a fork adds no independent
+        -- history, so it must not buy entrenchment.
+        local function hardfork (rem, loc)
+            local n, old, new = 0, nil, nil
+            local out = exec {
+                cmd = "git -C " .. REPO .. " rev-list " .. rem .. ".." .. loc,
+            }
+            for hash in out:gmatch("%x+") do
+                if trailer(hash) == 'post' then
+                    n = n + 1
                 end
-                return n >= C.fork.posts
+                local t = NOW(hash)
+                if (not old) or t < old then
+                    old = t
+                end
+                if (not new) or t > new then
+                    new = t
+                end
             end
+            if old and (new-old) >= C.fork.time then
+                return true
+            end
+            return n >= C.fork.posts
         end
 
         local function commit (G, hash, beg, monotonic)
@@ -286,7 +298,7 @@ elseif ARGS.recv then
         -- rule 1 (hard fork) is a pre-check on the local branch only:
         -- an entrenched local branch skips the reps-based consensus
         local fst, snd
-        if hardfork(oct, loc) then
+        if hardfork(rem, loc) then
             fst, snd = loc, rem
         else
             fst, snd = consensus(G_oct, oct, loc, rem)
@@ -336,16 +348,43 @@ elseif ARGS.recv then
                         meet(G, com, p1, p2, is_beg_merge)
                     end
                     visited[cur] = true
-                    commit(G, cur, beg, false)
+                    commit(G, cur, beg, true)
                 end
             end
 
             meet = function (G, com, left, right, right_is_beg)
-                local up = exec {
-                    cmd = "git -C " .. REPO .. " merge-base " .. left .. " " .. right,
-                }
+                -- same ancestor definition as the top-level `oct`: the
+                -- boundary octopus of left...right, NOT the pairwise
+                -- merge-base. Otherwise the sender (which compares the
+                -- branches from `oct`) and this replay (which would compare
+                -- them from a shallower fork) sum different authors and pick
+                -- different winners.
+                local up
+                do
+                    local boundary = {}
+                    for line in (exec {
+                        cmd = "git -C " .. REPO .. " rev-list --boundary " ..
+                            left .. "..." .. right,
+                    }):gmatch("[^\n]+") do
+                        local h = line:match("^%-(%x+)")
+                        if h then
+                            boundary[#boundary+1] = h
+                        end
+                    end
+                    up = exec {
+                        cmd = "git -C " .. REPO .. " merge-base --octopus " ..
+                            table.concat(boundary, " "),
+                    }
+                end
                 climb(G, com, up, false)
-                local w = consensus(G, up, left, right)
+                -- mirror the sender's decision exactly: rule 1 (entrenched
+                -- first parent = its local branch) then reps-consensus
+                local w
+                if hardfork(right, left) then
+                    w = left
+                else
+                    w = consensus(G, up, left, right)
+                end
                 if w == left then
                     climb(G, up, left,  false)
                     climb(G, up, right, right_is_beg)

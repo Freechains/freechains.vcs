@@ -1,128 +1,176 @@
-# Climb Underflow: nested-merge reconciliation
+# Climb Underflow: nested-merge replay + hard-fork rule
 
-## Status: SIMPLE FIX in working tree — pending `make tests` + `./guide.sh`
+## Status: IN PROGRESS — working tree only, nothing committed
 
-Decision: adopt the SMALL fix (guards on the original `climb`), accept a
-known limitation on large time gaps, and document that limitation with a
-RED test. The committed `derive` fold (commit c5a8555) is being REPLACED
-by the simple fix in the working tree (uncommitted). START AT
-"## NEXT STEP".
+`main` untouched. Work so far (all uncommitted):
 
-## Symptom
+| file | change |
+|------|--------|
+| `sync.lua` | `climb` guards (`visited`, `ancestor`), `commit(..., false)` |
+| `sync.lua` | `meet`: boundary-octopus ancestor + `hardfork` + `consensus` |
+| `sync.lua` | `hardfork(rem, loc)` redesigned: span of `exc` (design #2) |
+| `tst/climb-underflow.lua` | nested repro, deterministic tie-break |
+| `tst/climb-underflow-gap.lua` | new: nested + 7-day gap, deterministic |
+| `tst/fork-7-days.lua` | rewritten for design #2 (A posts ACROSS the window) |
+| `Makefile` | both `climb-underflow*` wired in |
 
-`sync recv`/`send` of a branch with NESTED merges crashed the receiver:
+## The three defects fixed
 
-```
-ERROR : chain sync : sync.lua:300: attempt to concatenate a nil value (local 'tip')
-```
+1. UNDERFLOW: `meet` climbs each arm with its LOCAL fork `up` as floor;
+   a nested inner merge forking deeper descends past a root ->
+   `parents(nil)`. (A deeper global `com` does NOT help: `meet` re-floors
+   at `up`. Verified: still crashes 3/3.)
+2. DOUBLE-APPLY: the shared fork commit could be applied twice.
+3. ASYMMETRIC DECISION: the replay must reproduce the sender's choice.
+   It did not, because `meet` used a different ancestor (pairwise
+   `merge-base` vs the sender's boundary octopus) AND skipped rule 1.
 
-Surfaced in `guide.sh` final step (A's `sync send` back to hub X).
+Principle: wherever two branches are compared, use the SAME ancestor and
+the SAME rule.
 
-## Root cause
+## Hard-fork rule: design #2 (decided)
 
-`meet(com, left, right)` recursed `climb(up, side)` using its LOCAL fork
-`up` as the floor. A nested inner merge forking DEEPER than `up` made
-`climb(up, up')` with `up' < up` descend past a root -> `parents(nil)`.
-Plus a shared commit (the outer fork) could be visited/applied twice.
-
-## Minimal reproduction — `tst/climb-underflow.lua` (2 peers, 3 posts)
-
-```
-              genesis            (F1: deepest fork)
-             /       \
-        AW[K1]        CW[K2]
-         |   \        /
-         |    M1 = merge(CW, AW)      (M1 forks at genesis = F1)
-         |         |
-     takeover[K1]  |
-          \        /
-           M2 = merge(takeover, M1)  (M2 forks at AW = F2)
-```
-
-A posts AW, B posts CW (fork at genesis); B recv A -> M1; A posts
-takeover, A recv B -> M2 (nests M1, F1 < F2); B recv A -> crash.
-Test asserts B's order contains `takeover`. GREEN with the simple fix.
-
-## SIMPLE FIX (adopted) — two guards on the original `climb`
-
-Keeps the original `climb`/`meet` AND the original reorder path. Only
-`climb`'s stop condition changes (~21 lines, `src/freechains/chain/sync.lua`):
-
-```
-local visited = {}                       -- seed from G_oct.order
-for _, h in ipairs(G_rem.order) do visited[h] = true end
-local function ancestor(a,b) ... merge-base --is-ancestor a b end
-
-climb = function (G, com, cur, beg)
-    if cur == com or visited[cur] or ancestor(cur, com) then return end
-    ... (unchanged meet/recursion) ...
-    visited[cur] = true
-    commit(G, cur, beg, false)           -- was true; re-derivation, not first-receipt
+```lua
+local function hardfork (rem, loc)      -- no common ancestor at all
+    exc = git rev-list rem..loc         -- commits EXCLUSIVE to loc
+    time  : newest(exc) - oldest(exc) >= C.fork.time
+    posts : #posts(exc)               >= C.fork.posts
 end
 ```
 
-- `ancestor(cur, com)` -> stops the underflow (no descent below the floor).
-- `visited` (from G_oct + per-emit) -> no double-apply of the shared fork.
-- Result reproduces the sender's `[AW, CW, takeover]` -> consistent.
+- **local**: every input is one of loc's own commits; `rem` only
+  subtracts. A remote cannot inflate my entrenchment (this killed the
+  `max(tips) - fork` idea: `apply()` bounds only PAST timestamps, so a
+  remote could stamp year 3000 and force everyone to hard-fork).
+- **deterministic**: timestamps are frozen in commits (no wall clock),
+  so any peer replaying the merge re-derives the same verdict.
+- **earned, not accrued**: entrenchment = SPAN of exclusive commits.
+  Idling after a fork adds no independent history and must not buy
+  entrenchment (old rule: fork -> idle 7d -> 1 post = entrenched).
 
-Validated in scratch: 2-peer nested, 3-peer (small gaps), simple fork,
-hard-fork 7-day, likes/reps -- all consistent (A==peer).
+Consequences accepted:
+- 99 posts in a 6-day burst then total silence -> NOT entrenched
+  (span 6d, posts 99). Any activity (post/like, or a recv that writes
+  merge+state) extends the span, so only a fully offline branch freezes.
+- `exc` counts all commit kinds and any author's commits sitting on my
+  branch, not only my own posts.
 
-## KNOWN LIMITATION — large time gap — `tst/climb-underflow-gap.lua` (RED)
+## Why `hardfork` is ALSO called inside `meet`
 
-The simple fix keeps TWO derivation paths (`climb` ff-check from the
-shallow `oct`; reorder-append for the divergent store). When a nested
-merge spans a LARGE time gap (crossing the 24h maturation/consolidation
-window, as the real guide does), the two paths DIVERGE and the strict
-check rejects the recv:
+It is an outer local-vs-remote decision — but every merge commit IS a
+past outer decision, frozen. A peer receiving an entrenched branch is
+fast-forwarding (its own outer check never fires); to pass the strict
+state check it must re-evaluate rule 1 AT that merge:
+`hardfork(right, left)`, where `left` = the merger's local branch.
+
+MEASURED (decisive test: A entrenched with LOWER reps beats B by rule 1,
+then B replays A's merge):
+
+| meet | replay of a hard-forked merge |
+|------|-------------------------------|
+| without `hardfork` | fff (3/3 mismatch) |
+| with `hardfork`    | PPP |
+
+Without it, any entrenched branch becomes unsyncable.
+
+## Test flakiness (root-caused)
+
+Commit hashes vary run to run (committer dates are not pinned). With
+TIED reps, `consensus` falls to the hash tiebreak, so the expected order
+is random and results are noise. All new/edited tests break the tie
+deterministically with a pre-fork `KEY2 likes seed` (KEY1 > KEY2), like
+`fork-7-days.lua` already did.
+
+## NEXT STEPS (one at a time, pause between)
+
+### Step 1 — fix the `err-post.lua` regression  [DONE]
+
+RESOLVED: `climb` restored to `commit(G, cur, beg, true)`.
+`false` was needed under the OLD algorithm (pairwise ancestor, no rule 1
+in `meet`), which replayed commits out of chronological order. With the
+octopus ancestor + rule 1 in `meet` the replay follows branch order, so
+first-receipt validation can stay strict.
+
+Verified 3/3 each: err-post too-old (correct error), reorder-ancient,
+nested, gap, fork-7-days, hard-fork replay, simple fork.
+
+Original report:
 
 ```
-ERROR : chain sync : remote state mismatch
+tst/err-post.lua:94  "B rejects post with old timestamp on sync"
+  expected: ERROR : chain sync : invalid post : too old
+  actual  : ERROR : chain sync : remote state mismatch
 ```
 
-`tst/climb-underflow-gap.lua` reproduces it (same nested topology, `day7`
-~7 days out) and asserts H==A order. RED today. NOT wired into
-`make tests` (run: `make T=climb-underflow-gap test`).
+Cause: `climb` now calls `commit(G, cur, beg, false)`, disabling the
+monotonic ("too old") guard on the FIRST-RECEIPT validation path. A
+forged old-timestamp post is no longer rejected as invalid; it only
+fails later, incidentally, via the state check. That is a validation
+regression, not just a message change.
 
-The full fix that makes it green is the single canonical `derive` fold
-(below), which was PROTOTYPED + IMPLEMENTED (commit c5a8555) and passes
-this large-gap case (A==H, byte-identical). We chose the simple fix for
-now; adopt `derive` if/when the gap case must pass.
+Hypothesis to test: restore `monotonic = true` in `climb`. It was set to
+`false` earlier for the reorder-ancient case, but the surrounding
+algorithm has changed a lot since (octopus ancestor in `meet`, rule 1 in
+`meet`, design #2 `hardfork`), so `true` may now hold. Verify against:
+err-post, reorder-ancient, climb-underflow, climb-underflow-gap,
+fork-7-days, consensus, sync.
 
-## Reference: the `derive` fold (full fix, commit c5a8555)
+### Step 2 — run the FULL suite with the inner `hardfork` COMMENTED  [DONE]
 
-Derive from the genesis ROOT over BOTH tips; reconcile every merge
-bottom-up (ancestors-first) via `consensus`; `visited` guard; then the
-top-level loc/rem split (`fst` wins). One function feeds BOTH the ff
-check and the divergent store, so sender/receiver can't diverge -- which
-is exactly why it survives the maturation gap. Cost: re-derives from
-genesis each recv. Diff was ~142 lines (vs 21 for the simple fix).
+CONFIRMED: with `meet` falling through to `consensus` only, the FULL
+suite still passes. So no existing test forces a peer to replay a
+hard-forked merge — the entrenched-branch replay path is uncovered.
 
-## NEXT STEP (start here on the other machine)
+(Related weakness found in Step 1: `tst/reorder-ancient.lua` uses
+`sync send`, and the receiver runs inside the git hook whose stderr is
+swallowed by `push`. With `monotonic=true` the ancient post is silently
+DROPPED and that test still passes. It would be stronger as a direct
+`sync recv`, or by asserting the resulting order rather than just
+success.)
 
-1. Ensure the working tree has the simple fix: `git diff 0eb800c --
-   src/freechains/chain/sync.lua` should show ONLY the ~21-line guard
-   change (NOT the derive fold). New file: `tst/climb-underflow-gap.lua`.
-   (The committed HEAD still has `derive`; the simple fix is uncommitted.)
-2. RUN `make tests` -- must be green incl. `climb-underflow`,
-   `consensus`, `fork-7-days`, `fork-100-posts`, `reorder-ancient`.
-3. RUN `make T=climb-underflow-gap test` -- expect RED (documents the
-   known large-gap limitation).
-4. RUN `./guide.sh`. NOTE: the guide uses REAL ~7-day gaps, so it likely
-   hits the same `remote state mismatch` as the gap test. If so, that is
-   the KNOWN LIMITATION -- either accept it (guide won't fully complete)
-   or switch to the `derive` fold (commit c5a8555) which handles it.
-5. Commit the chosen approach; move plan to `done/` if satisfied.
+### Step 3 — test that FAILS without the inner `hardfork`  [DONE]
+
+`fork-7-days.lua` extended: after A recvs B (A first by rule 1 despite
+lower reps), B recvs A back and must re-derive the SAME order.
+
+RED confirmed with `hardfork` commented (`fork-7-days.lua:125`):
+
+```
+ERROR : chain sync : invalid post : too old
+B order: seed, like, beta        (a1, a2 LOST)
+A order: seed, like, a1, a2, beta
+```
+
+Stronger than expected: without rule 1 in `meet`, B picks beta (higher
+reps) first, so A's older a1 is applied after the clock passed a2 and is
+rejected. An entrenched branch is not merely re-ordered — its posts are
+DROPPED and the recv hard-fails.
+
+### Step 4 — UNCOMMENT the inner `hardfork`  [DONE, pending full suite]
+
+Uncommented; the replay step goes green (A == B, 5 entries).
+
+### Then
+
+- docs: `constants.lua` ("branch divergence limit"), `sync.md`,
+  `consensus.md`, `time.md`, `threats.md`, README "Hard Forks"
+- `./guide.sh` end to end
+- commit; move plan to `done/`
 
 ## Checklist
 
-- [x] Repro test (red) — 2 peers / 3 posts
-- [x] Diagnose: nested-merge underflow + oct-dependent ordering
-- [x] Simple fix (climb guards) in working tree
-- [x] Failing test for the large-gap limitation (`climb-underflow-gap.lua`)
-- [ ] `make tests` green (incl. `climb-underflow`)  <-- NEXT
-- [ ] `make T=climb-underflow-gap test` RED (expected)
-- [ ] `./guide.sh` — decide: accept gap limitation or switch to `derive`
+- [x] Repro tests (nested + gap), deterministic
+- [x] Diagnose: underflow + double-apply + asymmetric decision
+- [x] `climb` guards; `meet` octopus ancestor + rule 1 + consensus
+- [x] `hardfork` redesigned (design #2, span of `exc`)
+- [x] `fork-7-days.lua` rewritten for design #2
+- [x] Step 1: fix `err-post.lua` monotonic regression (climb -> true)
+- [x] Step 2: full suite with inner `hardfork` commented -> ALL PASS
+      (coverage gap confirmed)
+- [x] Step 3: `fork-7-days.lua` replay step -> RED without inner `hardfork`
+- [x] Step 4: uncommented; replay step green (full suite = USER to run)  <-- NEXT
+- [ ] docs updated
+- [ ] `./guide.sh` completes
 - [ ] commit; move plan to `done/`
 
 ## References
