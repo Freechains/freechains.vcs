@@ -124,26 +124,42 @@ owner/non-owner trust table. Owner-to-owner replication
 skips freechains validation entirely. Non-owner
 validation is future scope.
 
-## Hard Fork Rule (NOT IMPLEMENTED)
+## Hard Fork Rule
 
-A **hard fork** occurs when a local branch crosses either
-activity threshold:
+Both axes are measured over `exc`, the commits EXCLUSIVE to
+the local branch (`git rev-list rem..loc`) — commits the
+remote already holds never count:
 
-- **7 days** of elapsed time, OR
-- **100 posts**
+- **7 days**: `newest(exc) - oldest(exc)` (the SPAN of the
+  branch's own commits, NOT the age of the fork point), OR
+- **100 posts**: post commits in `exc`
 
-When this threshold is crossed, the local branch takes
+When either threshold is crossed, the local branch takes
 priority and is ordered first — **regardless of the remote
 branch's reputation**. The two peers permanently disagree
 on consensus ordering and cannot converge.
 
+Every input is one of the local branch's own commits and is
+frozen in the DAG: the remote cannot inflate the verdict,
+and any peer replaying the merge re-derives it identically.
+
+Idling buys nothing: a branch that forks and then stays
+quiet has no span, so it is not entrenched.
+
 ### Branch Merge Ordering (precedence)
 
-1. **Activity threshold** — if local branch crosses 7 days
-   or 100 posts, it wins unconditionally (hard fork)
+1. **Activity threshold** — if the local branch's exclusive
+   commits span 7 days or contain 100 posts, it wins
+   unconditionally (hard fork)
 2. **Reputation** — whichever branch has more reputation in
    the common prefix is ordered first
 3. **Tiebreaker** — lexicographical order of hashes
+
+This precedence is applied twice: at the outermost
+local-vs-remote decision, and again at every merge commit
+replayed during validation (a merge commit IS a past
+local-vs-remote decision, and the replay must reproduce it
+to match the sender's committed state).
 
 ### Stable vs Unstable Consensus
 

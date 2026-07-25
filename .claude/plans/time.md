@@ -183,18 +183,30 @@ temporary non-determinism, because:
 ## 7-Day Hard Fork Threshold
 
 The hard fork rule (see [consensus.md](consensus.md)) uses
-a **7-day** time threshold. If two concurrent branches are
-separated by more than 7 days of elapsed time, syncing them
-results in permanent consensus divergence — each peer keeps
-its own local ordering.
+a **7-day** time threshold. It is measured as the SPAN of
+the commits exclusive to the local branch
+(`git rev-list rem..loc`): newest minus oldest. When that
+span reaches 7 days the local branch wins unconditionally,
+so syncing results in permanent consensus divergence —
+each peer keeps its own local ordering.
+
+Note this is NOT the age of the fork point. Idling after a
+fork adds no independent history and must not buy
+entrenchment; the branch has to produce commits at both
+ends of the window.
 
 ### Timing Implications
 
 - The 7-day window is measured from committer timestamps
   in the DAG, not wall-clock time at sync
-- A node that stays offline for >7 days and then syncs will
-  trigger a hard fork if the remote also posted during that
-  window
+- Both timestamps are the local branch's own, so the remote
+  cannot inflate them, and any peer replaying the merge
+  re-derives the same verdict
+- A node that stays offline for >7 days does NOT trigger a
+  hard fork by itself: with no commits of its own, its span
+  does not grow. It must commit at both ends of the window
+  (any commit counts, including the `merge`/`state` pair a
+  `sync recv` writes)
 - Timestamp forgery interacts with this rule: a node could
   backdate or future-date commits to manipulate whether the
   7-day threshold is crossed
@@ -210,6 +222,7 @@ its own local ordering.
 | Future tolerance | 1 hour  | Bound clock drift                |
 | 12h maturation   | 12 hours| Prevent reputation inflation     |
 | Hard fork        | 7 days  | Freeze consensus, force diverge  |
+|                  | (span)  | span of the branch's own commits |
 
 All three rules depend on committer timestamps but operate
 at different scales. The hard fork threshold is the largest

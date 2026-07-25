@@ -11,8 +11,8 @@ return {
         full    = 24*h,         -- fullway post consolidation period
     },
     fork = {
-        time    = 7*24*h,       -- branch divergence limit (hard fork)
-        posts   = 100,          -- branch post count limit (hard fork)
+        time    = 7*24*h,       -- span of exclusive commits (hard fork)
+        posts   = 100,          -- exclusive post count (hard fork)
     },
     reps = {
         unit    = 1*unit,       -- 1 ext rep = 1000 internal

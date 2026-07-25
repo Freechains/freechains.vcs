@@ -283,7 +283,10 @@ to send.
 
 ## Future steps
 
-- Hard fork detection (7d / 100 posts)
+- Hard fork detection: DONE — span of the commits exclusive
+  to the local branch (7d) or exclusive posts (100), applied
+  at the outermost recv AND at every replayed merge
+  (see consensus.md)
 - Signature verification per fetched commit
     - With SSH signing (signing.md Option D), each commit's
       `gpgsig` header embeds the full public key
