@@ -22,6 +22,15 @@ frozen ordering.
 stay offline. A pioneer with 30 rep can post 30 times
 over 7 days trivially.
 
+Note (span rule): entrenchment is now the SPAN of the
+commits exclusive to the local branch, so staying offline
+alone no longer suffices — the attacker must produce
+commits at BOTH ends of the window.
+That is still cheap: any commit-producing activity ends
+the span, including a `sync recv` that merges (it writes
+`merge`+`state` commits). So 1 post now, plus any sync
+7 days later, is enough. See the open question below.
+
 **Real threat**: Low in well-connected networks (peers
 notice the absence), but **trivial to execute** and
 **permanent in effect**. Any node that syncs with the
@@ -30,6 +39,13 @@ attacker inherits the fork, risking a cascading split.
 **Impact**: Permanent consensus divergence. Reputation
 computations differ across the split. Posts LINKED on
 one side may be BLOCKED on the other.
+
+**Open question**: the span currently counts ALL commit
+kinds (post/like/revoke/merge/state) and any author's
+commits that sit on the branch. Restricting it to
+authored `post`/`like` commits would make entrenchment
+require sustained AUTHORING rather than mere activity,
+raising the cost of this attack.
 
 **Mitigation status**: None implemented. See T1a below.
 
@@ -59,6 +75,16 @@ delivery timing within one sync interval.
 spam, no equivocation, just one branch arriving at
 slightly different times.
 
+**Status (span rule)**: NEUTRALISED as described.
+Entrenchment is the span of the branch's own exclusive
+commits, all of which are frozen in the DAG. It does not
+depend on when the branch is delivered, so peers A and B
+compute the SAME verdict no matter the timing.
+The sharp threshold itself remains: a branch whose span
+sits near `fork.time` still flips on one extra commit,
+and two peers holding DIFFERENT subsets of the branch can
+still disagree (the subset changes `exc`).
+
 **Mitigation direction**: Replace the hard 7-day cutoff
 with a continuous decay function (see 260723-fork-7day.md). No
 sharp boundary means no exploitable threshold.
@@ -83,6 +109,14 @@ simultaneous posts, two incompatible branches).
 **Impact**: Permanent fork. But equivocation is blatant
 and recovery (revert to common prefix) is
 straightforward.
+
+**Note (span rule)**: the post axis now counts only posts
+EXCLUSIVE to the branch (`rev-list rem..loc`), so posts
+the other side already holds no longer inflate the count.
+This does not weaken the attack — the two equivocated
+branches are exclusive to each other by construction —
+but it does remove the accidental variant where a shared
+history pushed an honest branch over the threshold.
 
 ---
 
@@ -378,7 +412,7 @@ is correct by design.
 | ID   | Threat                        | Severity | Likelihood | Implemented? |
 |------|-------------------------------|----------|------------|--------------|
 | T1   | 7-day partition fork          | High     | Low        | No defense   |
-| T1a  | Boundary attack               | High     | Medium     | No defense   |
+| T1a  | Boundary attack (timing)      | High     | Low        | Span rule    |
 | T1b  | Equivocation (100-post)       | High     | Low        | No defense   |
 | T2a  | Backdating offline branches   | Medium   | Medium     | Consensus    |
 | T2b  | Future-dating posts           | Medium   | Medium     | Tolerance    |

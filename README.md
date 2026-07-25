@@ -425,7 +425,7 @@ peers reach the same state without any central authority.
 
 As a measure against malicious members with strong past reputation, Freechains
 protects entrenched local branches from unexpected consensus reorderings:
-A local branch that is older than *7 days* or contains at least *100 messages*
+A local branch whose own messages span *7 days* or number at least *100*
 is **not** subject to consensus rules.
 This way, peers that remain active and synchronize over time evolve together
 as the "main branch".

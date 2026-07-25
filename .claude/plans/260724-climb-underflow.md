@@ -168,9 +168,9 @@ Uncommented; the replay step goes green (A == B, 5 entries).
 - [x] Step 2: full suite with inner `hardfork` commented -> ALL PASS
       (coverage gap confirmed)
 - [x] Step 3: `fork-7-days.lua` replay step -> RED without inner `hardfork`
-- [x] Step 4: uncommented; replay step green (full suite = USER to run)  <-- NEXT
-- [ ] docs updated
-- [ ] `./guide.sh` completes
+- [x] Step 4: uncommented; `make tests` FULLY GREEN
+- [x] `./guide.sh` completes end to end
+- [ ] docs updated  <-- NEXT
 - [ ] commit; move plan to `done/`
 
 ## References
