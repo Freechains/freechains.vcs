@@ -43,7 +43,7 @@ elseif ARGS.recv then
         --  2. local contains remote (remote is ancestor of local)
         --      - DONE
         --  3,4: need common ancestor, remote validation/replay
-        --      - derive: bottom-up consensus fold (canonical order)
+        --      - replay_remote: climb / meet
         --  3. remote conains local (local is ancestor of remote)
         --      - merge with fast-forward
         --  4. local and remote diverge
@@ -292,14 +292,23 @@ elseif ARGS.recv then
             fst, snd = consensus(G_oct, oct, loc, rem)
         end
 
-        -- 3,4: canonical re-derivation of the merged state.
-        -- Bottom-up consensus fold: reconcile every inner merge (deepest
-        -- fork first, ancestors-first) via `consensus`, then the top-level
-        -- loc/rem split (`fst` wins per hard fork or consensus). A `visited`
-        -- guard emits each post/like once. This is a pure function of the
-        -- DAG, so the sender's store and the receiver's check agree.
-        local G_rem
+        -- 3,4: need remote validation: replay remote branch from G_oct
+        local G_rem = G_oct -- (G_oct no longer required)
         do
+            -- Guards for nested merges (an inner merge forking deeper than
+            -- the outer one): `visited` (seeded from G_oct, then marked per
+            -- emit) never re-applies a shared commit; `ancestor(cur, com)`
+            -- stops climb from descending below its floor. Without these the
+            -- inner meet underflows to a root (concatenate nil 'tip').
+            local visited = {}
+            for _, h in ipairs(G_rem.order) do
+                visited[h] = true
+            end
+            local function ancestor (a, b)
+                return exec { err=false, stderr=false,
+                    cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. a .. " " .. b,
+                }
+            end
             local function parents (tip)
                 local out = exec {
                     cmd = "git -C " .. REPO .. " rev-list --parents -1 " .. tip,
@@ -312,62 +321,41 @@ elseif ARGS.recv then
                 return ps[2], ps[3]
             end
 
-            local function mb (a, b)
-                return (exec {
-                    cmd = "git -C " .. REPO .. " merge-base " .. a .. " " .. b,
-                }):match("%x+")
-            end
+            local climb, meet
 
-            -- derive from the genesis root over both tips
-            local root = (exec {
-                cmd = "git -C " .. REPO .. " rev-list --max-parents=0 " .. rem,
-            }):match("%x+")
-            local function F (path)
-                return load(exec {
-                    cmd = "git -C " .. REPO .. " show " .. root .. ":" .. path,
-                })()
-            end
-            G_rem = {
-                authors = F(".freechains/state/authors.lua"),
-                posts   = F(".freechains/state/posts.lua"),
-                order   = F(".freechains/state/order.lua"),
-                now     = NOW(root),
-            }
-
-            local visited = {}
-            for _, h in ipairs(G_rem.order) do
-                visited[h] = true
-            end
-
-            -- emit a commit and its unseen ancestors; post/like applied once
-            local function emit (h)
-                if visited[h] then
+            climb = function (G, com, cur, beg)
+                if cur == com or visited[cur] or ancestor(cur, com) then
                     return
+                else
+                    local p1, p2 = parents(cur)
+                    if p2 == nil then
+                        climb(G, com, p1, beg)
+                    else
+                        -- like positivity (n>0) is enforced commit()
+                        local is_beg_merge = (trailer(cur) == "like")
+                        meet(G, com, p1, p2, is_beg_merge)
+                    end
+                    visited[cur] = true
+                    commit(G, cur, beg, false)
                 end
-                local p1, p2 = parents(h)
-                if p1 then emit(p1) end
-                if p2 then emit(p2) end
-                visited[h] = true
-                commit(G_rem, h, nil, false)
             end
 
-            local ok, err = pcall(function ()
-                local ms = exec {
-                    cmd = "git -C " .. REPO ..
-                        " rev-list --topo-order --reverse --merges " .. loc .. " " .. rem,
+            meet = function (G, com, left, right, right_is_beg)
+                local up = exec {
+                    cmd = "git -C " .. REPO .. " merge-base " .. left .. " " .. right,
                 }
-                for m in ms:gmatch("%x+") do
-                    local p1, p2 = parents(m)
-                    local fork = mb(p1, p2)
-                    emit(fork)
-                    local w, l = consensus(G_rem, fork, p1, p2)
-                    emit(w)
-                    emit(l)
+                climb(G, com, up, false)
+                local w = consensus(G, up, left, right)
+                if w == left then
+                    climb(G, up, left,  false)
+                    climb(G, up, right, right_is_beg)
+                else
+                    climb(G, up, right, right_is_beg)
+                    climb(G, up, left,  false)
                 end
-                emit(mb(loc, rem))
-                emit(fst)
-                emit(snd)
-            end)
+            end
+
+            local ok, err = pcall(climb, G_rem, oct, rem, false)
             if not ok then
                 ERROR("chain sync : " .. err)
             end
@@ -401,15 +389,25 @@ elseif ARGS.recv then
 
         --  4. local and remote diverge
 
-        -- final state: git-merge the loser commits onto the winner tip to
-        -- build the DAG merges. The canonical STATE comes from G_rem (the
-        -- fold already validated + ordered every commit), so this loop only
-        -- shapes git topology and detects content conflicts.
-        local merge
+        -- final state: consensus + replay loser
+        local G_fst, merge
         do
-            -- loser commits (reachable from snd, not fst) in canonical order,
-            -- then the snd tip itself as the final merge parent
-            local O_snd = {}
+            local O_snd
+            if fst == loc then
+                G_fst = {
+                    authors = dofile(FC .. "state/authors.lua"),
+                    posts   = dofile(FC .. "state/posts.lua"),
+                    order   = dofile(FC .. "state/order.lua"),
+                    now     = NOW(loc),
+                }
+                O_snd = G_rem.order
+            else
+                G_fst = G_rem
+                O_snd = dofile(FC .. "state/order.lua")
+            end
+            O_snd[#O_snd+1] = snd
+
+            -- filter O_snd: keep only commits unreachable from fst
             do
                 local keep = {}
                 local out = exec {
@@ -418,12 +416,13 @@ elseif ARGS.recv then
                 for h in out:gmatch("%x+") do
                     keep[h] = true
                 end
-                for _, h in ipairs(G_rem.order) do
+                local filtered = {}
+                for _, h in ipairs(O_snd) do
                     if keep[h] then
-                        O_snd[#O_snd+1] = h
+                        filtered[#filtered+1] = h
                     end
                 end
-                O_snd[#O_snd+1] = snd
+                O_snd = filtered
             end
 
             exec { stderr=false,
@@ -451,6 +450,11 @@ elseif ARGS.recv then
                         cmd = "git -C " .. REPO .. " commit -m 'x'"
                         .. " --trailer 'Freechains: merge'",
                     }
+                end
+
+                ok, err = pcall(commit, G_fst, hash, nil, false)
+                if not ok then
+                    goto DONE
                 end
 
                 merge = hash
@@ -493,7 +497,7 @@ elseif ARGS.recv then
                 exec { stderr=false,
                     cmd = "git -C " .. REPO .. " merge --no-commit " .. merge,
                 }
-                write(G_rem)
+                write(G_fst)
                 exec {
                     cmd = "git -C " .. REPO .. " add .freechains/state/",
                 }
