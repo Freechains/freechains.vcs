@@ -115,40 +115,44 @@ elseif ARGS.recv then
             end
         end
 
-        -- Hard fork (rule 1): is `loc` entrenched against `rem`?
-        -- Direct local-vs-remote comparison over `exc`, the commits
-        -- EXCLUSIVE to loc (`git rev-list rem..loc`):
-        --   time  : newest(exc) - oldest(exc) >= fork.time
-        --   count : #exc                      >= fork.posts
-        -- Both inputs are loc's own commits, frozen in the DAG: the remote
-        -- cannot inflate them, and any peer replaying this merge re-derives
-        -- the same answer. Time is the SPAN of the exclusive commits, not
-        -- the age of the fork: idling after a fork adds no independent
-        -- history, so it must not buy entrenchment.
-        -- Every commit kind counts (post/like/revoke/merge/state): what
-        -- rule 1 protects is this branch's ORDERING, and merge/state
-        -- commits are where that ordering lives. Counting all kinds also
-        -- keeps this to a single git call.
-        local function hardfork (rem, loc)
-            local n, old, new = 0, nil, nil
+        -- Hard fork (rule 1): entrenchment protects my ORDER, not my
+        -- commit set. Walking my order back from the tip, everything older
+        -- than fork.time (or fork.posts entries back) is SETTLED, and
+        -- `cand` -- the order this sync would leave behind -- must
+        -- reproduce that prefix verbatim, or it is a hard fork.
+        -- `cand` is the remote's committed order on a fast-forward, and the
+        -- order we derived on a divergence.
+        -- Measuring the order (not `rev-list rem..loc`) is what makes this
+        -- survive the case where the remote already absorbed my branch: my
+        -- tip is then an ancestor of theirs and no commit of mine is
+        -- missing, yet my history can still be reordered underneath me.
+        -- `order.lua` holds only post/like/revoke, so `merge`/`state`
+        -- commits -- whose dates a pushing peer picks via `-o now` -- can
+        -- never move the line.
+        local function hardfork (cand)
+            local mine = dofile(FC .. "state/order.lua")
+            local ts = {}
             local out = exec {
-                cmd = "git -C " .. REPO .. " log --format=%at " ..
-                    rem .. ".." .. loc,
+                cmd = "git -C " .. REPO .. " log --format='%H %at' " .. loc,
             }
-            for t in out:gmatch("%d+") do
-                t = tonumber(t)
+            for h, t in out:gmatch("(%x+)%s+(%d+)") do
+                ts[h] = tonumber(t)
+            end
+            local newest, n = nil, 0
+            for i = #mine, 1, -1 do
+                local t = ts[mine[i]]
+                newest = newest or t
                 n = n + 1
-                if (not old) or t < old then
-                    old = t
-                end
-                if (not new) or t > new then
-                    new = t
+                if t and newest and ((newest-t)>=C.fork.time or n>=C.fork.posts) then
+                    for j = 1, i do
+                        if cand[j] ~= mine[j] then
+                            return true
+                        end
+                    end
+                    return false
                 end
             end
-            if old and (new-old) >= C.fork.time then
-                return true
-            end
-            return n >= C.fork.posts
+            return false
         end
 
         local function commit (G, hash, beg, monotonic)
@@ -259,6 +263,26 @@ elseif ARGS.recv then
             end
         end
 
+        -- rule 1, case 3: the order we would ADOPT is the remote's committed
+        -- one, readable without replaying anything. Checked HERE, before the
+        -- replay, so an entrenched peer answers "hard fork" instead of
+        -- failing inside `climb` (a reordering of settled history trips the
+        -- monotonic guard first, reporting "invalid post : too old").
+        do
+            local ff = exec { stderr=false, err=false,
+                cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. loc .. " " .. rem,
+            }
+            if ff then
+                local their = load(exec {
+                    cmd = "git -C " .. REPO .. " show " .. rem ..
+                        ":.freechains/state/order.lua",
+                })()
+                if hardfork(their) then
+                    ERROR("chain sync : hard fork")
+                end
+            end
+        end
+
         ---------------------------------------------------------------------------
         ---------------------------------------------------------------------------
 
@@ -303,9 +327,6 @@ elseif ARGS.recv then
         -- ordering itself first. The fork becomes explicit, and no merge
         -- commit ever encodes a rule-1 decision -- so replaying a merge
         -- only ever has to reproduce `consensus` (see `meet`).
-        if hardfork(rem, loc) then
-            ERROR("chain sync : hard fork")
-        end
         local fst, snd = consensus(G_oct, oct, loc, rem)
 
         -- 3,4: need remote validation: replay remote branch from G_oct
@@ -506,6 +527,10 @@ elseif ARGS.recv then
             if not ok then
                 io.stderr:write("ERROR : " .. err .. "\n")
             end
+        end
+
+        if hardfork(G_fst.order) then
+            ERROR("chain sync : hard fork")
         end
 
         -- list voided local commits (only when remote wins)

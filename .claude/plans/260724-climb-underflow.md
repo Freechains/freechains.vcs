@@ -273,71 +273,68 @@ stops feeding a security decision.
 
 ## OPEN BUG: consensus reorder produces an unvalidatable state
 
-Found while checking whether a refused peer can just pull-then-push.
-It is NOT specific to hard forks.
+PRE-EXISTING on `main` (verified by re-running against
+`git show main:src/freechains/chain/sync.lua`). Not introduced here.
+NOT specific to hard forks, and NOT rare.
 
-### Reproduction (scratch, 2 peers)
+### Reproduction (3 peers, nothing entrenched)
 
 ```
-alice=28 reps, bob=3 reps
-X (bob):    hello -- like -- b1 (day 1) -- b2 (day 9)     -- entrenched
-A (alice):  hello -- like ------------------ ALICE (day 9+)
+seed, like             -- shared; K1 > K2
+B posts "low"  @t      -- low reps
+A posts "high" @t+2h   -- high reps, 2 HOURS later
 
-1) X recv A         -> ERROR : chain sync : hard fork          (by design)
-2) A recv X         -> accepted; A's order becomes
-                       hello like ALICE b1 b2                  (alice wins
-                       consensus, so her post is ordered FIRST)
-3) X recv A (retry) -> ERROR : chain sync : invalid post : too old
-                       X's order unchanged
+A recv B  -> accepted.  A's order: seed like HIGH low
+                        (winner is NEWER, so it is ordered FIRST)
+C recv A  -> ERROR : chain sync : invalid post : too old
+             C keeps only [seed, like]
 ```
+
+Any consensus merge whose winner posted more than `C.time.diff` (1h)
+after the loser produces a state that OTHER peers cannot validate. Two
+peers posting an hour apart is ordinary, so such merges simply do not
+propagate.
 
 ### Diagnosis
 
-Step 3 does NOT fail by rule 1 — after step 2 `exc` is empty, so
-`hardfork` is false. It fails inside the replay:
+`apply()` guards freshness against the RUNNING state:
 
-- A's order puts `ALICE` (t = day 9) before `b1` (t = day 1).
-- X replays that order: applies `ALICE`, so `G.now` jumps to day 9,
-  then applies `b1`, which is now > 1h in the past -> "too old".
-- A itself accepted the same ordering because the divergent/reorder path
-  applies loser commits with `monotonic=false`; `climb` uses `true`.
+```
+if time < G.now - C.time.diff then return false, "too old" end
+```
 
-Root: `climb` has TWO roles and one flag cannot serve both —
-first-receipt validation (MUST reject stale timestamps, see
-`err-post.lua`) and re-ordering replay (MUST tolerate them, see
-`reorder-ancient`). Same conflict as reorder-ancient, other direction.
+That assumes commits arrive in chronological order. A consensus replay
+applies them in CONSENSUS order, so an older loser commit legitimately
+follows a newer winner commit and trips the guard.
 
-Consequence (general): a high-rep peer whose NEWER branch wins consensus
-over an OLDER branch commits a state that other peers cannot validate.
-The sender is happy; every receiver rejects it with a misleading error.
+The sender does not notice: its divergent path applies loser commits
+with `monotonic=false`. The replay (`climb`) uses `true`, so every
+receiver rejects what the sender happily committed.
 
-Not covered by tests: `fork-7-days` refuses before reaching this, and
-`consensus.lua` uses timestamps close together.
+### Why the earlier "option 2" does not work
 
-Side effect today: it is what actually stops a refused peer from
-reordering the community by pull-then-push. That protection is a
-coincidence of the monotonic guard, not a rule.
+The idea was to enforce the guard only for commits NEW to this peer.
+In the reproduction C has never seen either post -- both are new -- so
+the guard still fires. Being new is not the distinction; ORDER is.
 
-### Candidate fixes
+### Fix direction: check the PARENT, not the running state
 
-1. Separate the two roles: validate freshness ONCE per commit (on first
-   receipt) and record it; the replay never re-checks. Needs somewhere
-   to remember "already validated" across recvs.
-2. Make `monotonic` positional in the replay: enforce it only while
-   climbing commits that are NEW to this peer, skip it for commits
-   already in `G_oct`/already applied (the `visited` set already knows).
-3. Forbid orders that violate monotonicity: make `consensus` (or the
-   reorder path) never place a newer post before an older one. Changes
-   ordering semantics — probably wrong.
+`time.md` already describes the intended rule: "backdating ... is
+bounded by the monotonic parent rule (commit.timestamp >=
+parent.timestamp)". That test is per-commit and order-independent, so a
+consensus reorder cannot trip it, while backdating is still bounded.
 
-Lean: option 2 — the information is already available (`visited`), and
-it draws the line exactly where the two roles differ.
+So: validate `commit.time >= parent.time` when a commit is first seen,
+and drop (or narrow to local posting) the `G.now - diff` comparison.
+
+Open questions: which parent for a merge commit; and whether local
+posting still wants the `G.now` form (there, `G.now` IS the parent).
 
 ### Next step
 
-Write a failing test first (2 peers, high-rep late poster vs older
-branch, no hard fork involved) so the bug is pinned independently of
-rule 1, then fix.
+Failing test first: 3 peers, low-rep early post vs high-rep post >1h
+later, no hard fork involved -- assert the third peer accepts and ends
+with all 4 entries.
 
 ## Checklist
 
@@ -366,12 +363,14 @@ rule 1, then fix.
       REFUSED. Verified: `remote: ERROR : chain sync : hard fork` +
       `! [remote rejected]`. Alice's recv dropped (not needed)
 - [x] README `### Hard Forks` rewritten around the real output
-- [ ] prototype the FROZEN LINE rule (order-based entrenchment)  <-- NEXT
-      cases to check: pull-then-push (must refuse), append-after (must
-      accept), fresh reorder (must accept), original divergence (refuse)
-- [ ] failing test for the consensus-reorder / monotonic-replay conflict
-      (may become unreachable once the frozen line lands -- verify)
-- [ ] `fork.posts` 2*100 -> 100 if the order-based count is adopted
+- [x] FROZEN LINE rule implemented (order-based entrenchment):
+      pull-then-push REFUSED, append-after ACCEPTED, fresh reorder
+      ACCEPTED, original divergence REFUSED
+- [x] `fork.posts` 2*100 -> 100 (the order counts messages)
+- [x] docs realigned (constants, consensus.md, README)
+- [x] `make tests` green
+- [ ] OPEN BUG above: failing test, then fix (parent-timestamp rule)  <-- NEXT
+- [ ] `./guide.sh` re-run after the frozen-line change
 - [ ] `make tests` + `./guide.sh` green
 - [ ] move plan to `done/`
 

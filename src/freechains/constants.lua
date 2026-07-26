@@ -11,8 +11,8 @@ return {
         full    = 24*h,         -- fullway post consolidation period
     },
     fork = {
-        time    = 7*24*h,       -- span of exclusive commits
-        posts   = 2*100,        -- exclusive commits (~ 100 posts)
+        time    = 7*24*h,       -- span of my settled order (hard fork)
+        posts   = 100,          -- entries of my settled order (hard fork)
     },
     reps = {
         unit    = 1*unit,       -- 1 ext rep = 1000 internal

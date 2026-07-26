@@ -126,19 +126,18 @@ validation is future scope.
 
 ## Hard Fork Rule
 
-Both axes are measured over `exc`, the commits EXCLUSIVE to
-the local branch (`git rev-list rem..loc`) — commits the
-remote already holds never count:
 
-- **7 days**: `newest(exc) - oldest(exc)` — the SPAN of the
-  branch's own commits, NOT the age of the fork point, OR
-- **200 commits**: `#exc`
+Walking my own order back from the tip, everything older
+than **7 days** — or more than **100 entries** back — is
+SETTLED. A sync is a hard fork when the order it would
+leave behind does not reproduce that settled prefix.
 
-Every commit kind counts (`post`/`like`/`revoke`/`merge`/
-`state`): what rule 1 protects is this branch's ORDERING,
-and `merge`/`state` commits are where that ordering lives.
-Each post carries a state commit, so the 200 threshold is
-about 100 messages.
+The measure is the ORDER, not `rev-list rem..loc`: when a
+remote has already absorbed my branch, no commit of mine is
+missing, yet my history can still be reordered underneath
+me. `order.lua` holds only `post`/`like`/`revoke`, so the
+`merge`/`state` commits a pushing peer dates via `-o now`
+can never move the line.
 
 When either threshold is crossed, the local branch REFUSES
 to merge:
@@ -151,27 +150,32 @@ It does not merge-and-order-itself-first: it does not
 reconcile at all. The local branch is left untouched and
 the remote's posts are not absorbed.
 
-Every input is one of the local branch's own commits and is
-frozen in the DAG, so the remote cannot inflate the verdict.
+The settled prefix is built from my own order and my own
+commits' timestamps, so the remote cannot inflate it.
 
-Idling buys nothing: a branch that forks and then stays
-quiet has no span, so it is not entrenched.
+A fast-forward is refused only if it REWRITES the settled
+prefix. A remote that merely appends after my history is
+accepted, even when my branch is old: entrenchment rejects
+reordering, not new content. This matters because a peer
+that pulls my branch and pushes it back with its own posts
+spliced into my settled history arrives as a fast-forward.
 
-Fast-forwards are never refused: `exc` is empty when the
-local branch is an ancestor of the remote, so rule 1 cannot
-fire. Only genuine divergence is rejected.
+Below the line nothing is protected: a young branch, or one
+whose recent entries fit inside the window, is reordered by
+plain consensus.
 
-The refusal is ONE-DIRECTIONAL. The entrenched peer stops
-receiving, but a peer that is not itself entrenched still
-absorbs the entrenched branch by plain consensus. So an
-entrenched peer keeps broadcasting and never listens, and
-since its span only grows, that is permanent.
+The refusal is ONE-DIRECTIONAL: it is the RECEIVER that
+protects its own order. A peer that is not entrenched still
+absorbs an entrenched branch by consensus, so the entrenched
+side keeps broadcasting while refusing what would rewrite
+its settled history.
 
 ### Branch Merge Ordering (precedence)
 
-1. **Activity threshold** — if the local branch's exclusive
-   commits span 7 days or number 200, the sync is REFUSED
-   (hard fork); nothing below applies
+1. **Activity threshold** — if the result would rewrite my
+   settled prefix (older than 7 days, or more than 100
+   entries back), the sync is REFUSED (hard fork); nothing
+   below applies
 2. **Reputation** — whichever branch has more reputation in
    the common prefix is ordered first
 3. **Tiebreaker** — lexicographical order of hashes
@@ -184,11 +188,10 @@ merge during validation only ever has to reproduce
 
 ### Stable vs Unstable Consensus
 
-- **Stable**: once the local branch crosses the activity
-  threshold it refuses divergent syncs, so its ordering is
-  frozen permanently
-- **Unstable**: below the threshold, incoming branches are
-  merged and may reorder recent posts
+- **Stable**: entries older than the threshold are settled;
+  any sync that would reorder them is refused
+- **Unstable**: entries inside the window are still merged
+  and may be reordered by an incoming branch
 
 Stable consensus freezes the order progressively — the
 threshold operates backward from the newest local post,
