@@ -130,8 +130,12 @@ Both axes are measured over `exc`, the commits EXCLUSIVE to
 the local branch (`git rev-list rem..loc`) — commits the
 remote already holds never count:
 
-- **7 days**: `newest(exc) - oldest(exc)` (the SPAN of the
-  branch's own commits, NOT the age of the fork point), OR
+- **7 days**: `newest - oldest` over the AUTHORED commits in
+  `exc` (`post`/`like`/`revoke`) — the SPAN of the branch's
+  own content, NOT the age of the fork point. `merge`/`state`
+  commits are bookkeeping and do not extend it, so merely
+  syncing cannot entrench; entrenchment requires sustained
+  authoring, OR
 - **100 posts**: post commits in `exc`
 
 When either threshold is crossed, the local branch takes

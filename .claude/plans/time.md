@@ -204,9 +204,10 @@ ends of the window.
   re-derives the same verdict
 - A node that stays offline for >7 days does NOT trigger a
   hard fork by itself: with no commits of its own, its span
-  does not grow. It must commit at both ends of the window
-  (any commit counts, including the `merge`/`state` pair a
-  `sync recv` writes)
+  does not grow. It must AUTHOR at both ends of the window
+- Only authored commits (`post`/`like`/`revoke`) count:
+  the `merge`/`state` pair a `sync recv` writes does not
+  extend the span, so merely syncing cannot entrench
 - Timestamp forgery interacts with this rule: a node could
   backdate or future-date commits to manipulate whether the
   7-day threshold is crossed

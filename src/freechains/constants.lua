@@ -11,7 +11,7 @@ return {
         full    = 24*h,         -- fullway post consolidation period
     },
     fork = {
-        time    = 7*24*h,       -- span of exclusive commits (hard fork)
+        time    = 7*24*h,       -- span of authored exclusives (hard fork)
         posts   = 100,          -- exclusive post count (hard fork)
     },
     reps = {
