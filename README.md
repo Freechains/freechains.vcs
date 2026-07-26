@@ -443,7 +443,7 @@ $ freechains --root=/tmp/B/ chain '#chat' post inline $'day 1\n' --sign=/tmp/bob
 1a2b3c4...
 $ freechains --root=/tmp/B/ chain '#chat' sync send localhost:8331
 ... # (days go by)
-$ freechains --root=/tmp/B/ chain '#chat' post inline $'day 8\n' --sign=/tmp/charlie
+$ freechains --root=/tmp/B/ chain '#chat' post inline $'day 7\n' --sign=/tmp/charlie
 7d8e9f0...
 $ freechains --root=/tmp/B/ chain '#chat' sync send localhost:8331
 ```

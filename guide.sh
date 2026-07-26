@@ -124,25 +124,27 @@ echo
 FORK=$((T0+90))
 
 # Bob and Charlie adopt the canonical order, then keep posting/syncing
-# to the hub over 8 days. Alice (peer A) stays offline the whole time.
+# to the hub over 7 days. Alice (peer A) stays offline the whole time.
 FC --root="$B" --now=$((T0+110)) chain '#chat' sync recv localhost:$X_PORT
 
 FC --root="$B" --now=$((FORK+1*DAY))   chain '#chat' post inline $'day 1\n' --sign="$KEYS/bob"
 FC --root="$B" --now=$((FORK+1*DAY+5)) chain '#chat' sync send localhost:$X_PORT
 # ...                                                    # (days go by)
-FC --root="$B" --now=$((FORK+8*DAY))   chain '#chat' post inline $'day 8\n' --sign="$KEYS/charlie"
-FC --root="$B" --now=$((FORK+8*DAY+5)) chain '#chat' sync send localhost:$X_PORT
+FC --root="$B" --now=$((FORK+7*DAY))   chain '#chat' post inline $'day 7\n' --sign="$KEYS/charlie"
+FC --root="$B" --now=$((FORK+7*DAY+5)) chain '#chat' sync send localhost:$X_PORT
 
-# the hub branch is now entrenched: its own messages span 7 days
-echo "-- hub X order (day 1 ... day 8):"
+# the hub is now entrenched: measured back from its newest message, its
+# history reaches 7 days (day 7 vs the fork-era posts), so everything
+# before that point is settled
+echo "-- hub X order (day 1 ... day 7):"
 FC --root="$X" chain '#chat' list order
 
 # Alice comes back and posts on her own branch, which the hub has not seen
-FC --root="$A" --now=$((FORK+8*DAY+100)) chain '#chat' post inline $'Alice takes over\n' --sign="$KEYS/alice"
+FC --root="$A" --now=$((FORK+7*DAY+100)) chain '#chat' post inline $'Alice takes over\n' --sign="$KEYS/alice"
 
 # A sends to X: the hub is entrenched and REFUSES to merge Alice's fork
 echo "-- expected failure (the hub is entrenched):"
-FC --root="$A" --now=$((FORK+8*DAY+200)) chain '#chat' sync send localhost:$X_PORT || true
+FC --root="$A" --now=$((FORK+7*DAY+200)) chain '#chat' sync send localhost:$X_PORT || true
 
 echo
 echo "############ DONE ############"
