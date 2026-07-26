@@ -23,12 +23,13 @@ stay offline. A pioneer with 30 rep can post 30 times
 over 7 days trivially.
 
 Note (span rule): entrenchment is now the SPAN of the
-AUTHORED commits exclusive to the local branch
-(`post`/`like`/`revoke`), so staying offline alone no
-longer suffices — the attacker must AUTHOR at both ends of
-the window. `merge`/`state` commits (written by a `sync
-recv`) do not extend the span, so the cheap variant of
-"1 post now, any sync 7 days later" does NOT work.
+commits exclusive to the local branch, so staying offline
+alone no longer suffices — the attacker must produce
+commits at BOTH ends of the window.
+That is still cheap: every commit kind counts, including
+the `merge`/`state` pair a `sync recv` writes, so 1 post
+now plus any sync 7 days later is enough. The cost of the
+attack is therefore the 7-day wait, not the posting.
 
 **Real threat**: Low in well-connected networks (peers
 notice the absence), but **trivial to execute** and
@@ -39,11 +40,13 @@ attacker inherits the fork, risking a cascading split.
 computations differ across the split. Posts LINKED on
 one side may be BLOCKED on the other.
 
-**Residual**: the span still counts any AUTHOR's commits
-that sit on the branch, not only the attacker's own. A
-branch can therefore be entrenched by content pulled from
-third parties, provided that content is not yet held by
-the remote it is compared against.
+**Residual**: the span counts any commit exclusive to the
+branch — any author's content pulled from third parties,
+and the branch's own `merge`/`state` bookkeeping. A peer
+that never authors anything can therefore entrench purely
+by merging over time. That is intended (rule 1 protects
+the ORDERING, not the content), but it means entrenchment
+is cheap to acquire.
 
 **Mitigation status**: None implemented. See T1a below.
 

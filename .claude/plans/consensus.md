@@ -130,13 +130,15 @@ Both axes are measured over `exc`, the commits EXCLUSIVE to
 the local branch (`git rev-list rem..loc`) — commits the
 remote already holds never count:
 
-- **7 days**: `newest - oldest` over the AUTHORED commits in
-  `exc` (`post`/`like`/`revoke`) — the SPAN of the branch's
-  own content, NOT the age of the fork point. `merge`/`state`
-  commits are bookkeeping and do not extend it, so merely
-  syncing cannot entrench; entrenchment requires sustained
-  authoring, OR
-- **100 posts**: post commits in `exc`
+- **7 days**: `newest(exc) - oldest(exc)` — the SPAN of the
+  branch's own commits, NOT the age of the fork point, OR
+- **200 commits**: `#exc`
+
+Every commit kind counts (`post`/`like`/`revoke`/`merge`/
+`state`): what rule 1 protects is this branch's ORDERING,
+and `merge`/`state` commits are where that ordering lives.
+Each post carries a state commit, so the 200 threshold is
+about 100 messages.
 
 When either threshold is crossed, the local branch takes
 priority and is ordered first — **regardless of the remote
