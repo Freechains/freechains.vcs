@@ -118,28 +118,35 @@ elseif ARGS.recv then
         -- Hard fork (rule 1): is `loc` entrenched against `rem`?
         -- Direct local-vs-remote comparison over `exc`, the commits
         -- EXCLUSIVE to loc (`git rev-list rem..loc`):
-        --   time  : newest(exc) - oldest(exc) >= fork.time
-        --   posts : posts in exc              >= fork.posts
+        --   time  : span of AUTHORED exc commits >= fork.time
+        --   posts : posts in exc                 >= fork.posts
         -- Both inputs are loc's own commits, frozen in the DAG: the remote
         -- cannot inflate them, and any peer replaying this merge re-derives
         -- the same answer. Time is the SPAN of the exclusive commits, not
         -- the age of the fork: idling after a fork adds no independent
-        -- history, so it must not buy entrenchment.
+        -- history, so it must not buy entrenchment. Only authored commits
+        -- count, so entrenchment requires sustained AUTHORING: merely
+        -- syncing (which writes merge/state) cannot extend the span.
         local function hardfork (rem, loc)
             local n, old, new = 0, nil, nil
             local out = exec {
                 cmd = "git -C " .. REPO .. " rev-list " .. rem .. ".." .. loc,
             }
             for hash in out:gmatch("%x+") do
-                if trailer(hash) == 'post' then
+                local k = trailer(hash)
+                if k == 'post' then
                     n = n + 1
                 end
-                local t = NOW(hash)
-                if (not old) or t < old then
-                    old = t
-                end
-                if (not new) or t > new then
-                    new = t
+                -- authored commits only: `merge`/`state` are bookkeeping a
+                -- recv writes, so they must not extend the span
+                if k=='post' or k=='like' or k=='revoke' then
+                    local t = NOW(hash)
+                    if (not old) or t < old then
+                        old = t
+                    end
+                    if (not new) or t > new then
+                        new = t
+                    end
                 end
             end
             if old and (new-old) >= C.fork.time then
