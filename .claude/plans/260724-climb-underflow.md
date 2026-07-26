@@ -317,18 +317,54 @@ The idea was to enforce the guard only for commits NEW to this peer.
 In the reproduction C has never seen either post -- both are new -- so
 the guard still fires. Being new is not the distinction; ORDER is.
 
-### Fix direction: check the PARENT, not the running state
+### Fix: causal high-water rule (decided)
 
-`time.md` already describes the intended rule: "backdating ... is
-bounded by the monotonic parent rule (commit.timestamp >=
-parent.timestamp)". That test is per-commit and order-independent, so a
-consensus reorder cannot trip it, while backdating is still bounded.
+The guard must not depend on how the replay walks the DAG. Compare each
+commit against the high-water mark of its ANCESTORS, computed
+structurally:
 
-So: validate `commit.time >= parent.time` when a commit is first seen,
-and drop (or narrow to local posting) the `G.now - diff` comparison.
+```
+hw(c)    = max( time(c), max hw(p) for p in parents(c) )   -- memoised
+valid(c) <=> time(c) >= max( hw(p) for p in parents(c) ) - C.time.diff
+```
 
-Open questions: which parent for a merge commit; and whether local
-posting still wants the `G.now` form (there, `G.now` IS the parent).
+This is exactly the old `G.now` semantics (`G.now` IS the max time seen)
+but derived from the DAG instead of from the replay's running state.
+
+Why not the simpler variants:
+
+| variant                     | skew    | cumulative | order-dep |
+|-----------------------------|---------|------------|-----------|
+| old: `>= G.now - diff`      | ok      | bounded    | YES (bug) |
+| strict parent: `>= parent`  | REJECTS | n/a        | no        |
+| parent+tol: `>= parent-diff`| ok      | UNBOUNDED  | no        |
+| hw(ancestors) - diff        | ok      | bounded    | no        |
+
+`C.time.diff` (1h) is kept, attached to the ancestor high-water mark.
+
+Checked against every case we have:
+
+| case                                  | verdict                       |
+|---------------------------------------|-------------------------------|
+| consensus-gap: low@1300, hw(anc)=1200 | accepted, any apply order     |
+| err-post: forged@1970, parent@11000   | rejected ("too old")          |
+| reorder-ancient: beta@2000, tip@10000 | vs beta's OWN ancestors -> ok |
+| honest peer 30 min behind             | inside the 1h tolerance       |
+
+Knock-on: `monotonic` disappears from `apply()` and `commit()` (the
+check no longer depends on apply order), and the `G.now - diff` guard
+goes with it. Local posting rejects `--now` behind HEAD; the auto
+`merge`/`state` commits a recv writes are clamped to
+`max(CMD.now, parents)` so they cannot be born invalid.
+
+That clamping also makes `-o now` unnecessary for CORRECTNESS: it stays
+only so tests and `guide.sh` have reproducible timestamps.
+
+Accepted loss: `apply()`'s running-state guard was the only thing
+rejecting a post dated well below the chain's progress on a branch whose
+own ancestors are old. That is T2a (backdating on offline branches),
+already documented as accepted, and `time.md` already names the
+monotonic parent rule as the intended bound.
 
 ### Next step
 

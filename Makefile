@@ -22,6 +22,7 @@ tests:
 	$(L) cli-list.lua
 	$(L) sync.lua
 	$(L) consensus.lua
+	$(L) consensus-gap.lua
 	$(L) reorder-ancient.lua
 	$(L) climb-underflow.lua
 	$(L) climb-underflow-gap.lua

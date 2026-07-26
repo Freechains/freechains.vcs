@@ -87,17 +87,32 @@ local function ordered (posts)
     return hs
 end
 
-function apply (G, kind, time, T, monotonic)
+-- newest time among everything that causally precedes `hash`:
+-- `hash^@` is exactly its parents' reachable set. Nil for a root.
+local function max_ancestor_time (hash)
+    local out = exec {
+        cmd = "git -C " .. REPO .. " log --format=%at " .. hash .. "^@",
+    }
+    local mx = nil
+    for s in out:gmatch("%d+") do
+        local t = tonumber(s)
+        mx = math.max(mx or t, t)
+    end
+    return mx
+end
+
+function apply (G, kind, time, T)
     local sign = T and T.sign
 
     -- TIME: monotonicity, discount, consolidation
     do
-        -- monotonic timestamp
-        -- reorder replay re-applies already-validated commits onto a
-        -- winner tip that may be far ahead: the loser's older commits
-        -- were freshness-checked on first receipt, so skip the guard.
-        if monotonic then
-            if time < G.now-C.time.diff then
+        -- causal freshness: a commit may sit at most `time.diff` below
+        -- everything that precedes it. Read from the DAG, so it does not
+        -- depend on the order a replay applies commits in (consensus order
+        -- is not chronological order).
+        if T and T.hash then
+            local up = max_ancestor_time(T.hash)
+            if up and (time < up-C.time.diff) then
                 return false, "too old"
             end
         end

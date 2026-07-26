@@ -155,7 +155,7 @@ elseif ARGS.recv then
             return false
         end
 
-        local function commit (G, hash, beg, monotonic)
+        local function commit (G, hash, beg)
             local key, err = ssh.verify(REPO, hash)
 
             local out = exec {
@@ -243,7 +243,7 @@ elseif ARGS.recv then
                     post   = t.post,
                     author = t.author,
                     beg    = to_beg,
-                }, monotonic)
+                })
                 if not ok then
                     error("invalid " .. kind .. " : " .. err, 0)
                 end
@@ -253,7 +253,7 @@ elseif ARGS.recv then
                     hash = hash,
                     sign = key,
                     beg  = beg or (key == nil),
-                }, monotonic)
+                })
                 if not ok then
                     error("invalid post : " .. err, 0)
                 end
@@ -265,9 +265,8 @@ elseif ARGS.recv then
 
         -- rule 1, case 3: the order we would ADOPT is the remote's committed
         -- one, readable without replaying anything. Checked HERE, before the
-        -- replay, so an entrenched peer answers "hard fork" instead of
-        -- failing inside `climb` (a reordering of settled history trips the
-        -- monotonic guard first, reporting "invalid post : too old").
+        -- replay, so an entrenched peer answers "hard fork" rather than
+        -- some later error from the replay.
         do
             local ff = exec { stderr=false, err=false,
                 cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. loc .. " " .. rem,
@@ -373,7 +372,7 @@ elseif ARGS.recv then
                         meet(G, com, p1, p2, is_beg_merge)
                     end
                     visited[cur] = true
-                    commit(G, cur, beg, true)
+                    commit(G, cur, beg)
                 end
             end
 
@@ -511,7 +510,7 @@ elseif ARGS.recv then
                     }
                 end
 
-                ok, err = pcall(commit, G_fst, hash, nil, false)
+                ok, err = pcall(commit, G_fst, hash, nil)
                 if not ok then
                     goto DONE
                 end
