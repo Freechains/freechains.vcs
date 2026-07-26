@@ -211,9 +211,17 @@ Uncommented; the replay step goes green (A == B, 5 entries).
       reshaped (refusal + reverse direction); `make tests` green
 - [x] docs for the refuse semantics: consensus.md, time.md, threats.md,
       sync.md
-- [ ] README `### Hard Forks` + `guide.sh` rewrite (the guide currently
-      demonstrates merge-and-reorder, so `./guide.sh` fails until then)
+- [x] `guide.sh` Hard Forks rewritten: community posts `day 1`..`day 8`
+      (span >= 7d -> hub entrenched), Alice returns and her `sync send` is
+      REFUSED. Verified: `remote: ERROR : chain sync : hard fork` +
+      `! [remote rejected]`. Alice's recv dropped (not needed)
+- [x] README `### Hard Forks` rewritten around the real output
 - [ ] move plan to `done/`
+
+NOTE: the old guide silently stopped demonstrating anything under the span
+rule — A's single post spans 0, so no fork occurred and both orders were
+identical while the text still claimed they diverged. The `day 7` -> `day 8`
+change is what actually crosses the 7-day span.
 
 ## Findings worth filing separately
 

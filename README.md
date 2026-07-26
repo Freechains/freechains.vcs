@@ -425,8 +425,9 @@ peers reach the same state without any central authority.
 
 As a measure against malicious members with strong past reputation, Freechains
 protects entrenched local branches from unexpected consensus reorderings:
-A local branch whose own messages span *7 days* or number at least *100*
-is **not** subject to consensus rules.
+If a remote branch diverges from a local branch with over *200 commits* (~100
+messages) or with commits that span over *7 days* the merge is entirely
+rejected.
 This way, peers that remain active and synchronize over time evolve together
 as the "main branch".
 
@@ -434,76 +435,43 @@ To illustrate hard forks, let's make peers `X` and `B` with `Bob` and `Charlie`
 to synchronize continuously over time, while peer `A` with `Alice` goes offline
 just after the consensus above.
 
-Over the next seven days, `Bob` and `Charlie` keep posting and syncing to the
-hub:
+Over the next days, `Bob` and `Charlie` keep posting and syncing to the hub:
 
 ```
 $ freechains --root=/tmp/B/ chain '#chat' post inline $'day 1\n' --sign=/tmp/bob
 1a2b3c4...
 $ freechains --root=/tmp/B/ chain '#chat' sync send localhost:8331
 ... # (days go by)
-$ freechains --root=/tmp/B/ chain '#chat' post inline $'day 7\n' --sign=/tmp/charlie
+$ freechains --root=/tmp/B/ chain '#chat' post inline $'day 8\n' --sign=/tmp/charlie
 7d8e9f0...
 $ freechains --root=/tmp/B/ chain '#chat' sync send localhost:8331
 ```
 
-After this whole period, their shared branch on `X` becomes entrenched and
-cannot be reordered from consensus rules.
+Their messages on `X` now span over more than seven days, making hub's branch
+entrenched and refusing to merge.
 
-Then, `Alice` comes back and posts locally in peer `A`:
+Then, `Alice` comes back and posts locally in peer `A`, on the same branch she
+left behind:
 
 ```
 $ freechains chain '#chat' post inline $'Alice takes over\n' --sign=/tmp/alice
 9d0e1f2...
 ```
 
-Finally, the two incommunicable sides synchronize in both directions:
+When she tries to send it, the hub refuses to merge:
 
 ```
-$ freechains chain '#chat' sync recv localhost:8331
 $ freechains chain '#chat' sync send localhost:8331
+remote: ERROR : chain sync : hard fork
 ```
 
-As expected, both sides converge to the same DAG:
+Regardless of her strong past reputation, `Alice` cannot affect an active
+community, and her only option is to revert history, sync, re-post:
 
-```
-$ freechains chain '#chat' list dag
-                     560a55c
-                      /   \
-         (day 0) a1b2c3d  9a8b7c6
-                    |        |
-         (day 7) 9d0e1f2  f4e5d6c  (day 0)
-                             |
-                          1a2b3c4  (day 1)
-                             |
-                            ...
-                             |
-                          7d8e9f0  (day 7)
-```
+TODO: revert history
 
-However, the consensus order diverges, as each side preserves its own
-entrenched branch first:
+TODO: final Freechains statement
 
-```
-$ freechains chain '#chat' list order                 # A
-$ freechains --root=/tmp/X/ chain '#chat' list order  # X
-
-# A                             # X
-9d0e1f2  <- Alice, first        9a8b7c6
-9a8b7c6                         f4e5d6c  <- community, first
-f4e5d6c                         9d0e1f2  <- Alice, last
-```
-
-On peer `A`, `Alice`'s branch is entrenched and wins locally; on hub `X`,
-the community branch is entrenched and keeps `Alice`'s post last.
-
-Both peers applied the same rule to their own local branch, so each kept
-its own order.
-`Alice` "won" only on her isolated peer and can never reorder the
-community's history: the two branches are now a permanent fork.
-
-- Peers that hard-fork can no longer reconcile: the fork is permanent
-- This bounds offline reputation farming by an established member
 
 ### Moderation
 
