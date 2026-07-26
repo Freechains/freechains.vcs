@@ -45,7 +45,8 @@ end
 -- 100 posts at 1.5h steps = 150h < 7 days, so the time axis stays
 -- below its threshold and only the post axis can fire.
 -- Without rule 1: B ordered first by prefix reps (20 > 10)
--- With rule 1: A ordered first, 100 posts reached, reps ignored
+-- With rule 1: A is entrenched (100 posts reached) and REFUSES the
+-- merge, so it never reconciles with B and keeps its branch as is
 do
     print("==> Test 1: local first by 100-post divergence")
 
@@ -89,20 +90,23 @@ do
     --      Q1[K1] -- Q2[K2] ---------/
     --
     -- B: G -- Q1[K1] -- Q2[K2]
-    TEST "A recvs from B (A first by rule 1, despite lower reps)"
-    exec {
+    -- rule 1 REFUSES the merge: A is entrenched, so it does not reconcile
+    -- with B at all (rather than merging and ordering itself first)
+    TEST "A recvs from B: refused by rule 1"
+    FAIL {
         cmd = EXE_A .. " --now=" .. (FORK+N*STEP+HOUR) .. " chain '#fork-100' sync recv " .. ROOT_B .. "/chains/#fork-100/",
+        err = "ERROR : chain sync : hard fork",
     }
 
-    TEST "A order: 100 local posts first, then the 2 remote posts"
+    TEST "A keeps its own branch untouched (no remote posts)"
     do
-        local O = order(EXE_A, "#fork-100")
-        assert(#O == N+2, "expected " .. (N+2) .. " entries, got " .. #O)
+        local O, S = order(EXE_A, "#fork-100")
+        assert(#O == N, "expected " .. N .. " entries, got " .. #O)
         for i = 1, N do
             assert(O[i] == A[i], "local post " .. i .. " out of order")
         end
-        assert(O[N+1] == Q1, "Q1 should follow the local branch")
-        assert(O[N+2] == Q2, "Q2 should be last")
+        assert(not S[Q1], "Q1 must not have been merged")
+        assert(not S[Q2], "Q2 must not have been merged")
     end
 
     TEST "time axis stayed below the 7-day threshold"

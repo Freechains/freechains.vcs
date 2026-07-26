@@ -298,14 +298,15 @@ elseif ARGS.recv then
         end
 
         -- 4: needs fst/winner - snd/loser (do now b/c 3 mutates G_oct)
-        -- rule 1 (hard fork) is a pre-check on the local branch only:
-        -- an entrenched local branch skips the reps-based consensus
-        local fst, snd
+        -- rule 1 (hard fork) is a pre-check on the local branch only: an
+        -- entrenched local branch REFUSES to merge, rather than merging and
+        -- ordering itself first. The fork becomes explicit, and no merge
+        -- commit ever encodes a rule-1 decision -- so replaying a merge
+        -- only ever has to reproduce `consensus` (see `meet`).
         if hardfork(rem, loc) then
-            fst, snd = loc, rem
-        else
-            fst, snd = consensus(G_oct, oct, loc, rem)
+            ERROR("chain sync : hard fork")
         end
+        local fst, snd = consensus(G_oct, oct, loc, rem)
 
         -- 3,4: need remote validation: replay remote branch from G_oct
         local G_rem = G_oct -- (G_oct no longer required)
@@ -380,14 +381,9 @@ elseif ARGS.recv then
                     }
                 end
                 climb(G, com, up, false)
-                -- mirror the sender's decision exactly: rule 1 (entrenched
-                -- first parent = its local branch) then reps-consensus
-                local w
-                if hardfork(right, left) then
-                    w = left
-                else
-                    w = consensus(G, up, left, right)
-                end
+                -- merges only ever encode `consensus` (an entrenched branch
+                -- refuses to merge at all), so the replay reproduces it
+                local w = consensus(G, up, left, right)
                 if w == left then
                     climb(G, up, left,  false)
                     climb(G, up, right, right_is_beg)

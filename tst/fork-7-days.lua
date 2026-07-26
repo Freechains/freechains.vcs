@@ -39,10 +39,9 @@ end
 -- ACROSS the window (a1 then a2, 7 days apart): idling after the fork
 -- adds no independent history and must not buy entrenchment.
 -- Without rule 1: B ordered first by prefix reps (consensus.lua 2)
--- With rule 1: A ordered first unconditionally, reps ignored
--- Finally B recvs A back: replaying a hard-forked merge must reproduce
--- the same order, so rule 1 has to be applied at the merge too, not only
--- at the outermost local-vs-remote check.
+-- With rule 1: A is entrenched and REFUSES the merge, keeping its branch
+-- as is. The refusal is one-directional: B (one post, no span) is not
+-- entrenched, so it still absorbs A by plain consensus.
 do
     print("==> Test 1: local first by 7-day divergence")
 
@@ -93,51 +92,45 @@ do
         cmd = EXE_B .. " --now=" .. (1300+WEEK) .. " chain '#fork-7d' post inline 'beta\n' --file b.txt --sign " .. KEY1,
     }
 
-    --                       a1[K2] -- a2[K2] --\
-    --                      /                    M
-    -- A: G -- S[K1] -- L[K2]                   /
-    --                      \                  /
-    --                       beta[K1] --------/  (all survive: distinct files)
-    --
-    -- B: G -- S[K1] -- L[K2] -- beta[K1]
-    TEST "A recvs from B (A first by rule 1, despite lower reps)"
-    exec {
+    -- A: G -- S[K1] -- L[K2] -- a1[K2] -- a2[K2]   (entrenched: span 7d)
+    -- B: G -- S[K1] -- L[K2] -- beta[K1]           (not entrenched)
+    -- rule 1 REFUSES the merge: A is entrenched, so it does not reconcile
+    -- with B at all (rather than merging and ordering itself first)
+    TEST "A recvs from B: refused by rule 1"
+    FAIL {
         cmd = EXE_A .. " --now=" .. (1300+WEEK+100) .. " chain '#fork-7d' sync recv " .. ROOT_B .. "/chains/#fork-7d/",
+        err = "ERROR : chain sync : hard fork",
     }
 
-    TEST "A order: S, L, a1, a2, beta (local branch first)"
+    TEST "A keeps its own branch untouched (beta not merged)"
     do
         local O, S = order(EXE_A, "#fork-7d")
-        assert(#O == 5, "expected 5 entries, got " .. #O)
+        assert(#O == 4, "expected 4 entries, got " .. #O)
         assert(O[1] == seed, "seed should be first")
         assert(O[2] == like, "like should be second")
-        assert(O[3] == a1,   "a1 (local) should precede beta")
-        assert(O[4] == a2,   "a2 (local) should precede beta")
-        assert(O[5] == beta, "beta (remote) should be last")
+        assert(O[3] == a1,   "a1 should be third")
+        assert(O[4] == a2,   "a2 should be fourth")
+        assert(not S[beta],  "beta must not have been merged")
     end
 
-    -- B now REPLAYS A's merge. B's own rule-1 check never fires here (B is
-    -- behind: this is a fast-forward), so the only way B can re-derive the
-    -- order A committed is to re-apply rule 1 AT that merge. With plain
-    -- reps-consensus B would put beta (higher reps) first and the strict
-    -- state check would reject the recv.
-    TEST "B recvs from A (replays the hard-forked merge)"
+    -- B is NOT entrenched (one post, no span), so it still absorbs A's
+    -- branch by plain consensus: the refusal is one-directional
+    TEST "B recvs from A: accepted (B is not entrenched)"
     exec {
         cmd = EXE_B .. " --now=" .. (1300+WEEK+200) .. " chain '#fork-7d' sync recv " .. ROOT_A .. "/chains/#fork-7d/",
     }
 
-    TEST "B re-derives the same order as A"
+    TEST "B holds every post"
     do
-        local OA = order(EXE_A, "#fork-7d")
-        local OB = order(EXE_B, "#fork-7d")
-        assert(#OB == #OA, "order length differs: A=" .. #OA .. " B=" .. #OB)
-        for i = 1, #OA do
-            assert(OB[i] == OA[i], "order differs at " .. i .. ": A=" .. OA[i] .. " B=" .. OB[i])
+        local O, S = order(EXE_B, "#fork-7d")
+        assert(#O == 5, "expected 5 entries, got " .. #O)
+        for _, h in ipairs { seed, like, a1, a2, beta } do
+            assert(S[h], "missing post in B order")
         end
     end
 
-    TEST "A keeps all payloads"
-    for file, text in pairs { ["a1.txt"]="a1", ["a2.txt"]="a2", ["b.txt"]="beta" } do
+    TEST "A keeps its own payloads"
+    for file, text in pairs { ["a1.txt"]="a1", ["a2.txt"]="a2" } do
         local h = io.open(ROOT_A .. "/chains/#fork-7d/" .. file)
         local content = h:read("a")
         h:close()
