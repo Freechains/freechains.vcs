@@ -55,7 +55,39 @@ Consequences accepted:
 - `exc` counts all commit kinds and any author's commits sitting on my
   branch, not only my own posts.
 
-## Why `hardfork` is ALSO called inside `meet`
+## DECIDED: hard fork REFUSES the merge
+
+Rule 1 no longer means "merge, but order myself first". An entrenched
+local branch now rejects the sync outright:
+
+```
+ERROR : chain sync : hard fork
+```
+
+Consequences (all measured, `make tests` green):
+
+- **No rule 1 inside `meet`.** No merge commit can encode a rule-1
+  decision any more, so a replay only ever has to reproduce
+  `consensus`. The section below is kept for the record — it explains
+  why the inner call WAS needed under the merge-and-reorder design.
+- **The refusal is one-directional.** The entrenched peer stops
+  receiving; the other side (not entrenched) still absorbs its branch by
+  plain consensus. So an entrenched peer keeps broadcasting but never
+  listens, and since its span only grows, that is permanent.
+- **Content partitions** instead of merely diverging in order. Under the
+  old design both peers held every post and disagreed only on ordering.
+- Fast-forwards are unaffected: `exc` is empty, so rule 1 cannot fire.
+- Net code: -4 lines, and `hardfork` has a single call site.
+
+Deferred: with the verdict no longer replayed, determinism is not
+required, so the time axis COULD become wall-clock `now - oldest(exc)`
+(simpler, fixes the "post once then idle" and "99 posts then idle"
+blind spots). Not done because (a) `CMD.now` is what tests drive via
+`--now`, and (b) on the push path the SENDER supplies `-o now=`, so a
+remote could inflate the receiver's clock and force it to entrench.
+Keeping the span rule for now.
+
+## Why `hardfork` WAS also called inside `meet` (historical)
 
 It is an outer local-vs-remote decision — but every merge commit IS a
 past outer decision, frozen. A peer receiving an entrenched branch is
@@ -174,7 +206,13 @@ Uncommented; the replay step goes green (A == B, 5 entries).
       threats.md, README)
 - [x] `hardfork` simplified: ONE `git log --format=%at rem..loc`,
       all commit kinds count, `fork.posts = 2*100`
-- [ ] re-run `make tests` + `./guide.sh` after the simplification  <-- NEXT
+- [x] `make tests` green after the simplification
+- [x] rule 1 REFUSES the merge; removed from `meet`; both fork tests
+      reshaped (refusal + reverse direction); `make tests` green
+- [ ] docs for the refuse semantics: consensus.md, time.md, threats.md,
+      sync.md  <-- NEXT
+- [ ] README `### Hard Forks` + `guide.sh` rewrite (the guide currently
+      demonstrates merge-and-reorder, so `./guide.sh` fails until then)
 - [ ] move plan to `done/`
 
 ## Findings worth filing separately
