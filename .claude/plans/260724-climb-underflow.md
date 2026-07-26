@@ -189,6 +189,156 @@ Uncommented; the replay step goes green (A == B, 5 entries).
 - `./guide.sh` end to end
 - commit; move plan to `done/`
 
+## NEXT DESIGN: entrenchment protects the ORDER, not the commit set
+
+### Why the current `exc` measure fails
+
+`hardfork(rem, loc)` measures `exc = git rev-list rem..loc`. When my tip
+is an ANCESTOR of `rem` (the remote absorbed my branch), `exc` is EMPTY —
+so the check reads "nothing of mine is at stake" exactly when everything
+of mine is being reordered:
+
+```
+        hello                     A pulls X, then pushes back:
+          |
+         like                     mine  : hello like b1    b2
+        /     \                   theirs: hello like ALICE b1  b2
+   b1 (day 1)  ALICE                                ^ spliced into settled
+      |          \                                    history
+   b2 (day 9)     \
+        \         /               exc = rev-list A..X = {}  -> not entrenched
+         M = merge                -> X merges -> only an accidental
+   [X tip inside A's history]        "invalid post : too old" stops it
+```
+
+So pull-then-push bypasses rule 1 by construction.
+
+### The rule
+
+Compute a FROZEN LINE from my own order: walk back from my tip until the
+walked part spans `fork.time` or reaches `fork.posts` entries; everything
+before that point is settled.
+
+```
+my order:  hello  like  b1     b2      c1      c2
+time:      d0     d0    d1     d9      d9.5    d9.9   <- tip
+           |__ FROZEN __|      |____ fresh (within 7d) ____|
+                        k=3
+```
+
+Then: the CANDIDATE result of this sync must preserve `mine[1..k]`
+verbatim, or it is a hard fork.
+
+- ff case: the candidate is the remote's committed order.
+- divergent case: the candidate is the order I would compute. So the
+  check runs AFTER deriving it and BEFORE writing anything -- a later
+  call site than today's.
+
+### What it fixes
+
+| incoming                        | today (`exc`) | frozen line |
+|---------------------------------|---------------|-------------|
+| rewrites my settled history     | refuse        | refuse      |
+| pull-then-push (my tip absorbed)| ACCEPT (bug)  | refuse      |
+| appends after my history        | REFUSE (bad)  | accept      |
+| reorders only fresh posts       | refuse (bad)  | accept      |
+
+The 3rd and 4th rows are the over-rejection: today an entrenched peer
+drops content that never threatened its order. That is the same cost
+noted in threats.md T1 (honest absentees isolate themselves).
+
+### Bonus: removes a `-o now` exposure
+
+`sync send` forwards `-o now=` and the receiving hook turns it into
+`--now=`, so the SENDER picks the timestamps of the `merge`/`state`
+commits the RECEIVER writes into its own branch. With the span counting
+all commit kinds, a push carrying a far-future `now` would leave the
+receiver's own branch spanning centuries -> permanently entrenched ->
+refuses everyone. (`apply()` bounds only PAST timestamps.)
+
+`order.lua` holds only `post`/`like`/`revoke`, so a frozen line computed
+from the order is immune to this: nothing the sender stamps on my
+bookkeeping commits can move it. Residual exposure is author-chosen post
+timestamps, already catalogued as T2b.
+
+`-o now` itself stays (tests and `guide.sh` need simulated time), it just
+stops feeding a security decision.
+
+### Knock-on
+
+- `fork.posts` returns to `100` (the order holds messages, not commits).
+- The remote's order is a CLAIM at check time; safe, because a state that
+  does not match its own DAG is rejected by the strict state check
+  moments later. Worth a code comment.
+
+## OPEN BUG: consensus reorder produces an unvalidatable state
+
+Found while checking whether a refused peer can just pull-then-push.
+It is NOT specific to hard forks.
+
+### Reproduction (scratch, 2 peers)
+
+```
+alice=28 reps, bob=3 reps
+X (bob):    hello -- like -- b1 (day 1) -- b2 (day 9)     -- entrenched
+A (alice):  hello -- like ------------------ ALICE (day 9+)
+
+1) X recv A         -> ERROR : chain sync : hard fork          (by design)
+2) A recv X         -> accepted; A's order becomes
+                       hello like ALICE b1 b2                  (alice wins
+                       consensus, so her post is ordered FIRST)
+3) X recv A (retry) -> ERROR : chain sync : invalid post : too old
+                       X's order unchanged
+```
+
+### Diagnosis
+
+Step 3 does NOT fail by rule 1 — after step 2 `exc` is empty, so
+`hardfork` is false. It fails inside the replay:
+
+- A's order puts `ALICE` (t = day 9) before `b1` (t = day 1).
+- X replays that order: applies `ALICE`, so `G.now` jumps to day 9,
+  then applies `b1`, which is now > 1h in the past -> "too old".
+- A itself accepted the same ordering because the divergent/reorder path
+  applies loser commits with `monotonic=false`; `climb` uses `true`.
+
+Root: `climb` has TWO roles and one flag cannot serve both —
+first-receipt validation (MUST reject stale timestamps, see
+`err-post.lua`) and re-ordering replay (MUST tolerate them, see
+`reorder-ancient`). Same conflict as reorder-ancient, other direction.
+
+Consequence (general): a high-rep peer whose NEWER branch wins consensus
+over an OLDER branch commits a state that other peers cannot validate.
+The sender is happy; every receiver rejects it with a misleading error.
+
+Not covered by tests: `fork-7-days` refuses before reaching this, and
+`consensus.lua` uses timestamps close together.
+
+Side effect today: it is what actually stops a refused peer from
+reordering the community by pull-then-push. That protection is a
+coincidence of the monotonic guard, not a rule.
+
+### Candidate fixes
+
+1. Separate the two roles: validate freshness ONCE per commit (on first
+   receipt) and record it; the replay never re-checks. Needs somewhere
+   to remember "already validated" across recvs.
+2. Make `monotonic` positional in the replay: enforce it only while
+   climbing commits that are NEW to this peer, skip it for commits
+   already in `G_oct`/already applied (the `visited` set already knows).
+3. Forbid orders that violate monotonicity: make `consensus` (or the
+   reorder path) never place a newer post before an older one. Changes
+   ordering semantics — probably wrong.
+
+Lean: option 2 — the information is already available (`visited`), and
+it draws the line exactly where the two roles differ.
+
+### Next step
+
+Write a failing test first (2 peers, high-rep late poster vs older
+branch, no hard fork involved) so the bug is pinned independently of
+rule 1, then fix.
+
 ## Checklist
 
 - [x] Repro tests (nested + gap), deterministic
@@ -216,6 +366,13 @@ Uncommented; the replay step goes green (A == B, 5 entries).
       REFUSED. Verified: `remote: ERROR : chain sync : hard fork` +
       `! [remote rejected]`. Alice's recv dropped (not needed)
 - [x] README `### Hard Forks` rewritten around the real output
+- [ ] prototype the FROZEN LINE rule (order-based entrenchment)  <-- NEXT
+      cases to check: pull-then-push (must refuse), append-after (must
+      accept), fresh reorder (must accept), original divergence (refuse)
+- [ ] failing test for the consensus-reorder / monotonic-replay conflict
+      (may become unreachable once the frozen line lands -- verify)
+- [ ] `fork.posts` 2*100 -> 100 if the order-based count is adopted
+- [ ] `make tests` + `./guide.sh` green
 - [ ] move plan to `done/`
 
 NOTE: the old guide silently stopped demonstrating anything under the span
