@@ -424,12 +424,13 @@ peers reach the same state without any central authority.
 ### Hard Forks
 
 As a measure against malicious members with strong past reputation, Freechains
-protects entrenched local branches from unexpected consensus reorderings:
-If a remote branch diverges from a local branch with over *200 commits* (~100
-messages) or with commits that span over *7 days* the merge is entirely
-rejected.
-This way, peers that remain active and synchronize over time evolve together
-as the "main branch".
+protects settled local branches from unexpected consensus reorderings.
+A settled branch is a branch with at least *100 posts* or *7 days* between
+oldest and newest posts.
+So, if a sync operation would reorder posts in a settled branch, then the merge
+is simply refused and the peers are no longer compatible.
+In contrast, peers that remain active and synchronize over time evolve together
+with a stable order.
 
 To illustrate hard forks, let's make peers `X` and `B` with `Bob` and `Charlie`
 to synchronize continuously over time, while peer `A` with `Alice` goes offline
@@ -447,8 +448,8 @@ $ freechains --root=/tmp/B/ chain '#chat' post inline $'day 8\n' --sign=/tmp/cha
 $ freechains --root=/tmp/B/ chain '#chat' sync send localhost:8331
 ```
 
-Their messages on `X` now span over more than seven days, making hub's branch
-entrenched and refusing to merge.
+Their posts on `X` now span over more than seven days, making hub's branch
+settled and refusing to reorderings.
 
 Then, `Alice` comes back and posts locally in peer `A`, on the same branch she
 left behind:
