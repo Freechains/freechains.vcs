@@ -209,8 +209,8 @@ Uncommented; the replay step goes green (A == B, 5 entries).
 - [x] `make tests` green after the simplification
 - [x] rule 1 REFUSES the merge; removed from `meet`; both fork tests
       reshaped (refusal + reverse direction); `make tests` green
-- [ ] docs for the refuse semantics: consensus.md, time.md, threats.md,
-      sync.md  <-- NEXT
+- [x] docs for the refuse semantics: consensus.md, time.md, threats.md,
+      sync.md
 - [ ] README `### Hard Forks` + `guide.sh` rewrite (the guide currently
       demonstrates merge-and-reorder, so `./guide.sh` fails until then)
 - [ ] move plan to `done/`

@@ -14,9 +14,9 @@ impact, and mitigation status.
 **Mechanism**: An attacker disconnects from the network
 for 7+ days while posting to their local branch. On
 reconnection, the local branch has crossed the activity
-threshold. The attacker's node permanently freezes its
-own ordering; the rest of the network has a different
-frozen ordering.
+threshold, so the attacker's node REFUSES every divergent
+sync (`ERROR : chain sync : hard fork`). It permanently
+freezes its own ordering and stops absorbing anyone.
 
 **Resources**: Minimal — 1 rep per post, just needs to
 stay offline. A pioneer with 30 rep can post 30 times
@@ -33,12 +33,17 @@ attack is therefore the 7-day wait, not the posting.
 
 **Real threat**: Low in well-connected networks (peers
 notice the absence), but **trivial to execute** and
-**permanent in effect**. Any node that syncs with the
-attacker inherits the fork, risking a cascading split.
+**permanent in effect**. The refusal is visible (an error,
+not silent divergence), which limits the cascade: honest
+peers still merge the attacker's branch by consensus and
+stay consistent with each other. It is the attacker that
+isolates itself.
 
-**Impact**: Permanent consensus divergence. Reputation
-computations differ across the split. Posts LINKED on
-one side may be BLOCKED on the other.
+**Impact**: Permanent CONTENT partition on the attacker's
+side, not merely an ordering disagreement. The attacker
+keeps broadcasting but never receives again (its span only
+grows), so its reputation view and post set drift from the
+network's for good.
 
 **Residual**: the span counts any commit exclusive to the
 branch — any author's content pulled from third parties,
@@ -47,6 +52,13 @@ that never authors anything can therefore entrench purely
 by merging over time. That is intended (rule 1 protects
 the ORDERING, not the content), but it means entrenchment
 is cheap to acquire.
+
+**Note (honest peers)**: the same mechanism fires without
+an attacker. Any peer that is simply away long enough
+(mobile, intermittent) crosses the threshold and then
+refuses to reconcile, permanently. Under this design the
+availability cost to honest absentees is arguably larger
+than the value of the attack itself.
 
 **Mitigation status**: None implemented. See T1a below.
 
@@ -76,11 +88,14 @@ delivery timing within one sync interval.
 spam, no equivocation, just one branch arriving at
 slightly different times.
 
-**Status (span rule)**: NEUTRALISED as described.
+**Status (span rule + refusal)**: NEUTRALISED as described.
 Entrenchment is the span of the branch's own exclusive
-commits, all of which are frozen in the DAG. It does not
-depend on when the branch is delivered, so peers A and B
-compute the SAME verdict no matter the timing.
+commits, all frozen in the DAG, so it does not depend on
+when the branch is delivered: peers A and B compute the
+SAME verdict no matter the timing. Rule 1 also no longer
+orders anything — it only decides whether the RECEIVER
+merges — so controlling delivery cannot make two receivers
+adopt different orderings of the same content.
 The sharp threshold itself remains: a branch whose span
 sits near `fork.time` still flips on one extra commit,
 and two peers holding DIFFERENT subsets of the branch can
@@ -111,13 +126,14 @@ simultaneous posts, two incompatible branches).
 and recovery (revert to common prefix) is
 straightforward.
 
-**Note (span rule)**: the post axis now counts only posts
-EXCLUSIVE to the branch (`rev-list rem..loc`), so posts
-the other side already holds no longer inflate the count.
-This does not weaken the attack — the two equivocated
-branches are exclusive to each other by construction —
-but it does remove the accidental variant where a shared
-history pushed an honest branch over the threshold.
+**Note (span rule + refusal)**: the count axis now counts
+commits EXCLUSIVE to the branch (`rev-list rem..loc`), so
+commits the other side already holds do not inflate it.
+The attack still works — the two equivocated branches are
+exclusive to each other by construction — but its effect
+changes: A and B now REFUSE to merge each other rather
+than merging into two different orderings. The split is an
+explicit error instead of a silent divergence.
 
 ---
 
@@ -412,7 +428,7 @@ is correct by design.
 
 | ID   | Threat                        | Severity | Likelihood | Implemented? |
 |------|-------------------------------|----------|------------|--------------|
-| T1   | 7-day partition fork          | High     | Low        | No defense   |
+| T1   | 7-day partition fork          | Medium   | Low        | Self-isolates|
 | T1a  | Boundary attack (timing)      | High     | Low        | Span rule    |
 | T1b  | Equivocation (100-post)       | High     | Low        | No defense   |
 | T2a  | Backdating offline branches   | Medium   | Medium     | Consensus    |

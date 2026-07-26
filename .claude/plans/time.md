@@ -186,9 +186,10 @@ The hard fork rule (see [consensus.md](consensus.md)) uses
 a **7-day** time threshold. It is measured as the SPAN of
 the commits exclusive to the local branch
 (`git rev-list rem..loc`): newest minus oldest. When that
-span reaches 7 days the local branch wins unconditionally,
-so syncing results in permanent consensus divergence —
-each peer keeps its own local ordering.
+span reaches 7 days the local branch REFUSES to merge
+(`ERROR : chain sync : hard fork`), so the divergence is
+permanent: the entrenched peer keeps its own ordering and
+never absorbs the remote's posts.
 
 Note this is NOT the age of the fork point. Idling after a
 fork adds no independent history and must not buy
@@ -200,8 +201,13 @@ ends of the window.
 - The 7-day window is measured from committer timestamps
   in the DAG, not wall-clock time at sync
 - Both timestamps are the local branch's own, so the remote
-  cannot inflate them, and any peer replaying the merge
-  re-derives the same verdict
+  cannot inflate them
+- The verdict is never replayed: an entrenched branch does
+  not merge, so no merge commit encodes a rule-1 decision.
+  Determinism is therefore no longer required here — a
+  wall-clock rule (`now - oldest(exc)`) becomes possible,
+  and would fix the "post once, then idle" blind spot below
+- A fast-forward is never refused (`exc` is empty)
 - A node that stays offline for >7 days does NOT trigger a
   hard fork by itself: with no commits of its own, its span
   does not grow. It must commit at both ends of the window

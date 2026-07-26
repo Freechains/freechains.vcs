@@ -140,39 +140,55 @@ and `merge`/`state` commits are where that ordering lives.
 Each post carries a state commit, so the 200 threshold is
 about 100 messages.
 
-When either threshold is crossed, the local branch takes
-priority and is ordered first — **regardless of the remote
-branch's reputation**. The two peers permanently disagree
-on consensus ordering and cannot converge.
+When either threshold is crossed, the local branch REFUSES
+to merge:
+
+```
+ERROR : chain sync : hard fork
+```
+
+It does not merge-and-order-itself-first: it does not
+reconcile at all. The local branch is left untouched and
+the remote's posts are not absorbed.
 
 Every input is one of the local branch's own commits and is
-frozen in the DAG: the remote cannot inflate the verdict,
-and any peer replaying the merge re-derives it identically.
+frozen in the DAG, so the remote cannot inflate the verdict.
 
 Idling buys nothing: a branch that forks and then stays
 quiet has no span, so it is not entrenched.
 
+Fast-forwards are never refused: `exc` is empty when the
+local branch is an ancestor of the remote, so rule 1 cannot
+fire. Only genuine divergence is rejected.
+
+The refusal is ONE-DIRECTIONAL. The entrenched peer stops
+receiving, but a peer that is not itself entrenched still
+absorbs the entrenched branch by plain consensus. So an
+entrenched peer keeps broadcasting and never listens, and
+since its span only grows, that is permanent.
+
 ### Branch Merge Ordering (precedence)
 
 1. **Activity threshold** — if the local branch's exclusive
-   commits span 7 days or contain 100 posts, it wins
-   unconditionally (hard fork)
+   commits span 7 days or number 200, the sync is REFUSED
+   (hard fork); nothing below applies
 2. **Reputation** — whichever branch has more reputation in
    the common prefix is ordered first
 3. **Tiebreaker** — lexicographical order of hashes
 
-This precedence is applied twice: at the outermost
-local-vs-remote decision, and again at every merge commit
-replayed during validation (a merge commit IS a past
-local-vs-remote decision, and the replay must reproduce it
-to match the sender's committed state).
+Rule 1 is evaluated ONLY at the outermost local-vs-remote
+decision. Because an entrenched branch never merges, no
+merge commit can encode a rule-1 decision, so replaying a
+merge during validation only ever has to reproduce
+`consensus` (steps 2-3).
 
 ### Stable vs Unstable Consensus
 
-- **Stable**: posts that have crossed the activity threshold
-  are frozen permanently in the local ordering
-- **Unstable**: recent posts (below the threshold) may still
-  be reordered by incoming branches
+- **Stable**: once the local branch crosses the activity
+  threshold it refuses divergent syncs, so its ordering is
+  frozen permanently
+- **Unstable**: below the threshold, incoming branches are
+  merged and may reorder recent posts
 
 Stable consensus freezes the order progressively — the
 threshold operates backward from the newest local post,

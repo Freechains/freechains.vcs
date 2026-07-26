@@ -284,9 +284,11 @@ to send.
 ## Future steps
 
 - Hard fork detection: DONE — span of the commits exclusive
-  to the local branch (7d) or exclusive posts (100), applied
-  at the outermost recv AND at every replayed merge
-  (see consensus.md)
+  to the local branch (7d) or 200 exclusive commits. An
+  entrenched branch REFUSES the sync
+  (`ERROR : chain sync : hard fork`) instead of merging, so
+  the check runs only at the outermost recv and merges never
+  encode it (see consensus.md)
 - Signature verification per fetched commit
     - With SSH signing (signing.md Option D), each commit's
       `gpgsig` header embeds the full public key
