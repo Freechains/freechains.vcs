@@ -170,8 +170,21 @@ Uncommented; the replay step goes green (A == B, 5 entries).
 - [x] Step 3: `fork-7-days.lua` replay step -> RED without inner `hardfork`
 - [x] Step 4: uncommented; `make tests` FULLY GREEN
 - [x] `./guide.sh` completes end to end
-- [ ] docs updated  <-- NEXT
-- [ ] commit; move plan to `done/`
+- [x] docs updated (constants, consensus.md, time.md, sync.md,
+      threats.md, README)
+- [x] `hardfork` simplified: ONE `git log --format=%at rem..loc`,
+      all commit kinds count, `fork.posts = 2*100`
+- [ ] re-run `make tests` + `./guide.sh` after the simplification  <-- NEXT
+- [ ] move plan to `done/`
+
+## Findings worth filing separately
+
+- `tst/reorder-ancient.lua` uses `sync send`; the receiver runs in the
+  git hook whose stderr `push` swallows, so a dropped ancient post still
+  passes. Should use a direct `sync recv`, or assert the final order.
+- `list dag` crashes on the nested topology:
+  `list.lua:85: attempt to divide by zero` (renderer only, `list order`
+  is fine).
 
 ## References
 
