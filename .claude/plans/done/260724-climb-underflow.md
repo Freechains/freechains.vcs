@@ -1,18 +1,21 @@
 # Climb Underflow: nested-merge replay + hard-fork rule
 
-## Status: IN PROGRESS — working tree only, nothing committed
+## Status: DONE — `make tests` and `./guide.sh` green
 
-`main` untouched. Work so far (all uncommitted):
+Everything below is implemented in the working tree (nothing committed by
+me). Three separate defects were fixed on the way; the last one turned
+out to pre-exist on `main`.
 
-| file | change |
-|------|--------|
-| `sync.lua` | `climb` guards (`visited`, `ancestor`), `commit(..., false)` |
-| `sync.lua` | `meet`: boundary-octopus ancestor + `hardfork` + `consensus` |
-| `sync.lua` | `hardfork(rem, loc)` redesigned: span of `exc` (design #2) |
-| `tst/climb-underflow.lua` | nested repro, deterministic tie-break |
-| `tst/climb-underflow-gap.lua` | new: nested + 7-day gap, deterministic |
-| `tst/fork-7-days.lua` | rewritten for design #2 (A posts ACROSS the window) |
-| `Makefile` | both `climb-underflow*` wired in |
+| area          | change                                          |
+|---------------|-------------------------------------------------|
+| `sync.lua`    | `climb` guards: nested-merge underflow           |
+| `sync.lua`    | `meet` uses the boundary-octopus ancestor        |
+| `sync.lua`    | rule 1 REFUSES; gone from `meet`; order-based    |
+| `common.lua`  | `max_ancestor_time`; `monotonic` removed         |
+| `constants`   | `fork.posts = 100` (the order counts messages)   |
+| tests         | +climb-underflow{,-gap}, +consensus-gap;         |
+|               | reshaped fork-7-days, fork-100-posts, reorder-*  |
+| docs          | consensus/time/sync/threats.md, README, guide.sh |
 
 ## The three defects fixed
 
@@ -271,7 +274,7 @@ stops feeding a security decision.
   does not match its own DAG is rejected by the strict state check
   moments later. Worth a code comment.
 
-## OPEN BUG: consensus reorder produces an unvalidatable state
+## FIXED: consensus reorder produced an unvalidatable state
 
 PRE-EXISTING on `main` (verified by re-running against
 `git show main:src/freechains/chain/sync.lua`). Not introduced here.
@@ -366,11 +369,21 @@ own ancestors are old. That is T2a (backdating on offline branches),
 already documented as accepted, and `time.md` already names the
 monotonic parent rule as the intended bound.
 
-### Next step
+### Resolution
 
-Failing test first: 3 peers, low-rep early post vs high-rep post >1h
-later, no hard fork involved -- assert the third peer accepts and ends
-with all 4 entries.
+`tst/consensus-gap.lua` (3 peers, no hard fork) reproduced it, then:
+
+- `apply()` computes `max_ancestor_time(T.hash)` itself -- `hash^@` is
+  exactly the parents' reachable set, so ONE git call, no recursion and
+  no memo -- and rejects `time < that - C.time.diff`.
+- `monotonic` is gone from `apply()`, `commit()` and every call site:
+  the check no longer depends on apply order, so no caller needs to
+  say which mode it wants.
+- Local posting is covered by the same rule (HEAD is the parent), which
+  closed a gap where a backdated local post was accepted locally and
+  then rejected by every peer.
+
+`make tests` and `./guide.sh` both green.
 
 ## Checklist
 
@@ -405,24 +418,20 @@ with all 4 entries.
 - [x] `fork.posts` 2*100 -> 100 (the order counts messages)
 - [x] docs realigned (constants, consensus.md, README)
 - [x] `make tests` green
-- [ ] OPEN BUG above: failing test, then fix (parent-timestamp rule)  <-- NEXT
-- [ ] `./guide.sh` re-run after the frozen-line change
-- [ ] `make tests` + `./guide.sh` green
-- [ ] move plan to `done/`
+- [x] consensus-reorder bug: `tst/consensus-gap.lua` + causal freshness
+      via `max_ancestor_time`; `monotonic` removed everywhere
+- [x] `make tests` green (incl. `consensus-gap`)
+- [x] `./guide.sh` green
+- [x] move plan to `done/` (follow-ups moved to 260726-sync-followups.md)
 
 NOTE: the old guide silently stopped demonstrating anything under the span
 rule — A's single post spans 0, so no fork occurred and both orders were
 identical while the text still claimed they diverged. The `day 7` -> `day 8`
 change is what actually crosses the 7-day span.
 
-## Findings worth filing separately
+## Follow-ups
 
-- `tst/reorder-ancient.lua` uses `sync send`; the receiver runs in the
-  git hook whose stderr `push` swallows, so a dropped ancient post still
-  passes. Should use a direct `sync recv`, or assert the final order.
-- `list dag` crashes on the nested topology:
-  `list.lua:85: attempt to divide by zero` (renderer only, `list order`
-  is fine).
+Moved to [260726-sync-followups.md](../260726-sync-followups.md).
 
 ## References
 
