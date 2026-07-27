@@ -6,6 +6,95 @@ blocked that work; each is independent of the others.
 
 Ordered by how much they can bite.
 
+## 0. Consensus baseline: pairwise merge-base (DONE)
+
+`make tests` green (incl. the new test); `./guide.sh` refuses at `day 7`.
+
+Reproduced first by `tst/hardfork-shared.lua` (2 peers, 2 keys, 4 posts):
+an entrenched peer WRONGLY ACCEPTS a merge that reorders its settled
+history, because a commit both peers already hold decides the consensus
+between them. RED before the fix, green after; wired into `make tests`.
+
+`consensus(G, com, a, b)` compared the branches from `oct`, the boundary
+octopus, which sits DEEPER than the pairwise merge-base whenever an
+unrelated earlier fork exists. Commits both peers already agree on then
+fall inside BOTH `com..a` and `com..b`, and since reps are summed over
+the SET of authors, such a shared commit hands its author's full reps to
+whichever side lacked them.
+
+Measured: same dispute, same reps, same authors -- outcome flips with an
+unrelated earlier fork.
+
+```
+CASE 1  guide-like (an earlier unrelated fork exists)  -> ACCEPTED
+CASE 2  identical, minus that earlier fork             -> hard fork
+```
+
+In CASE 1 Alice's own earlier post sits on the hub's branch, lending her
+23 reps to the side she is arguing against; the hub wins and her post is
+ordered last. That is why the guide's Hard Forks section had silently
+stopped demonstrating anything.
+
+Fix: keep `oct` for loading `G_oct` and as the climb floor, but compare
+from `base(a, b)` = the pairwise merge-base, so the two ranges are
+disjoint by construction and shared history never enters the comparison.
+Two call sites: the top-level `fst, snd` and `meet`.
+
+Minimal reproduction (`tst/hardfork-shared.lua`):
+
+```
+        seed[K1] -- like[K2]        <- oct lands HERE (one fork deeper)
+                   /        \
+              AW[K1]         cw[K2]    concurrent: the unrelated fork
+                   \        /
+                    MERGE             X absorbs AW (now shared)
+                      |
+                    d2[K2]            7 days later: X entrenched
+                      |
+   ALICE[K1]       (X tip)
+
+from `oct` (wrong):  X: {K1,K2} vs A: {K1}  -> X wins, ALICE last, ACCEPTED
+from AW   (correct): X: {K2}    vs A: {K1}  -> A wins, ALICE first, REFUSED
+```
+
+Result: CASE 1 and CASE 2 agree, and `guide.sh` refuses at `day 7`
+again -- the `day 8` workaround (added while the exc-span rule was in
+place) is reverted.
+
+Knock-on: `tst/climb-underflow-gap.lua` reshaped. Its 7-day gap now
+entrenches BOTH peers, so whichever would have its settled history
+reordered refuses and nothing is replayed. The gap is now 3 hours --
+still crossing the 1h freshness tolerance, still nesting two merges, but
+below entrenchment. Rule 1 keeps its own tests (fork-7-days,
+fork-100-posts).
+
+### Step 2 (tested): the deep ancestor IS still needed
+
+Tried dropping the octopus entirely. It fails, and so does each half:
+
+| variant | comparison | `oct` (state) | `meet` floor | nested |
+|---------|------------|---------------|--------------|--------|
+| step 1  | pairwise   | octopus       | octopus      | PPP    |
+| A       | pairwise   | octopus       | pairwise     | fff    |
+| B       | pairwise   | pairwise      | octopus      | fff    |
+| step 2  | pairwise   | pairwise      | pairwise     | fff    |
+
+Failure is `remote state mismatch`, not a crash. In the nested case
+`B recv A` is a FAST-FORWARD, so `merge-base` is B's OWN TIP: the replay
+then starts from B's existing state and merely appends, keeping B's prior
+arrangement instead of re-deriving the contested region. The deeper `oct`
+forces the receiver to rebuild enough history to reproduce the sender's
+order.
+
+So the two ancestors answer different questions, and both are needed:
+
+```
+oct  (boundary octopus)  how much history to RE-DERIVE
+                         deep: must rebuild the contested region
+base (merge-base)        what each side CONTRIBUTED
+                         shallow: disjoint, so shared commits never count
+```
+
 ## 1. `list dag` crashes on nested merges
 
 ```

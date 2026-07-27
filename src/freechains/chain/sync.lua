@@ -75,7 +75,21 @@ elseif ARGS.recv then
         ---------------------------------------------------------------------------
         ---------------------------------------------------------------------------
 
+        -- pairwise merge-base: the point where `a` and `b` actually
+        -- diverged. `com..a` and `com..b` are then disjoint, so a commit
+        -- BOTH sides hold can never enter the comparison below.
+        local function base (a, b)
+            return (exec {
+                cmd = "git -C " .. REPO .. " merge-base " .. a .. " " .. b,
+            }):match("%x+")
+        end
+
         -- Consensus: prefix reps from G decide winner
+        --  - `com` MUST be the pairwise base, not the octopus `oct`: from a
+        --    deeper point the two ranges overlap, and since reps are summed
+        --    over the SET of authors, a commit both sides already hold hands
+        --    its author's full reps to whichever side lacked them -- letting
+        --    undisputed history decide a disputed merge
         --  - traverse com..tip, collect signed keys
         --  - sum G.authors[key].reps for each side
         --  - higher sum wins, hash tiebreaker (smaller wins)
@@ -326,7 +340,7 @@ elseif ARGS.recv then
         -- ordering itself first. The fork becomes explicit, and no merge
         -- commit ever encodes a rule-1 decision -- so replaying a merge
         -- only ever has to reproduce `consensus` (see `meet`).
-        local fst, snd = consensus(G_oct, oct, loc, rem)
+        local fst, snd = consensus(G_oct, base(loc, rem), loc, rem)
 
         -- 3,4: need remote validation: replay remote branch from G_oct
         local G_rem = G_oct -- (G_oct no longer required)
@@ -377,12 +391,12 @@ elseif ARGS.recv then
             end
 
             meet = function (G, com, left, right, right_is_beg)
-                -- same ancestor definition as the top-level `oct`: the
-                -- boundary octopus of left...right, NOT the pairwise
-                -- merge-base. Otherwise the sender (which compares the
-                -- branches from `oct`) and this replay (which would compare
-                -- them from a shallower fork) sum different authors and pick
-                -- different winners.
+                -- `up` is the climb FLOOR: how much history this replay must
+                -- re-derive. It uses the same boundary octopus as the
+                -- top-level `oct` -- a shallower floor leaves the receiver
+                -- appending to its own prior arrangement instead of
+                -- rebuilding the contested region, and the orders diverge.
+                -- The COMPARISON below uses `base` instead: see `consensus`.
                 local up
                 do
                     local boundary = {}
@@ -403,7 +417,7 @@ elseif ARGS.recv then
                 climb(G, com, up, false)
                 -- merges only ever encode `consensus` (an entrenched branch
                 -- refuses to merge at all), so the replay reproduces it
-                local w = consensus(G, up, left, right)
+                local w = consensus(G, base(left, right), left, right)
                 if w == left then
                     climb(G, up, left,  false)
                     climb(G, up, right, right_is_beg)
