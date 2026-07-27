@@ -176,9 +176,20 @@ its settled history.
    settled prefix (older than 7 days, or more than 100
    entries back), the sync is REFUSED (hard fork); nothing
    below applies
-2. **Reputation** — whichever branch has more reputation in
-   the common prefix is ordered first
+2. **Reputation** — whichever branch has more reputation
+   SINCE THEY DIVERGED is ordered first. The comparison runs
+   from `merge-base(a, b)`, never from the deeper `oct`:
+   from a deeper point the two ranges overlap, and since
+   reps are summed over the SET of authors, a commit both
+   sides already hold hands its author's full reps to
+   whichever side lacked them -- letting undisputed history
+   decide a disputed merge (`tst/hardfork-shared.lua`)
 3. **Tiebreaker** — lexicographical order of hashes
+
+`oct` (the boundary octopus, see rec-replay.md) still says
+how much history a replay must RE-DERIVE. The two questions
+are different: how much to rebuild, versus what each side
+contributed.
 
 Rule 1 is evaluated ONLY at the outermost local-vs-remote
 decision. Because an entrenched branch never merges, no

@@ -427,8 +427,8 @@ As a measure against malicious members with strong past reputation, Freechains
 protects settled local branches from unexpected consensus reorderings.
 A settled branch is a branch with at least *100 posts* or *7 days* between
 oldest and newest posts.
-So, if a sync operation would reorder posts in a settled branch, then the merge
-is simply refused and the peers are no longer compatible.
+So, if a `sync` operation would reorder posts in a settled branch, then the
+merge is simply refused and the peers are no longer compatible.
 In contrast, peers that remain active and synchronize over time evolve together
 with a stable order.
 
@@ -449,7 +449,7 @@ $ freechains --root=/tmp/B/ chain '#chat' sync send localhost:8331
 ```
 
 Their posts on `X` now span over more than seven days, making hub's branch
-settled and refusing to reorderings.
+settled and refusing reorderings.
 
 Then, `Alice` comes back and posts locally in peer `A`, on the same branch she
 left behind:
