@@ -6,6 +6,43 @@ blocked that work; each is independent of the others.
 
 Ordered by how much they can bite.
 
+## NEXT STEP (continue on another machine)
+
+Branch `260724-climb-underflow`, `make tests` green as of 2026-07-28.
+Sections 0, 1, Naming, and the cascade-voided-peak fix are DONE.
+Nothing is half-applied; the tree is consistent.
+
+**Do this next -- section 4, unknown commit kind.** Smallest item, no
+design decision needed:
+
+1. In `sync.lua`, `commit(G, hash, beg)` parses
+   `local time,kind = out:match("(%S+)%s+(%S+)")` from
+   `log -1 --format='%at %(trailers:key=Freechains,valueonly)'`.
+2. Right after that match, reject an unknown kind BEFORE any use of it:
+
+   ```lua
+   local KINDS = { post=true, like=true, revoke=true, state=true }
+   if not KINDS[kind] then
+       error("invalid commit : unknown kind", 0)
+   end
+   ```
+
+   `merge` is deliberately NOT in the set: those commits are built on a
+   detached head and discarded, so `main` never holds one (measured --
+   see section 4).
+3. Today the same input dies as
+   `attempt to concatenate a nil value (local 'kind')`, which violates
+   the project's `ERROR : <command> : <detail>` format. `pcall` in the
+   replay turns the new `error` into
+   `ERROR : chain sync : invalid commit : unknown kind`.
+4. Reproduce by hand-forging a commit whose `Freechains:` trailer is the
+   SUBJECT line rather than its own paragraph -- git's trailer parser
+   then returns nothing. Worth a `tst/` case in the style of
+   `tst/list-dag-roots.lua` (RED first, then the fix).
+
+Then, in order: **2** (a test that cannot fail), then **3** and **5**
+(both need a design decision, see each section).
+
 ## 0. Consensus baseline: pairwise merge-base (DONE)
 
 `make tests` green (incl. the new test); `./guide.sh` refuses at `day 7`.
@@ -95,7 +132,9 @@ base (merge-base)        what each side CONTRIBUTED
                          shallow: disjoint, so shared commits never count
 ```
 
-## 1. `list dag` crashes on TWO CONTENT ROOTS
+## 1. `list dag` crashes on TWO CONTENT ROOTS (DONE)
+
+`make tests` green, including the new `tst/list-dag-roots.lua`.
 
 ```
 lua5.4: src/freechains/chain/list.lua:86: attempt to divide by zero
@@ -114,7 +153,8 @@ genesis --+-- AW --+
 `siblings` (l.54) demands `#ua == 1`, so the second one opens its own
 group, and the column midpoint divides by `#us == 0` (l.86).
 
-Covered by `tst/list-dag-roots.lua` (RED until fixed).
+Covered by `tst/list-dag-roots.lua`: RED before the fix (divide by
+zero), green after. Wired into `make tests` after `cli-list.lua`.
 
 The `tst/climb-underflow.lua` topology (AW / CW / M1 / takeover / M2)
 does NOT crash -- measured. It renders, but emits a blank connector row
@@ -128,20 +168,31 @@ matches nothing when a node's only up sits two groups above:
                (^62c021a)
 ```
 
-Two fixes, both in the same branch:
-- l.77-87: sum only ups that already have a column, fall back to `MID`
-  when none -- also covers `col[u]` being nil for an up placed later
-- l.54: two nodes with EMPTY ups are siblings (they share the same
-  absent up), so the roots land on one row instead of stacking
-- l.126-143: suppress the connector row when no glyph was placed
+Three fixes, all in the same branch (APPLIED):
+- `siblings`: two nodes with EMPTY ups are siblings (they share the
+  same absent up), so the roots land on one row instead of stacking
+- column assignment: average only the ups that already HAVE a column,
+  fall back to `MID` when none -- also covers `col[u]` being nil for an
+  up ordered later, which would have been `arithmetic on nil`
+- connector row: guard the fork branch on `col[u1]`, and drop a row in
+  which no glyph was placed
 
-`list order` is fine throughout, so this is the renderer only.
+Measured after the fix:
 
-`list.lua:29` already warns the `dag` branch is AI-generated and
-unreviewed. Worth a read-through beyond the immediate division.
+| topology                   | before             | after                    |
+|----------------------------|--------------------|--------------------------|
+| two content roots          | divide by zero     | `98389b3 0b86272` one row|
+| `climb-underflow` (nested) | blank row + orphan | node + `(^a832477)`      |
+| guide hub `#chat`          | --                 | byte-identical           |
 
-Also affects the README guide: the Hard Forks section cannot show a
-`list dag` of the forked state while this stands.
+`list order` is fine throughout, so this was the renderer only.
+
+`list.lua:29` still warns the `dag` branch is AI-generated and
+unreviewed. The read-through beyond these three fixes is NOT done.
+
+Unblocks the README guide: the Hard Forks section can now show a
+`list dag` of the forked state
+(see [2026-06-14-readme](2026-06-14-readme.md)).
 
 ## 2. `tst/reorder-ancient.lua` cannot fail
 
