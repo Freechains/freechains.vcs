@@ -482,6 +482,8 @@ Since it is not possible to judge the reasons behind partitions, Freechains
 simply makes them incommunicable, requiring manual intervention to restore
 compatibility.
 
+`TODO: revert history`
+
 ### Moderation
 
 - TODO
