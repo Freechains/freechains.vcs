@@ -74,6 +74,18 @@ Ask the user to run `make tests` after edits; never run them unprompted.
 
 ## Status
 
-- [ ] skel `now.lua` reworded (example-style)
-- [ ] `chains.lua` writes `now.lua = CMD.now` at genesis
-- [ ] tests run (by user)
+- [x] skel `now.lua` reworded (example-style)
+- [x] `chains.lua` writes `now.lua = CMD.now` at genesis
+- [x] tests run (by user) — all pass
+- [x] `guide.sh` verified end-to-end — genesis `now.lua` = creation time
+      (e.g. `--now=1780000000`), posts/sync/reps/consensus/hard-fork all OK
+
+## Notes on applied change
+
+- `CMD.now` is `os.time()` by default, or `ARGS.now` when `--now` is
+  passed (in which case `CMD.git` pins the genesis commit to the same
+  value, so `TIME(genesis) == now.lua` exactly).
+- Without `--now`, `now.lua` is the parse-time `os.time()`, a hair before
+  the commit `%at`; `PEAKS` maxes `TIME(genesis)` anyway, so the floor is
+  the commit time — no gap.
+- `luac5.4 -p src/freechains/chains.lua` passes.
