@@ -467,12 +467,15 @@ remote: ERROR : chain sync : hard fork
 ```
 
 Regardless of her strong past reputation, `Alice` cannot affect an active
-community, and her only option is to revert history, sync, re-post:
+community.
+To resynchronize, her only option is to revert her local history, receive the
+settled branch, repost the rejected message on top of it, and finally send the
+updated history.
 
-TODO: revert history
-
-TODO: final Freechains statement
-
+Hardforks safeguards chains from long-lived network partitions with diverging
+histories.
+Since it is not possible to judge wether partitions are malicious or not,
+Freechains simply makes them incompatible.
 
 ### Moderation
 
