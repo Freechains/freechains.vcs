@@ -133,7 +133,7 @@ function ANCS (hash)
 end
 
 function apply (G, kind, time, T)
-    local sign = T and T.sign
+    local mutate = (kind ~= 'reps')
 
     -- TIME: monotonicity, discount, consolidation
     do
@@ -141,7 +141,7 @@ function apply (G, kind, time, T)
         -- everything that precedes it. Read from the DAG, so it does not
         -- depend on the order a replay applies commits in (consensus order
         -- is not chronological order).
-        if T and T.hash then
+        if mutate then
             local up = ANCS(T.hash)
             if up and (time < up-C.time.diff) then
                 return false, "too old"
@@ -149,6 +149,7 @@ function apply (G, kind, time, T)
         end
 
         -- discount scan (maybe signed at same G.now)
+        local sign = (mutate and T.sign) or nil
         if time>G.now or sign then
             for _, hash in ipairs(ordered(G.posts)) do
                 local entry = G.posts[hash]
@@ -215,112 +216,111 @@ function apply (G, kind, time, T)
         end
     end
 
-    if kind == 'reps' then
-        -- no validation / mutation
+    if mutate then
+        if kind == 'post' then
+            -- validation
+            assert(T.sign or T.beg)
+            if T.sign then
+                if T.beg then
+                    local reps = G.authors[T.sign] and G.authors[T.sign].reps or 0
+                    if reps > 0 then
+                        return false, "--beg error : author has sufficient reputation"
+                    end
+                else
+                    local reps = G.authors[T.sign] and G.authors[T.sign].reps or 0
+                    if reps <= 0 then
+                        return false, "insufficient reputation"
+                    end
+                end
+            end
 
-    elseif kind == 'post' then
-        -- validation
-        assert(T.sign or T.beg)
-        if T.sign then
-            if T.beg then
-                local reps = G.authors[T.sign] and G.authors[T.sign].reps or 0
-                if reps > 0 then
-                    return false, "--beg error : author has sufficient reputation"
+            -- mutation
+            G.posts[T.hash] = {
+                author   = T.sign,
+                time     = time,
+                maturity = (T.beg and 'beg') or (T.sign and '00-12') or 'beg',
+                reps     = 0,
+                revoke   = { author=0, others=0 },
+            }
+            if T.sign then
+                G.authors[T.sign] = G.authors[T.sign] or { reps=0 }
+                if not T.beg then
+                    G.authors[T.sign].reps = G.authors[T.sign].reps - C.reps.cost
+                    G.authors[T.sign].time = G.authors[T.sign].time or time
+                        -- do not set for beg, bc not available to others
+                end
+            end
+
+        elseif kind=='like' or kind=='revoke' then
+            -- validation
+            assert(T.sign, "bug found")
+            if math.type(T.n)~='integer' or T.n==0 then
+                return false, "invalid number : expects non-zero integer"
+            end
+            if (T.post and T.author) or (not T.post and not T.author) then
+                return false, "invalid target : expects 'post' or 'author'"
+            end
+            -- revoke/unrevoke are post-only
+            if kind=='revoke' and (not T.post) then
+                return false, "invalid target : expects 'post'"
+            end
+            if T.post and (not G.posts[T.post]) then
+                return false, "invalid target : post not found"
+            end
+
+            -- author self-revoke (right to be forgotten) is free and ungated
+            local self_revoke = (
+                kind=='revoke' and T.n<0 and G.posts[T.post].author==T.sign
+            )
+
+            -- must afford the full vote magnitude (no debt); self-revoke is free
+            local reps = (G.authors[T.sign] and G.authors[T.sign].reps) or 0
+            if (not self_revoke) and reps<math.abs(T.n) then
+                return false, "insufficient reputation"
+            end
+
+            -- mutation
+            if not self_revoke then
+                G.authors[T.sign].reps = reps - math.abs(T.n)
+            end
+            local n = T.n * (100 - C.like.tax) // 100
+            if T.post then
+                local a = G.posts[T.post].author
+                if not self_revoke then
+                    if a then
+                        G.authors[a] = G.authors[a] or { reps=0 }
+                        G.authors[a].reps = G.authors[a].reps + n//C.like.split
+                    else
+                        assert(T.beg)
+                    end
+                    G.posts[T.post].reps = G.posts[T.post].reps + n//C.like.split
+                end
+
+                -- revoke axis: sum the signed magnitude T.n (revoke n<0,
+                -- unrevoke n>0). Author self-revoke feeds the absolute
+                -- `author` channel; everyone else the `others` channel.
+                if kind == 'revoke' then
+                    local author = G.posts[T.post].author
+                    local r = G.posts[T.post].revoke or { author=0, others=0 }
+                    G.posts[T.post].revoke = r
+                    if author and T.sign==author then
+                        r.author = r.author + T.n
+                    else
+                        r.others = r.others + T.n
+                    end
+                end
+
+                if T.beg then
+                    G.posts[T.post].maturity = "00-12"
+                    G.posts[T.post].time = time
+                    if a then
+                        G.authors[a].time = G.authors[a].time or time
+                    end
                 end
             else
-                local reps = G.authors[T.sign] and G.authors[T.sign].reps or 0
-                if reps <= 0 then
-                    return false, "insufficient reputation"
-                end
+                G.authors[T.author] = G.authors[T.author] or { reps=0 }
+                G.authors[T.author].reps = G.authors[T.author].reps + n
             end
-        end
-
-        -- mutation
-        G.posts[T.hash] = {
-            author   = T.sign,
-            time     = time,
-            maturity = (T.beg and 'beg') or (T.sign and '00-12') or 'beg',
-            reps     = 0,
-            revoke   = { author=0, others=0 },
-        }
-        if T.sign then
-            G.authors[T.sign] = G.authors[T.sign] or { reps=0 }
-            if not T.beg then
-                G.authors[T.sign].reps = G.authors[T.sign].reps - C.reps.cost
-                G.authors[T.sign].time = G.authors[T.sign].time or time
-                    -- do not set for beg, bc not available to others
-            end
-        end
-
-    elseif (kind=='like' or kind=='revoke') and T then
-        -- validation
-        assert(T.sign, "bug found")
-        if math.type(T.n)~='integer' or T.n==0 then
-            return false, "invalid number : expects non-zero integer"
-        end
-        if (T.post and T.author) or (not T.post and not T.author) then
-            return false, "invalid target : expects 'post' or 'author'"
-        end
-        -- revoke/unrevoke are post-only
-        if kind=='revoke' and (not T.post) then
-            return false, "invalid target : expects 'post'"
-        end
-        if T.post and (not G.posts[T.post]) then
-            return false, "invalid target : post not found"
-        end
-
-        -- author self-revoke (right to be forgotten) is free and ungated
-        local self_revoke = (
-            kind=='revoke' and T.n<0 and G.posts[T.post].author==T.sign
-        )
-
-        -- must afford the full vote magnitude (no debt); self-revoke is free
-        local reps = (G.authors[T.sign] and G.authors[T.sign].reps) or 0
-        if (not self_revoke) and reps<math.abs(T.n) then
-            return false, "insufficient reputation"
-        end
-
-        -- mutation
-        if not self_revoke then
-            G.authors[T.sign].reps = reps - math.abs(T.n)
-        end
-        local n = T.n * (100 - C.like.tax) // 100
-        if T.post then
-            local a = G.posts[T.post].author
-            if not self_revoke then
-                if a then
-                    G.authors[a] = G.authors[a] or { reps=0 }
-                    G.authors[a].reps = G.authors[a].reps + n//C.like.split
-                else
-                    assert(T.beg)
-                end
-                G.posts[T.post].reps = G.posts[T.post].reps + n//C.like.split
-            end
-
-            -- revoke axis: sum the signed magnitude T.n (revoke n<0,
-            -- unrevoke n>0). Author self-revoke feeds the absolute
-            -- `author` channel; everyone else the `others` channel.
-            if kind == 'revoke' then
-                local author = G.posts[T.post].author
-                local r = G.posts[T.post].revoke or { author=0, others=0 }
-                G.posts[T.post].revoke = r
-                if author and T.sign==author then
-                    r.author = r.author + T.n
-                else
-                    r.others = r.others + T.n
-                end
-            end
-
-            if T.beg then
-                G.posts[T.post].maturity = "00-12"
-                G.posts[T.post].time = time
-                if a then
-                    G.authors[a].time = G.authors[a].time or time
-                end
-            end
-        else
-            G.authors[T.author] = G.authors[T.author] or { reps=0 }
-            G.authors[T.author].reps = G.authors[T.author].reps + n
         end
     end
 
