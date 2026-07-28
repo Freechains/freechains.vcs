@@ -50,9 +50,16 @@ elseif ARGS.dag then
     -- groupOf[h] = row index, used to distinguish immediate vs distant ups.
     local groups, groupOf = {}, {}
     do
+        -- siblings share one single up -- and two CONTENT ROOTS (a
+        -- chain whose first posts are concurrent) share the same
+        -- ABSENT up, so they belong on one row too
         local function siblings (a, b)
             local ua, ub = ups[a], ups[b]
-            return #ua == 1 and #ub == 1 and ua[1] == ub[1]
+            if #ua == 0 and #ub == 0 then
+                return true
+            else
+                return #ua == 1 and #ub == 1 and ua[1] == ub[1]
+            end
         end
         local cur = { V[1] }
         for i = 2, #V do
@@ -78,12 +85,16 @@ elseif ARGS.dag then
         if g == 1 then
             uc = MID
         else
-            local us  = ups[group[1]]
-            local sum = 0
-            for _, u in ipairs(us) do
-                sum = sum + col[u]
+            -- average only the ups already PLACED: a content root has
+            -- no ups at all, and an up ordered later has no column yet
+            local sum, n = 0, 0
+            for _, u in ipairs(ups[group[1]]) do
+                if col[u] then
+                    sum = sum + col[u]
+                    n = n + 1
+                end
             end
-            uc = sum // #us
+            uc = (n > 0) and (sum // n) or MID
         end
         local n = #group
         for i, h in ipairs(group) do
@@ -127,9 +138,12 @@ elseif ARGS.dag then
             local t = blank()
             if #cur >= 2 then
                 -- fork: N siblings fan out from a single shared up
-                local uc = col[ups[cur[1]][1]]
-                for _, h in ipairs(cur) do
-                    set_at(t, (uc + col[h]) // 2, glyph(uc, col[h]))
+                local u1 = ups[cur[1]][1]
+                if u1 and col[u1] then
+                    local uc = col[u1]
+                    for _, h in ipairs(cur) do
+                        set_at(t, (uc + col[h]) // 2, glyph(uc, col[h]))
+                    end
                 end
             else
                 -- linear / join: a glyph per IMMEDIATE up
@@ -140,7 +154,11 @@ elseif ARGS.dag then
                     end
                 end
             end
-            emit(t)
+            -- a row with no glyph connects nothing: drop it rather than
+            -- printing a blank line between two unrelated nodes
+            if table.concat(t):match("%S") then
+                emit(t)
+            end
         end
         local t = blank()
         for _, h in ipairs(cur) do

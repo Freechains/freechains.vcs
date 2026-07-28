@@ -20,6 +20,7 @@ tests:
 	$(L) cli-recv.lua
 	$(L) cli-send.lua
 	$(L) cli-list.lua
+	$(L) list-dag-roots.lua
 	$(L) sync.lua
 	$(L) consensus.lua
 	$(L) consensus-gap.lua

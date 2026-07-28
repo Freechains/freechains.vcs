@@ -95,15 +95,47 @@ base (merge-base)        what each side CONTRIBUTED
                          shallow: disjoint, so shared commits never count
 ```
 
-## 1. `list dag` crashes on nested merges
+## 1. `list dag` crashes on TWO CONTENT ROOTS
 
 ```
-lua5.4: src/freechains/chain/list.lua:85: attempt to divide by zero
+lua5.4: src/freechains/chain/list.lua:86: attempt to divide by zero
 ```
 
-Reproduce: build the `tst/climb-underflow.lua` topology (AW / CW / M1 /
-takeover / M2) and run `chain '#cu' list dag`. `list order` is fine, so
-this is the renderer only.
+Reproduced, and the trigger is NOT nested merges: it is any chain whose
+first two content commits are concurrent. Clone a fresh chain before
+anyone has posted, have both peers post once, sync:
+
+```
+genesis --+-- AW --+
+          `-- CW --'-- M
+```
+
+`backs` walks THROUGH genesis, so both posts return an EMPTY set.
+`siblings` (l.54) demands `#ua == 1`, so the second one opens its own
+group, and the column midpoint divides by `#us == 0` (l.86).
+
+Covered by `tst/list-dag-roots.lua` (RED until fixed).
+
+The `tst/climb-underflow.lua` topology (AW / CW / M1 / takeover / M2)
+does NOT crash -- measured. It renders, but emits a blank connector row
+and an orphaned node, because the `groupOf[u] == g-1` filter (l.138)
+matches nothing when a node's only up sits two groups above:
+
+```
+                 7fe7236
+                            <- blank connector row
+                 f6959f7
+               (^62c021a)
+```
+
+Two fixes, both in the same branch:
+- l.77-87: sum only ups that already have a column, fall back to `MID`
+  when none -- also covers `col[u]` being nil for an up placed later
+- l.54: two nodes with EMPTY ups are siblings (they share the same
+  absent up), so the roots land on one row instead of stacking
+- l.126-143: suppress the connector row when no glyph was placed
+
+`list order` is fine throughout, so this is the renderer only.
 
 `list.lua:29` already warns the `dag` branch is AI-generated and
 unreviewed. Worth a read-through beyond the immediate division.
