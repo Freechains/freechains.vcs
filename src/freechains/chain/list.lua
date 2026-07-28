@@ -51,8 +51,8 @@ elseif ARGS.dag then
     local groups, groupOf = {}, {}
     do
         local function siblings (a, b)
-            local pa, pb = ups[a], ups[b]
-            return #pa == 1 and #pb == 1 and pa[1] == pb[1]
+            local ua, ub = ups[a], ups[b]
+            return #ua == 1 and #ub == 1 and ua[1] == ub[1]
         end
         local cur = { V[1] }
         for i = 2, #V do
@@ -74,20 +74,20 @@ elseif ARGS.dag then
     -- column assignment: midpoint of the ups, then spread siblings around it
     local col = {}
     for g, group in ipairs(groups) do
-        local pc
+        local uc
         if g == 1 then
-            pc = MID
+            uc = MID
         else
-            local ps  = ups[group[1]]
+            local us  = ups[group[1]]
             local sum = 0
-            for _, p in ipairs(ps) do
-                sum = sum + col[p]
+            for _, u in ipairs(us) do
+                sum = sum + col[u]
             end
-            pc = sum // #ps
+            uc = sum // #us
         end
         local n = #group
         for i, h in ipairs(group) do
-            col[h] = pc + (2*(i-1) - (n-1)) * SPAN
+            col[h] = uc + (2*(i-1) - (n-1)) * SPAN
         end
     end
 
@@ -127,16 +127,16 @@ elseif ARGS.dag then
             local t = blank()
             if #cur >= 2 then
                 -- fork: N siblings fan out from a single shared up
-                local pc = col[ups[cur[1]][1]]
+                local uc = col[ups[cur[1]][1]]
                 for _, h in ipairs(cur) do
-                    set_at(t, (pc + col[h]) // 2, glyph(pc, col[h]))
+                    set_at(t, (uc + col[h]) // 2, glyph(uc, col[h]))
                 end
             else
                 -- linear / join: a glyph per IMMEDIATE up
                 local h, hc = cur[1], col[cur[1]]
-                for _, p in ipairs(ups[h]) do
-                    if groupOf[p] == g - 1 then
-                        set_at(t, (col[p] + hc) // 2, glyph(col[p], hc))
+                for _, u in ipairs(ups[h]) do
+                    if groupOf[u] == g - 1 then
+                        set_at(t, (col[u] + hc) // 2, glyph(col[u], hc))
                     end
                 end
             end
@@ -155,9 +155,9 @@ elseif ARGS.dag then
         if #cur == 1 then
             local h = cur[1]
             local distant = {}
-            for _, p in ipairs(ups[h]) do
-                if groupOf[p] ~= g - 1 then
-                    distant[#distant+1] = "^" .. p:sub(1, SHORT)
+            for _, u in ipairs(ups[h]) do
+                if groupOf[u] ~= g - 1 then
+                    distant[#distant+1] = "^" .. u:sub(1, SHORT)
                 end
             end
             if #distant > 0 then
