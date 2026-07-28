@@ -97,27 +97,29 @@ end
 -- it. Only `state` commits are current -- a post/like may just ADD
 -- files, so its tree still holds the previous state commit's value.
 function PEAK (hash)
-    local src = exec { err=false, stderr=false,
+    local src = exec {
         cmd = "git -C " .. REPO .. " show " .. hash .. ":.freechains/state/now.lua",
     }
-    return load(assert(src))()
+    return load(src)()
 end
 
 -- the peak COMPUTED over a set of commits: the peak each one recorded,
 -- or its own time if newer (a post's tree still holds the PREVIOUS
--- peak, so its stamp lives nowhere else). Nil for an empty set.
+-- peak, so its stamp lives nowhere else). Asserts on an empty set: only
+-- a root has no parents, and no path takes a root's ANCS this far.
 function PEAKS (hs)
     local mx = nil
     for _, h in ipairs(hs) do
-        local t = math.max(TIME(h), PEAK(h) or 0)
+        local t = math.max(TIME(h), PEAK(h))
         mx = math.max(mx or t, t)
     end
-    return mx
+    return assert(mx)
 end
 
 -- newest time among everything that causally precedes `hash`, taken
--- over its parents. Nil for a root (no parents). This is the value a
--- state commit must record, so writer and verifier share the formula.
+-- over its parents. Never called on a root (no parents): PEAKS asserts.
+-- This is the value a state commit must record, so writer and verifier
+-- share the formula.
 function ANCS (hash)
     local out = exec {
         cmd = "git -C " .. REPO .. " rev-list --parents -1 " .. hash,
@@ -143,7 +145,7 @@ function apply (G, kind, time, T)
         -- is not chronological order).
         if mutate then
             local up = ANCS(T.hash)
-            if up and (time < up-C.time.diff) then
+            if time < up-C.time.diff then
                 return false, "too old"
             end
         end

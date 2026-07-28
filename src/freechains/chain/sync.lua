@@ -282,7 +282,7 @@ elseif ARGS.recv then
                 -- post, whose tree still holds the PREVIOUS peak, so its
                 -- own TIME has to be taken into account separately.
                 local mx = ANCS(hash)
-                if mx and PEAK(hash) ~= mx then
+                if PEAK(hash) ~= mx then
                     error("invalid state : now", 0)
                 end
             end
