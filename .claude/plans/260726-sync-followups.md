@@ -146,7 +146,28 @@ So the prerequisite is that the receiver stops taking the sender's `now`
 for this decision, which needs its own look: the hook currently relies on
 that value to pin the dates of the commits it writes.
 
-## 4. Entrenchment isolates honest absentees
+## 4. Unknown commit kind crashes the receiver
+
+A commit whose message carries no parseable `Freechains:` trailer leaves
+`kind = nil` in `commit` (sync.lua), which then reaches the mode check
+and dies on a concatenation:
+
+```
+ERROR : chain sync : src/freechains/chain/sync.lua:218: attempt to concatenate a nil value (local 'kind')
+```
+
+Found while hand-forging a state commit: writing the trailer as the
+SUBJECT line (rather than its own paragraph, after the literal
+`(empty message)` subject freechains writes) makes git's trailer parser
+return nothing.
+
+Not a hole -- the sync is refused either way -- but the message violates
+the project's `ERROR : <command> : <detail>` format. `kind` should be
+validated right after it is parsed, against the known set
+(`post`/`like`/`revoke`/`state`), with a proper
+`invalid commit : unknown kind` error.
+
+## 5. Entrenchment isolates honest absentees
 
 Recorded in [threats.md](threats.md) T1. The refusal fires with no
 attacker: any peer away long enough crosses the threshold and then
@@ -158,6 +179,63 @@ Options not yet weighed:
 - an explicit override (`sync recv --force`) that accepts the reorder
 - soften rule 1 into the continuous decay already sketched in
   260723-fork-7day.md
+
+## Naming (done)
+
+The causal high-water now reads as one concept in four forms:
+
+| name         | meaning                                            |
+|--------------|----------------------------------------------------|
+| `TIME(h)`    | the commit's OWN author date                       |
+| `PEAK(h)`    | the peak RECORDED in its tree (`state/now.lua`)    |
+| `PEAKS(hs)`  | the peak COMPUTED over a set of commits            |
+| `ANCS(h)`    | `PEAKS` over `h`'s parents -- what it must record  |
+| `G.now`      | the live accumulator during replay                 |
+
+Was `NOW` / `STORED_NOW` / `max_ancestor_time`. `NOW` misled: the value
+is a past commit's stamp, never "now". `ANCS` is not "max peak" twice
+over: it is the max among the parents' peaks AND their own times.
+
+## Cascade-voided times leaked into the stored peak (FIXED)
+
+`make tests` caught it -- `consensus.lua` test 3, "loser invalidated by
+winner context", at the final `B recvs from A`:
+
+```
+ERROR : chain sync : invalid state : now
+```
+
+The writer stored `G.now`, the replay accumulator. A commit VOIDED by a
+cascade advances that accumulator and is then dropped from the DAG, so
+the recorded value stopped being derivable from history -- and the
+verifier, correctly, refused it:
+
+```
+merge  t=3000  peak=2100      <- P2's time; P2 was voided
+  |- state t=2000 peak=2000
+  `- post  t=2000 peak=0      -> ANCS = 2000
+```
+
+Fix: the stored peak is DERIVED from the parents of the commit about to
+be created (`PEAKS{"HEAD","MERGE_HEAD"}`), never from `G.now`, so writer
+and verifier share one formula. The verifier's inlined loop collapsed to
+`ANCS(hash)`.
+
+Side effect: a merge now records the peak of its parents rather than the
+`--now` the sync was invoked with (1100, not 1150). That is the point --
+the value has to be reproducible by every peer that replays the merge,
+and no peer knows the receiver's clock.
+
+Both `TIME` and `PEAK` are needed, and not interchangeably:
+
+- `sync.lua` verifies a `state` commit against its parents, and a parent
+  is normally a POST, whose tree still holds the previous peak. Drop
+  `TIME` there and every honest sync fails `invalid state : now`
+  (measured).
+- `common.lua` checks freshness for post/like commits only, whose parent
+  is always a `state` commit (already current), so `TIME` is redundant
+  there today -- kept as the guard if a stale-state commit ever becomes
+  a parent.
 
 ## Not doing (recorded, decided)
 

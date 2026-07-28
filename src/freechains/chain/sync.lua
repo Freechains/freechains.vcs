@@ -193,7 +193,8 @@ elseif ARGS.recv then
                     local ok = (
                         (path == ".freechains/state/authors.lua") or
                         (path == ".freechains/state/posts.lua")   or
-                        (path == ".freechains/state/order.lua")
+                        (path == ".freechains/state/order.lua")   or
+                        (path == ".freechains/state/now.lua")
                     )
                     if not ok then
                         error (
@@ -274,6 +275,16 @@ elseif ARGS.recv then
                 G.order[#G.order+1] = hash
             else
                 assert(kind == 'state')
+                -- the recorded peak is DERIVED, not trusted: it must follow
+                -- from the parents' own recorded values and times. Parents
+                -- are validated first, so a forged value fails here before
+                -- anything is validated against it. A parent is usually a
+                -- post, whose tree still holds the PREVIOUS peak, so its
+                -- own TIME has to be taken into account separately.
+                local mx = ANCS(hash)
+                if mx and PEAK(hash) ~= mx then
+                    error("invalid state : now", 0)
+                end
             end
         end
 
@@ -330,7 +341,7 @@ elseif ARGS.recv then
                 authors = F(".freechains/state/authors.lua"),
                 posts   = F(".freechains/state/posts.lua"),
                 order   = F(".freechains/state/order.lua"),
-                now     = NOW(oct),
+                now     = F(".freechains/state/now.lua"),
             }
         end
 
@@ -444,6 +455,10 @@ elseif ARGS.recv then
                 }
                 -- verify remote state: overwrite with G_rem, diff vs HEAD
                 do
+                    -- HEAD is the remote commit ITSELF here, so its peak
+                    -- comes from its parents. `commit` already validated
+                    -- the stored value against them.
+                    G_rem.now = ANCS("HEAD")
                     write(G_rem)
                     local same = exec { stderr=false, err=false,
                         cmd = "git -C " .. REPO ..  " diff --quiet HEAD -- .freechains/state/",
@@ -470,7 +485,7 @@ elseif ARGS.recv then
                     authors = dofile(FC .. "state/authors.lua"),
                     posts   = dofile(FC .. "state/posts.lua"),
                     order   = dofile(FC .. "state/order.lua"),
-                    now     = NOW(loc),
+                    now     = dofile(FC .. "state/now.lua"),
                 }
                 O_snd = G_rem.order
             else
@@ -573,6 +588,12 @@ elseif ARGS.recv then
                 exec { stderr=false,
                     cmd = "git -C " .. REPO .. " merge --no-commit " .. merge,
                 }
+                -- the peak we record is DERIVED from the parents of the
+                -- commit we are about to create, never from `G.now`: a
+                -- commit voided by a cascade advances the accumulator but
+                -- leaves no trace in the DAG, and the stored value has to
+                -- stay reproducible by every peer that replays this merge.
+                G_fst.now = PEAKS { "HEAD", "MERGE_HEAD" }
                 write(G_fst)
                 exec {
                     cmd = "git -C " .. REPO .. " add .freechains/state/",

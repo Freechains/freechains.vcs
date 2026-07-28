@@ -22,7 +22,7 @@
 --
 -- Freshness must therefore be a property of the DAG, not of the order a
 -- replay happens to apply commits in: `apply` compares each commit
--- against `max_ancestor_time`, tolerating `time.diff`. Guarding against
+-- against `peak`, tolerating `time.diff`. Guarding against
 -- the running state instead (the old `time < G.now - time.diff`)
 -- rejected `low` here, because `high` had already advanced it.
 --

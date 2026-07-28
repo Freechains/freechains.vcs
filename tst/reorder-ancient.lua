@@ -31,7 +31,7 @@ end
 -- A wins by prefix reps (consensus, NOT hard fork: gamma < 7 days after
 -- fork) and its tip (gamma) is >1h ahead of B's ancient beta.
 -- The reorder replay grafts beta onto A's advanced clock. Freshness is
--- checked against `max_ancestor_time` (beta's OWN ancestors, ~the fork),
+-- checked against `peak` (beta's OWN ancestors, ~the fork),
 -- not against the state the replay has reached, so beta survives.
 do
     print("==> Test: ancient loser commit survives reorder replay")
