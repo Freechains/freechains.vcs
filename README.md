@@ -471,11 +471,15 @@ community.
 To resynchronize, her only option is to revert her local history, receive the
 settled branch, repost the rejected message on top of it, and finally send the
 updated history.
+Note that it is impossible to judge whether `Alice` was trying to rewrite
+history or simply became offline for a long time.
+Nevertheless, the community protects itself from late reorderings.
 
 Hardforks safeguards chains from long-lived network partitions with diverging
 histories.
-Since it is not possible to judge wether partitions are malicious or not,
-Freechains simply makes them incompatible.
+Since it is not possible to judge the reasons behind partitions, Freechains
+simply makes them incommunicable, requiring manual intervention to restore
+compatibility.
 
 ### Moderation
 
