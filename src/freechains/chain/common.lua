@@ -2,7 +2,10 @@ C    = require "freechains.constants"
 REPO = ARGS.root .. "/chains/" .. ARGS.alias .. "/"
 FC   = REPO .. ".freechains/"
 
-function NOW (hash)
+-- a commit's OWN author date, which says nothing about its ancestors:
+-- a post carries the state file of the commit BEFORE it, so its own
+-- stamp lives nowhere else.
+function TIME (hash)
     return assert(tonumber((exec {
         cmd = "git -C " .. REPO .. " log -1 --format=%at " .. hash,
     })))
@@ -59,6 +62,10 @@ function write (G)
     f(G.authors, FC .. "state/authors.lua")
     f(G.posts,   FC .. "state/posts.lua")
     f(G.order,   FC .. "state/order.lua")
+
+    local h = assert(io.open(FC .. "state/now.lua", "w"))
+    h:write("return " .. G.now .. "\n")
+    h:close()
 end
 
 -- REVOKED when either the author's or the community's net revoke sum is negative.
@@ -87,15 +94,32 @@ local function ordered (posts)
     return hs
 end
 
--- newest time among everything that causally precedes `hash`:
--- `hash^@` is exactly its parents' reachable set. Nil for a root.
-local function max_ancestor_time (hash)
-    local out = exec {
-        cmd = "git -C " .. REPO .. " log --format=%at " .. hash .. "^@",
+-- the peak RECORDED in a commit's tree (`state/now.lua`): the newest
+-- time among all of its ancestors. Derived, never trusted: `commit` in
+-- sync.lua checks every stored value against its parents' before using
+-- it. Only `state` commits are current -- a post/like may just ADD
+-- files, so its tree still holds the previous state commit's value.
+function PEAK (hash)
+    local src = exec { err=false, stderr=false,
+        cmd = "git -C " .. REPO .. " show " .. hash .. ":.freechains/state/now.lua",
     }
+    return src and load(src)()
+end
+
+-- the peak COMPUTED for a commit: newest time among everything that
+-- causally precedes `hash` -- the peak its parents recorded, or their
+-- own times if newer. Nil for a root (no parents).
+local function peak (hash)
+    local out = exec {
+        cmd = "git -C " .. REPO .. " rev-list --parents -1 " .. hash,
+    }
+    local ps = {}
+    for h in out:gmatch("%x+") do
+        ps[#ps+1] = h
+    end
     local mx = nil
-    for s in out:gmatch("%d+") do
-        local t = tonumber(s)
+    for i = 2, #ps do
+        local t = math.max(TIME(ps[i]), PEAK(ps[i]) or 0)
         mx = math.max(mx or t, t)
     end
     return mx
@@ -111,7 +135,7 @@ function apply (G, kind, time, T)
         -- depend on the order a replay applies commits in (consensus order
         -- is not chronological order).
         if T and T.hash then
-            local up = max_ancestor_time(T.hash)
+            local up = peak(T.hash)
             if up and (time < up-C.time.diff) then
                 return false, "too old"
             end

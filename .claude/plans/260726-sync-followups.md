@@ -146,7 +146,28 @@ So the prerequisite is that the receiver stops taking the sender's `now`
 for this decision, which needs its own look: the hook currently relies on
 that value to pin the dates of the commits it writes.
 
-## 4. Entrenchment isolates honest absentees
+## 4. Unknown commit kind crashes the receiver
+
+A commit whose message carries no parseable `Freechains:` trailer leaves
+`kind = nil` in `commit` (sync.lua), which then reaches the mode check
+and dies on a concatenation:
+
+```
+ERROR : chain sync : src/freechains/chain/sync.lua:218: attempt to concatenate a nil value (local 'kind')
+```
+
+Found while hand-forging a state commit: writing the trailer as the
+SUBJECT line (rather than its own paragraph, after the literal
+`(empty message)` subject freechains writes) makes git's trailer parser
+return nothing.
+
+Not a hole -- the sync is refused either way -- but the message violates
+the project's `ERROR : <command> : <detail>` format. `kind` should be
+validated right after it is parsed, against the known set
+(`post`/`like`/`revoke`/`state`), with a proper
+`invalid commit : unknown kind` error.
+
+## 5. Entrenchment isolates honest absentees
 
 Recorded in [threats.md](threats.md) T1. The refusal fires with no
 attacker: any peer away long enough crosses the threshold and then
@@ -158,6 +179,31 @@ Options not yet weighed:
 - an explicit override (`sync recv --force`) that accepts the reorder
 - soften rule 1 into the continuous decay already sketched in
   260723-fork-7day.md
+
+## Naming (done)
+
+The causal high-water now reads as one concept in three forms:
+
+| name         | meaning                                            |
+|--------------|----------------------------------------------------|
+| `TIME(h)`    | the commit's OWN author date                       |
+| `PEAK(h)`    | the peak RECORDED in its tree (`state/now.lua`)    |
+| `peak(h)`    | the peak COMPUTED from its parents                 |
+| `G.now`      | the live accumulator during replay                 |
+
+Was `NOW` / `STORED_NOW` / `max_ancestor_time`. `NOW` misled: the value
+is a past commit's stamp, never "now".
+
+Both `TIME` and `PEAK` are needed, and not interchangeably:
+
+- `sync.lua` verifies a `state` commit against its parents, and a parent
+  is normally a POST, whose tree still holds the previous peak. Drop
+  `TIME` there and every honest sync fails `invalid state : now`
+  (measured).
+- `common.lua` checks freshness for post/like commits only, whose parent
+  is always a `state` commit (already current), so `TIME` is redundant
+  there today -- kept as the guard if a stale-state commit ever becomes
+  a parent.
 
 ## Not doing (recorded, decided)
 

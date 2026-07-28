@@ -193,7 +193,8 @@ elseif ARGS.recv then
                     local ok = (
                         (path == ".freechains/state/authors.lua") or
                         (path == ".freechains/state/posts.lua")   or
-                        (path == ".freechains/state/order.lua")
+                        (path == ".freechains/state/order.lua")   or
+                        (path == ".freechains/state/now.lua")
                     )
                     if not ok then
                         error (
@@ -274,6 +275,25 @@ elseif ARGS.recv then
                 G.order[#G.order+1] = hash
             else
                 assert(kind == 'state')
+                -- the recorded peak is DERIVED, not trusted: it must follow
+                -- from the parents' own recorded values and times. Parents
+                -- are validated first, so a forged value fails here before
+                -- anything is validated against it. A parent is usually a
+                -- post, whose tree still holds the PREVIOUS peak, so its
+                -- own TIME has to be taken into account separately.
+                local ps = {}
+                for h in (exec {
+                    cmd = "git -C " .. REPO .. " rev-list --parents -1 " .. hash,
+                }):gmatch("%x+") do
+                    ps[#ps+1] = h
+                end
+                local mx = 0
+                for i = 2, #ps do
+                    mx = math.max(mx, TIME(ps[i]), PEAK(ps[i]) or 0)
+                end
+                if #ps > 1 and PEAK(hash) ~= mx then
+                    error("invalid state : now", 0)
+                end
             end
         end
 
@@ -330,7 +350,7 @@ elseif ARGS.recv then
                 authors = F(".freechains/state/authors.lua"),
                 posts   = F(".freechains/state/posts.lua"),
                 order   = F(".freechains/state/order.lua"),
-                now     = NOW(oct),
+                now     = F(".freechains/state/now.lua"),
             }
         end
 
@@ -470,7 +490,7 @@ elseif ARGS.recv then
                     authors = dofile(FC .. "state/authors.lua"),
                     posts   = dofile(FC .. "state/posts.lua"),
                     order   = dofile(FC .. "state/order.lua"),
-                    now     = NOW(loc),
+                    now     = dofile(FC .. "state/now.lua"),
                 }
                 O_snd = G_rem.order
             else
