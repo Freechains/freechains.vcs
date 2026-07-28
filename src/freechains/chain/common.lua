@@ -100,7 +100,7 @@ function PEAK (hash)
     local src = exec { err=false, stderr=false,
         cmd = "git -C " .. REPO .. " show " .. hash .. ":.freechains/state/now.lua",
     }
-    return src and load(src)()
+    return load(assert(src))()
 end
 
 -- the peak COMPUTED over a set of commits: the peak each one recorded,
