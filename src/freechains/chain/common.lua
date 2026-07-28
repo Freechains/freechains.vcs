@@ -2,15 +2,6 @@ C    = require "freechains.constants"
 REPO = ARGS.root .. "/chains/" .. ARGS.alias .. "/"
 FC   = REPO .. ".freechains/"
 
--- a commit's OWN author date, which says nothing about its ancestors:
--- a post carries the state file of the commit BEFORE it, so its own
--- stamp lives nowhere else.
-function TIME (hash)
-    return assert(tonumber((exec {
-        cmd = "git -C " .. REPO .. " log -1 --format=%at " .. hash,
-    })))
-end
-
 function trailer (hash)
     local out = exec {
         cmd = "git -C " .. REPO ..
@@ -62,13 +53,7 @@ function write (G)
     f(G.authors, FC .. "state/authors.lua")
     f(G.posts,   FC .. "state/posts.lua")
     f(G.order,   FC .. "state/order.lua")
-
-    -- `G.now` must already hold the peak DERIVED from the parents of the
-    -- commit about to be created (see `ANCS`): a peer replaying this
-    -- history recomputes it and rejects anything else.
-    local h = assert(io.open(FC .. "state/now.lua", "w"))
-    h:write("return " .. G.now .. "\n")
-    h:close()
+    f(G.now,     FC .. "state/now.lua")
 end
 
 -- REVOKED when either the author's or the community's net revoke sum is negative.
@@ -95,6 +80,15 @@ local function ordered (posts)
         end
     end)
     return hs
+end
+
+-- a commit's OWN author date, which says nothing about its ancestors:
+-- a post carries the state file of the commit BEFORE it, so its own
+-- stamp lives nowhere else.
+local function TIME (hash)
+    return assert(tonumber((exec {
+        cmd = "git -C " .. REPO .. " log -1 --format=%at " .. hash,
+    })))
 end
 
 -- the peak RECORDED in a commit's tree (`state/now.lua`): the newest
@@ -127,12 +121,15 @@ end
 function ANCS (hash)
     local out = exec {
         cmd = "git -C " .. REPO .. " rev-list --parents -1 " .. hash,
+        -- $ git rev-list --parents -1 a1b2c3...
+        -- a1b2c3... d4e5f6... 7890ab...  # merge: 2 parents
     }
     local ps = {}
     for h in out:gmatch("%x+") do
         ps[#ps+1] = h
     end
-    return PEAKS(table.move(ps, 2, #ps, 1, {}))
+    table.remove(ps, 1)
+    return PEAKS(ps)
 end
 
 function apply (G, kind, time, T)
