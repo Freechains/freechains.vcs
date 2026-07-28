@@ -281,7 +281,7 @@ elseif ARGS.recv then
                 -- anything is validated against it. A parent is usually a
                 -- post, whose tree still holds the PREVIOUS peak, so its
                 -- own TIME has to be taken into account separately.
-                local mx = ANCS(hash)
+                local mx = PEAKS(ANCS(hash))
                 if PEAK(hash) ~= mx then
                     error("invalid state : now", 0)
                 end
@@ -458,7 +458,7 @@ elseif ARGS.recv then
                     -- HEAD is the remote commit ITSELF here, so its peak
                     -- comes from its parents. `commit` already validated
                     -- the stored value against them.
-                    G_rem.now = ANCS("HEAD")
+                    G_rem.now = PEAKS(ANCS("HEAD"))
                     write(G_rem)
                     local same = exec { stderr=false, err=false,
                         cmd = "git -C " .. REPO ..  " diff --quiet HEAD -- .freechains/state/",

@@ -105,8 +105,11 @@ end
 
 -- the peak COMPUTED over a set of commits: the peak each one recorded,
 -- or its own time if newer (a post's tree still holds the PREVIOUS
--- peak, so its stamp lives nowhere else). Asserts on an empty set: only
--- a root has no parents, and no path takes a root's ANCS this far.
+-- peak, so its stamp lives nowhere else). The only place the fold
+-- happens: `PEAKS(ANCS(h))` is the newest time causally preceding `h`,
+-- the value a state commit must record, so writer and verifier share
+-- the formula. Asserts on an empty set: only a root has no parents, and
+-- no path takes a root's ANCS this far.
 function PEAKS (hs)
     local mx = nil
     for _, h in ipairs(hs) do
@@ -116,10 +119,9 @@ function PEAKS (hs)
     return assert(mx)
 end
 
--- newest time among everything that causally precedes `hash`, taken
--- over its parents. Never called on a root (no parents): PEAKS asserts.
--- This is the value a state commit must record, so writer and verifier
--- share the formula.
+-- the parents of `hash`: everything that causally precedes it by one
+-- step. Fold with `PEAKS` to get a time. Never called on a root (no
+-- parents): the empty set makes PEAKS assert.
 function ANCS (hash)
     local out = exec {
         cmd = "git -C " .. REPO .. " rev-list --parents -1 " .. hash,
@@ -131,7 +133,7 @@ function ANCS (hash)
         ps[#ps+1] = h
     end
     table.remove(ps, 1)
-    return PEAKS(ps)
+    return ps
 end
 
 function apply (G, kind, time, T)
@@ -144,7 +146,7 @@ function apply (G, kind, time, T)
         -- depend on the order a replay applies commits in (consensus order
         -- is not chronological order).
         if mutate then
-            local up = ANCS(T.hash)
+            local up = PEAKS(ANCS(T.hash))
             if time < up-C.time.diff then
                 return false, "too old"
             end
