@@ -476,8 +476,8 @@ Note that it is impossible to judge whether `Alice` was trying to rewrite
 history or simply became offline for a long time.
 Nevertheless, the community protects itself from late reorderings.
 
-Hardforks safeguards chains from long-lived network partitions with diverging
-histories.
+Hard forks safeguard chains against long-lived network partitions with
+diverging histories.
 Since it is not possible to judge the reasons behind partitions, Freechains
 simply makes them incommunicable, requiring manual intervention to restore
 compatibility.
