@@ -182,19 +182,46 @@ Options not yet weighed:
 
 ## Naming (done)
 
-The causal high-water now reads as one concept in four forms:
+The causal high-water now reads as one concept in three forms:
 
 | name         | meaning                                            |
 |--------------|----------------------------------------------------|
 | `TIME(h)`    | the commit's OWN author date                       |
 | `PEAK(h)`    | the peak RECORDED in its tree (`state/now.lua`)    |
 | `PEAKS(hs)`  | the peak COMPUTED over a set of commits            |
-| `ANCS(h)`    | `PEAKS` over `h`'s parents -- what it must record  |
 | `G.now`      | the live accumulator during replay                 |
 
 Was `NOW` / `STORED_NOW` / `max_ancestor_time`. `NOW` misled: the value
-is a past commit's stamp, never "now". `ANCS` is not "max peak" twice
-over: it is the max among the parents' peaks AND their own times.
+is a past commit's stamp, never "now". `PEAKS` is not "max peak" twice
+over: it is the max among the commits' peaks AND their own times.
+
+`ANCS(h)` was a fourth form -- `PEAKS` over `h`'s parents -- but it
+mixed the DAG walk into the time group. Split: the walk is now
+`parents(h)` (pure topology, no time), and every call site folds it
+explicitly as `PEAKS(parents(h))`. Three sites: `apply` (freshness),
+`sync.lua` `commit` (verify a `state` commit), `sync.lua` case 3
+(rewrite `G_rem.now`).
+
+`common.lua` now groups as: `trailer` / `parents` / `backs` (DAG), then
+`TIME` / `PEAK` / `PEAKS` (time).
+
+Two duplicate walks collapsed onto `parents`:
+
+- `backs(h)` -- post/like/revoke ancestors -- is exactly `parents`
+  recursed through `state`/`merge`; it had its own inlined `rev-list`
+  and a `me` flag to drop the commit itself.
+- `sync.lua`'s local `parents(tip)` in the replay block was a third
+  copy; `climb` now unpacks the global (`assert(#ps <= 2)`).
+
+`backs` KEEPS its name: it is the user-facing edge, printed as the
+`backs` field by `chain get` and drawn by `chain list dag`. `parents` is
+the git plumbing underneath it.
+
+`make tests` green; `./guide.sh` unchanged end to end (hub still refuses
+at `Alice takes over`).
+
+Still open: `backs`'s `see` guards RESULTS only, not the `state`/`merge`
+recursion, so a diamond of plumbing commits is walked more than once.
 
 ## Cascade-voided times leaked into the stored peak (FIXED)
 

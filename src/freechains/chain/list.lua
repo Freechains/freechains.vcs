@@ -39,18 +39,19 @@ elseif ARGS.dag then
         return
     end
 
-    -- V-parents via backs() (walks state/merge transparently)
-    local parents = {}
+    -- ups[h]: the nodes drawn above h, via backs() (walks state/merge
+    -- commits transparently)
+    local ups = {}
     for _, h in ipairs(V) do
-        parents[h] = backs(h)
+        ups[h] = backs(h)
     end
 
-    -- group V into rows: consecutive nodes sharing a single same v-parent.
-    -- groupOf[h] = row index, used to distinguish immediate vs distant parents.
+    -- group V into rows: consecutive nodes sharing one single up.
+    -- groupOf[h] = row index, used to distinguish immediate vs distant ups.
     local groups, groupOf = {}, {}
     do
         local function siblings (a, b)
-            local pa, pb = parents[a], parents[b]
+            local pa, pb = ups[a], ups[b]
             return #pa == 1 and #pb == 1 and pa[1] == pb[1]
         end
         local cur = { V[1] }
@@ -70,14 +71,14 @@ elseif ARGS.dag then
         end
     end
 
-    -- column assignment: parent-midpoint, then spread siblings around it
+    -- column assignment: midpoint of the ups, then spread siblings around it
     local col = {}
     for g, group in ipairs(groups) do
         local pc
         if g == 1 then
             pc = MID
         else
-            local ps  = parents[group[1]]
+            local ps  = ups[group[1]]
             local sum = 0
             for _, p in ipairs(ps) do
                 sum = sum + col[p]
@@ -125,15 +126,15 @@ elseif ARGS.dag then
         if g > 1 then
             local t = blank()
             if #cur >= 2 then
-                -- fork: N siblings fan out from a single shared parent
-                local pc = col[parents[cur[1]][1]]
+                -- fork: N siblings fan out from a single shared up
+                local pc = col[ups[cur[1]][1]]
                 for _, h in ipairs(cur) do
                     set_at(t, (pc + col[h]) // 2, glyph(pc, col[h]))
                 end
             else
-                -- linear / join: a glyph per IMMEDIATE parent
+                -- linear / join: a glyph per IMMEDIATE up
                 local h, hc = cur[1], col[cur[1]]
-                for _, p in ipairs(parents[h]) do
+                for _, p in ipairs(ups[h]) do
                     if groupOf[p] == g - 1 then
                         set_at(t, (col[p] + hc) // 2, glyph(col[p], hc))
                     end
@@ -154,7 +155,7 @@ elseif ARGS.dag then
         if #cur == 1 then
             local h = cur[1]
             local distant = {}
-            for _, p in ipairs(parents[h]) do
+            for _, p in ipairs(ups[h]) do
                 if groupOf[p] ~= g - 1 then
                     distant[#distant+1] = "^" .. p:sub(1, SHORT)
                 end
