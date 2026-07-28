@@ -281,7 +281,7 @@ elseif ARGS.recv then
                 -- anything is validated against it. A parent is usually a
                 -- post, whose tree still holds the PREVIOUS peak, so its
                 -- own TIME has to be taken into account separately.
-                local mx = PEAKS(ANCS(hash))
+                local mx = PEAKS(parents(hash))
                 if PEAK(hash) ~= mx then
                     error("invalid state : now", 0)
                 end
@@ -370,25 +370,15 @@ elseif ARGS.recv then
                     cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. a .. " " .. b,
                 }
             end
-            local function parents (tip)
-                local out = exec {
-                    cmd = "git -C " .. REPO .. " rev-list --parents -1 " .. tip,
-                }
-                local ps = {}
-                for h in out:gmatch("%x+") do
-                    ps[#ps+1] = h
-                end
-                assert(#ps <= 3, "bug: >2 parents")
-                return ps[2], ps[3]
-            end
-
             local climb, meet
 
             climb = function (G, com, cur, beg)
                 if cur == com or visited[cur] or ancestor(cur, com) then
                     return
                 else
-                    local p1, p2 = parents(cur)
+                    local ps = parents(cur)
+                    assert(#ps <= 2, "bug: >2 parents")
+                    local p1, p2 = ps[1], ps[2]
                     if p2 == nil then
                         climb(G, com, p1, beg)
                     else
@@ -458,7 +448,7 @@ elseif ARGS.recv then
                     -- HEAD is the remote commit ITSELF here, so its peak
                     -- comes from its parents. `commit` already validated
                     -- the stored value against them.
-                    G_rem.now = PEAKS(ANCS("HEAD"))
+                    G_rem.now = PEAKS(parents("HEAD"))
                     write(G_rem)
                     local same = exec { stderr=false, err=false,
                         cmd = "git -C " .. REPO ..  " diff --quiet HEAD -- .freechains/state/",

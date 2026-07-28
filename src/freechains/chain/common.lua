@@ -10,32 +10,40 @@ function trailer (hash)
     return out:match "(%S+)"
 end
 
--- post/like/revoke ancestors of `hash`, walking through `state` (and
--- `merge`) commits transparently. Returns an array of hashes (dedup'd).
+-- the git parents of `hash`: one step back in the DAG, no time
+-- involved. Returns an array (empty for a root).
+function parents (hash)
+    local out = exec {
+        cmd = "git -C " .. REPO .. " rev-list --parents -1 " .. hash,
+        -- $ git rev-list --parents -1 a1b2c3...
+        -- a1b2c3... d4e5f6... 7890ab...  # merge: 2 parents
+    }
+    local ps = {}
+    for h in out:gmatch("%x+") do
+        ps[#ps+1] = h
+    end
+    table.remove(ps, 1)
+    return ps
+end
+
+-- post/like/revoke ancestors of `hash`: `parents` recursed through
+-- `state` (and `merge`) commits, which are plumbing the protocol does
+-- not expose. Returns an array of hashes (dedup'd).
 function backs (hash)
     local ret = {}
     local see = {}
     local function rec (h)
-        local raw = exec {
-            cmd = "git -C " .. REPO ..
-                " rev-list --parents -n 1 " .. h,
-        }
-        local me = true
-        for p in raw:gmatch("%S+") do
-            if me then
-                me = false
-            else
-                local k = trailer(p)
-                if k=='post' or k=='like' or k=='revoke' then
-                    if not see[p] then
-                        see[p] = true
-                        ret[#ret+1] = p
-                    end
-                elseif k=='state' or k=='merge' then
-                    rec(p)
-                else
-                    error("bug found : invalid trailer")
+        for _, p in ipairs(parents(h)) do
+            local k = trailer(p)
+            if k=='post' or k=='like' or k=='revoke' then
+                if not see[p] then
+                    see[p] = true
+                    ret[#ret+1] = p
                 end
+            elseif k=='state' or k=='merge' then
+                rec(p)
+            else
+                error("bug found : invalid trailer")
             end
         end
     end
@@ -106,10 +114,10 @@ end
 -- the peak COMPUTED over a set of commits: the peak each one recorded,
 -- or its own time if newer (a post's tree still holds the PREVIOUS
 -- peak, so its stamp lives nowhere else). The only place the fold
--- happens: `PEAKS(ANCS(h))` is the newest time causally preceding `h`,
--- the value a state commit must record, so writer and verifier share
--- the formula. Asserts on an empty set: only a root has no parents, and
--- no path takes a root's ANCS this far.
+-- happens: `PEAKS(parents(h))` is the newest time causally preceding
+-- `h`, the value a state commit must record, so writer and verifier
+-- share the formula. Asserts on an empty set: only a root has no
+-- parents, and no path takes a root this far.
 function PEAKS (hs)
     local mx = nil
     for _, h in ipairs(hs) do
@@ -117,23 +125,6 @@ function PEAKS (hs)
         mx = math.max(mx or t, t)
     end
     return assert(mx)
-end
-
--- the parents of `hash`: everything that causally precedes it by one
--- step. Fold with `PEAKS` to get a time. Never called on a root (no
--- parents): the empty set makes PEAKS assert.
-function ANCS (hash)
-    local out = exec {
-        cmd = "git -C " .. REPO .. " rev-list --parents -1 " .. hash,
-        -- $ git rev-list --parents -1 a1b2c3...
-        -- a1b2c3... d4e5f6... 7890ab...  # merge: 2 parents
-    }
-    local ps = {}
-    for h in out:gmatch("%x+") do
-        ps[#ps+1] = h
-    end
-    table.remove(ps, 1)
-    return ps
 end
 
 function apply (G, kind, time, T)
@@ -146,7 +137,7 @@ function apply (G, kind, time, T)
         -- depend on the order a replay applies commits in (consensus order
         -- is not chronological order).
         if mutate then
-            local up = PEAKS(ANCS(T.hash))
+            local up = PEAKS(parents(T.hash))
             if time < up-C.time.diff then
                 return false, "too old"
             end
