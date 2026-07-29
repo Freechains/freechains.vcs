@@ -8,12 +8,34 @@ Ordered by how much they can bite.
 
 ## NEXT STEP (continue on another machine)
 
-Branch `260724-climb-underflow`, `make tests` green as of 2026-07-28.
-Sections 0, 1, Naming, and the cascade-voided-peak fix are DONE.
-Nothing is half-applied; the tree is consistent.
+State as of 2026-07-29, branch `260724-climb-underflow`, at `fea41c8`
+(`. review : sync : hardfork`), in sync with `origin`.
 
-**Do this next -- section 4, unknown commit kind.** Smallest item, no
-design decision needed:
+**The working tree is clean and nothing is half-applied.**
+`reps.max` is back at `30*unit`; the `1000*unit` experiment lives in no
+commit (the chat-sim measurements in section 7 were taken against a
+scratch copy of `src`, not the worktree).
+
+**`make tests` has NOT been run since `fea41c8`**, which carries both
+the `--no-walk` bound and the `hardfork` restructure. That commit was
+verified by hand instead:
+
+- old vs new boundary logic over 20000 random orders: 0 mismatches
+- `fork.time` axis via the ff path: refuses, receiver untouched
+- `fork.posts` axis at exactly 100 entries: refuses, receiver untouched
+- a young merge: still accepted (no false positive)
+- nested merge: two peers derive identical orders
+
+So: **run `make tests` and `./guide.sh` first.** If both are green,
+commit nothing and move on to section 4.
+
+DONE so far: 0, 1, 6, 7, Naming, cascade-voided peak.
+OPEN, in this order: **4**, then 2, then 3 and 5 (those two need a
+design decision -- see each section).
+
+### Do this next -- section 4, unknown commit kind
+
+Smallest item, no design decision needed:
 
 1. In `sync.lua`, `commit(G, hash, beg)` parses
    `local time,kind = out:match("(%S+)%s+(%S+)")` from
@@ -42,6 +64,29 @@ design decision needed:
 
 Then, in order: **2** (a test that cannot fail), then **3** and **5**
 (both need a design decision, see each section).
+
+### Smaller loose ends, not worth their own section
+
+- `README.md` has a bare `TODO: revert history` in the Hard Forks
+  section. The documented recovery ("revert her local history, receive
+  the settled branch, repost, send") was MEASURED to work, but there is
+  no CLI for the revert -- today it means a raw `git reset --hard`
+  inside the chain repo. Either add a command or say so in the text.
+- The same section says a settled branch is one with 100 posts or 7
+  days. True as the entrenchment condition, but only the PREFIX older
+  than that window is frozen; the recent 100 posts / 7 days still
+  reorder. As written it reads as if the whole branch were immutable,
+  which contradicts the next paragraph.
+- `hardfork`'s comment used to note that `order.lua` holds only
+  post/like/revoke, so `merge`/`state` commits -- whose dates a pushing
+  peer picks via `-o now` -- can never move the settled line. That is a
+  security property of the rule and it is now written down nowhere.
+- `tst/x.lua` is an untracked byte-identical copy of
+  `tst/list-dag-roots.lua`. Leftover scratch; safe to delete.
+- `luacheck` is not installed. It would have caught the use-before-
+  declare that slipped into `hardfork` (Lua turns an undeclared local
+  into a silent `nil` global), which silently disabled the `--no-walk`
+  bound. Worth adding to the Makefile.
 
 ## 0. Consensus baseline: pairwise merge-base (DONE)
 
@@ -262,6 +307,126 @@ Options not yet weighed:
 - an explicit override (`sync recv --force`) that accepts the reorder
 - soften rule 1 into the continuous decay already sketched in
   260723-fork-7day.md
+
+## 6. Hard fork: bounded lookup + restructure (DONE)
+
+`hardfork` read the WHOLE history to answer a question about at most
+`fork.posts` entries:
+
+```lua
+git log --format='%H %at' <loc>     -- O(chain), every sync
+```
+
+The walk always stops at `n >= fork.posts`, so only the last 100 order
+entries can ever be read. Now:
+
+```lua
+local low = math.max(1, #our-C.fork.posts+1)
+local hs  = table.concat(our, " ", low, #our)   -- ranged concat, no temp table
+git log --no-walk --format='%H %at' <hs>        -- fixed <=100 revs
+```
+
+Measured on an 881-commit repo: 11.9ms -> 6.6ms, of which ~3ms is
+process spawn either way. The real point is the ceiling: the old form
+scanned 200k+ commits on a 100k-post chain.
+
+Restructured at the same time: the `n` counter is gone (`n >=
+fork.posts` is exactly `i <= low`, and `low` already existed for the
+range), the settled-boundary search is split from the prefix
+comparison, and `ts[our[i]]` is asserted rather than guarded -- the
+window provably covers every index the walk reaches, since the trigger
+index IS the window's lower bound.
+
+Verified: old vs new boundary over 20000 random orders (lengths 0-140,
+deliberately NON-chronological times so `newest` is often not the
+maximum and both axes fire) -- 0 mismatches.
+
+### Careful: two traps hit while doing this
+
+1. A first attempt put `local low` AFTER its use in `table.concat`.
+   Lua reads the undeclared name as a nil GLOBAL, `table.concat` treats
+   `i=nil` as `1`, and the bound silently vanished -- worse than before,
+   because the whole order then goes on a command line and dies at
+   `ARG_MAX` (2MB / 41 bytes = ~51k entries) instead of merely being
+   slow. Tests stayed green: chains in `tst/` are tiny.
+2. `assert` and the arithmetic run OUTSIDE any `pcall`, so a broken
+   invariant surfaces as a raw Lua traceback, not
+   `ERROR : chain sync : ...` -- same defect class as section 4.
+
+### Not done: start the comparison at the shared prefix
+
+The prefix comparison runs `1..settled`, which is O(chain) in the
+honest case (no mismatch => full scan). It could start at
+`#G_oct.order + 1`, because both orders provably EXTEND the octopus
+ancestor's order: `climb` seeds `visited` from `G_oct.order` and only
+appends, and in the divergence path `G_fst.order` is either `loc`'s
+order (`oct` is `loc`'s ancestor) or `G_rem.order` = `oct.order ++ new`.
+
+Verified on the ff scenario: `#oct=2`, and the first difference between
+the two orders is at index 3 -- the bound is tight, not just safe.
+
+Not done because: `oct` is computed AFTER the ff `hardfork` call, so the
+octopus block must move up; and the payoff is a few ms of string
+compares against a sync costing hundreds. Unlike the `--no-walk` change
+there is no correctness cliff here. If it is ever applied, the
+invariant must be stated in a comment -- if it broke, a real reorder
+would be silently ACCEPTED.
+
+## 7. `serial()` was quadratic (DONE)
+
+Found while checking a report that the chat sim
+(`/x/papers/26-06-vcs/sims/chat/chat-02.lua`) slows down badly as `N`
+grows. It does, and the total is O(n^2):
+
+```
+msgs so far   50 -> 5.6s     1000 ->  9.0s
+             500 -> 7.1s     1500 -> 12.3s     (seconds per 50 messages)
+             800 -> 8.5s     1950 -> 14.8s
+```
+
+Attribution at 500 vs 2000 posts, per `post` command:
+
+```
+end-to-end      123 -> 245 ms
+  git subprocs  119 -> 141 ms   flat-ish, NOT the cause
+  Lua CPU        24 -> 144 ms   <- here
+    serial()     11 ->  60 ms   <- super-linear
+    dofile        4 ->  15 ms   linear
+```
+
+Cause: `serial()` accumulated with `out = out .. x` in a loop, copying
+the whole string every iteration -- ~k^2/2 bytes of memcpy for a
+k-entry table. `posts.lua` is 567KB at 2000 posts and is rewritten on
+EVERY post, so one `write()` moved ~half a gigabyte.
+
+Fix: accumulate into a table, `table.concat` at the end. Output is
+byte-identical (checked against the old implementation on the real
+567KB `posts.lua`, 118KB `order.lua`, `authors.lua`) -- which matters,
+because these files are hashed into commits and compared between peers.
+
+```
+                       before    after
+2200-line sim run      437.4s    364.3s
+cost of last window /
+  cost of first        2.24x     1.52x
+per-50 at 1950 msgs    14.8s      9.9s   (-33%)
+```
+
+Residual growth (1.52x, not 1.0x) is structural, not a bug: every post
+re-reads and rewrites the entire state and adds one tracked file, so
+per-command work stays O(n) and the run stays O(n^2). Removing THAT
+needs incremental state instead of a full rewrite per post -- a design
+change, not a patch.
+
+Two of my own measurements were wrong before this landed, both worth
+remembering as method notes:
+
+- `os.clock()` wrapped around `io.popen` measures nothing: child CPU is
+  not counted, and it is not wall time. It made Lua look free (~1ms)
+  when it was the whole problem.
+- Timing `post` on a repo polluted by my own `git commit --allow-empty`
+  probes measured FAILED runs: those probes carry today's date, the
+  chain's peak jumped, and every 2010-dated post then died `too old`.
 
 ## Naming (done)
 
