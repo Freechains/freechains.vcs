@@ -54,7 +54,7 @@ function serial (t)
             local keys = {}
             for k in pairs(v) do keys[#keys+1] = k end
             table.sort(keys)
-            local parts = {}
+            local out = {"{\n"}
             for _, k in ipairs(keys) do
                 local pfx
                 if type(k) == 'number' then
@@ -62,14 +62,10 @@ function serial (t)
                 else
                     pfx = '["' .. k .. '"] = '
                 end
-                parts[#parts+1] = pfx .. val(v[k])
+                out[#out+1] = "    " .. pfx .. val(v[k]) .. ",\n"
             end
-            local out = "{\n"
-            for _,v in ipairs(parts) do
-                out = out .. "    " .. v .. ",\n"
-            end
-            out = out .. "}"
-            return out
+            out[#out+1] = "}"
+            return table.concat(out)
         end
     end
     return "return " .. val(t) .. "\n"
