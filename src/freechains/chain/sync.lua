@@ -44,7 +44,7 @@ elseif ARGS.recv then
         --      - DONE
         --  3,4: need common ancestor, remote validation/replay
         --      - replay_remote: climb / meet
-        --  3. remote conains local (local is ancestor of remote)
+        --  3. remote contains local (local is ancestor of remote)
         --      - merge with fast-forward
         --  4. local and remote diverge
         ]]
@@ -75,26 +75,61 @@ elseif ARGS.recv then
         ---------------------------------------------------------------------------
         ---------------------------------------------------------------------------
 
-        -- pairwise merge-base: the point where `a` and `b` actually
-        -- diverged. `com..a` and `com..b` are then disjoint, so a commit
-        -- BOTH sides hold can never enter the comparison below.
-        local function base (a, b)
-            return (exec {
-                cmd = "git -C " .. REPO .. " merge-base " .. a .. " " .. b,
-            }):match("%x+")
+        -- Boundary octopus:
+        -- The common ancestor of every point where the region between `a` and
+        -- `b` attaches to shared history.
+        -- Sits BELOW every fork inside that region, so a replay starting here
+        -- re-derives all of it, including merges nested deeper than the outer
+        -- one.
+        -- With a single fork it degenerates to the pairwise merge-base.
+        local function octopus (a, b)
+            local out = exec {
+                cmd = "git -C " .. REPO .. " rev-list --boundary " .. a .. "..." .. b,
+            }
+            local boundary = {}
+            for line in out:gmatch("[^\n]+") do
+                local h = line:match("^%-(%x+)")
+                if h then
+                    boundary[#boundary+1] = h
+                end
+            end
+            return exec {
+                cmd = "git -C " .. REPO .. " merge-base --octopus " .. table.concat(boundary, " "),
+            }
         end
 
         -- Consensus: prefix reps from G decide winner
-        --  - `com` MUST be the pairwise base, not the octopus `oct`: from a
-        --    deeper point the two ranges overlap, and since reps are summed
-        --    over the SET of authors, a commit both sides already hold hands
-        --    its author's full reps to whichever side lacked them -- letting
-        --    undisputed history decide a disputed merge
         --  - traverse com..tip, collect signed keys
         --  - sum G.authors[key].reps for each side
         --  - higher sum wins, hash tiebreaker (smaller wins)
-        local function consensus (G, com, a, b)
+        --
+        -- Two ancestors, two different questions:
+        --   oct:  how much history must I RE-DERIVE
+        --         deep: below every fork in the region
+        --   base: what did each side CONTRIBUTE
+        --         shallow: disjoint, no shared commits
+        --
+        -- `com` is the pairwise merge-base, computed HERE so no caller can
+        -- pass the octopus `oct` instead: from a deeper point the two
+        -- ranges overlap, and since reps are summed over the SET of
+        -- authors, a commit both sides already hold hands its author's
+        -- full reps to whichever side lacked them -- letting undisputed
+        -- history decide a disputed merge.
+        local function consensus (G, a, b)
+            local com = (exec {
+                cmd = "git -C " .. REPO .. " merge-base " .. a .. " " .. b,
+            }):match("%x+")
             local function collect_keys (tip)
+                --[[
+                    com..tip = commits reachable from tip but not from com:
+                                everything tip added since com
+                      com
+                      /  \
+                    c1    d1    com..a = {c1, c2}    <- what A contributed
+                     |     |    com..b = {d1, d2}    <- what B contributed
+                    c2    d2
+                    (a)   (b)
+                ]]
                 local keys = {}
                 local out = exec {
                     cmd = "git -C " .. REPO .. " log --reverse --format=%H " .. com .. ".." .. tip,
@@ -129,22 +164,13 @@ elseif ARGS.recv then
             end
         end
 
-        -- Hard fork (rule 1): entrenchment protects my ORDER, not my
-        -- commit set. Walking my order back from the tip, everything older
-        -- than fork.time (or fork.posts entries back) is SETTLED, and
-        -- `cand` -- the order this sync would leave behind -- must
-        -- reproduce that prefix verbatim, or it is a hard fork.
-        -- `cand` is the remote's committed order on a fast-forward, and the
-        -- order we derived on a divergence.
-        -- Measuring the order (not `rev-list rem..loc`) is what makes this
-        -- survive the case where the remote already absorbed my branch: my
-        -- tip is then an ancestor of theirs and no commit of mine is
-        -- missing, yet my history can still be reordered underneath me.
-        -- `order.lua` holds only post/like/revoke, so `merge`/`state`
-        -- commits -- whose dates a pushing peer picks via `-o now` -- can
-        -- never move the line.
-        local function hardfork (cand)
-            local mine = dofile(FC .. "state/order.lua")
+        -- Hard fork protects my ORDER.
+        -- Walking my order back from the tip, everything older than fork.time
+        -- (or fork.posts entries back) is SETTLED.
+        -- `their`: the expected order this sync would leave behind
+        -- must reproduce that prefix verbatim, or it is a hard fork.
+        local function hardfork (their)
+            local our = dofile(FC .. "state/order.lua")
             local ts = {}
             local out = exec {
                 cmd = "git -C " .. REPO .. " log --format='%H %at' " .. loc,
@@ -153,13 +179,13 @@ elseif ARGS.recv then
                 ts[h] = tonumber(t)
             end
             local newest, n = nil, 0
-            for i = #mine, 1, -1 do
-                local t = ts[mine[i]]
+            for i = #our, 1, -1 do
+                local t = ts[our[i]]
                 newest = newest or t
                 n = n + 1
                 if t and newest and ((newest-t)>=C.fork.time or n>=C.fork.posts) then
                     for j = 1, i do
-                        if cand[j] ~= mine[j] then
+                        if their[j] ~= our[j] then
                             return true
                         end
                     end
@@ -314,23 +340,7 @@ elseif ARGS.recv then
 
         local oct, G_oct
         do
-            do
-                local out = exec {
-                    cmd = "git -C " .. REPO .. " rev-list --boundary " ..
-                        loc .. "..." .. rem,
-                }
-                local boundary = {}
-                for line in out:gmatch("[^\n]+") do
-                    local h = line:match("^%-(%x+)")
-                    if h then
-                        boundary[#boundary+1] = h
-                    end
-                end
-                oct = exec {
-                    cmd = "git -C " .. REPO .. " merge-base --octopus " ..
-                        table.concat(boundary, " "),
-                }
-            end
+            oct = octopus(loc, rem)
             local function F (path)
                 local src = exec {
                     cmd = "git -C " .. REPO .. " show " .. oct .. ":" .. path,
@@ -351,7 +361,7 @@ elseif ARGS.recv then
         -- ordering itself first. The fork becomes explicit, and no merge
         -- commit ever encodes a rule-1 decision -- so replaying a merge
         -- only ever has to reproduce `consensus` (see `meet`).
-        local fst, snd = consensus(G_oct, base(loc, rem), loc, rem)
+        local fst, snd = consensus(G_oct, loc, rem)
 
         -- 3,4: need remote validation: replay remote branch from G_oct
         local G_rem = G_oct -- (G_oct no longer required)
@@ -382,7 +392,7 @@ elseif ARGS.recv then
                     if p2 == nil then
                         climb(G, com, p1, beg)
                     else
-                        -- like positivity (n>0) is enforced commit()
+                        -- like positivity (n>0) is enforced in commit()
                         local is_beg_merge = (trailer(cur) == "like")
                         meet(G, com, p1, p2, is_beg_merge)
                     end
@@ -397,28 +407,13 @@ elseif ARGS.recv then
                 -- top-level `oct` -- a shallower floor leaves the receiver
                 -- appending to its own prior arrangement instead of
                 -- rebuilding the contested region, and the orders diverge.
-                -- The COMPARISON below uses `base` instead: see `consensus`.
-                local up
-                do
-                    local boundary = {}
-                    for line in (exec {
-                        cmd = "git -C " .. REPO .. " rev-list --boundary " ..
-                            left .. "..." .. right,
-                    }):gmatch("[^\n]+") do
-                        local h = line:match("^%-(%x+)")
-                        if h then
-                            boundary[#boundary+1] = h
-                        end
-                    end
-                    up = exec {
-                        cmd = "git -C " .. REPO .. " merge-base --octopus " ..
-                            table.concat(boundary, " "),
-                    }
-                end
+                -- The COMPARISON below uses the pairwise base instead,
+                -- which `consensus` computes on its own.
+                local up = octopus(left, right)
                 climb(G, com, up, false)
                 -- merges only ever encode `consensus` (an entrenched branch
                 -- refuses to merge at all), so the replay reproduces it
-                local w = consensus(G, base(left, right), left, right)
+                local w = consensus(G, left, right)
                 if w == left then
                     climb(G, up, left,  false)
                     climb(G, up, right, right_is_beg)
