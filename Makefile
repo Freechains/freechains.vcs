@@ -28,6 +28,7 @@ tests:
 	$(L) climb-underflow.lua
 	$(L) climb-underflow-gap.lua
 	$(L) hardfork-shared.lua
+	$(L) hardfork-ff.lua
 	$(L) fork-7-days.lua
 	$(L) fork-100-posts.lua
 	$(L) err-post.lua
