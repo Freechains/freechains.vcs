@@ -171,27 +171,46 @@ elseif ARGS.recv then
         -- must reproduce that prefix verbatim, or it is a hard fork.
         local function hardfork (their)
             local our = dofile(FC .. "state/order.lua")
+            if #our == 0 then
+                return false
+            end
+
+            local low = math.max(1, #our-C.fork.posts+1)
+            local hs = table.concat(our, " ", low, #our)
+
+            -- ask git for exactly `fork.posts` entries with `--no-walk`
             local ts = {}
             local out = exec {
-                cmd = "git -C " .. REPO .. " log --format='%H %at' " .. loc,
+                cmd = "git -C "..REPO.." log --no-walk --format='%H %at' "..hs
             }
             for h, t in out:gmatch("(%x+)%s+(%d+)") do
                 ts[h] = tonumber(t)
             end
-            local newest, n = nil, 0
-            for i = #our, 1, -1 do
-                local t = ts[our[i]]
-                newest = newest or t
-                n = n + 1
-                if t and newest and ((newest-t)>=C.fork.time or n>=C.fork.posts) then
-                    for j = 1, i do
-                        if their[j] ~= our[j] then
-                            return true
-                        end
-                    end
-                    return false
+
+            -- index of the last entry that is already settled
+            local set
+            if #our >= C.fork.posts then
+                set = low   -- at least post count, but time may trigger before
+            end
+
+            -- walk from the tip until first entry older than `fork.time`
+            local new = assert(ts[our[#our]])
+            for i=#our, low, -1 do
+                if (new-assert(ts[our[i]])) >= C.fork.time then
+                    set = i
+                    break
                 end
             end
+
+            if set then
+                -- my settled prefix must be reproduced verbatim
+                for i=1, set do
+                    if their[i] ~= our[i] then
+                        return true
+                    end
+                end
+            end
+
             return false
         end
 
