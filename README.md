@@ -590,7 +590,7 @@ Even considering that posts are rated through likes and dislikes, chains are
 still subject to abuse, including SPAM, hate speech, and possibly illegal
 content.
 For such cases, Freechains provides an additional revocation mechanism that
-works in conjunction with reputation.
+works in conjunction with the reputation system.
 
 Reputation restrains authors, but it does not remove content: a post
 remains readable even after its author is drained of `reps`.
@@ -738,6 +738,8 @@ Note that moderation is always per-chain and per-peer: there is no global
 authority to censor content, and each chain holds its own `reps`.
 Members that disagree with a revocation are free to fork the chain and
 carry on separately, since nobody is forced to relay unwanted content.
+
+`TODO: remove blob`
 
 In summary, moderation in Freechains is just another use of `reps`: those
 who contribute the most to a chain also hold the most weight to protect
