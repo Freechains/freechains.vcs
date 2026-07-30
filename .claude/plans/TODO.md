@@ -80,30 +80,6 @@
 
 - Dropped earlier, each verdict to be revisited from scratch
 
-## `tst/sync.lua` still drives with `sync send`
-
-### Concern
-
-- The receiver runs inside the pre-receive hook
-- `push` swallows its stderr and exits 0
-- Same blind spot fixed in reorder-ancient
-
-### Earlier verdict, unconfirmed
-
-- No blind spot, and `send` IS the subject
-    - steps 2, 4, 8 are named for it
-    - each asserts heads or beg refs afterwards
-    - `ERROR` exits 1, the hook propagates it, `push` exits 1
-    - the only stderr `send` swallows is the non-fatal
-      loser-replay message, unreached on a fast-forward
-    - converting them deletes the only `send` coverage
-      outside `cli-send.lua`
-- `tst/consensus.lua` also pushes
-    - but asserts file CONTENTS and posts.lua size afterwards
-    - a silent drop would surface there
-- `tst/cli-send.lua` must keep pushing
-    - that path is its subject
-
 ## README: recovery has no CLI
 
 - Hard Forks section carries a bare `TODO: revert history`
@@ -133,12 +109,5 @@
     - `kind` used before its declaration crashed on forged signatures
 - Lua turns an undeclared local into a silent nil global
 - Worth a Makefile target
-
-# Done
-
-## Lost security note in `hardfork`
-
-- Recorded as threats.md T2d, not as a comment
-- A threat entry outlives a refactor of the function
 
 <!-- ------------------------------ WON'T DO ------------------------------ -->

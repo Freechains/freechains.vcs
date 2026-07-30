@@ -429,6 +429,26 @@ rule — A's single post spans 0, so no fork occurred and both orders were
 identical while the text still claimed they diverged. The `day 7` -> `day 8`
 change is what actually crosses the 7-day span.
 
+## Guard coverage: `ancestor(cur, com)` (added later)
+
+The two repro tests only exercise `visited`: commenting
+`ancestor(cur, com)` out of `climb` leaves the whole suite GREEN.
+
+`visited` cannot replace it. Random-DAG search (real merges only:
+neither parent an ancestor of the other) finds shapes where an inner
+boundary octopus `up` lands STRICTLY BELOW the floor `com`, on a commit
+held in no `order` — genesis or a `state` commit:
+
+- a criss-cross merge below the fork point makes the region between the
+  outer merge's parents attach to shared history at TWO points
+- so its `octopus` drops to the deeper one, past `com`
+- `cur == com` never matches and `visited` never holds it, so the climb
+  descends to a root: `parents()` empty -> nil hash in a git command
+
+- [x] `tst/bug-climb-ancestor.lua`: 4 peers, criss-cross `M0`, stale
+      peer C posting below it; `com` = `S2`, `up` = genesis
+- [ ] confirm RED with the guard commented, GREEN with it restored
+
 ## Follow-ups
 
 Moved to [260726-sync-followups.md](../260726-sync-followups.md).
