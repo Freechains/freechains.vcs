@@ -130,3 +130,5 @@ do
         end
     end
 end
+
+print("<== ALL PASSED")

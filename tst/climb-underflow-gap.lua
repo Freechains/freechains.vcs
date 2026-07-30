@@ -151,3 +151,5 @@ do
         assert(a[i] == h[i], "order differs at " .. i .. ": A=" .. a[i] .. " H=" .. h[i])
     end
 end
+
+print("<== ALL PASSED")

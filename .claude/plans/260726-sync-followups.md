@@ -26,26 +26,32 @@ verified by hand instead:
 - a young merge: still accepted (no false positive)
 - nested merge: two peers derive identical orders
 
-`tst/bug-err-kind.lua` passes; the rest of the suite has NOT been run
-since it and the section-4 fix landed. Run `make tests` and `./guide.sh`
-before starting anything new.
+`bug-err-kind.lua` and `reorder-ancient.lua` pass individually. The FULL
+suite has NOT been run since sections 4 and 2 landed -- run `make tests`
+and `./guide.sh` before starting anything new.
 
-DONE so far: 0, 1, 4, 6, 7, Naming, cascade-voided peak.
-OPEN, in this order: **2**, then 3 and 5 (those two need a design
-decision -- see each section).
+DONE: 0, 1, 2, 4, 6, 7, Naming, cascade-voided peak.
+OPEN: **3** and **5**. Both are blocked on a DECISION, not on code.
 
-### Do this next -- section 2, a test that cannot fail
+### Do this next -- decide 3 or 5
 
-`tst/reorder-ancient.lua` drives its sync with `sync send`, so the
-receiver runs inside the git pre-receive hook and `push` swallows its
-stderr. The test only asserts that the command succeeded, so it stayed
-green while the ancient post was being silently DROPPED.
+Neither can be implemented until a question is answered:
 
-Fix: drive it with a direct `sync recv`, or assert the resulting ORDER
-instead of the exit status. Same trap applies to any test that pushes --
-worth grepping `tst/` for other `sync send` cases while there.
+| # | question |
+|---|--------------------------------------------------------------|
+| 3 | which clock? `os.time()` breaks the `--now`-driven tests and |
+|   | `guide.sh`; `CMD.now` is SENDER-supplied on the push path, so |
+|   | a remote could inflate it and force a peer to entrench |
+| 5 | refuse only when the REMOTE is also entrenched (mutual |
+|   | deadlock only)? an explicit `sync recv --force`? or soften |
+|   | rule 1 into the continuous decay sketched in 260723-fork-7day |
 
-Then **3** and **5**, both of which need a design decision (see each).
+3 has a concrete prerequisite: the receiver must stop taking the
+sender's `now` for that decision, and the hook currently relies on that
+value to pin the dates of the commits it writes.
+
+If neither is ready to decide, the loose ends below are all
+self-contained.
 
 ### Smaller loose ends, not worth their own section
 
@@ -221,15 +227,42 @@ Unblocks the README guide: the Hard Forks section can now show a
 `list dag` of the forked state
 (see [2026-06-14-readme](2026-06-14-readme.md)).
 
-## 2. `tst/reorder-ancient.lua` cannot fail
+## 2. `tst/reorder-ancient.lua` cannot fail (DONE)
 
-It drives the sync with `sync send`, so the receiver runs inside the git
+It drove the sync with `sync send`, so the receiver ran inside the git
 pre-receive hook, whose stderr `push` swallows. During the work on
 `monotonic` the ancient post was silently DROPPED and the test still
-passed -- it only asserts the command succeeded.
+passed.
 
-Fix: drive it with a direct `sync recv`, or assert the resulting order
-rather than the exit status. Same trap applies to any test that pushes.
+The assertions were fine (they check the resulting ORDER, not the exit
+status) -- what leaked was the receiver's failure: `push` exits 0 and the
+replay's error never reaches the test.
+
+Fix: flip the direction. `A ... sync recv B` instead of `B ... sync send
+A` -- same topology, same winner, but the replay runs in-process where
+`exec` sees the exit status and the message.
+
+PROVEN able to fail: with the historical bug reintroduced in `apply`
+(`up = G.now` instead of `up = PEAKS(parents(T.hash))`),
+
+```
+OLD form (B pushes to A)  -> PASSED   <- bug invisible
+NEW form (A recvs from B) -> FAILED   "ancient beta dropped ... (too old)"
+```
+
+Also added the missing `print("<== ALL PASSED")`.
+
+Still pushing, for the same reason, worth a look: `sync.lua`.
+`consensus.lua` also pushes but asserts file CONTENTS and `posts.lua`
+size afterwards, so a silent drop would surface there. `cli-send.lua`
+must keep pushing -- that path is its subject.
+
+Every real test now ends with `print("<== ALL PASSED")` -- the four that
+lacked it (`climb-underflow{,-gap}.lua`, `consensus-gap.lua`,
+`hardfork-shared.lua`) were fixed too. A silent pass is now
+indistinguishable from a test that died just before its last assertion,
+which is exactly the failure mode this section is about.
+(`genesis-*.lua` are fixtures, not tests.)
 
 ## 3. Entrenchment cannot see idle time
 

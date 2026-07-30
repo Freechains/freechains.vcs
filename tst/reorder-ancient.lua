@@ -90,9 +90,15 @@ do
     --                       beta[K2] --------------/   (ancient, reordered)
     --
     -- B: G -- S[K1] -- L[K2] -- beta[K2]
-    TEST "B sends to A, non-ff (A wins; reorder replays ancient beta)"
+    --
+    -- A RECVS rather than B sending: with `sync send` the receiver runs
+    -- inside the pre-receive hook and `push` swallows its stderr, so a
+    -- replay that DROPPED beta still exited 0 and this test passed
+    -- (it did, during the `monotonic` work). Pulling runs the replay
+    -- in-process, where `exec` sees the exit status and the message.
+    TEST "A recvs from B, non-ff (A wins; reorder replays ancient beta)"
     exec {
-        cmd = EXE_B .. " --now=20000 chain '#anc' sync send " .. ROOT_A .. "/chains/#anc/",
+        cmd = EXE_A .. " --now=20000 chain '#anc' sync recv " .. ROOT_B .. "/chains/#anc/",
     }
 
     TEST "A's order still contains the ancient loser beta"
@@ -102,3 +108,5 @@ do
     assert(S[gamma], "gamma missing from A order")
     assert(S[beta],  "ancient beta dropped by reorder replay (too old)")
 end
+
+print("<== ALL PASSED")

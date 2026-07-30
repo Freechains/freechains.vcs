@@ -108,3 +108,5 @@ do
     local S = order(EXE_B, "#cu")
     assert(S[takeover], "takeover missing from B order (climb underflow)")
 end
+
+print("<== ALL PASSED")

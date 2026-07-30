@@ -137,3 +137,5 @@ do
         assert(S[aw], "AW must still be there")
     end
 end
+
+print("<== ALL PASSED")
