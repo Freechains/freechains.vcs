@@ -335,27 +335,25 @@ elseif ARGS.recv then
             end
         end
 
-        -- rule 1, case 3: the order we would ADOPT is the remote's committed
-        -- one, readable without replaying anything. Checked HERE, before the
-        -- replay, so an entrenched peer answers "hard fork" rather than
-        -- some later error from the replay.
-        do
-            local ff = exec { stderr=false, err=false,
-                cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. loc .. " " .. rem,
-            }
-            if ff then
-                local their = load(exec {
-                    cmd = "git -C " .. REPO .. " show " .. rem ..
-                        ":.freechains/state/order.lua",
-                })()
-                if hardfork(their) then
-                    ERROR("chain sync : hard fork")
-                end
+        ---------------------------------------------------------------------------
+        ---------------------------------------------------------------------------
+
+        -- we need to check an FF hardfork first:
+        --  - remote contains all of our history
+        --  - so if our settled order diverges
+        --  - we need to fail fast, before replay and fail with other error
+        local ff = exec { stderr=false, err=false,
+            cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. loc .. " " .. rem,
+        }
+        if ff then
+            local their = load(exec {
+                cmd = "git -C " .. REPO .. " show " .. rem ..
+                    ":.freechains/state/order.lua",
+            })()
+            if hardfork(their) then
+                ERROR("chain sync : hard fork")
             end
         end
-
-        ---------------------------------------------------------------------------
-        ---------------------------------------------------------------------------
 
         -- 3,4: need common ancestor
 
@@ -451,33 +449,28 @@ elseif ARGS.recv then
         end
 
         -- 3. local has nothing new
-        do
-            local ff = exec { stderr=false, err=false,
-                cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. loc .. " " .. rem,
+        if ff then
+            exec {
+                cmd = "git -C " .. REPO .. " merge --ff-only " .. rem,
             }
-            if ff then
-                exec {
-                    cmd = "git -C " .. REPO .. " merge --ff-only " .. rem,
+            -- verify remote state: overwrite with G_rem, diff vs HEAD
+            do
+                -- HEAD is the remote commit ITSELF here, so its peak
+                -- comes from its parents. `commit` already validated
+                -- the stored value against them.
+                G_rem.now = PEAKS(parents("HEAD"))
+                write(G_rem)
+                local same = exec { stderr=false, err=false,
+                    cmd = "git -C " .. REPO ..  " diff --quiet HEAD -- .freechains/state/",
                 }
-                -- verify remote state: overwrite with G_rem, diff vs HEAD
-                do
-                    -- HEAD is the remote commit ITSELF here, so its peak
-                    -- comes from its parents. `commit` already validated
-                    -- the stored value against them.
-                    G_rem.now = PEAKS(parents("HEAD"))
-                    write(G_rem)
-                    local same = exec { stderr=false, err=false,
-                        cmd = "git -C " .. REPO ..  " diff --quiet HEAD -- .freechains/state/",
+                if not same then
+                    exec {
+                        cmd = "git -C " .. REPO .. " reset --hard " .. loc,
                     }
-                    if not same then
-                        exec {
-                            cmd = "git -C " .. REPO .. " reset --hard " .. loc,
-                        }
-                        ERROR("chain sync : remote state mismatch")
-                    end
+                    ERROR("chain sync : remote state mismatch")
                 end
-                goto RECV
             end
+            goto RECV
         end
 
         --  4. local and remote diverge
