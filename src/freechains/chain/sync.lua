@@ -568,11 +568,6 @@ elseif ARGS.recv then
                 exec { stderr=false,
                     cmd = "git -C " .. REPO .. " merge --no-commit " .. merge
                 }
-                -- the peak we record is DERIVED from the parents of the
-                -- commit we are about to create, never from `G.now`: a
-                -- commit voided by a cascade advances the accumulator but
-                -- leaves no trace in the DAG, and the stored value has to
-                -- stay reproducible by every peer that replays this merge.
                 G_fst.now = PEAKS { "HEAD", "MERGE_HEAD" }
                 write(G_fst)
                 exec {
