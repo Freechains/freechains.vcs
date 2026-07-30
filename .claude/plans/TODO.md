@@ -70,7 +70,7 @@
     - recorded as threats.md T2d, not as a comment
     - a threat entry outlives a refactor of the function
 
-<!-- ------------------------------- WON'T DO --------------------------------->
+<!-- ------------------------------ WON'T DO ------------------------------ -->
 
 # `tst/sync.lua` still drives with `sync send`
 
