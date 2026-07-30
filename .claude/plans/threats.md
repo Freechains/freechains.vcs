@@ -248,6 +248,31 @@ posts.
 **Real threat**: Medium — affects consensus ordering but
 bounded by monotonic parent rule once implemented.
 
+### T2d. Moving the Settled Line via `merge`/`state` Dates
+
+**Mechanism**: `hardfork` measures the settled prefix over
+`order.lua` entries, reading each one's `%at`. The dates of
+`merge` and `state` commits are pusher-controlled: `sync
+send` forwards `--now` as `-o now=`, and the receiver's
+pre-receive hook pins its `recv` to that value. A pusher who
+could get such a commit into `order.lua` would set the
+timestamp that defines the receiver's `fork.time` window,
+either freezing a prefix that should still reorder or
+thawing one that should be settled.
+
+**Mitigation**: `order.lua` holds only `post`, `like`, and
+`revoke` — the kinds appended by `commit` in `sync.lua`.
+`state` falls to the `else` branch, which only verifies the
+recorded peak and appends nothing; `merge` never reaches
+`main` at all (built on a detached head, then discarded).
+So no pusher-dated commit is ever on the axis `hardfork`
+measures.
+
+**Real threat**: Low as implemented — but the property is
+structural and easy to break by accident: any future kind
+appended to `G.order` must have a date the receiver derives,
+not one the sender supplies.
+
 ---
 
 ## T3. Reputation Attacks
@@ -434,6 +459,7 @@ is correct by design.
 | T2a  | Backdating offline branches   | Medium   | Medium     | Consensus    |
 | T2b  | Future-dating posts           | Medium   | Medium     | Tolerance    |
 | T2c  | Timestamp ordering            | Medium   | Medium     | Planned      |
+| T2d  | Settled line via merge/state  | Low      | Low        | Order kinds  |
 | T3a  | Sockpuppet farming            | Low      | Low        | By design    |
 | T3b  | Rep cycling                   | Low      | Low        | Yes (tax)    |
 | T3c  | Retroactive BLOCKED→LINKED    | Low      | Medium     | By design    |

@@ -64,60 +64,22 @@
     - explicit `sync recv --force` that accepts the reorder
     - soften into the continuous decay in done/260723-fork-7day.md
 
-# README: recovery has no CLI
+# Done / dropped
 
-- Hard Forks section carries a bare `TODO: revert history`
-- The documented recovery was MEASURED to work
-    - revert local history, recv the settled branch, repost, send
-    - a plain recv+send does NOT work
-    - consensus re-inserts the post inside the frozen prefix
-- But there is no command for the revert
-    - today it is a raw `git reset --hard` in the chain repo
-- Either add a command or say so in the text
-
-# README: settled-branch wording overstates
-
-- Says a settled branch has 100 posts or 7 days
-- True as the entrenchment CONDITION
-- Only the prefix OLDER than that window is frozen
-- The recent 100 posts / 7 days still reorder
-- As written it reads as if the whole branch were immutable
-    - contradicts the next paragraph
-
-# Lost security note in `hardfork`
-
-- The comment used to record why `order.lua` holds only
-  post/like/revoke
-- `merge` and `state` dates are pusher-controlled via `-o now`
-- Keeping them out of the order is what stops a pusher moving the
-  settled line
-- That property is now written down nowhere
-
-# Add `luacheck`
-
-- Not installed
-- Would have caught two undeclared-local bugs in one session
-    - `low` used before its declaration silently disabled the
-      `--no-walk` bound
-    - `kind` used before its declaration crashed on forged signatures
-- Lua turns an undeclared local into a silent nil global
-- Worth a Makefile target
-
-# `tst/sync.lua` still drives with `sync send`
-
-- The receiver then runs inside the pre-receive hook
-- `push` swallows its stderr and exits 0
-- Same blind spot fixed in reorder-ancient
-- `tst/consensus.lua` also pushes
-    - but asserts file CONTENTS and posts.lua size afterwards
-    - a silent drop would surface there
-- `tst/cli-send.lua` must keep pushing
-    - that path is its subject
-
-# `reps.max` uncommitted
-
-- Working tree has `1000*unit`, committed value is `30*unit`
-- Used for the chat-sim numbers in done/260726-sync-followups.md
-- Comment still reads `-- 30 ext cap per author`
-- Column alignment is off by two
-- Decide whether it goes in or comes out
+- Lost security note in `hardfork`
+    - DONE: recorded as threats.md T2d, not as a comment
+    - a threat entry outlives a refactor of the function
+- `reps.max` uncommitted
+    - DROPPED: stale, tree and HEAD both `30*unit`
+- `tst/sync.lua` drives with `sync send`
+    - DROPPED: `send` IS the subject of steps 2, 4, 8
+    - each asserts heads or beg refs afterwards
+    - `ERROR` exits 1, the hook propagates, `push` exits 1
+    - the only stderr `send` can swallow is the non-fatal
+      loser-replay message, unreached on a fast-forward
+- README: recovery has no CLI
+    - DROPPED on request, still true
+- README: settled-branch wording overstates
+    - DROPPED on request, still true
+- Add `luacheck`
+    - DROPPED on request

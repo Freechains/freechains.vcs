@@ -327,12 +327,7 @@ elseif ARGS.recv then
                 G.order[#G.order+1] = hash
             else
                 assert(kind == 'state')
-                -- the recorded peak is DERIVED, not trusted: it must follow
-                -- from the parents' own recorded values and times. Parents
-                -- are validated first, so a forged value fails here before
-                -- anything is validated against it. A parent is usually a
-                -- post, whose tree still holds the PREVIOUS peak, so its
-                -- own TIME has to be taken into account separately.
+                -- need to check now, since it is derived, not trusted
                 local mx = PEAKS(parents(hash))
                 if PEAK(hash) ~= mx then
                     error("invalid state : now", 0)
