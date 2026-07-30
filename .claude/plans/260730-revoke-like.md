@@ -99,9 +99,11 @@ $ freechains chain '#chat' reps revoke 4a5b6c7
 
 # Progress
 
-- [ ] 1. like counts as unrevoke
-- [ ] 2. unrevoke grants no reps
-- [ ] 3. `reps revoke <hash>`
-- [ ] 4. docs
-- [ ] 5. README moderation table
-- [ ] 6. tests
+- [x] 1. like counts as unrevoke (`common.lua`)
+- [x] 2. unrevoke grants no reps (`no_credit` in `common.lua`)
+- [x] 3. `reps revoke <hash>` (`reps.lua`; no CLI change needed,
+      `target` is a free-form argument)
+- [x] 4. docs (`reps.md`, `commands.md`)
+- [x] 5. README moderation table + `reps revoke` example
+- [ ] 6. tests -- pending, expected to FAIL first (user asked
+      to see the failures before fixing)
