@@ -375,21 +375,14 @@ elseif ARGS.recv then
         end
 
         -- 4: needs fst/winner - snd/loser (do now b/c 3 mutates G_oct)
-        -- rule 1 (hard fork) is a pre-check on the local branch only: an
-        -- entrenched local branch REFUSES to merge, rather than merging and
-        -- ordering itself first. The fork becomes explicit, and no merge
-        -- commit ever encodes a rule-1 decision -- so replaying a merge
-        -- only ever has to reproduce `consensus` (see `meet`).
         local fst, snd = consensus(G_oct, loc, rem)
 
         -- 3,4: need remote validation: replay remote branch from G_oct
         local G_rem = G_oct -- (G_oct no longer required)
         do
-            -- Guards for nested merges (an inner merge forking deeper than
-            -- the outer one): `visited` (seeded from G_oct, then marked per
-            -- emit) never re-applies a shared commit; `ancestor(cur, com)`
-            -- stops climb from descending below its floor. Without these the
-            -- inner meet underflows to a root (concatenate nil 'tip').
+            -- visited: never re-applies a shared commit
+            -- ancestor(cur,com): stops climb from descending below its floor
+            -- without these the inner meet underflows to a root
             local visited = {}
             for _, h in ipairs(G_rem.order) do
                 visited[h] = true
@@ -402,7 +395,7 @@ elseif ARGS.recv then
             local climb, meet
 
             climb = function (G, com, cur, beg)
-                if cur == com or visited[cur] or ancestor(cur, com) then
+                if cur==com or visited[cur] or ancestor(cur,com) then
                     return
                 else
                     local ps = parents(cur)
@@ -421,17 +414,8 @@ elseif ARGS.recv then
             end
 
             meet = function (G, com, left, right, right_is_beg)
-                -- `up` is the climb FLOOR: how much history this replay must
-                -- re-derive. It uses the same boundary octopus as the
-                -- top-level `oct` -- a shallower floor leaves the receiver
-                -- appending to its own prior arrangement instead of
-                -- rebuilding the contested region, and the orders diverge.
-                -- The COMPARISON below uses the pairwise base instead,
-                -- which `consensus` computes on its own.
                 local up = octopus(left, right)
                 climb(G, com, up, false)
-                -- merges only ever encode `consensus` (an entrenched branch
-                -- refuses to merge at all), so the replay reproduces it
                 local w = consensus(G, left, right)
                 if w == left then
                     climb(G, up, left,  false)
