@@ -214,6 +214,10 @@ elseif ARGS.recv then
             return false
         end
 
+        -- `merge` is deliberately absent: those commits are built on a
+        -- detached head and discarded, so `main` never holds one
+        local KINDS = { post=true, like=true, revoke=true, state=true }
+
         local function commit (G, hash, beg)
             local key, err = ssh.verify(REPO, hash)
 
@@ -221,6 +225,9 @@ elseif ARGS.recv then
                 cmd = "git -C " .. REPO .. " log -1 --format='%at %(trailers:key=Freechains,valueonly)' " .. hash,
             }
             local time,kind = out:match("(%S+)%s+(%S+)")
+            if not KINDS[kind] then
+                error("invalid commit : invalid kind", 0)
+            end
 
             if (not key) and err=='forged' then
                 error("invalid " .. kind .. " : invalid signature", 0)

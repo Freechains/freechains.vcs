@@ -33,6 +33,7 @@ tests:
 	$(L) fork-100-posts.lua
 	$(L) err-post.lua
 	$(L) err-like.lua
+	$(L) bug-err-kind.lua
 	$(L) repl-local-head.lua
 	$(L) repl-remote-head.lua
 	$(L) repl-local-begs.lua

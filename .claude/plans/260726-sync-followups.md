@@ -26,44 +26,26 @@ verified by hand instead:
 - a young merge: still accepted (no false positive)
 - nested merge: two peers derive identical orders
 
-So: **run `make tests` and `./guide.sh` first.** If both are green,
-commit nothing and move on to section 4.
+`tst/bug-err-kind.lua` passes; the rest of the suite has NOT been run
+since it and the section-4 fix landed. Run `make tests` and `./guide.sh`
+before starting anything new.
 
-DONE so far: 0, 1, 6, 7, Naming, cascade-voided peak.
-OPEN, in this order: **4**, then 2, then 3 and 5 (those two need a
-design decision -- see each section).
+DONE so far: 0, 1, 4, 6, 7, Naming, cascade-voided peak.
+OPEN, in this order: **2**, then 3 and 5 (those two need a design
+decision -- see each section).
 
-### Do this next -- section 4, unknown commit kind
+### Do this next -- section 2, a test that cannot fail
 
-Smallest item, no design decision needed:
+`tst/reorder-ancient.lua` drives its sync with `sync send`, so the
+receiver runs inside the git pre-receive hook and `push` swallows its
+stderr. The test only asserts that the command succeeded, so it stayed
+green while the ancient post was being silently DROPPED.
 
-1. In `sync.lua`, `commit(G, hash, beg)` parses
-   `local time,kind = out:match("(%S+)%s+(%S+)")` from
-   `log -1 --format='%at %(trailers:key=Freechains,valueonly)'`.
-2. Right after that match, reject an unknown kind BEFORE any use of it:
+Fix: drive it with a direct `sync recv`, or assert the resulting ORDER
+instead of the exit status. Same trap applies to any test that pushes --
+worth grepping `tst/` for other `sync send` cases while there.
 
-   ```lua
-   local KINDS = { post=true, like=true, revoke=true, state=true }
-   if not KINDS[kind] then
-       error("invalid commit : unknown kind", 0)
-   end
-   ```
-
-   `merge` is deliberately NOT in the set: those commits are built on a
-   detached head and discarded, so `main` never holds one (measured --
-   see section 4).
-3. Today the same input dies as
-   `attempt to concatenate a nil value (local 'kind')`, which violates
-   the project's `ERROR : <command> : <detail>` format. `pcall` in the
-   replay turns the new `error` into
-   `ERROR : chain sync : invalid commit : unknown kind`.
-4. Reproduce by hand-forging a commit whose `Freechains:` trailer is the
-   SUBJECT line rather than its own paragraph -- git's trailer parser
-   then returns nothing. Worth a `tst/` case in the style of
-   `tst/list-dag-roots.lua` (RED first, then the fix).
-
-Then, in order: **2** (a test that cannot fail), then **3** and **5**
-(both need a design decision, see each section).
+Then **3** and **5**, both of which need a design decision (see each).
 
 ### Smaller loose ends, not worth their own section
 
@@ -274,26 +256,84 @@ So the prerequisite is that the receiver stops taking the sender's `now`
 for this decision, which needs its own look: the hook currently relies on
 that value to pin the dates of the commits it writes.
 
-## 4. Unknown commit kind crashes the receiver
+## 4. Unknown commit kind crashes the receiver (DONE)
 
-A commit whose message carries no parseable `Freechains:` trailer leaves
-`kind = nil` in `commit` (sync.lua), which then reaches the mode check
-and dies on a concatenation:
+`tst/bug-err-kind.lua`, wired into `make tests`, RED first then green.
+
+A commit whose message carries no parseable `Freechains:` trailer left
+`kind = nil`, and every branch below used it blindly. TWO reachable
+crash sites, both fixed by one check upstream of them:
+
+| site | needs | died as |
+|-------------|--------------------------|----------------------------|
+| `assert(kind=='state')` | only the bad trailer | `assertion failed!` |
+| `"invalid "..kind` | bad trailer + forged sig | `concatenate a nil value` |
+
+An earlier note in this plan named only the concatenation site. It is
+reachable, but NOT what the forgery hits: adding a file passes the
+create-mode check, so `kind` flows down to `assert(kind == 'state')`.
+
+Fix: `KINDS = { post, like, revoke, state }` above `commit`, checked
+immediately after the trailer is parsed and BEFORE anything uses `kind`:
+
+```lua
+if not (kind and KINDS[kind]) then
+    error("invalid commit : invalid kind", 0)
+end
+```
+
+`merge` is deliberately NOT in the set: those commits are built on a
+detached head and discarded, so `main` never holds one. VERIFIED across
+five repos built through nested merges, a 3h gap and a content conflict
+(the path that writes `Freechains: merge`) -- every trailer reachable
+from `main` was post/like/state, never merge.
+
+Not a hole: the sync was refused before and is refused now. What changed
+is the error surface -- and that surface is remote-visible. The hook
+forwards the receiver's stderr to the pusher, so pre-fix anyone could
+push a trailer-less commit and read back the receiver's absolute install
+path:
 
 ```
-ERROR : chain sync : src/freechains/chain/sync.lua:218: attempt to concatenate a nil value (local 'kind')
+remote: ERROR : chain sync : /usr/local/share/lua/5.4/freechains/chain/sync.lua:322: assertion failed!
 ```
 
-Found while hand-forging a state commit: writing the trailer as the
-SUBJECT line (rather than its own paragraph, after the literal
-`(empty message)` subject freechains writes) makes git's trailer parser
-return nothing.
+Creating such a commit needs off-protocol writes, but only in the
+ATTACKER's own repo -- the victim is an ordinary peer.
 
-Not a hole -- the sync is refused either way -- but the message violates
-the project's `ERROR : <command> : <detail>` format. `kind` should be
-validated right after it is parsed, against the known set
-(`post`/`like`/`revoke`/`state`), with a proper
-`invalid commit : unknown kind` error.
+Note: the hook shells out to `freechains` from `PATH`, i.e. the INSTALLED
+rock (`hooks/pre-receive`). The push path only gets this fix after a
+reinstall; `sync recv` uses the worktree already.
+
+### Trap hit while fixing it
+
+A first attempt moved the signature check ABOVE the trailer parse. `kind`
+was then an undeclared nil GLOBAL, so a commit with a valid trailer but a
+signature that does not verify died as
+
+```
+attempt to concatenate a nil value (global 'kind')
+```
+
+-- reintroducing the same defect on a MORE reachable path (forging a
+signature needs no trailer trick, just a tampered commit). Reproduced by
+keeping a real `gpgsig` header and swapping the tree with `hash-object`.
+
+Second undeclared-local bug of the session (see also section 6). Lua
+turns them into silent nil globals; `luacheck` would catch both.
+
+The forgery: write the trailer as the SUBJECT line rather than its own
+paragraph. Freechains writes `(empty message)` as the subject and the
+trailer after a blank line; with the trailer as the subject,
+`%(trailers:key=Freechains)` returns nothing.
+
+```
+real   : "(empty message)\n\nFreechains: post\n"   -> kind = "post"
+forged : "Freechains: post\n"                      -> kind = nil
+```
+
+Not a hole -- the sync is refused either way -- but the message must
+name the problem instead of leaking a traceback.
 
 ## 5. Entrenchment isolates honest absentees
 
@@ -353,24 +393,49 @@ maximum and both axes fire) -- 0 mismatches.
    invariant surfaces as a raw Lua traceback, not
    `ERROR : chain sync : ...` -- same defect class as section 4.
 
-### Not done: start the comparison at the shared prefix
+### REJECTED: start the comparison at the shared prefix
 
-The prefix comparison runs `1..set`, which is O(chain) in the honest
-case (no mismatch => full scan). It could start at
-`#G_oct.order + 1`, because both orders provably EXTEND the octopus
-ancestor's order: `climb` seeds `visited` from `G_oct.order` and only
-appends, and in the divergence path `G_fst.order` is either `loc`'s
-order (`oct` is `loc`'s ancestor) or `G_rem.order` = `oct.order ++ new`.
+The prefix comparison is O(chain) in the honest case (no mismatch => full
+scan), so starting it at `#G_oct.order + 1` looks free. It is NOT sound.
 
-Verified on the ff scenario: `#oct=2`, and the first difference between
-the two orders is at index 3 -- the bound is tight, not just safe.
+The skip is safe only if `our[i] == their[i]` for every
+`i <= #G_oct.order`. For `their` that holds: `climb` seeds `visited` from
+`G_oct.order` and only appends, so new entries land AFTER that index.
+For `our` it does not:
 
-Not done because: `oct` is computed AFTER the ff `hardfork` call, so the
-octopus block must move up; and the payoff is a few ms of string
-compares against a sync costing hundreds. Unlike the `--no-walk` change
-there is no correctness cliff here. If it is ever applied, the
-invariant must be stated in a comment -- if it broke, a real reorder
-would be silently ACCEPTED.
+```
+our order came from a PAST sync, with its own floor oct_past.
+A merge inside loc's EXCLUSIVE region whose floor sat BELOW oct
+(a branch forked long ago -- the nested-merge case) re-derived across
+oct and reordered entries at indices <= #order(oct).
+rem never saw that merge, so their order keeps oct's arrangement.
+=> our and their disagree at i <= #G_oct.order, exactly where we skip.
+```
+
+A missed difference means a real reorder is silently ACCEPTED. Nested
+merges are precisely where this breaks -- the topology this branch exists
+to fix.
+
+Do not resurrect this without a proof that covers `our`. An empirical
+check on the ff scenario (`#oct=2`, first difference at index 3) confirms
+one case and proves nothing about the general one.
+
+### Done instead: scan the prefix backwards
+
+`for i=set, 1, -1` rather than `1..set`. Verdict is identical (50000
+random pairs, 0 mismatches); only the search order changes.
+
+It is a BET, not a bound -- worst case is unchanged. Measured over a
+1000-entry prefix, average comparisons before refusing:
+
+| where the mismatch is        | forward | backward |
+|------------------------------|---------|----------|
+| last 10% (near the boundary) |     950 |       51 |
+| uniform anywhere             |     500 |      501 |
+| first 10% (ancient)          |      51 |      950 |
+
+The bet is that contested history is RECENT history, which is the same
+premise entrenchment itself rests on -- so the two are consistent.
 
 ## 7. `serial()` was quadratic (DONE)
 
