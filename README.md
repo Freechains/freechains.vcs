@@ -10,8 +10,9 @@ protocol with integrated reputation designed on top of Git:
 <!--
 - **Multiple flavors of public and private communication** (`1->N`, `1<-N`, `N<->N`, `1<-`)
 -->
-- **Per-topic reputation system for healthiness**
+- **Per-topic reputation system for posts and authors**
 - **Consensus via authoring reputation (human work)**
+- **Revocation of abusive content (SPAM, hate speech)**
 - Free in all senses
 
 *(In bold we highlight what we believe is particular to Freechains.)*
