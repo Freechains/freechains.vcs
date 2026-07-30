@@ -28,6 +28,33 @@ elseif ARGS.target == "posts" then
     for _, e in ipairs(T) do
         print(e.k .. " " .. ext(e.v))
     end
+
+elseif ARGS.target == "revoke" then
+    -- revoke axis is post-only, so the `post` target is implicit
+    if not ARGS.key then
+        ERROR("chain reps : revoke requires a hash")
+    end
+    local e = G.posts[ARGS.key]
+    local r = (e and e.revoke) or { author=0, others=0 }
+    print(ext(r.author) .. " " .. ext(r.others))
+elseif ARGS.target == "revokes" then
+    -- both revoke channels of all posts, most revoked first
+    local T = {}
+    for k, v in pairs(G.posts) do
+        local r = v.revoke or { author=0, others=0 }
+        T[#T+1] = { k=k, a=r.author, o=r.others }
+    end
+    table.sort(T, function (x, y)
+        if x.o ~= y.o then
+            return x.o < y.o
+        else
+            return x.a < y.a
+        end
+    end)
+    for _, e in ipairs(T) do
+        print(e.k .. " " .. ext(e.a) .. " " .. ext(e.o))
+    end
+
 elseif ARGS.target == "author" then
     if not ARGS.key then
         ERROR("chain reps : author requires a pubkey")
@@ -44,6 +71,7 @@ elseif ARGS.target == "authors" then
     for _, e in ipairs(T) do
         print(e.k .. " " .. ext(e.v))
     end
+
 else
     ERROR("chain reps : invalid target : " .. ARGS.target)
 end

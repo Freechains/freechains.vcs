@@ -103,6 +103,8 @@ $ freechains chain '#chat' reps revoke 4a5b6c7
 - [x] 2. unrevoke grants no reps (`no_credit` in `common.lua`)
 - [x] 3. `reps revoke <hash>` (`reps.lua`; no CLI change needed,
       `target` is a free-form argument)
+- [x] 3b. `reps revokes` listing, most revoked first
+      (ascending `others`, ties by `author` then hash)
 - [x] 4. docs (`reps.md`, `commands.md`)
 - [x] 5. README moderation table + `reps revoke` example
 - [ ] 6. tests -- pending, expected to FAIL first (user asked

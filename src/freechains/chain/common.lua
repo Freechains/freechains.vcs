@@ -281,7 +281,7 @@ function apply (G, kind, time, T)
             local n = T.n * (100 - C.like.tax) // 100
             if T.post then
                 local a = G.posts[T.post].author
-                if not self_revoke then
+                if not (self_revoke or (kind=='revoke' and T.n>0)) then
                     if a then
                         G.authors[a] = G.authors[a] or { reps=0 }
                         G.authors[a].reps = G.authors[a].reps + n//C.like.split
@@ -292,13 +292,15 @@ function apply (G, kind, time, T)
                 end
 
                 -- revoke axis: sum the signed magnitude T.n (revoke n<0,
-                -- unrevoke n>0). Author self-revoke feeds the absolute
+                -- unrevoke n>0). A positive `like` also counts as an
+                -- `unrevoke` (the converse is false: a `dislike` never
+                -- revokes). Author self-revoke feeds the absolute
                 -- `author` channel; everyone else the `others` channel.
-                if kind == 'revoke' then
+                if kind=='revoke' or T.n>0 then
                     local author = G.posts[T.post].author
                     local r = G.posts[T.post].revoke or { author=0, others=0 }
                     G.posts[T.post].revoke = r
-                    if author and T.sign==author then
+                    if kind=='revoke' and author and T.sign==author then
                         r.author = r.author + T.n
                     else
                         r.others = r.others + T.n

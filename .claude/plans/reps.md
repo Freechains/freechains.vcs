@@ -316,6 +316,10 @@ The two sums are readable with:
 ```
 $ freechains chain <alias> reps revoke <hash>
 -3 2        -- author others ; revoked if either < 0
+
+$ freechains chain <alias> reps revokes
+<hash> -3 2 -- both channels of all posts,
+<hash>  0 1 -- most revoked first
 ```
 
 Phase 1 hides the payload on read (metadata + blob stay);

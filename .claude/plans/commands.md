@@ -17,6 +17,7 @@
 | `freechains chain <n> dislike <hash>` | zero-payload commit with `freechains-dislike: <hash>` extra header | 1 | same pattern as like |
 | `freechains chain <n> reps <hash_or_pub>` | walk `git log`, accumulate like/dislike headers, cache in SQLite | 1 | computed state, not stored in git |
 | `freechains chain <n> reps revoke <hash>` | read `.freechains/state/posts.lua` | 1 | prints the two revoke sums (`author others`); post-only, so no `post` keyword |
+| `freechains chain <n> reps revokes` | read `.freechains/state/posts.lua` | 1 | `<hash> <author> <others>` for all posts, most revoked first |
 | `freechains chain <n> consensus` | `git log --date-order` skipping sync commits | 3 | deterministic but not the same rule; sync marker strategy deferred |
 | `freechains chain <n> destroy <hash>` | `git reset --hard <hash>^1` | 5 | local only; `<hash>` is the first post to destroy and must be an ancestor of HEAD; a beg instead deletes its `refs/begs/*` ref |
 | `freechains chain <n> listen` | `post-receive` git hook on server | 3 | fires server-side after every push; see hooks below |
