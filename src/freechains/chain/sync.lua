@@ -203,8 +203,8 @@ elseif ARGS.recv then
             end
 
             if set then
-                -- my settled prefix must be reproduced verbatim
-                for i=1, set do
+                -- backwards: reorder near boundary far more often
+                for i=set, 1, -1 do
                     if their[i] ~= our[i] then
                         return true
                     end

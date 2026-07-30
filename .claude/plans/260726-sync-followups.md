@@ -338,7 +338,7 @@ window provably covers every index the walk reaches, since the trigger
 index IS the window's lower bound.
 
 Verified: old vs new boundary over 20000 random orders (lengths 0-140,
-deliberately NON-chronological times so `newest` is often not the
+deliberately NON-chronological times so the tip's time is not the
 maximum and both axes fire) -- 0 mismatches.
 
 ### Careful: two traps hit while doing this
@@ -355,8 +355,8 @@ maximum and both axes fire) -- 0 mismatches.
 
 ### Not done: start the comparison at the shared prefix
 
-The prefix comparison runs `1..settled`, which is O(chain) in the
-honest case (no mismatch => full scan). It could start at
+The prefix comparison runs `1..set`, which is O(chain) in the honest
+case (no mismatch => full scan). It could start at
 `#G_oct.order + 1`, because both orders provably EXTEND the octopus
 ancestor's order: `climb` seeds `visited` from `G_oct.order` and only
 appends, and in the divergence path `G_fst.order` is either `loc`'s
