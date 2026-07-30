@@ -58,19 +58,6 @@ exec {
     cmd = "mkdir -p " .. ROOT_X,
 }
 
-local function order (exe, chain)
-    local out = exec {
-        cmd = exe .. " chain '" .. chain .. "' list order",
-    }
-    local T = {}
-    local S = {}
-    for line in out:gmatch("[^\n]+") do
-        T[#T+1] = line
-        S[line] = true
-    end
-    return T, S
-end
-
 do
     print("==> Test: shared commit must not decide consensus")
 
@@ -131,7 +118,7 @@ do
 
     TEST "X's settled history is untouched"
     do
-        local O, S = order(EXE_X, "#hs")
+        local O, S = ORDER(EXE_X, "#hs")
         assert(#O == 5, "expected 5 entries, got " .. #O)
         assert(not S[alice], "ALICE must not have been merged")
         assert(S[aw], "AW must still be there")

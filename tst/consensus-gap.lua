@@ -51,17 +51,6 @@ exec {
     cmd = "mkdir -p " .. ROOT_C,
 }
 
-local function order (exe, chain)
-    local out = exec {
-        cmd = exe .. " chain '" .. chain .. "' list order",
-    }
-    local T = {}
-    for line in out:gmatch("[^\n]+") do
-        T[#T+1] = line
-    end
-    return T
-end
-
 do
     print("==> Test: consensus merge across a >1h gap")
 
@@ -109,7 +98,7 @@ do
 
     TEST "A order: seed, like, high, low"
     do
-        local O = order(EXE_A, "#cg2")
+        local O = ORDER(EXE_A, "#cg2")
         assert(#O == 4, "expected 4 entries, got " .. #O)
         assert(O[3] == high, "high should precede low")
         assert(O[4] == low,  "low should be last")
@@ -122,8 +111,8 @@ do
 
     TEST "C holds the same order as A"
     do
-        local OA = order(EXE_A, "#cg2")
-        local OC = order(EXE_C, "#cg2")
+        local OA = ORDER(EXE_A, "#cg2")
+        local OC = ORDER(EXE_C, "#cg2")
         assert(#OC == #OA, "order length differs: A=" .. #OA .. " C=" .. #OC)
         for i = 1, #OA do
             assert(OC[i] == OA[i], "order differs at " .. i .. ": A=" .. OA[i] .. " C=" .. OC[i])

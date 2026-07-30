@@ -16,19 +16,6 @@ exec {
     cmd = "mkdir -p " .. ROOT_B,
 }
 
-local function order (exe, chain)
-    local out = exec {
-        cmd = exe .. " chain '" .. chain .. "' list order",
-    }
-    local T = {}
-    local S = {}
-    for line in out:gmatch("[^\n]+") do
-        T[#T+1] = line
-        S[line] = true
-    end
-    return T, S
-end
-
 -- 1. local wins by prefix reps
 -- GEN_2: KEY1=15, KEY2=15
 -- Before fork: KEY2 likes seed → KEY2 loses reps → KEY1 > KEY2
@@ -190,7 +177,7 @@ do
 
     TEST "order before merge: P1, P2, P3 present"
     do
-        local O, S = order(EXE_A, "#cons-c")
+        local O, S = ORDER(EXE_A, "#cons-c")
         assert(#O == 3, "expected 3 entries, got " .. #O)
         assert(S[P1], "P1 should be in order")
         assert(S[P2], "P2 should be in order")
@@ -213,7 +200,7 @@ do
 
     TEST "A order after merge: X1,X2,X3,P1 present; P2,P3 revoked"
     do
-        local O, S = order(EXE_A, "#cons-c")
+        local O, S = ORDER(EXE_A, "#cons-c")
         assert(#O == 4, "expected 4 entries, got " .. #O)
         assert(S[X1], "X1 should be in order")
         assert(S[X2], "X2 should be in order")
@@ -230,8 +217,8 @@ do
 
     TEST "B order matches A"
     do
-        local OA = order(EXE_A, "#cons-c")
-        local OB = order(EXE_B, "#cons-c")
+        local OA = ORDER(EXE_A, "#cons-c")
+        local OB = ORDER(EXE_B, "#cons-c")
         assert(#OA == #OB, "length mismatch: A=" .. #OA .. " B=" .. #OB)
         for i = 1, #OA do
             assert(OA[i] == OB[i], "order mismatch at " .. i)
@@ -331,8 +318,8 @@ do
     )
 
     TEST "C order matches A"
-    local OA = order(EXE_A, "#cons-d")
-    local OC = order(EXE_C, "#cons-d")
+    local OA = ORDER(EXE_A, "#cons-d")
+    local OC = ORDER(EXE_C, "#cons-d")
     assert(#OA == #OC, "length mismatch: A=" .. #OA .. " C=" .. #OC)
     for i = 1, #OA do
         assert(OA[i] == OC[i], "order mismatch at " .. i)

@@ -21,19 +21,6 @@ exec {
     cmd = "mkdir -p " .. ROOT_B,
 }
 
-local function order (exe, chain)
-    local out = exec {
-        cmd = exe .. " chain '" .. chain .. "' list order",
-    }
-    local T = {}
-    local S = {}
-    for line in out:gmatch("[^\n]+") do
-        T[#T+1] = line
-        S[line] = true
-    end
-    return T, S
-end
-
 -- 1. local first by 100-post divergence (rule 1 overrides prefix reps)
 -- GEN_3: KEY1=10, KEY2=10, KEY3=10
 -- A: KEY3 alone posts 100 times → prefix reps 10
@@ -100,7 +87,7 @@ do
 
     TEST "A keeps its own branch untouched (no remote posts)"
     do
-        local O, S = order(EXE_A, "#fork-100")
+        local O, S = ORDER(EXE_A, "#fork-100")
         assert(#O == N, "expected " .. N .. " entries, got " .. #O)
         for i = 1, N do
             assert(O[i] == A[i], "local post " .. i .. " out of order")

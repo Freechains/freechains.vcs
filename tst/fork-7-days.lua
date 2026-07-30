@@ -17,19 +17,6 @@ exec {
     cmd = "mkdir -p " .. ROOT_B,
 }
 
-local function order (exe, chain)
-    local out = exec {
-        cmd = exe .. " chain '" .. chain .. "' list order",
-    }
-    local T = {}
-    local S = {}
-    for line in out:gmatch("[^\n]+") do
-        T[#T+1] = line
-        S[line] = true
-    end
-    return T, S
-end
-
 -- 1. local first by 7-day divergence (rule 1 overrides prefix reps)
 -- GEN_2: KEY1=15, KEY2=15
 -- Before fork: KEY2 likes seed → KEY2 loses reps → KEY1 > KEY2
@@ -104,7 +91,7 @@ do
 
     TEST "A keeps its own branch untouched (beta not merged)"
     do
-        local O, S = order(EXE_A, "#fork-7d")
+        local O, S = ORDER(EXE_A, "#fork-7d")
         assert(#O == 4, "expected 4 entries, got " .. #O)
         assert(O[1] == seed, "seed should be first")
         assert(O[2] == like, "like should be second")
@@ -122,7 +109,7 @@ do
 
     TEST "B holds every post"
     do
-        local O, S = order(EXE_B, "#fork-7d")
+        local O, S = ORDER(EXE_B, "#fork-7d")
         assert(#O == 5, "expected 5 entries, got " .. #O)
         for _, h in ipairs { seed, like, a1, a2, beta } do
             assert(S[h], "missing post in B order")

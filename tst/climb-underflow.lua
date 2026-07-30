@@ -15,17 +15,6 @@ exec {
     cmd = "mkdir -p " .. ROOT_B,
 }
 
-local function order (exe, chain)
-    local out = exec {
-        cmd = exe .. " chain '" .. chain .. "' list order",
-    }
-    local S = {}
-    for line in out:gmatch("[^\n]+") do
-        S[line] = true
-    end
-    return S
-end
-
 -- Nested merges underflow `climb`. An INNER merge M1 forks DEEPER (at
 -- genesis, F1) than the OUTER merge M2 (at AW, F2). Climbing M2 from F2
 -- re-enters M1 and calls meet with com=F2; M1's own fork F1 is below
@@ -105,7 +94,7 @@ do
     }
 
     TEST "B's order contains takeover"
-    local S = order(EXE_B, "#cu")
+    local _, S = ORDER(EXE_B, "#cu")
     assert(S[takeover], "takeover missing from B order (climb underflow)")
 end
 

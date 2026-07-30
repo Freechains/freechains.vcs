@@ -15,17 +15,6 @@ exec {
     cmd = "mkdir -p " .. ROOT_B,
 }
 
-local function order (exe, chain)
-    local out = exec {
-        cmd = exe .. " chain '" .. chain .. "' list order",
-    }
-    local S = {}
-    for line in out:gmatch("[^\n]+") do
-        S[line] = true
-    end
-    return S
-end
-
 -- Reorder replay must not reject ancient loser commits.
 -- GEN_2: KEY1=15, KEY2=15; KEY2 likes seed → KEY1 > KEY2.
 -- A wins by prefix reps (consensus, NOT hard fork: gamma < 7 days after
@@ -102,7 +91,7 @@ do
     }
 
     TEST "A's order still contains the ancient loser beta"
-    local S = order(EXE_A, "#anc")
+    local _, S = ORDER(EXE_A, "#anc")
     assert(S[seed],  "seed missing from A order")
     assert(S[alpha], "alpha missing from A order")
     assert(S[gamma], "gamma missing from A order")

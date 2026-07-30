@@ -62,17 +62,6 @@ local function CHAIN (root)
     return root .. "/chains/#bca/"
 end
 
-local function order (exe)
-    local out = exec {
-        cmd = exe .. " chain '#bca' list order",
-    }
-    local S = {}
-    for line in out:gmatch("[^\n]+") do
-        S[line] = true
-    end
-    return S
-end
-
 do
     print("==> Test: climb must not descend below its floor")
 
@@ -153,7 +142,7 @@ do
     }
 
     TEST "D's order holds every post"
-    local S = order(EXE_D)
+    local _, S = ORDER(EXE_D, "#bca")
     for _, t in ipairs {
         { n1, "n1" }, { n2, "n2" }, { n3, "n3" },
         { n4, "n4" }, { n5, "n5" }, { n6, "n6" },

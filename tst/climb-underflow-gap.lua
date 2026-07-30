@@ -56,17 +56,6 @@ exec {
     cmd = "mkdir -p " .. ROOT_H,
 }
 
-local function order (exe, chain)
-    local out = exec {
-        cmd = exe .. " chain '" .. chain .. "' list order",
-    }
-    local T = {}
-    for line in out:gmatch("[^\n]+") do
-        T[#T+1] = line
-    end
-    return T
-end
-
 do
     print("==> Test: nested merge across a time gap")
 
@@ -144,8 +133,8 @@ do
     }
 
     TEST "H's order equals A's order"
-    local a = order(EXE_A, "#cg")
-    local h = order(EXE_H, "#cg")
+    local a = ORDER(EXE_A, "#cg")
+    local h = ORDER(EXE_H, "#cg")
     assert(#a == #h, "order length differs: A=" .. #a .. " H=" .. #h)
     for i = 1, #a do
         assert(a[i] == h[i], "order differs at " .. i .. ": A=" .. a[i] .. " H=" .. h[i])

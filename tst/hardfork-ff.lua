@@ -60,19 +60,6 @@ exec {
     cmd = "mkdir -p " .. ROOT_X,
 }
 
-local function order (exe, chain)
-    local out = exec {
-        cmd = exe .. " chain '" .. chain .. "' list order",
-    }
-    local T = {}
-    local S = {}
-    for line in out:gmatch("[^\n]+") do
-        T[#T+1] = line
-        S[line] = true
-    end
-    return T, S
-end
-
 do
     print("==> Test: a fast-forward must not rewrite a settled prefix")
 
@@ -118,7 +105,7 @@ do
 
     TEST "B's settled order is 4 entries"
     do
-        local O = order(EXE_B, "#hff")
+        local O = ORDER(EXE_B, "#hff")
         assert(#O == 4, "expected 4 entries, got " .. #O)
     end
 
@@ -137,7 +124,7 @@ do
 
     TEST "X's order inserts ALICE at 3"
     do
-        local O = order(EXE_X, "#hff")
+        local O = ORDER(EXE_X, "#hff")
         assert(#O == 5, "expected 5 entries, got " .. #O)
         assert(O[3] == alice, "ALICE should be ordered at 3")
     end
@@ -153,7 +140,7 @@ do
 
     TEST "B's settled history is untouched"
     do
-        local O, S = order(EXE_B, "#hff")
+        local O, S = ORDER(EXE_B, "#hff")
         assert(#O == 4, "expected 4 entries, got " .. #O)
         assert(not S[alice], "ALICE must not have been merged")
     end

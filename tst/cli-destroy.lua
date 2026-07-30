@@ -65,32 +65,6 @@ local ROOT_B = ROOT .. "/cli-destroy/B/"
 local EXE_A  = ENV .. " ../src/freechains.lua --root " .. ROOT_A
 local EXE_B  = ENV .. " ../src/freechains.lua --root " .. ROOT_B
 
-local function order (exe, chain)
-    local out = exec {
-        cmd = exe .. " chain '" .. chain .. "' list order",
-    }
-    local T = {}
-    local S = {}
-    for line in out:gmatch("[^\n]+") do
-        T[#T+1] = line
-        S[line] = true
-    end
-    return T, S
-end
-
-local function reps (exe, chain, pub)
-    return tonumber((exec {
-        cmd = exe .. " chain '" .. chain .. "' reps author '" .. pub .. "'",
-    }))
-end
-
-local function trailer (dir, hash)
-    return (exec {
-        cmd = "git -C " .. dir ..
-            " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash,
-    }):match("%S+")
-end
-
 -- 1. Drop local posts back to a previous one
 do
     print("==> Test 1: destroy removes posts")
@@ -106,14 +80,14 @@ do
     local p1 = exec {
         cmd = ENV_EXE .. " chain '#cli-destroy-1' post inline 'p1\n' --file p1.txt --sign " .. KEY1,
     }
-    local at_p1 = reps(ENV_EXE, "#cli-destroy-1", PUB1)
+    local at_p1 = REPS(ENV_EXE, "#cli-destroy-1", PUB1)
 
     -- G -- p1[K1] -- p2[K1]
     TEST "post p2"
     local p2 = exec {
         cmd = ENV_EXE .. " chain '#cli-destroy-1' post inline 'p2\n' --file p2.txt --sign " .. KEY1,
     }
-    local at_p2 = reps(ENV_EXE, "#cli-destroy-1", PUB1)
+    local at_p2 = REPS(ENV_EXE, "#cli-destroy-1", PUB1)
 
     -- G -- p1[K1] -- p2[K1] -- p3[K1]
     TEST "post p3"
@@ -138,7 +112,7 @@ do
 
     do
         TEST "destroyed posts are out of the order"
-        local O, S = order(ENV_EXE, "#cli-destroy-1")
+        local O, S = ORDER(ENV_EXE, "#cli-destroy-1")
         assert(#O == 1, "expected 1 entry, got " .. #O)
         assert(O[1] == p1, "p1 should be the only entry")
         assert(not S[p2], "p2 must be gone")
@@ -159,7 +133,7 @@ do
         local head = exec {
             cmd = "git -C " .. DIR1 .. " rev-parse HEAD",
         }
-        assert(trailer(DIR1, head) == 'state', "HEAD is not a state commit")
+        assert(TRAILER(DIR1, head) == 'state', "HEAD is not a state commit")
         assert(head ~= p1, "HEAD should be past p1")
         local parent = exec {
             cmd = "git -C " .. DIR1 .. " rev-parse HEAD^1",
@@ -170,7 +144,7 @@ do
     -- state files revert with the tree: the destroyed posts never happened
     do
         TEST "reps are restored"
-        local now = reps(ENV_EXE, "#cli-destroy-1", PUB1)
+        local now = REPS(ENV_EXE, "#cli-destroy-1", PUB1)
         assert(now == at_p1, "expected " .. at_p1 .. " reps, got " .. now)
     end
 
@@ -183,7 +157,7 @@ do
         p2b = exec {
             cmd = ENV_EXE .. " chain '#cli-destroy-1' post inline 'p2\n' --file p2.txt --sign " .. KEY1,
         }
-        local now = reps(ENV_EXE, "#cli-destroy-1", PUB1)
+        local now = REPS(ENV_EXE, "#cli-destroy-1", PUB1)
         assert(now == at_p2, "expected " .. at_p2 .. " reps, got " .. now)
     end
 
@@ -194,7 +168,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-destroy-1' destroy " .. p2b,
         }
         assert(out == p2b, "should list p2' alone: " .. out)
-        local O = order(ENV_EXE, "#cli-destroy-1")
+        local O = ORDER(ENV_EXE, "#cli-destroy-1")
         assert(#O == 1, "expected 1 entry, got " .. #O)
         assert(O[1] == p1, "p1 should be the only entry")
     end
@@ -392,7 +366,7 @@ do
 
     TEST "A holds B's branch"
     do
-        local O, S = order(EXE_A, "#destroy-fork")
+        local O, S = ORDER(EXE_A, "#destroy-fork")
         assert(#O == 2, "expected 2 entries, got " .. #O)
         assert(O[1] == seed, "seed should be first")
         assert(O[2] == beta, "beta should be second")
@@ -413,8 +387,8 @@ do
 
     TEST "both peers agree on the order"
     do
-        local OA = order(EXE_A, "#destroy-fork")
-        local OB = order(EXE_B, "#destroy-fork")
+        local OA = ORDER(EXE_A, "#destroy-fork")
+        local OB = ORDER(EXE_B, "#destroy-fork")
         assert(#OA == 3, "expected 3 entries in A, got " .. #OA)
         assert(#OB == 3, "expected 3 entries in B, got " .. #OB)
         for i = 1, 3 do
