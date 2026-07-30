@@ -140,6 +140,138 @@ do
     end
 end
 
+do
+    print("==> Revoke: coupling with the reputation axis")
+
+    -- a `like` also unrevokes, a `revoke` also dislikes;
+    -- the converses are false (`dislike` never hides, `unrevoke`
+    -- never credits)
+    local P = exec {
+        cmd = ENV_EXE .. " chain '#cli-revoke' post inline 'coupled' --sign " .. KEY1,
+    }
+
+    do
+        TEST "revoke-like-lifts"
+        exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1 " .. P .. " --sign " .. KEY2,
+        }
+        FAIL {
+            cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. P,
+            err = "ERROR : chain get : revoked post",
+        }
+        exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' like 1 post " .. P .. " --sign " .. KEY2,
+        }
+        local out, code = exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. P,
+        }
+        assert(code == 0, "exit code: " .. tostring(code))
+        assert(out == "coupled", "like should lift the revoke: " .. out)
+    end
+
+    do
+        TEST "revoke-dislike-keeps"
+        -- a dislike drains the post, but never hides it
+        local before = tonumber((exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' reps post " .. P,
+        }))
+        exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' dislike 1 post " .. P .. " --sign " .. KEY2,
+        }
+        local after = tonumber((exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' reps post " .. P,
+        }))
+        assert(after < before, "dislike should drain: " .. before .. " -> " .. after)
+        local out, code = exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. P,
+        }
+        assert(code == 0, "exit code: " .. tostring(code))
+        assert(out == "coupled", "dislike should not hide: " .. out)
+    end
+
+    do
+        TEST "revoke-unrevoke-no-reps"
+        -- an unrevoke costs the caster, but credits nobody
+        exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1 " .. P .. " --sign " .. KEY3,
+        }
+        local post_1 = exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' reps post " .. P,
+        }
+        local sign_1 = tonumber((exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' reps author '" .. PUB3 .. "'",
+        }))
+        exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' unrevoke 1 " .. P .. " --sign " .. KEY3,
+        }
+        local post_2 = exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' reps post " .. P,
+        }
+        local sign_2 = tonumber((exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' reps author '" .. PUB3 .. "'",
+        }))
+        assert(post_1 == post_2, "unrevoke must not credit: " .. post_1 .. " -> " .. post_2)
+        assert(sign_2 < sign_1, "unrevoke must cost: " .. sign_1 .. " -> " .. sign_2)
+        local out, code = exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. P,
+        }
+        assert(code == 0, "exit code: " .. tostring(code))
+        assert(out == "coupled", "unrevoke should restore: " .. out)
+    end
+
+    do
+        TEST "revoke-self-like-keeps"
+        -- the author's own like feeds the community channel, so it
+        -- cannot lift their absolute self-revoke
+        exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1 " .. P .. " --sign " .. KEY1,
+        }
+        exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' like 1 post " .. P .. " --sign " .. KEY1,
+        }
+        FAIL {
+            cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. P,
+            err = "ERROR : chain get : revoked post",
+        }
+        exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' unrevoke 1 " .. P .. " --sign " .. KEY1,
+        }
+        local out, code = exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. P,
+        }
+        assert(code == 0, "exit code: " .. tostring(code))
+        assert(out == "coupled", "author unrevoke should restore: " .. out)
+    end
+
+    do
+        TEST "reps-revoke"
+        -- author channel is back to 0, community is +1 (the two likes
+        -- and the unrevoke net against the two revokes)
+        local out, code = exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' reps revoke " .. P,
+        }
+        assert(code == 0,    "exit code: " .. tostring(code))
+        assert(out == "0 1", "channels: " .. out)
+    end
+
+    do
+        TEST "reps-revokes"
+        local out, code = exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' reps revokes",
+        }
+        assert(code == 0, "exit code: " .. tostring(code))
+        assert(out:find(P .. " 0 1", 1, true), "P not listed: " .. out)
+    end
+
+    do
+        TEST "reps-revoke-no-hash"
+        FAIL {
+            cmd = ENV_EXE .. " chain '#cli-revoke' reps revoke",
+            err = "ERROR : chain reps : revoke requires a hash",
+        }
+    end
+end
+
 exec {
     cmd = ENV_EXE .. " chains rem '#cli-revoke'",
 }
