@@ -64,22 +64,62 @@
     - explicit `sync recv --force` that accepts the reorder
     - soften into the continuous decay in done/260723-fork-7day.md
 
-# Done / dropped
+# Done
 
 - Lost security note in `hardfork`
-    - DONE: recorded as threats.md T2d, not as a comment
+    - recorded as threats.md T2d, not as a comment
     - a threat entry outlives a refactor of the function
-- `reps.max` uncommitted
-    - DROPPED: stale, tree and HEAD both `30*unit`
-- `tst/sync.lua` drives with `sync send`
-    - DROPPED: `send` IS the subject of steps 2, 4, 8
+
+<!-- ------------------------------- WON'T DO --------------------------------->
+
+# `tst/sync.lua` still drives with `sync send`
+
+- Won't do: no blind spot, and `send` IS the subject
+    - steps 2, 4, 8 are named for it
     - each asserts heads or beg refs afterwards
-    - `ERROR` exits 1, the hook propagates, `push` exits 1
-    - the only stderr `send` can swallow is the non-fatal
+    - `ERROR` exits 1, the hook propagates it, `push` exits 1
+    - the only stderr `send` swallows is the non-fatal
       loser-replay message, unreached on a fast-forward
-- README: recovery has no CLI
-    - DROPPED on request, still true
-- README: settled-branch wording overstates
-    - DROPPED on request, still true
-- Add `luacheck`
-    - DROPPED on request
+    - converting them deletes the only `send` coverage
+      outside `cli-send.lua`
+- The receiver then runs inside the pre-receive hook
+- `push` swallows its stderr and exits 0
+- Same blind spot fixed in reorder-ancient
+- `tst/consensus.lua` also pushes
+    - but asserts file CONTENTS and posts.lua size afterwards
+    - a silent drop would surface there
+- `tst/cli-send.lua` must keep pushing
+    - that path is its subject
+
+# README: recovery has no CLI
+
+- Won't do on request, but still true
+- Hard Forks section carries a bare `TODO: revert history`
+- The documented recovery was MEASURED to work
+    - revert local history, recv the settled branch, repost, send
+    - a plain recv+send does NOT work
+    - consensus re-inserts the post inside the frozen prefix
+- But there is no command for the revert
+    - today it is a raw `git reset --hard` in the chain repo
+- Either add a command or say so in the text
+
+# README: settled-branch wording overstates
+
+- Won't do on request, but still true
+- Says a settled branch has 100 posts or 7 days
+- True as the entrenchment CONDITION
+- Only the prefix OLDER than that window is frozen
+- The recent 100 posts / 7 days still reorder
+- As written it reads as if the whole branch were immutable
+    - contradicts the next paragraph
+
+# Add `luacheck`
+
+- Won't do on request
+- Not installed
+- Would have caught two undeclared-local bugs in one session
+    - `low` used before its declaration silently disabled the
+      `--no-walk` bound
+    - `kind` used before its declaration crashed on forged signatures
+- Lua turns an undeclared local into a silent nil global
+- Worth a Makefile target
