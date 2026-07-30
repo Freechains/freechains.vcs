@@ -289,12 +289,12 @@ Now, we use their public keys to query their reputations:
 
 ```
 $ freechains chain '#chat' reps author "$(cat /tmp/alice.pub)"
-29
+30
 $ freechains chain '#chat' reps author "$(cat /tmp/bob.pub)"
 0
 ```
 
-As the chain pioneer, `Alice` still has `29 reps` to use, whereas `Bob` has no
+As the chain pioneer, `Alice` still has `30 reps` to use, whereas `Bob` has no
 reputation and cannot post on the chain.
 
 To welcome new members into the chain, the pioneer needs to redistribute a
@@ -310,12 +310,12 @@ $ freechains chain '#chat' like 10 author "$(cat /tmp/bob.pub)" --sign=/tmp/alic
 ```
 $ freechains --root=/tmp/B/ chain '#chat' sync recv localhost
 $ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/alice.pub)"
-20
+23
 $ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/bob.pub)"
 9
 ```
 
-You might have expected `19` and `10`, not `20` and `9` as `reps`.
+You might have expected `20` and `10`, not `23` and `9` as `reps`.
 This is due to internal rules that tax transfers and recover `reps` over time,
 which are out of the scope of this guide.
 
@@ -325,7 +325,7 @@ Let's now introduce new member `Charlie`, who is welcomed by `Bob` in peer `B`:
 $ ssh-keygen -t ed25519 -C '' -f /tmp/charlie
 $ freechains --root=/tmp/B/ chain '#chat' like 5 author "$(cat /tmp/charlie.pub)" --sign=/tmp/bob
 $ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/alice.pub)"
-20
+23
 $ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/bob.pub)"
 4
 $ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/charlie.pub)"
@@ -360,7 +360,7 @@ b52c62f... 1
 e1f2a3b... 0
 d6568e4... -1
 $ freechains --root=/tmp/B/ chain '#chat' reps authors
-ssh-ed25519 ...vzTc96I 20    # Alice (unaffected)
+ssh-ed25519 ...vzTc96I 23    # Alice (unaffected)
 ssh-ed25519 ...je8+xIa ?     # Bob
 ssh-ed25519 ...Ks9pL2v ?     # Charlie
 ```
