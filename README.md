@@ -370,7 +370,7 @@ Let's introduce `Dave`, who wants to join the community, but holds no `reps`:
 
 ```
 $ ssh-keygen -t ed25519 -C '' -f /tmp/dave
-$ freechains --root=/tmp/A/ chain '#chat' post inline $'A great post!\n' --beg --sign=/tmp/dave
+$ freechains chain '#chat' post inline $'A great post!\n' --beg --sign=/tmp/dave
 c7d8e9f...
 ```
 
@@ -378,18 +378,18 @@ The `--beg` flag allows to post without `reps`, but the post is parked apart
 from the chain, waiting for a like:
 
 ```
-$ freechains --root=/tmp/A/ chain '#chat' list begs
+$ freechains chain '#chat' list begs
 c7d8e9f...
 ```
 
 `Alice` likes the post and rates it, spending `4 reps`:
 
 ```
-$ freechains --root=/tmp/A/ chain '#chat' like 4 post c7d8e9f --sign=/tmp/alice
+$ freechains chain '#chat' like 4 post c7d8e9f --sign=/tmp/alice
 d8e9f0a...
-$ freechains --root=/tmp/A/ chain '#chat' list begs
+$ freechains chain '#chat' list begs
 # (empty)
-$ freechains --root=/tmp/A/ chain '#chat' list dag
+$ freechains chain '#chat' list dag
                  ...
                  560a55c
                     |
