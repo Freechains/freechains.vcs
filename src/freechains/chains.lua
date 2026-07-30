@@ -118,6 +118,11 @@ if ARGS.add then
             cmd = "cp " .. ARGS.path .. " " .. tmp .. "/.freechains/genesis.lua",
         }
         pioneers(tmp .. "/")
+        do
+            local f = io.open(tmp .. "/.freechains/state/now.lua", "w")
+            f:write("return " .. CMD.now .. "\n")
+            f:close()
+        end
         exec {
             cmd = "git -C " .. tmp .. " add .freechains/ .gitattributes .gitignore",
         }

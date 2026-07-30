@@ -100,6 +100,14 @@ shared commits are in `B` (or ancestors thereof), so
 `merge-base(M.p1, M.p2)` ≥ `com` by construction —
 never escapes the range.
 
+NOTE this `com` is the REPLAY FLOOR only: how much
+history the receiver must re-derive.
+The reps comparison does NOT use it — it runs from
+`merge-base(a, b)`, so `com..a` and `com..b` are
+disjoint and a commit both sides already hold cannot
+decide the merge between them.
+See consensus.md and `tst/hardfork-shared.lua`.
+
 ### U2. Double-apply of commits shared with loc history
 
 With `com` pushed deeper (e.g. `com = R` above),

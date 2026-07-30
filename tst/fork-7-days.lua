@@ -17,27 +17,18 @@ exec {
     cmd = "mkdir -p " .. ROOT_B,
 }
 
-local function order (exe, chain)
-    local out = exec {
-        cmd = exe .. " chain '" .. chain .. "' list order",
-    }
-    local T = {}
-    local S = {}
-    for line in out:gmatch("[^\n]+") do
-        T[#T+1] = line
-        S[line] = true
-    end
-    return T, S
-end
-
 -- 1. local first by 7-day divergence (rule 1 overrides prefix reps)
 -- GEN_2: KEY1=15, KEY2=15
 -- Before fork: KEY2 likes seed → KEY2 loses reps → KEY1 > KEY2
--- A posts to a.txt with KEY2 (lower), B posts to b.txt with KEY1
--- Distinct files: no content conflict, both posts survive the merge
--- A's branch diverged >= 7 days from the fork point
+-- A posts to a1/a2.txt with KEY2 (lower), B posts to b.txt with KEY1
+-- Distinct files: no content conflict, all posts survive the merge
+-- Rule 1 measures the SPAN of A's exclusive commits, so A must post
+-- ACROSS the window (a1 then a2, 7 days apart): idling after the fork
+-- adds no independent history and must not buy entrenchment.
 -- Without rule 1: B ordered first by prefix reps (consensus.lua 2)
--- With rule 1: A ordered first unconditionally, reps ignored
+-- With rule 1: A is entrenched and REFUSES the merge, keeping its branch
+-- as is. The refusal is one-directional: B (one post, no span) is not
+-- entrenched, so it still absorbs A by plain consensus.
 do
     print("==> Test 1: local first by 7-day divergence")
 
@@ -67,44 +58,66 @@ do
         cmd = EXE_B .. " chains add '#fork-7d' clone " .. ROOT_A .. "/chains/#fork-7d/",
     }
 
-    -- A: G -- S[K1] -- L[K2] -- alpha[K2]   (t = L + 7d → crosses)
+    -- A: G -- S[K1] -- L[K2] -- a1[K2]      (right after the fork)
     -- B: G -- S[K1] -- L[K2]
-    TEST "A posts alpha to a.txt with KEY2 (lower reps), 7 days after fork"
-    local alpha = exec {
-        cmd = EXE_A .. " --now=" .. (1200+WEEK+100) .. " chain '#fork-7d' post inline 'alpha\n' --file a.txt --sign " .. KEY2,
+    TEST "A posts a1 to a1.txt with KEY2 (lower reps), right after the fork"
+    local a1 = exec {
+        cmd = EXE_A .. " --now=1300 chain '#fork-7d' post inline 'a1\n' --file a1.txt --sign " .. KEY2,
     }
 
-    -- A: G -- S[K1] -- L[K2] -- alpha[K2]
-    -- B: G -- S[K1] -- L[K2] -- beta[K1]
+    -- A: G -- S[K1] -- L[K2] -- a1[K2] -- a2[K2]   (a1..a2 spans 7d → rule 1)
+    -- B: G -- S[K1] -- L[K2]
+    TEST "A posts a2 7 days later: A's exclusive commits now span 7d"
+    local a2 = exec {
+        cmd = EXE_A .. " --now=" .. (1300+WEEK) .. " chain '#fork-7d' post inline 'a2\n' --file a2.txt --sign " .. KEY2,
+    }
+
+    -- A: G -- S[K1] -- L[K2] -- a1[K2] -- a2[K2]
+    -- B: G -- S[K1] -- L[K2] -- beta[K1]           (single post: no span)
     TEST "B posts beta to b.txt with KEY1 (higher prefix reps)"
     local beta = exec {
-        cmd = EXE_B .. " --now=" .. (1200+WEEK+100) .. " chain '#fork-7d' post inline 'beta\n' --file b.txt --sign " .. KEY1,
+        cmd = EXE_B .. " --now=" .. (1300+WEEK) .. " chain '#fork-7d' post inline 'beta\n' --file b.txt --sign " .. KEY1,
     }
 
-    --                       alpha[K2] --\
-    --                      /             M
-    -- A: G -- S[K1] -- L[K2]            /
-    --                      \           /
-    --                       beta[K1] -/    (both survive: distinct files)
-    --
-    -- B: G -- S[K1] -- L[K2] -- beta[K1]
-    TEST "A recvs from B (A first by rule 1, despite lower reps)"
-    exec {
-        cmd = EXE_A .. " --now=" .. (1200+WEEK+200) .. " chain '#fork-7d' sync recv " .. ROOT_B .. "/chains/#fork-7d/",
+    -- A: G -- S[K1] -- L[K2] -- a1[K2] -- a2[K2]   (entrenched: span 7d)
+    -- B: G -- S[K1] -- L[K2] -- beta[K1]           (not entrenched)
+    -- rule 1 REFUSES the merge: A is entrenched, so it does not reconcile
+    -- with B at all (rather than merging and ordering itself first)
+    TEST "A recvs from B: refused by rule 1"
+    FAIL {
+        cmd = EXE_A .. " --now=" .. (1300+WEEK+100) .. " chain '#fork-7d' sync recv " .. ROOT_B .. "/chains/#fork-7d/",
+        err = "ERROR : chain sync : hard fork",
     }
 
-    TEST "A order: S, L, alpha, beta (local branch first)"
+    TEST "A keeps its own branch untouched (beta not merged)"
     do
-        local O, S = order(EXE_A, "#fork-7d")
+        local O, S = ORDER(EXE_A, "#fork-7d")
         assert(#O == 4, "expected 4 entries, got " .. #O)
-        assert(O[1] == seed,  "seed should be first")
-        assert(O[2] == like,  "like should be second")
-        assert(O[3] == alpha, "alpha (local) should precede beta")
-        assert(O[4] == beta,  "beta (remote) should be last")
+        assert(O[1] == seed, "seed should be first")
+        assert(O[2] == like, "like should be second")
+        assert(O[3] == a1,   "a1 should be third")
+        assert(O[4] == a2,   "a2 should be fourth")
+        assert(not S[beta],  "beta must not have been merged")
     end
 
-    TEST "A keeps both payloads"
-    for file, text in pairs { ["a.txt"]="alpha", ["b.txt"]="beta" } do
+    -- B is NOT entrenched (one post, no span), so it still absorbs A's
+    -- branch by plain consensus: the refusal is one-directional
+    TEST "B recvs from A: accepted (B is not entrenched)"
+    exec {
+        cmd = EXE_B .. " --now=" .. (1300+WEEK+200) .. " chain '#fork-7d' sync recv " .. ROOT_A .. "/chains/#fork-7d/",
+    }
+
+    TEST "B holds every post"
+    do
+        local O, S = ORDER(EXE_B, "#fork-7d")
+        assert(#O == 5, "expected 5 entries, got " .. #O)
+        for _, h in ipairs { seed, like, a1, a2, beta } do
+            assert(S[h], "missing post in B order")
+        end
+    end
+
+    TEST "A keeps its own payloads"
+    for file, text in pairs { ["a1.txt"]="a1", ["a2.txt"]="a2" } do
         local h = io.open(ROOT_A .. "/chains/#fork-7d/" .. file)
         local content = h:read("a")
         h:close()

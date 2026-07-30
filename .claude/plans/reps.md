@@ -264,9 +264,25 @@ to likes under `.freechains/likes/` + `Freechains: like`). The
 dir/trailer marks the revoke axis; `n` sign gives the direction
 (revoke `n<0`, unrevoke `n>0`).
 
-- `revoke` uses **dislike** reps math (removes reps + costs
-  caster); `unrevoke` uses **like** reps math.
-- `like` / `dislike` do NOT affect revocation.
+The two axes are coupled **asymmetrically**:
+
+| op         | caster | post/author reps | `revoke` sum |
+|------------|--------|------------------|--------------|
+| `like`     | -n     | +n               | +n           |
+| `dislike`  | -n     | -n               | --           |
+| `revoke`   | -n     | -n               | -n           |
+| `unrevoke` | -n     | -- (burn)        | +n           |
+
+- `revoke` also counts as a **dislike** (removes reps + costs
+  the caster); a `dislike` never revokes.
+- A positive `like` also counts as an **unrevoke** (liking
+  means the post should stay visible); an `unrevoke` never
+  credits reps — it only restores visibility, and still costs
+  the caster.
+- So `like` = `unrevoke` + reps credit, and `revoke` =
+  `dislike` + revoke debit.
+- The author's free self-revoke skips all reps math, so it is
+  **not** a dislike.
 
 Each post keeps two signed sums of the vote magnitude `T.n`
 (revoke `n<0`, unrevoke `n>0`), in separate channels:
@@ -278,14 +294,32 @@ Each post keeps two signed sums of the vote magnitude `T.n`
   A negative `author` sum is the **absolute** right to be
   forgotten (forces revoked regardless of the community net);
   only the author's own `unrevoke` lifts it.
+  - The `author` channel is exclusive to the author's own
+    `revoke`/`unrevoke`; a self-`like` feeds `others`.
   - Author `revoke` is **free and ungated** (no reps cost, no
     transfer, works at 0 reps).
-  - Author `unrevoke` **costs** (normal like reps math), as do
-    all community votes.
+  - Author `unrevoke` **costs** the caster, as do all
+    community votes.
 
 ```
 p.revoke = { author = <signed sum>, others = <signed sum> }
 is_revoked(p) = (p.revoke.author < 0) OR (p.revoke.others < 0)
+```
+
+Both channels are commutative sums, hence order-independent on
+sync replay: likes cast *before* a revoke count just the same.
+A well-liked post is therefore unrevokable by the community —
+only the author's absolute channel still hides it.
+
+The two sums are readable with:
+
+```
+$ freechains chain <alias> reps revoke <hash>
+-3 2        -- author others ; revoked if either < 0
+
+$ freechains chain <alias> reps revokes
+<hash> -3 2 -- both channels of all posts,
+<hash>  0 1 -- most revoked first
 ```
 
 Phase 1 hides the payload on read (metadata + blob stay);

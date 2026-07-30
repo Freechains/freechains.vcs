@@ -10,8 +10,9 @@ protocol with integrated reputation designed on top of Git:
 <!--
 - **Multiple flavors of public and private communication** (`1->N`, `1<-N`, `N<->N`, `1<-`)
 -->
-- **Per-topic reputation system for healthiness**
+- **Per-topic reputation system for posts and authors**
 - **Consensus via authoring reputation (human work)**
+- **Revocation of abusive content (SPAM, hate speech)**
 - Free in all senses
 
 *(In bold we highlight what we believe is particular to Freechains.)*
@@ -77,10 +78,12 @@ Freechains' API is straightforward:
 
 - `freechains chains add ...`:       creates or clones chain locally
 - `freechains chain post ...`:       posts to chain (signed with SSH)
-- `freechains chain (dis)like ...`:  rates post or author
 - `freechains chain list dag/order`: lists all posts (DAG or consensus order)
+- `freechains chain (dis)like ...`:  rates post or author
+- `freechains chain (un)revoke ...`: hides or restores post payload
 - `freechains chain reps ...`:       queries reputation
 - `freechains chain sync send/recv`: synchronizes with remote peer
+- `freechains chain destroy ...`:    erases local history after hard fork
 
 <!--
 For testing purposes, you may prepend an alternative path to store the chains:
@@ -286,16 +289,16 @@ Now, we use their public keys to query their reputations:
 
 ```
 $ freechains chain '#chat' reps author "$(cat /tmp/alice.pub)"
-29
+30
 $ freechains chain '#chat' reps author "$(cat /tmp/bob.pub)"
 0
 ```
 
-As the chain pioneer, `Alice` still has `29 reps` to use, whereas `Bob` has no
+As the chain pioneer, `Alice` still has `30 reps` to use, whereas `Bob` has no
 reputation and cannot post on the chain.
 
-To welcome new members into the chain, the pioneer needs to redistribute a share
-of its `reps`:
+To welcome new members into the chain, the pioneer needs to redistribute a
+share of its `reps`:
 
 ```
 $ freechains chain '#chat' like 10 author "$(cat /tmp/bob.pub)" --sign=/tmp/alice
@@ -307,12 +310,12 @@ $ freechains chain '#chat' like 10 author "$(cat /tmp/bob.pub)" --sign=/tmp/alic
 ```
 $ freechains --root=/tmp/B/ chain '#chat' sync recv localhost
 $ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/alice.pub)"
-20
+23
 $ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/bob.pub)"
 9
 ```
 
-You might have expected `19` and `10`, not `20` and `9` as `reps`.
+You might have expected `20` and `10`, not `23` and `9` as `reps`.
 This is due to internal rules that tax transfers and recover `reps` over time,
 which are out of the scope of this guide.
 
@@ -322,7 +325,7 @@ Let's now introduce new member `Charlie`, who is welcomed by `Bob` in peer `B`:
 $ ssh-keygen -t ed25519 -C '' -f /tmp/charlie
 $ freechains --root=/tmp/B/ chain '#chat' like 5 author "$(cat /tmp/charlie.pub)" --sign=/tmp/bob
 $ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/alice.pub)"
-20
+23
 $ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/bob.pub)"
 4
 $ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/charlie.pub)"
@@ -335,6 +338,79 @@ non-zero reputations in the chain.
 In summary, the reputation system makes Freechains
     Sybil-resistant (write operations require and spend `reps`) and
     permissionless (any insider can welcome any outsider transferring `reps`).
+
+### Posts Reputation & Begging
+
+As with authors, posts also have associated `reps` and can receive likes and
+dislikes:
+
+```
+$ freechains --root=/tmp/B/ chain '#chat' like    1 post b52c62f --sign=/tmp/charlie
+a9b0c1d...
+$ freechains --root=/tmp/B/ chain '#chat' dislike 1 post d6568e4 --sign=/tmp/bob
+b0c1d2e...
+```
+
+A like transfers `reps` from the caster to the post (half) and to its
+author (half), whereas a dislike drains `reps` from them:
+
+```
+$ freechains --root=/tmp/B/ chain '#chat' reps posts
+b52c62f... 1
+e1f2a3b... 0
+d6568e4... -1
+$ freechains --root=/tmp/B/ chain '#chat' reps authors
+ssh-ed25519 ...vzTc96I 23    # Alice (unaffected)
+ssh-ed25519 ...je8+xIa ?     # Bob
+ssh-ed25519 ...Ks9pL2v ?     # Charlie
+```
+
+As an alternative to welcome new members, Freechains supports begging posts.
+Let's introduce `Dave`, who wants to join the community, but holds no `reps`:
+
+```
+$ ssh-keygen -t ed25519 -C '' -f /tmp/dave
+$ freechains chain '#chat' post inline $'A great post!\n' --beg --sign=/tmp/dave
+c7d8e9f...
+```
+
+The `--beg` flag allows to post without `reps`, but the post is parked apart
+from the chain, waiting for a like:
+
+```
+$ freechains chain '#chat' list begs
+c7d8e9f...
+```
+
+`Alice` likes the post and rates it, spending `4 reps`:
+
+```
+$ freechains chain '#chat' like 4 post c7d8e9f --sign=/tmp/alice
+d8e9f0a...
+$ freechains chain '#chat' list begs
+# (empty)
+$ freechains chain '#chat' list dag
+                 ...
+                 560a55c
+                    |
+                 c7d8e9f
+                    |
+                 d8e9f0a
+              (^560a55c)
+```
+
+The post iss now part of the chain and `Dave` becomes a proper member.
+%
+TODO:
+Note that the like `d8e9f0a` links back to two posts: the beg `c7d8e9f` just
+above it, and the previous tip of the chain, which appears as `(^560a55c)`
+because it is not drawn immediately above.
+
+In summary, the reputation system of Freechains allows to rate posts and
+members, helping to distinguish quality amid excess.
+In addition, the begging mechanism highlights its permissionless nature,
+allowing any insider to welcome a total stranger based purely on content
+quality.
 
 ### Consensus
 
@@ -424,18 +500,20 @@ peers reach the same state without any central authority.
 ### Hard Forks
 
 As a measure against malicious members with strong past reputation, Freechains
-protects entrenched local branches from unexpected consensus reorderings:
-A local branch that is older than *7 days* or contains at least *100 messages*
-is **not** subject to consensus rules.
-This way, peers that remain active and synchronize over time evolve together
-as the "main branch".
+protects settled local branches from unexpected consensus reorderings.
+A settled branch is a branch with at least *100 posts* or *7 days* between
+oldest and newest posts.
+Posts older than this window are frozen and cannot be reordered.
+So, if a `sync` operation would reorder frozen posts in a settled branch, then
+the merge is simply refused and the peers are no longer compatible.
+In contrast, peers that remain active and synchronize over time evolve together
+with a stable order.
 
 To illustrate hard forks, let's make peers `X` and `B` with `Bob` and `Charlie`
 to synchronize continuously over time, while peer `A` with `Alice` goes offline
 just after the consensus above.
 
-Over the next seven days, `Bob` and `Charlie` keep posting and syncing to the
-hub:
+Over the next days, `Bob` and `Charlie` keep posting and syncing to the hub:
 
 ```
 $ freechains --root=/tmp/B/ chain '#chat' post inline $'day 1\n' --sign=/tmp/bob
@@ -447,69 +525,220 @@ $ freechains --root=/tmp/B/ chain '#chat' post inline $'day 7\n' --sign=/tmp/cha
 $ freechains --root=/tmp/B/ chain '#chat' sync send localhost:8331
 ```
 
-After this whole period, their shared branch on `X` becomes entrenched and
-cannot be reordered from consensus rules.
+Their posts on `X` now span over more than seven days, making hub's branch
+settled and refusing reorderings.
 
-Then, `Alice` comes back and posts locally in peer `A`:
+Then, `Alice` comes back and posts locally in peer `A`, on the same branch she
+left behind:
 
 ```
 $ freechains chain '#chat' post inline $'Alice takes over\n' --sign=/tmp/alice
 9d0e1f2...
 ```
 
-Finally, the two incommunicable sides synchronize in both directions:
+When she tries to send it, the hub refuses to merge:
 
 ```
+$ freechains chain '#chat' sync send localhost:8331
+remote: ERROR : chain sync : hard fork
+```
+
+Regardless of her strong past reputation, `Alice` cannot affect an active
+community.
+Note that it is impossible to judge whether `Alice` was trying to rewrite
+history or simply became offline for a long time.
+Nevertheless, the community protects itself from late reorderings.
+
+To resynchronize, `Alice`'s only option is to revert her local history, receive
+the settled branch, repost the rejected message on top of it, and finally send
+the updated history.
+To revert history, Freechains provides a `destroy` command that permanently
+drops a post along with everything after it:
+
+```
+# revert local history
+$ freechains chain '#chat' destroy 9d0e1f2
+9d0e1f2...
+
+# receive settled branch
 $ freechains chain '#chat' sync recv localhost:8331
+
+# repost rejected message
+$ freechains chain '#chat' post inline $'Alice takes over\n' --sign=/tmp/alice
+3c4d5e6...
+
+# send updated history
 $ freechains chain '#chat' sync send localhost:8331
 ```
 
-As expected, both sides converge to the same DAG:
+`Alice` is now compatible with the community again, and her message is ordered
+after their settled branch.
+Note that the repost is a brand new post, with a new identifier and a new
+timestamp.
+Note also that `Alice` requires no additional `reps`, since in reverted history
+the original post never happened.
 
-```
-$ freechains chain '#chat' list dag
-                     560a55c
-                      /   \
-         (day 0) a1b2c3d  9a8b7c6
-                    |        |
-         (day 7) 9d0e1f2  f4e5d6c  (day 0)
-                             |
-                          1a2b3c4  (day 1)
-                             |
-                            ...
-                             |
-                          7d8e9f0  (day 7)
-```
-
-However, the consensus order diverges, as each side preserves its own
-entrenched branch first:
-
-```
-$ freechains chain '#chat' list order                 # A
-$ freechains --root=/tmp/X/ chain '#chat' list order  # X
-
-# A                             # X
-9d0e1f2  <- Alice, first        9a8b7c6
-9a8b7c6                         f4e5d6c  <- community, first
-f4e5d6c                         9d0e1f2  <- Alice, last
-```
-
-On peer `A`, `Alice`'s branch is entrenched and wins locally; on hub `X`,
-the community branch is entrenched and keeps `Alice`'s post last.
-
-Both peers applied the same rule to their own local branch, so each kept
-its own order.
-`Alice` "won" only on her isolated peer and can never reorder the
-community's history: the two branches are now a permanent fork.
-
-- Peers that hard-fork can no longer reconcile: the fork is permanent
-- This bounds offline reputation farming by an established member
+Hard forks safeguard chains against long-lived network partitions with
+diverging histories.
+Since it is not possible to judge the reasons behind partitions, Freechains
+simply makes them incommunicable, requiring manual intervention to restore
+compatibility.
 
 ### Moderation
 
-- TODO
-- Members dislike posts and authors, transferring `reps` away
-- A single community `revoke` hides a payload, and `unrevoke` restores it
-- An author self-revoke is free and absolute (right to be forgotten)
-- Moderation is per-chain and per-peer: no global authority censors
-- Anyone may fork a chain: nobody is forced to relay unwanted content
+Even considering that posts are rated through likes and dislikes, chains are
+still subject to abuse, including SPAM, hate speech, and possibly illegal
+content.
+For such cases, Freechains provides an additional revocation mechanism that
+works in conjunction with reputation.
+
+Reputation restrains authors, but it does not remove content: a post
+remains readable even after its author is drained of `reps`.
+For this, Freechains provides an independent revocation axis, through the
+`revoke` and `unrevoke` commands.
+
+The two axes are coupled, but only in one direction:
+
+| operation  | caster | post reps | revocation |
+|------------|--------|-----------|------------|
+| `like`     | `-n`   | `+n`      | `+n`       |
+| `dislike`  | `-n`   | `-n`      | --         |
+| `revoke`   | `-n`   | `-n`      | `-n`       |
+| `unrevoke` | `-n`   | --        | `+n`       |
+
+A `revoke` also counts as a `dislike`, since revoking implies disapproval,
+and a `like` also counts as an `unrevoke`, since approving a post implies
+that it should remain visible.
+The converses do not hold: a `dislike` never hides a payload, and an
+`unrevoke` never rewards a post, it only restores visibility.
+All four operations spend the caster's `reps`, with the single exception
+of a self-revoke, which is free (see below).
+
+To illustrate moderation, let's have `Charlie` post some spam in peer `B`:
+
+```
+$ freechains --root=/tmp/B/ chain '#chat' post inline $'BUY NOW\n' --sign=/tmp/charlie
+4a5b6c7...
+```
+
+The post is immediately readable by everyone in the chain:
+
+```
+$ freechains --root=/tmp/B/ chain '#chat' get payload 4a5b6c7
+BUY NOW
+```
+
+`Bob` now revokes the spam, spending `3 reps`:
+
+```
+$ freechains --root=/tmp/B/ chain '#chat' revoke 3 4a5b6c7 --sign=/tmp/bob
+8f9a0b1...
+```
+
+As shown in the table, a revoke also acts as a dislike, draining the post
+and its author, but it additionally hides the payload.
+
+The post is now revoked, which `list order` shows between `~`:
+
+```
+$ freechains --root=/tmp/B/ chain '#chat' list order
+...
+~4a5b6c7...~
+```
+
+And its payload is no longer available:
+
+```
+$ freechains --root=/tmp/B/ chain '#chat' get payload 4a5b6c7
+ERROR : chain get : revoked post
+```
+
+Note that only the payload is hidden: the commit remains in the DAG, so
+the history and the consensus order are unaffected.
+
+Being an ordinary commit, a revoke propagates like any other post:
+
+```
+$ freechains --root=/tmp/B/ chain '#chat' sync send localhost:8331
+$ freechains --root=/tmp/X/ chain '#chat' list revokes
+4a5b6c7...
+```
+
+Revocation is also reversible, through the `unrevoke` command, which any
+member may cast to bring a payload back.
+`Alice`, who is now back in the community, disagrees with `Bob` and
+spends `2 reps` to restore the post:
+
+```
+$ freechains chain '#chat' sync recv localhost:8331
+$ freechains chain '#chat' unrevoke 2 4a5b6c7 --sign=/tmp/alice
+2b3c4d5...
+$ freechains chain '#chat' get payload 4a5b6c7
+ERROR : chain get : revoked post
+```
+
+The post remains revoked, since revocation is `reps`-weighted, and not a
+head count: a payload stays hidden while the revokes outweigh the
+unrevokes.
+`Alice` spent `2 reps` against the `3 reps` from `Bob`, and would need
+`1 rep` more to make the post visible again.
+The `reps revoke` command shows both channels, the author's and the
+community's, in this order:
+
+```
+$ freechains chain '#chat' reps revoke 4a5b6c7
+0 -1
+```
+
+The plural form lists both channels of all posts, most revoked first:
+
+```
+$ freechains chain '#chat' reps revokes
+4a5b6c7... 0 -1
+```
+
+`Alice` could also have used a `like`, which lifts the revocation by the
+same amount and, in addition, rewards the post and its author.
+A `dislike` from `Bob`, on the other hand, would have drained `Charlie`
+further, but would not have hidden the payload.
+
+Members may also revoke their own posts, in a separate and absolute
+channel.
+Let's say `Bob` posts something he immediately regrets:
+
+```
+$ freechains --root=/tmp/B/ chain '#chat' post inline $'my address is ...\n' --sign=/tmp/bob
+5d6e7f8...
+$ freechains --root=/tmp/B/ chain '#chat' revoke 1 5d6e7f8 --sign=/tmp/bob
+6e7f8a9...
+```
+
+A self-revoke is free: it spends no `reps` and works even for an author
+with no reputation left.
+It is also absolute: no amount of `reps` from the community can bring the
+payload back.
+
+```
+$ freechains --root=/tmp/B/ chain '#chat' unrevoke 4 5d6e7f8 --sign=/tmp/charlie
+7f8a9b0...
+$ freechains --root=/tmp/B/ chain '#chat' get payload 5d6e7f8
+ERROR : chain get : revoked post
+```
+
+This is because authors and community vote in separate channels, and a
+post stays hidden while either of them is negative.
+Only `Bob` can lift his own revocation, and this one does spend `reps`:
+
+```
+$ freechains --root=/tmp/B/ chain '#chat' unrevoke 1 5d6e7f8 --sign=/tmp/bob
+8a9b0c1...
+```
+
+Note that moderation is always per-chain and per-peer: there is no global
+authority to censor content, and each chain holds its own `reps`.
+Members that disagree with a revocation are free to fork the chain and
+carry on separately, since nobody is forced to relay unwanted content.
+
+In summary, moderation in Freechains is just another use of `reps`: those
+who contribute the most to a chain also hold the most weight to protect
+it, while authors keep the last word over their own posts.

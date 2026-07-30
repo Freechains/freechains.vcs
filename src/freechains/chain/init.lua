@@ -10,18 +10,20 @@ end
 
 if ARGS.sync then
     require "freechains.chain.sync"
+elseif ARGS.destroy then
+    require "freechains.chain.destroy"
 else
     G = {
         authors = dofile(FC .. "state/authors.lua"),
         posts   = dofile(FC .. "state/posts.lua"),
         order   = dofile(FC .. "state/order.lua"),
-        now     = NOW("HEAD"),
+        now     = PEAK("HEAD"),
     }
 
     if ARGS.list then
         require "freechains.chain.list"
     elseif ARGS.reps then
-        apply(G, 'reps', CMD.now, nil, true)
+        apply(G, 'reps', CMD.now, nil)
         require "freechains.chain.reps"
     elseif ARGS.post then
         require "freechains.chain.post"

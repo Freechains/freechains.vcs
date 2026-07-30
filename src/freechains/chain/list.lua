@@ -39,19 +39,27 @@ elseif ARGS.dag then
         return
     end
 
-    -- V-parents via backs() (walks state/merge transparently)
-    local parents = {}
+    -- ups[h]: the nodes drawn above h, via backs() (walks state/merge
+    -- commits transparently)
+    local ups = {}
     for _, h in ipairs(V) do
-        parents[h] = backs(h)
+        ups[h] = backs(h)
     end
 
-    -- group V into rows: consecutive nodes sharing a single same v-parent.
-    -- groupOf[h] = row index, used to distinguish immediate vs distant parents.
+    -- group V into rows: consecutive nodes sharing one single up.
+    -- groupOf[h] = row index, used to distinguish immediate vs distant ups.
     local groups, groupOf = {}, {}
     do
+        -- siblings share one single up -- and two CONTENT ROOTS (a
+        -- chain whose first posts are concurrent) share the same
+        -- ABSENT up, so they belong on one row too
         local function siblings (a, b)
-            local pa, pb = parents[a], parents[b]
-            return #pa == 1 and #pb == 1 and pa[1] == pb[1]
+            local ua, ub = ups[a], ups[b]
+            if #ua == 0 and #ub == 0 then
+                return true
+            else
+                return #ua == 1 and #ub == 1 and ua[1] == ub[1]
+            end
         end
         local cur = { V[1] }
         for i = 2, #V do
@@ -70,23 +78,27 @@ elseif ARGS.dag then
         end
     end
 
-    -- column assignment: parent-midpoint, then spread siblings around it
+    -- column assignment: midpoint of the ups, then spread siblings around it
     local col = {}
     for g, group in ipairs(groups) do
-        local pc
+        local uc
         if g == 1 then
-            pc = MID
+            uc = MID
         else
-            local ps  = parents[group[1]]
-            local sum = 0
-            for _, p in ipairs(ps) do
-                sum = sum + col[p]
+            -- average only the ups already PLACED: a content root has
+            -- no ups at all, and an up ordered later has no column yet
+            local sum, n = 0, 0
+            for _, u in ipairs(ups[group[1]]) do
+                if col[u] then
+                    sum = sum + col[u]
+                    n = n + 1
+                end
             end
-            pc = sum // #ps
+            uc = (n > 0) and (sum // n) or MID
         end
         local n = #group
         for i, h in ipairs(group) do
-            col[h] = pc + (2*(i-1) - (n-1)) * SPAN
+            col[h] = uc + (2*(i-1) - (n-1)) * SPAN
         end
     end
 
@@ -125,21 +137,28 @@ elseif ARGS.dag then
         if g > 1 then
             local t = blank()
             if #cur >= 2 then
-                -- fork: N siblings fan out from a single shared parent
-                local pc = col[parents[cur[1]][1]]
-                for _, h in ipairs(cur) do
-                    set_at(t, (pc + col[h]) // 2, glyph(pc, col[h]))
+                -- fork: N siblings fan out from a single shared up
+                local u1 = ups[cur[1]][1]
+                if u1 and col[u1] then
+                    local uc = col[u1]
+                    for _, h in ipairs(cur) do
+                        set_at(t, (uc + col[h]) // 2, glyph(uc, col[h]))
+                    end
                 end
             else
-                -- linear / join: a glyph per IMMEDIATE parent
+                -- linear / join: a glyph per IMMEDIATE up
                 local h, hc = cur[1], col[cur[1]]
-                for _, p in ipairs(parents[h]) do
-                    if groupOf[p] == g - 1 then
-                        set_at(t, (col[p] + hc) // 2, glyph(col[p], hc))
+                for _, u in ipairs(ups[h]) do
+                    if groupOf[u] == g - 1 then
+                        set_at(t, (col[u] + hc) // 2, glyph(col[u], hc))
                     end
                 end
             end
-            emit(t)
+            -- a row with no glyph connects nothing: drop it rather than
+            -- printing a blank line between two unrelated nodes
+            if table.concat(t):match("%S") then
+                emit(t)
+            end
         end
         local t = blank()
         for _, h in ipairs(cur) do
@@ -154,9 +173,9 @@ elseif ARGS.dag then
         if #cur == 1 then
             local h = cur[1]
             local distant = {}
-            for _, p in ipairs(parents[h]) do
-                if groupOf[p] ~= g - 1 then
-                    distant[#distant+1] = "^" .. p:sub(1, SHORT)
+            for _, u in ipairs(ups[h]) do
+                if groupOf[u] ~= g - 1 then
+                    distant[#distant+1] = "^" .. u:sub(1, SHORT)
                 end
             end
             if #distant > 0 then

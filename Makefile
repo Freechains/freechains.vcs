@@ -20,13 +20,22 @@ tests:
 	$(L) cli-recv.lua
 	$(L) cli-send.lua
 	$(L) cli-list.lua
+	$(L) cli-destroy.lua
+	$(L) list-dag-roots.lua
 	$(L) sync.lua
 	$(L) consensus.lua
+	$(L) consensus-gap.lua
 	$(L) reorder-ancient.lua
+	$(L) climb-underflow.lua
+	$(L) climb-underflow-gap.lua
+	$(L) bug-climb-ancestor.lua
+	$(L) hardfork-shared.lua
+	$(L) hardfork-ff.lua
 	$(L) fork-7-days.lua
 	$(L) fork-100-posts.lua
 	$(L) err-post.lua
 	$(L) err-like.lua
+	$(L) bug-err-kind.lua
 	$(L) repl-local-head.lua
 	$(L) repl-remote-head.lua
 	$(L) repl-local-begs.lua

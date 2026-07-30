@@ -46,3 +46,34 @@ function FAIL (t)
     end
     return err
 end
+
+-- consensus order of `chain` in the peer `exe`: the array (positions)
+-- and the set (membership). Take whichever the assertion needs.
+function ORDER (exe, chain)
+    local out = exec {
+        cmd = exe .. " chain '" .. chain .. "' list order",
+    }
+    local T = {}
+    local S = {}
+    for line in out:gmatch("[^\n]+") do
+        T[#T+1] = line
+        S[line] = true
+    end
+    return T, S
+end
+
+-- reps of the author `pub`. The `exec` call is parenthesized: it also
+-- returns the exit code, which `tonumber` would take as the base.
+function REPS (exe, chain, pub)
+    return tonumber((exec {
+        cmd = exe .. " chain '" .. chain .. "' reps author '" .. pub .. "'",
+    }))
+end
+
+-- the `Freechains` trailer of a commit: post, like, revoke or state
+function TRAILER (dir, hash)
+    return (exec {
+        cmd = "git -C " .. dir ..
+            " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash,
+    }):match("%S+")
+end

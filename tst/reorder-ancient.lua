@@ -15,24 +15,13 @@ exec {
     cmd = "mkdir -p " .. ROOT_B,
 }
 
-local function order (exe, chain)
-    local out = exec {
-        cmd = exe .. " chain '" .. chain .. "' list order",
-    }
-    local S = {}
-    for line in out:gmatch("[^\n]+") do
-        S[line] = true
-    end
-    return S
-end
-
 -- Reorder replay must not reject ancient loser commits.
 -- GEN_2: KEY1=15, KEY2=15; KEY2 likes seed → KEY1 > KEY2.
 -- A wins by prefix reps (consensus, NOT hard fork: gamma < 7 days after
 -- fork) and its tip (gamma) is >1h ahead of B's ancient beta.
--- The reorder replay grafts beta onto A's advanced clock; the "too old"
--- monotonic guard (common.lua) must NOT fire, since beta was already
--- validated on first receipt (sync.lua climb pass).
+-- The reorder replay grafts beta onto A's advanced clock. Freshness is
+-- checked against `peak` (beta's OWN ancestors, ~the fork),
+-- not against the state the replay has reached, so beta survives.
 do
     print("==> Test: ancient loser commit survives reorder replay")
 
@@ -90,15 +79,23 @@ do
     --                       beta[K2] --------------/   (ancient, reordered)
     --
     -- B: G -- S[K1] -- L[K2] -- beta[K2]
-    TEST "B sends to A, non-ff (A wins; reorder replays ancient beta)"
+    --
+    -- A RECVS rather than B sending: with `sync send` the receiver runs
+    -- inside the pre-receive hook and `push` swallows its stderr, so a
+    -- replay that DROPPED beta still exited 0 and this test passed
+    -- (it did, during the `monotonic` work). Pulling runs the replay
+    -- in-process, where `exec` sees the exit status and the message.
+    TEST "A recvs from B, non-ff (A wins; reorder replays ancient beta)"
     exec {
-        cmd = EXE_B .. " --now=20000 chain '#anc' sync send " .. ROOT_A .. "/chains/#anc/",
+        cmd = EXE_A .. " --now=20000 chain '#anc' sync recv " .. ROOT_B .. "/chains/#anc/",
     }
 
     TEST "A's order still contains the ancient loser beta"
-    local S = order(EXE_A, "#anc")
+    local _, S = ORDER(EXE_A, "#anc")
     assert(S[seed],  "seed missing from A order")
     assert(S[alpha], "alpha missing from A order")
     assert(S[gamma], "gamma missing from A order")
     assert(S[beta],  "ancient beta dropped by reorder replay (too old)")
 end
+
+print("<== ALL PASSED")
