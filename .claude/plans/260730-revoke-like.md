@@ -107,5 +107,16 @@ $ freechains chain '#chat' reps revoke 4a5b6c7
       (ascending `others`, ties by `author` then hash)
 - [x] 4. docs (`reps.md`, `commands.md`)
 - [x] 5. README moderation table + `reps revoke` example
-- [ ] 6. tests -- pending, expected to FAIL first (user asked
-      to see the failures before fixing)
+- [x] 6. tests (`cli-revoke.lua`, section "coupling with the
+      reputation axis"): like-lifts, dislike-keeps,
+      unrevoke-no-reps, self-like-keeps, `reps revoke(s)`,
+      missing-hash error
+- [x] all tests pass (2026-07-30)
+
+# Notes
+
+- the old suite passed unchanged: no test asserted post reps
+  across an `unrevoke`, nor liked a revoked post
+- `exec` returns `(out, code, err)`, so `tonumber` needs the
+  extra parentheses: `tonumber((exec { ... }))`
+- `tests.md` has no revoke entries at all -- out of scope here
