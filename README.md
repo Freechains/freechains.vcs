@@ -339,68 +339,78 @@ In summary, the reputation system makes Freechains
     Sybil-resistant (write operations require and spend `reps`) and
     permissionless (any insider can welcome any outsider transferring `reps`).
 
-### Posts Reputation & Begs
+### Posts Reputation & Begging
 
-Just like authors, posts also have associated `reps`.
-
-Let's have `Charlie` rate the first two posts from `Alice`:
+As with authors, posts also have associated `reps` and can receive likes and
+dislikes:
 
 ```
 $ freechains --root=/tmp/B/ chain '#chat' like    1 post b52c62f --sign=/tmp/charlie
 a9b0c1d...
-$ freechains --root=/tmp/B/ chain '#chat' dislike 1 post d6568e4 --sign=/tmp/charlie
+$ freechains --root=/tmp/B/ chain '#chat' dislike 1 post d6568e4 --sign=/tmp/bob
 b0c1d2e...
 ```
 
-A like transfers `reps` from the caster to the post and to its author,
-while a dislike drains them from both:
+A like transfers `reps` from the caster to the post (half) and to its
+author (half), whereas a dislike drains `reps` from them:
 
 ```
-$ freechains --root=/tmp/B/ chain '#chat' reps post b52c62f
-1
 $ freechains --root=/tmp/B/ chain '#chat' reps posts
 b52c62f... 1
 e1f2a3b... 0
 d6568e4... -1
+$ freechains --root=/tmp/B/ chain '#chat' reps authors
+ssh-ed25519 ...vzTc96I 20    # Alice (unaffected)
+ssh-ed25519 ...je8+xIa ?     # Bob
+ssh-ed25519 ...Ks9pL2v ?     # Charlie
 ```
 
-The plural form ranks the whole chain by content, and not by author,
-which is how Freechains distinguishes quality amid excess.
-
-Note that a newcomer does not even need to be welcomed to join a chain.
-Let's introduce `Dave`, who wants to participate, but holds no `reps`:
+As an alternative to welcome new members, Freechains supports begging posts.
+Let's introduce `Dave`, who wants to join the community, but holds no `reps`:
 
 ```
 $ ssh-keygen -t ed25519 -C '' -f /tmp/dave
-$ freechains --root=/tmp/B/ chain '#chat' post inline $'I have this nice idea, can I join?\n' --beg --sign=/tmp/dave
+$ freechains --root=/tmp/A/ chain '#chat' post inline $'A great post!\n' --beg --sign=/tmp/dave
 c7d8e9f...
 ```
 
-The `--beg` flag allows to post without `reps`, but the post is parked
-apart from the chain, waiting for approval:
+The `--beg` flag allows to post without `reps`, but the post is parked apart
+from the chain, waiting for a like:
 
 ```
-$ freechains --root=/tmp/B/ chain '#chat' list begs
+$ freechains --root=/tmp/A/ chain '#chat' list begs
 c7d8e9f...
 ```
 
-`Bob` likes the idea and rates the post, spending `4 reps`:
+`Alice` likes the post and rates it, spending `4 reps`:
 
 ```
-$ freechains --root=/tmp/B/ chain '#chat' like 4 post c7d8e9f --sign=/tmp/bob
+$ freechains --root=/tmp/A/ chain '#chat' like 4 post c7d8e9f --sign=/tmp/alice
 d8e9f0a...
-$ freechains --root=/tmp/B/ chain '#chat' list begs
+$ freechains --root=/tmp/A/ chain '#chat' list begs
+# (empty)
+$ freechains --root=/tmp/A/ chain '#chat' list dag
+                 ...
+                 560a55c
+                    |
+                 c7d8e9f
+                    |
+                 d8e9f0a
+              (^560a55c)
 ```
 
-There are no begs pending anymore: the like admits the post into the
-chain, and transfers `reps` to `Dave`, who is now also a member.
+The post iss now part of the chain and `Dave` becomes a proper member.
+%
+TODO:
+Note that the like `d8e9f0a` links back to two posts: the beg `c7d8e9f` just
+above it, and the previous tip of the chain, which appears as `(^560a55c)`
+because it is not drawn immediately above.
 
-Note that a beg is the reverse path of the welcome above: instead of an
-insider offering `reps` to an outsider, the outsider asks to join, and
-any insider may accept.
-
-The reputation system also allows to rate posts and members, allowing to
-distinguish quality amid excess.
+In summary, the reputation system of Freechains allows to rate posts and
+members, helping to distinguish quality amid excess.
+In addition, the begging mechanism highlights its permissionless nature,
+allowing any insider to welcome a total stranger based purely on content
+quality.
 
 ### Consensus
 
