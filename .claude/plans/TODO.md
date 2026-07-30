@@ -5,6 +5,31 @@
 
 # Open
 
+## Test helpers are copy-pasted
+
+### Problem
+
+- `local function order` appears in 11 test files
+    - `bug-climb-ancestor`, `cli-destroy`, `climb-underflow`,
+      `climb-underflow-gap`, `consensus`, `consensus-gap`,
+      `fork-100-posts`, `fork-7-days`, `hardfork-ff`,
+      `hardfork-shared`, `reorder-ancient`
+- Two signatures in the wild
+    - some return the array only
+    - some return array + set
+- `reps` and `trailer` are already forking the same way
+
+### Fix
+
+- Move them into `tst/tests.lua`, next to `TEST` and `FAIL`
+- One `order` returning array + set: callers taking one still work
+- `reps (exe, chain, pub)` wraps `exec` so `tonumber` gets one arg
+- `trailer (dir, hash)` reads the `Freechains` trailer
+
+### Note
+
+- Each helper takes `exe` and `chain`, since tests drive many peers
+
 ## Idle chains are never entrenched
 
 ### Problem
@@ -79,17 +104,6 @@
 # To Re-Check
 
 - Dropped earlier, each verdict to be revisited from scratch
-
-## README: recovery has no CLI
-
-- Hard Forks section carries a bare `TODO: revert history`
-- The documented recovery was MEASURED to work
-    - revert local history, recv the settled branch, repost, send
-    - a plain recv+send does NOT work
-    - consensus re-inserts the post inside the frozen prefix
-- But there is no command for the revert
-    - today it is a raw `git reset --hard` in the chain repo
-- Either add a command or say so in the text
 
 ## README: settled-branch wording overstates
 

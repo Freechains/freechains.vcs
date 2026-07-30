@@ -49,6 +49,10 @@ FC --root="$A" --now=$((T0+0))  chains add '#chat' init inline --sign="$KEYS/ali
 FC --root="$A" --now=$((T0+10)) chain '#chat' post inline $'Hello World\n' --sign="$KEYS/alice"
 FC --root="$A" --now=$((T0+20)) chain '#chat' post inline $'I am here\n'   --sign="$KEYS/alice"
 
+# DAG (A):
+#   'Hello World'
+#         |
+#   'I am here'
 FC --root="$A" chain '#chat' list dag
 FC --root="$A" chain '#chat' list order
 
@@ -63,10 +67,22 @@ FC --root="$A" daemon --port=$A_PORT -- --listen=127.0.0.1 --reuseaddr &
 sleep 1
 
 FC --root="$B" chains add '#chat' clone localhost:$A_PORT
+
+# DAG (B): same as A after the clone
+#   'Hello World'
+#         |
+#   'I am here'
 FC --root="$B" chain '#chat' list dag
 
 FC --root="$A" --now=$((T0+30)) chain '#chat' post inline $'Sync me\n' --sign="$KEYS/alice"
 FC --root="$B" --now=$((T0+40)) chain '#chat' sync recv localhost:$A_PORT
+
+# DAG (B): grows with the received post
+#   'Hello World'
+#         |
+#   'I am here'
+#         |
+#   'Sync me'
 FC --root="$B" chain '#chat' list dag
 
 echo
@@ -106,13 +122,34 @@ sleep 1
 FC --root="$A" --now=$((T0+90)) chain '#chat' post inline $'Alice was here\n'   --sign="$KEYS/alice"
 FC --root="$B" --now=$((T0+90)) chain '#chat' post inline $'Charlie was here\n' --sign="$KEYS/charlie"
 
+# DAG (A): grows with the like on Bob and Alice's own post
+#   'Sync me'
+#         |
+#   like(alice->bob)
+#         |
+#   'Alice was here'
 FC --root="$A" chain '#chat' list dag
+
+# DAG (B): same trunk, but with the like on Charlie and his own post
+#   'Sync me'
+#         |
+#   like(alice->bob)
+#         |
+#   like(bob->charlie)
+#         |
+#   'Charlie was here'
 FC --root="$B" chain '#chat' list dag
 
 # both send to the hub, which merges the fork by reps (Alice first)
 FC --root="$A" --now=$((T0+100)) chain '#chat' sync send localhost:$X_PORT
 FC --root="$B" --now=$((T0+100)) chain '#chat' sync send localhost:$X_PORT
 
+# DAG (X): both branches arrive and the DAG forks
+#           like(alice->bob)
+#             /         \
+#   'Alice was here'   like(bob->charlie)
+#                            |
+#                     'Charlie was here'
 FC --root="$X" chain '#chat' list dag
 FC --root="$X" chain '#chat' list order
 
