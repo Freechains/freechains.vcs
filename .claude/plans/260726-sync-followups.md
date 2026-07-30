@@ -8,27 +8,23 @@ Ordered by how much they can bite.
 
 ## NEXT STEP (continue on another machine)
 
-State as of 2026-07-29, branch `260724-climb-underflow`, at `fea41c8`
-(`. review : sync : hardfork`), in sync with `origin`.
+State as of 2026-07-30, branch `260724-climb-underflow`, in sync with
+`origin`. **`make tests` and `./guide.sh` both GREEN**, with sections 2
+and 4 landed and every real test closing on `<== ALL PASSED`.
 
-**The working tree is clean and nothing is half-applied.**
-`reps.max` is back at `30*unit`; the `1000*unit` experiment lives in no
-commit (the chat-sim measurements in section 7 were taken against a
-scratch copy of `src`, not the worktree).
+One UNCOMMITTED change in the tree: `reps.max = 1000*unit` (committed
+value is `30*unit`), used for the chat-sim numbers in section 7. Its
+comment still reads `-- 30 ext cap per author` and the column alignment
+is off by two. Decide whether it is going in or coming out.
 
-**`make tests` has NOT been run since `fea41c8`**, which carries both
-the `--no-walk` bound and the `hardfork` restructure. That commit was
-verified by hand instead:
+The `hardfork` restructure (section 6) was additionally verified by hand
+before the suite ran:
 
 - old vs new boundary logic over 20000 random orders: 0 mismatches
 - `fork.time` axis via the ff path: refuses, receiver untouched
 - `fork.posts` axis at exactly 100 entries: refuses, receiver untouched
 - a young merge: still accepted (no false positive)
 - nested merge: two peers derive identical orders
-
-`bug-err-kind.lua` and `reorder-ancient.lua` pass individually. The FULL
-suite has NOT been run since sections 4 and 2 landed -- run `make tests`
-and `./guide.sh` before starting anything new.
 
 DONE: 0, 1, 2, 4, 6, 7, Naming, cascade-voided peak.
 OPEN: **3** and **5**. Both are blocked on a DECISION, not on code.
@@ -69,8 +65,6 @@ self-contained.
   post/like/revoke, so `merge`/`state` commits -- whose dates a pushing
   peer picks via `-o now` -- can never move the settled line. That is a
   security property of the rule and it is now written down nowhere.
-- `tst/x.lua` is an untracked byte-identical copy of
-  `tst/list-dag-roots.lua`. Leftover scratch; safe to delete.
 - `luacheck` is not installed. It would have caught the use-before-
   declare that slipped into `hardfork` (Lua turns an undeclared local
   into a silent `nil` global), which silently disabled the `--no-walk`
