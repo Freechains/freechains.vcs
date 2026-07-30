@@ -27,6 +27,7 @@ tests:
 	$(L) reorder-ancient.lua
 	$(L) climb-underflow.lua
 	$(L) climb-underflow-gap.lua
+	$(L) bug-climb-ancestor.lua
 	$(L) hardfork-shared.lua
 	$(L) hardfork-ff.lua
 	$(L) fork-7-days.lua
