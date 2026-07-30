@@ -12,7 +12,7 @@ if ARGS.send then
         cmd = "git -C " .. REPO ..  " push -o freechains=true"
             .. " -o 'url=" .. url .. "'" .. now
             .. " " .. URL(ARGS.remote, ARGS.alias)
-            .. " +main +refs/begs/*:refs/begs/*",
+            .. " +main +refs/begs/*:refs/begs/*"
     }
     if err and err:find("Freechains: OK") then
         -- success: receiver's hook ran recv and rejected the push
@@ -30,10 +30,10 @@ elseif ARGS.recv then
         }
 
         local loc = exec {
-            cmd = "git -C " .. REPO .. " rev-parse HEAD",
+            cmd = "git -C " .. REPO .. " rev-parse HEAD"
         }
         local rem = exec {
-            cmd = "git -C " .. REPO .. " rev-parse FETCH_HEAD",
+            cmd = "git -C " .. REPO .. " rev-parse FETCH_HEAD"
         }
 
         --[[
@@ -52,10 +52,10 @@ elseif ARGS.recv then
         -- 1. reject unrelated histories
         do
             local loc_root = exec {
-                cmd = "git -C " .. REPO .. " rev-list --max-parents=0 " .. loc,
+                cmd = "git -C " .. REPO .. " rev-list --max-parents=0 " .. loc
             }
             local rem_root = exec {
-                cmd = "git -C " .. REPO .. " rev-list --max-parents=0 " .. rem,
+                cmd = "git -C " .. REPO .. " rev-list --max-parents=0 " .. rem
             }
             if loc_root ~= rem_root then
                 ERROR("chain sync : incompatible genesis")
@@ -65,7 +65,7 @@ elseif ARGS.recv then
         -- 2. remote has nothing new
         do
             local ok = exec { stderr=false, err=false,
-                cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. rem .. " " .. loc,
+                cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. rem .. " " .. loc
             }
             if ok then
                 goto RECV
@@ -84,7 +84,7 @@ elseif ARGS.recv then
         -- With a single fork it degenerates to the pairwise merge-base.
         local function octopus (a, b)
             local out = exec {
-                cmd = "git -C " .. REPO .. " rev-list --boundary " .. a .. "..." .. b,
+                cmd = "git -C " .. REPO .. " rev-list --boundary " .. a .. "..." .. b
             }
             local boundary = {}
             for line in out:gmatch("[^\n]+") do
@@ -94,7 +94,7 @@ elseif ARGS.recv then
                 end
             end
             return exec {
-                cmd = "git -C " .. REPO .. " merge-base --octopus " .. table.concat(boundary, " "),
+                cmd = "git -C " .. REPO .. " merge-base --octopus " .. table.concat(boundary, " ")
             }
         end
 
@@ -117,7 +117,7 @@ elseif ARGS.recv then
         -- history decide a disputed merge.
         local function consensus (G, a, b)
             local com = (exec {
-                cmd = "git -C " .. REPO .. " merge-base " .. a .. " " .. b,
+                cmd = "git -C " .. REPO .. " merge-base " .. a .. " " .. b
             }):match("%x+")
             local function collect_keys (tip)
                 --[[
@@ -132,7 +132,7 @@ elseif ARGS.recv then
                 ]]
                 local keys = {}
                 local out = exec {
-                    cmd = "git -C " .. REPO .. " log --reverse --format=%H " .. com .. ".." .. tip,
+                    cmd = "git -C " .. REPO .. " log --reverse --format=%H " .. com .. ".." .. tip
                 }
                 for hash in out:gmatch("%x+") do
                     local key = ssh.pubkey(REPO, hash)
@@ -222,7 +222,7 @@ elseif ARGS.recv then
             local key, err = ssh.verify(REPO, hash)
 
             local out = exec {
-                cmd = "git -C " .. REPO .. " log -1 --format='%at %(trailers:key=Freechains,valueonly)' " .. hash,
+                cmd = "git -C " .. REPO .. " log -1 --format='%at %(trailers:key=Freechains,valueonly)' " .. hash
             }
             local time,kind = out:match("(%S+)%s+(%S+)")
             if not KINDS[kind] then
@@ -238,7 +238,7 @@ elseif ARGS.recv then
             -- --cc handles merges and non-merges uniformly
             local diff = exec {
                 cmd = "git -C " .. REPO ..
-                    " diff-tree --cc --no-commit-id -r --name-status " .. hash,
+                    " diff-tree --cc --no-commit-id -r --name-status " .. hash
             }
             if kind == 'state' then
                 for status, path in diff:gmatch("(%a+)%s+(%S+)") do
@@ -281,14 +281,14 @@ elseif ARGS.recv then
 
                 -- vote metadata lives under .freechains/<kind>s/
                 local file = exec {
-                    cmd = "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash .. "^1 " .. hash .. " -- .freechains/" .. kind .. "s/",
+                    cmd = "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash .. "^1 " .. hash .. " -- .freechains/" .. kind .. "s/"
                 }
                 file = file:match("(%S+)")
                 if not file then
                     error("invalid " .. kind .. " : missing metadata file", 0)
                 end
                 local src = exec {
-                    cmd = "git -C " .. REPO .. " show " .. hash .. ":" .. file,
+                    cmd = "git -C " .. REPO .. " show " .. hash .. ":" .. file
                 }
                 local f = load(src)
                 if not f then
@@ -343,12 +343,12 @@ elseif ARGS.recv then
         --  - so if our settled order diverges
         --  - we need to fail fast, before replay and fail with other error
         local ff = exec { stderr=false, err=false,
-            cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. loc .. " " .. rem,
+            cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. loc .. " " .. rem
         }
         if ff then
             local their = load(exec {
                 cmd = "git -C " .. REPO .. " show " .. rem ..
-                    ":.freechains/state/order.lua",
+                        ":.freechains/state/order.lua"
             })()
             if hardfork(their) then
                 ERROR("chain sync : hard fork")
@@ -362,7 +362,7 @@ elseif ARGS.recv then
             oct = octopus(loc, rem)
             local function F (path)
                 local src = exec {
-                    cmd = "git -C " .. REPO .. " show " .. oct .. ":" .. path,
+                    cmd = "git -C " .. REPO .. " show " .. oct .. ":" .. path
                 }
                 return load(src)()
             end
@@ -389,7 +389,7 @@ elseif ARGS.recv then
             end
             local function ancestor (a, b)
                 return exec { err=false, stderr=false,
-                    cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. a .. " " .. b,
+                    cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. a .. " " .. b
                 }
             end
             local climb, meet
@@ -435,21 +435,18 @@ elseif ARGS.recv then
         -- 3. local has nothing new
         if ff then
             exec {
-                cmd = "git -C " .. REPO .. " merge --ff-only " .. rem,
+                cmd = "git -C " .. REPO .. " merge --ff-only " .. rem
             }
             -- verify remote state: overwrite with G_rem, diff vs HEAD
             do
-                -- HEAD is the remote commit ITSELF here, so its peak
-                -- comes from its parents. `commit` already validated
-                -- the stored value against them.
                 G_rem.now = PEAKS(parents("HEAD"))
                 write(G_rem)
                 local same = exec { stderr=false, err=false,
-                    cmd = "git -C " .. REPO ..  " diff --quiet HEAD -- .freechains/state/",
+                    cmd = "git -C " .. REPO ..  " diff --quiet HEAD -- .freechains/state/"
                 }
                 if not same then
                     exec {
-                        cmd = "git -C " .. REPO .. " reset --hard " .. loc,
+                        cmd = "git -C " .. REPO .. " reset --hard " .. loc
                     }
                     ERROR("chain sync : remote state mismatch")
                 end
@@ -481,7 +478,7 @@ elseif ARGS.recv then
             do
                 local keep = {}
                 local out = exec {
-                    cmd = "git -C " .. REPO .. " rev-list " .. fst .. ".." .. snd,
+                    cmd = "git -C " .. REPO .. " rev-list " .. fst .. ".." .. snd
                 }
                 for h in out:gmatch("%x+") do
                     keep[h] = true
@@ -496,7 +493,7 @@ elseif ARGS.recv then
             end
 
             exec { stderr=false,
-                cmd = "git -C " .. REPO .. " checkout --detach " .. fst,
+                cmd = "git -C " .. REPO .. " checkout --detach " .. fst
             }
 
             local ok  = true
@@ -507,18 +504,18 @@ elseif ARGS.recv then
 
                 if kind~='state' then
                     ok = exec { stderr=false, err=false,
-                        cmd = "git -C " .. REPO .. " merge --no-commit " .. hash,
+                        cmd = "git -C " .. REPO .. " merge --no-commit " .. hash
                     }
                     if not ok then
                         exec { stderr=false, err=false,
-                            cmd = "git -C " .. REPO .. " merge --abort",
+                            cmd = "git -C " .. REPO .. " merge --abort"
                         }
                         err = "content conflict"
                         goto DONE
                     end
                     exec { stderr=false,
                         cmd = "git -C " .. REPO .. " commit -m 'x'"
-                        .. " --trailer 'Freechains: merge'",
+                        .. " --trailer 'Freechains: merge'"
                     }
                 end
 
@@ -533,7 +530,7 @@ elseif ARGS.recv then
             ::DONE::
 
             exec { stderr=false,
-                cmd = "git -C " .. REPO .. " checkout main",
+                cmd = "git -C " .. REPO .. " checkout main"
             }
             if not ok then
                 io.stderr:write("ERROR : " .. err .. "\n")
@@ -550,7 +547,7 @@ elseif ARGS.recv then
             local out = exec {
                 cmd = "git -C " .. REPO .. " " ..
                     "log --reverse --no-merges --format='%H' " ..
-                    (from .. ".." .. loc),
+                    (from .. ".." .. loc)
             }
             for hash in out:gmatch("%x+") do
                 if trailer(hash) ~= 'state' then
@@ -563,13 +560,13 @@ elseif ARGS.recv then
         do
             if fst ~= loc then
                 exec {
-                    cmd = "git -C " .. REPO .. " reset --hard " .. fst,
+                    cmd = "git -C " .. REPO .. " reset --hard " .. fst
                 }
             end
 
             if merge then
                 exec { stderr=false,
-                    cmd = "git -C " .. REPO .. " merge --no-commit " .. merge,
+                    cmd = "git -C " .. REPO .. " merge --no-commit " .. merge
                 }
                 -- the peak we record is DERIVED from the parents of the
                 -- commit we are about to create, never from `G.now`: a
@@ -579,11 +576,11 @@ elseif ARGS.recv then
                 G_fst.now = PEAKS { "HEAD", "MERGE_HEAD" }
                 write(G_fst)
                 exec {
-                    cmd = "git -C " .. REPO .. " add .freechains/state/",
+                    cmd = "git -C " .. REPO .. " add .freechains/state/"
                 }
                 exec {
                     cmd = CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
-                    .. " --no-edit --trailer 'Freechains: state'",
+                    .. " --no-edit --trailer 'Freechains: state'"
                 }
             end
         end
@@ -594,15 +591,15 @@ elseif ARGS.recv then
     -- stale-beg cleanup: drop refs/begs/* whose post is already in main
     do
         local out = exec {
-            cmd = "git -C " .. REPO .. " for-each-ref refs/begs/ --format='%(refname) %(objectname)'",
+            cmd = "git -C " .. REPO .. " for-each-ref refs/begs/ --format='%(refname) %(objectname)'"
         }
         for refname, post in out:gmatch("(%S+)%s+(%S+)") do
             local ok = exec { stderr=false, err=false,
-                cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. post .. " main",
+                cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. post .. " main"
             }
             if ok then
                 exec {
-                    cmd = "git -C " .. REPO .. " update-ref -d " .. refname,
+                    cmd = "git -C " .. REPO .. " update-ref -d " .. refname
                 }
             end
         end
