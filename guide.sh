@@ -142,9 +142,41 @@ FC --root="$X" chain '#chat' list order
 # Alice comes back and posts on her own branch, which the hub has not seen
 FC --root="$A" --now=$((FORK+7*DAY+100)) chain '#chat' post inline $'Alice takes over\n' --sign="$KEYS/alice"
 
+# the post she just made, one below HEAD (the state commit that follows it)
+REJECTED=$(git -C "$A/chains/#chat" rev-parse HEAD^1)
+
 # A sends to X: the hub is entrenched and REFUSES to merge Alice's fork
 echo "-- expected failure (the hub is entrenched):"
 FC --root="$A" --now=$((FORK+7*DAY+200)) chain '#chat' sync send localhost:$X_PORT || true
+
+# Alice's escape hatch: destroy the rejected post, receive the settled
+# branch, repost the message on top of it, and send the result
+# DAG (A): untouched since the fork, plus the post the hub refused
+#   like(alice->bob)
+#         |
+#   'Alice was here'       <-- common history
+#         |
+#   'Alice takes over'     <-- rejected post ($REJECTED)
+echo "-- Alice's diverging branch (common history + rejected post):"
+FC --root="$A" chain '#chat' list dag
+FC --root="$A" chain '#chat' destroy "$REJECTED"
+FC --root="$A" --now=$((FORK+7*DAY+300)) chain '#chat' sync recv localhost:$X_PORT
+FC --root="$A" --now=$((FORK+7*DAY+400)) chain '#chat' post inline $'Alice takes over\n' --sign="$KEYS/alice"
+FC --root="$A" --now=$((FORK+7*DAY+500)) chain '#chat' sync send localhost:$X_PORT
+
+# Alice is compatible again: her repost is ordered after the settled branch
+# DAG (A): the destroyed branch is replaced by the hub's settled one
+#   'Alice was here'   like(bob->charlie)
+#            \                |
+#             \        'Charlie was here'
+#              \            /
+#                 'day 1'
+#                    |
+#                 'day 7'
+#                    |
+#           'Alice takes over'    <-- repost (new hash, new time)
+FC --root="$A" chain '#chat' list dag
+FC --root="$A" chain '#chat' list order
 
 echo
 echo "############ DONE ############"

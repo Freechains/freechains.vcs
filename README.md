@@ -81,6 +81,7 @@ Freechains' API is straightforward:
 - `freechains chain list dag/order`: lists all posts (DAG or consensus order)
 - `freechains chain reps ...`:       queries reputation
 - `freechains chain sync send/recv`: synchronizes with remote peer
+- `freechains chain destroy ...`:    erases local history after hard fork
 
 <!--
 For testing purposes, you may prepend an alternative path to store the chains:
@@ -469,20 +470,44 @@ remote: ERROR : chain sync : hard fork
 
 Regardless of her strong past reputation, `Alice` cannot affect an active
 community.
-To resynchronize, her only option is to revert her local history, receive the
-settled branch, repost the rejected message on top of it, and finally send the
-updated history.
 Note that it is impossible to judge whether `Alice` was trying to rewrite
 history or simply became offline for a long time.
 Nevertheless, the community protects itself from late reorderings.
+
+To resynchronize, `Alice`'s only option is to revert her local history, receive
+the settled branch, repost the rejected message on top of it, and finally send
+the updated history.
+To revert history, Freechains provides a `destroy` command that permanently
+drops a post along with everything after it:
+
+```
+# revert local history
+$ freechains chain '#chat' destroy 9d0e1f2
+9d0e1f2...
+
+# receive settled branch
+$ freechains chain '#chat' sync recv localhost:8331
+
+# repost rejected message
+$ freechains chain '#chat' post inline $'Alice takes over\n' --sign=/tmp/alice
+3c4d5e6...
+
+# send updated history
+$ freechains chain '#chat' sync send localhost:8331
+```
+
+`Alice` is now compatible with the community again, and her message is ordered
+after their settled branch.
+Note that the repost is a brand new post, with a new identifier and a new
+timestamp.
+Note also that `Alice` requires no additional `reps`, since in reverted history
+the original post never happened.
 
 Hard forks safeguard chains against long-lived network partitions with
 diverging histories.
 Since it is not possible to judge the reasons behind partitions, Freechains
 simply makes them incommunicable, requiring manual intervention to restore
 compatibility.
-
-`TODO: revert history`
 
 ### Moderation
 

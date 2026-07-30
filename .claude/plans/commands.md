@@ -17,7 +17,7 @@
 | `freechains chain <n> dislike <hash>` | zero-payload commit with `freechains-dislike: <hash>` extra header | 1 | same pattern as like |
 | `freechains chain <n> reps <hash_or_pub>` | walk `git log`, accumulate like/dislike headers, cache in SQLite | 1 | computed state, not stored in git |
 | `freechains chain <n> consensus` | `git log --date-order` skipping sync commits | 3 | deterministic but not the same rule; sync marker strategy deferred |
-| `freechains chain <n> reset <hash>` | `git reset --hard <hash>` | 5 | local only; `<hash>` must be an ancestor of HEAD; state files come back with the tree |
+| `freechains chain <n> destroy <hash>` | `git reset --hard <hash>^1` | 5 | local only; `<hash>` is the first post to destroy and must be an ancestor of HEAD; a beg instead deletes its `refs/begs/*` ref |
 | `freechains chain <n> listen` | `post-receive` git hook on server | 3 | fires server-side after every push; see hooks below |
 | `freechains peer <addr> ping` | `git ls-remote <remote>` | 2 | tests reachability but does much more |
 | `freechains peer <addr> chains` | `ls` of repos served by remote `git daemon` | 2 | no standard discovery protocol in git |

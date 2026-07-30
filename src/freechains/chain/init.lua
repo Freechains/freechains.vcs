@@ -10,6 +10,8 @@ end
 
 if ARGS.sync then
     require "freechains.chain.sync"
+elseif ARGS.destroy then
+    require "freechains.chain.destroy"
 else
     G = {
         authors = dofile(FC .. "state/authors.lua"),

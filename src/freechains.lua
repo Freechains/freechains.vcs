@@ -86,6 +86,7 @@ local cmd = {
         dislike = {},
         revoke = {},
         unrevoke = {},
+        destroy = {},
         sync = {
             recv = {},
             send = {},
@@ -197,6 +198,10 @@ do
         cmd.chain[c]._:option("--sign"):args("?"):count(1):action(sign)
         cmd.chain[c]._:option("--why")
     end
+
+    -- cmd.chain.destroy : local only (no sign, no network)
+    cmd.chain.destroy._ = cmd.chain._:command("destroy")
+    cmd.chain.destroy._:argument("hash")
 
     -- cmd.chain.sync
     cmd.chain.sync._ = cmd.chain._:command("sync")
