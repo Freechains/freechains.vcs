@@ -5,31 +5,6 @@
 
 # Open
 
-## Test helpers are copy-pasted
-
-### Problem
-
-- `local function order` appears in 11 test files
-    - `bug-climb-ancestor`, `cli-destroy`, `climb-underflow`,
-      `climb-underflow-gap`, `consensus`, `consensus-gap`,
-      `fork-100-posts`, `fork-7-days`, `hardfork-ff`,
-      `hardfork-shared`, `reorder-ancient`
-- Two signatures in the wild
-    - some return the array only
-    - some return array + set
-- `reps` and `trailer` are already forking the same way
-
-### Fix
-
-- Move them into `tst/tests.lua`, next to `TEST` and `FAIL`
-- One `order` returning array + set: callers taking one still work
-- `reps (exe, chain, pub)` wraps `exec` so `tonumber` gets one arg
-- `trailer (dir, hash)` reads the `Freechains` trailer
-
-### Note
-
-- Each helper takes `exe` and `chain`, since tests drive many peers
-
 ## Idle chains are never entrenched
 
 ### Problem

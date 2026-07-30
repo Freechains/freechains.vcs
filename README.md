@@ -77,8 +77,9 @@ Freechains' API is straightforward:
 
 - `freechains chains add ...`:       creates or clones chain locally
 - `freechains chain post ...`:       posts to chain (signed with SSH)
-- `freechains chain (dis)like ...`:  rates post or author
 - `freechains chain list dag/order`: lists all posts (DAG or consensus order)
+- `freechains chain (dis)like ...`:  rates post or author
+- `freechains chain (un)revoke ...`: hides or restores post payload
 - `freechains chain reps ...`:       queries reputation
 - `freechains chain sync send/recv`: synchronizes with remote peer
 - `freechains chain destroy ...`:    erases local history after hard fork
@@ -295,8 +296,8 @@ $ freechains chain '#chat' reps author "$(cat /tmp/bob.pub)"
 As the chain pioneer, `Alice` still has `29 reps` to use, whereas `Bob` has no
 reputation and cannot post on the chain.
 
-To welcome new members into the chain, the pioneer needs to redistribute a share
-of its `reps`:
+To welcome new members into the chain, the pioneer needs to redistribute a
+share of its `reps`:
 
 ```
 $ freechains chain '#chat' like 10 author "$(cat /tmp/bob.pub)" --sign=/tmp/alice
