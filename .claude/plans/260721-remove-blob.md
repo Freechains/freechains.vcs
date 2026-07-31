@@ -208,20 +208,19 @@ payload lives in TWO places: object store + working tree
    git checkout main  -> needs blob to materialize file -> ERRORS
 ```
 
-Cooperative removal is NOT viable while chains keep a working
-tree. Prerequisite: **make chain repos bare** (no worktree ->
-no resurrection surface, no checkout dependency). `get.lua`
-already reads via `git show <hash>:file`, which works on bare;
-sync's checkout steps would need rework.
+Looked at first like this required bare repos. See "Local
+removal — scoping" below: the actual fix is narrower — a
+per-path `--skip-worktree` bit set only on the removed file,
+not a whole-repo migration.
 
 ## Payload transfer model (the core consequence)
 
-Sparse-checkout fixes only the local worktree; it does NOT
-change what the pack transfers. And the filter is
-**all-or-nothing**: `filter=blob:none` omits EVERY blob — git
-has no "omit exactly this one blob". So once a chain must be
-served filtered (because a payload was removed), NONE of its
-payloads ride the bulk pack.
+Any local worktree trick (`--skip-worktree` included) fixes only
+the local worktree; it does NOT change what the pack transfers.
+And the filter is **all-or-nothing**: `filter=blob:none` omits
+EVERY blob — git has no "omit exactly this one blob". So once a
+chain must be served filtered (because a payload was removed),
+NONE of its payloads ride the bulk pack.
 
 Payloads therefore change how they move:
 
@@ -328,99 +327,102 @@ cloning from a blobless source pulled none. May be a
 local-transport artifact — verify blobs are truly deferred on
 the real serve path.
 
-## Bare-repo migration — scoping (paper only, 2026-07-21)
+## Local removal — scoping (SUPERSEDES bare-repo migration, 2026-07-31)
 
-### Working-tree dependency map
+Two problems were conflated under "bare-repo migration." Split
+them:
 
-The working tree is load-bearing across the codebase:
+1. **Lazy fetch** (a peer not eagerly downloading every payload)
+   is pure transport: `filter=blob:none` fetch + the by-hash
+   fetch loop, touching only `sync.lua` and `get.lua`. Zero
+   changes to `post.lua`, `like.lua`, `chains.lua` — working
+   trees stay exactly as-is for ordinary create/post/like/sync.
+2. **Physically removing a payload this node already holds** is
+   the only thing that needs special handling — and it turns out
+   to be much narrower than "make the whole repo bare."
 
-| Site | Op | Needs worktree |
-|--------------------|----------------------------------|----------------|
-| `post.lua:24,39`   | `io.open`/`cp` payload -> add    | yes |
-| `post.lua:44,83`   | `git add` file / state           | yes (index+wt) |
-| `like.lua:62,66`   | write like -> `git add`          | yes |
-| `sync.lua:451`     | `git add` state                  | yes |
-| `post.lua:72,96`   | `reset --hard`                   | yes |
-| `like.lua:40`      | `merge -X ours`                  | yes |
-| `sync.lua:320,378,389,415,441,447` | merge / `checkout` / reset | yes |
-| 7x `commit -...`   | porcelain commit                 | index |
+### Why full-bare was the wrong shape
 
-Reads are already worktree-independent: `get.lua` uses
-`git show <hash>:file` from the object store.
+Two concrete problems, not just "large and risky":
 
-### Option SPARSE — REJECTED 2026-07-31
+- `git mktree` validates by default that every referenced blob
+  exists. Rebuilding a new commit's tree as "prior tree's entries
+  + one new entry" (`git ls-tree HEAD^{tree} | ... | git mktree`)
+  fails the moment ANY earlier entry references an already-removed
+  blob — which is exactly what this feature causes on every post
+  after the first removal. Every plumbing call touching "the
+  existing tree" needs `--missing` or equivalent, a correctness
+  burden threaded through every commit-creation path, not a
+  one-off.
+- A repo configured for `filter=blob:none` gets a `promisor`
+  remote set as a side effect. Many otherwise-unrelated plumbing
+  commands silently attempt to auto-fetch a missing object from
+  that promisor remote when they touch one — uncontrolled, and
+  exactly the mechanism already rejected for the deliberate
+  by-hash loop ("Freechains syncs explicit peer IPs, not a fixed
+  origin," per-payload-fetch section above). Going bare doesn't
+  dodge this; the promisor bits get set by the partial-clone
+  fetch side regardless of worktree.
+- Full-bare's justification ("no worktree -> no resurrection,
+  ever") was solving for "every payload, all the time." The
+  actual need is "one path, at the rare moment it's removed."
 
-Keep the repo non-bare but sparse-checkout so the worktree holds
-ONLY `.freechains/`, never the payload files:
+### Actual scope: targeted `--skip-worktree`, not bare or sparse
+
+Re-examining the original NON-BARE blocker's two components
+(`chains.lua:102` working tree; `sync.lua:378,415` checkout):
+
+- **Resurrection via `git add`**: every `git add` call in the
+  codebase already targets an explicit path (`post.lua:44`'s
+  `git add <file>`, `chains.lua:127`'s
+  `git add .freechains/ ...`) — none does a blanket `git add .`.
+  An already-`rm`'d payload sitting in the working tree is never
+  swept back in by any *existing* write path; the resurrection
+  risk demonstrated in the original prototype (`git add .`)
+  doesn't actually occur on any current code path.
+- **Checkout needing the missing blob** is the one real blocker
+  (`sync.lua:378` `checkout --detach`, `415` `checkout main`) —
+  checking out a commit whose tree includes the removed path
+  needs to materialize that file.
+
+Fix, applied only to the specific removed path, only at removal
+time:
 
 ```
-git sparse-checkout init --no-cone
-git sparse-checkout set  --no-cone '/.freechains/'
+rm <object store copy of the blob>
+rm <path>                                  -- working-tree file
+git update-index --skip-worktree <path>    -- same bit sparse-checkout sets internally
 ```
 
-Effects (as prototyped 2026-07-22, create + post + sync, NO
-removal):
+`--skip-worktree` tells git: don't complain this path is missing,
+don't try to materialize it on checkout, don't diff it. No
+sparse-checkout subsystem, no cone-mode config, no policy change
+for every other payload — this touches exactly the one file being
+revoked. Everything else (chain creation, posting, liking, syncing
+every other post) is unaffected: no plumbing rewrite of
+`post.lua`/`like.lua`/`chains.lua`, no bare repo, no
+`hash-object`/`mktree`/`commit-tree` anywhere in the ordinary
+write paths.
 
-- Payload files never materialize in the worktree -> `git add`
-  cannot re-hash them -> no resurrection.
-- `checkout` skips excluded (SKIP_WORKTREE) paths -> does not
-  read the removed blob -> no checkout error.
-- Only code delta for normal ops: `git add` -> `git add --sparse`
-  + `git sparse-checkout reapply`.
+### Still to verify
 
-Normal operation was verified to work. REJECTED anyway:
-
-- `merge --no-commit` / `reset --hard` under sparse with incoming
-  excluded-path changes, and removal-stays-gone across a full
-  post/sync cycle, were never actually tested (see prior "Still
-  to TEST" list) — sparse-checkout + SKIP_WORKTREE bits interact
-  with merge in ways that are easy to get subtly wrong, and that
-  risk was still open, not closed.
-- It only solves local resurrection. It does nothing for the
-  consistency and gating requirements below (hard-fail on a
-  non-revoked miss; gated unrevoke) — those need the same
-  explicit-by-hash-fetch machinery regardless of bare vs sparse.
-  Once that machinery exists, it also removes the local
-  materialization problem `get.lua` already solves via `git show
-  <hash>:file` (object-store read, no worktree involved) — so
-  sparse's only remaining unique value was resurrection-safety
-  for `post`/`like` writes, which bare gets too, structurally,
-  with no merge-interaction risk.
-
-### Option BARE (full) — ACCEPTED 2026-07-31
-
-A truly bare repo has no worktree/index at all -> no
-resurrection surface, no checkout-needs-blob dependency,
-period. Every write path in the table above is rewritten to
-plumbing (`hash-object`, `update-index`, `mktree`,
-`commit-tree`, `read-tree`, `merge-tree`); touches `post`,
-`like`, `sync`, `chains`.
-
-Previously rejected as "large, risky, out of proportion to the
-feature," with sparse-checkout preferred as the lighter option.
-That tradeoff no longer holds:
-
-- the by-hash batch-fetch loop (transfer model above) is
-  required infrastructure either way — sparse did not avoid
-  building it, it only tried to dodge the worktree rewrite;
-- `get.lua` already reads via `git show <hash>:file`, which needs
-  no worktree and works identically on bare;
-- the plumbing rewrite is a known, one-time, mechanical cost;
-  sparse's merge/reset interaction risk was open-ended and only
-  discoverable by testing every future merge shape.
-
-So: pay the plumbing cost once, get a structural guarantee
-(no worktree => no resurrection, ever, by construction) instead
-of a behavioral one that depends on every future commit path
-respecting SKIP_WORKTREE correctly.
+- `--skip-worktree` behavior under `merge --no-commit` /
+  `reset --hard` (`sync.lua:449,507,563,569`) when the incoming
+  side still carries the path present-but-unmodified — does the
+  skip bit survive, or does merge try to re-materialize it? Same
+  kind of test the earlier sparse prototype ran (2026-07-22), just
+  scoped to one path instead of a `.freechains/`-only tree.
+- Confirm the skip bit persists across the sync's checkout/reset
+  cycle without needing to be re-applied each time (unlike
+  sparse-checkout's cone patterns, which need `reapply`).
 
 ### Verdict
 
-BARE is the direction. `sync.lua`'s `checkout --detach` /
-`checkout main` / `reset --hard` / `merge --no-commit` (lines
-378, 415, 449, 507, 563, 569) and `post.lua` / `like.lua`'s
-`git add` + index writes all need plumbing equivalents. Scope
-this rewrite next.
+Drop the bare-repo migration entirely. `chains.lua`, `post.lua`,
+`like.lua`, `sync.lua` keep their working-tree code exactly as
+today. The only new code: at rm-time, delete the object + file
+and set `--skip-worktree` on that one path; verify it survives
+the existing merge/checkout paths in `sync.lua`.
 
 ## Sync consistency: hard-fail on a non-revoked miss (2026-07-31)
 
@@ -653,6 +655,17 @@ is the whole rule.
       by-hash fetch machinery is required either way, so sparse's
       lighter-cost argument no longer holds, and bare's no-worktree
       structural guarantee beats sparse's open merge/reset risk
+- [x] REVERSED 2026-07-31 (same day): bare dropped entirely. Two
+      real problems found: `mktree`'s default existence check
+      breaks the moment any prior tree entry is an already-removed
+      blob (i.e. on every post after the first removal); partial-
+      clone promisor bits can trigger silent auto-fetch from
+      unrelated plumbing calls. Also realized lazy-fetch
+      (transport) and physical local removal are separable — only
+      the latter needs anything special, and it's narrow: a
+      per-path `git update-index --skip-worktree` at rm-time, not
+      a whole-repo bare or sparse migration. `post.lua`/`like.lua`/
+      `chains.lua` keep their working-tree code unchanged.
 - [x] DECISION 2026-07-31: sync must hard-fail (no ref/HEAD
       update) on any per-blob miss whose hash is not in the LOCAL
       revoked set; only locally-known-revoked misses tombstone
@@ -678,11 +691,11 @@ is the whole rule.
       the standalone-timer justification doesn't hold; rule is now
       just "rm once, on the final sum after this sync's full
       replay" — no state tracked between syncs
-- [ ] **NEXT: scope the bare-repo plumbing rewrite** — replace
-      `git add`/`checkout`/`reset --hard`/`merge --no-commit` in
-      `post.lua`, `like.lua`, `sync.lua`, `chains.lua` with
-      `hash-object`/`update-index`/`mktree`/`commit-tree`/
-      `read-tree`/`merge-tree` equivalents
+- [ ] **NEXT: verify `--skip-worktree` survives `merge --no-commit`
+      / `reset --hard` in `sync.lua` (lines 449,507,563,569) for a
+      single removed path** — same test shape as the earlier
+      sparse prototype (2026-07-22), scoped to one path instead of
+      a whole `.freechains/`-only tree
 - [ ] Loose-object git config
 - [ ] `uploadpack.allowFilter` + filtered fetch in `sync.lua`
 - [ ] `get.lua` tolerates absent payload -> tombstone
