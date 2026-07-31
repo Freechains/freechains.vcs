@@ -550,7 +550,7 @@ Once this node has pulled the author's full commit history for
 the post, `p.revoke.author < 0` is as final as anything gets here.
 **Eligible for immediate `rm`**, no settle timer required.
 
-### Others channel — needs the window
+### Others channel — SIMPLIFIED 2026-07-31: flip once at end of sync
 
 `p.revoke.others` is a running sum over many independent
 signed casters (reps.md:290-292). A node with a partial DAG view
@@ -559,58 +559,57 @@ true converged answer — more already-existing, not-yet-pulled
 positive votes could still land and push it non-negative. This
 isn't a legitimate community revocation getting reversed; it's a
 node treating an incomplete view as ground truth for an
-irreversible physical action. That is the case the window guards.
+irreversible physical action.
 
-**State tracking** — new `local/revoked.lua`, mirroring the
-existing engine pattern for Rule 2 (reps.md:429-441: recomputed
-on every commit):
+Originally designed as a persistent `local/revoked.lua` table +
+calendar `SETTLE` timer (see history). Simplified after checking
+what actually motivated it:
 
-```lua
-revoked = {
-  [hash] = { channel = "others", first_seen = <time>, last_change = <time> }
-}
-```
+- **Never act mid-replay** — intrinsic, and needs no timer at all.
+  The engine walks the git log in date-order and recomputes
+  incrementally, same pattern as the Rule 2 engine (reps.md:429-
+  441). During that walk a sum can dip negative and climb back
+  positive purely from processing order, even over commits this
+  node already has in full — no network involved. Fix: act only
+  ONCE, on the FINAL sum after this sync's full pulled delta has
+  been replayed, never on an intermediate crossing mid-walk.
+- **Hedge against a not-yet-synced honest peer** — was going to be
+  the calendar buffer's job. Checked whether the risk that
+  actually justifies a standalone timer (cheap malicious
+  oscillation forcing repeated rm/re-fetch churn) is real: every
+  vote in the table above costs `-n` to the caster (reps.md:269-
+  274); the only free move in the whole system is the author's own
+  downward self-revoke (reps.md:284-285, 299-300) — every upward
+  move (`like`, `unrevoke`, including the author's own) always
+  costs. Forcing an oscillation needs an upward move each cycle,
+  so it is bounded by the attacker's reps balance, the 30-rep cap
+  (Rule 4.b), and +1/day regen — not free spam. That kills the
+  standalone-timer justification.
+- What's left is a non-adversarial residual: an honest, merely-
+  slow peer's vote not yet received. Accepted as-is — it's the
+  same cooperative-not-guaranteed ceiling the whole plan already
+  declares (NON-GOAL section above). A false-negative `rm` from a
+  lagging view recovers the same way anything else here does: the
+  next read lazy-fetches by hash (transfer model above) and
+  succeeds if any peer still holds the bytes.
 
-**On every commit** (post, like, dislike, revoke, unrevoke):
+**Resulting rule** (no persistent state, nothing tracked between
+syncs):
 
-1. recompute `others` sum for every tracked hash;
-2. sum >= 0 -> drop the entry (never was, or no longer is, a
-   candidate — no deletion, nothing to do);
-3. sum < 0 and hash not yet tracked -> insert
-   `{first_seen = NOW, last_change = NOW}`;
-4. sum < 0 and hash already tracked, and this commit is a NEW
-   revoke-relevant vote touching it -> reset `last_change = NOW`
-   (still negative, but the view just changed, so the settle
-   clock restarts);
-5. sum < 0 and `NOW - last_change >= SETTLE` and this node has
-   completed at least one full sync round since `first_seen`
-   (not just sitting on a stale replica that never talked to
-   anyone) -> physically `rm`, drop the entry.
+- at the end of processing a sync's pulled delta (after the full
+  incoming batch has been replayed, not per intermediate commit),
+  recompute the final `others` sum for every post touched by that
+  batch;
+- `rm` the loose blob for any that land negative (community or
+  author channel) and are still locally present;
+- a post whose sum recomputes non-negative needs no explicit
+  restore step — if this node had already `rm`'d it in some prior
+  sync, the next read simply lazy-fetches it by hash, same as any
+  other on-demand payload fetch.
 
-**`SETTLE` constant**: deliberately a NEW, separate knob, not a
-reuse of Rule 2's 0-12h ratio-based discount — that formula
-answers "how much of the chain's reputation has since posted,"
-which is about posting-incentive economics, not about whether
-revoke/like votes have finished propagating across a P2P network.
-This window's job is closer to "did every currently-connected
-peer have a chance to tell us about a vote it already holds."
-Start with a fixed conservative default (e.g. 24h) as a policy
-knob, not a derived/proven number — this is inherently a
-tradeoff between removal responsiveness (author's/community's
-interest in the payload actually going away) and safety against
-destroying a post that a slower peer's still-arriving vote would
-have kept ACCEPTED. It can never be a hard guarantee in an open
-P2P network (an offline peer can hold a decisive vote indefinitely)
-— document it as heuristic, same cooperative-ceiling framing as
-the rest of this plan (non-goal section above).
-
-**This does not weaken the gated-unrevoke guarantee.** That
-guarantee (at least one peer holds the payload at the moment a
-post leaves REVOKED) is about explicit commit-creation-time
-checks and holds regardless of any node's deletion timing. The
-finality window is a separate hygiene safeguard: it stops a node
-from destroying a payload based on a merely-transient, not-yet-
-converged local view of a community sum.
+No `local/revoked.lua`, no `SETTLE` constant, no completed-sync-
+round bookkeeping — "act once, at the end of this sync's replay"
+is the whole rule.
 
 ## Open questions
 
@@ -671,9 +670,14 @@ converged local view of a community sum.
       decoupled from the instantaneous Phase-1 REVOKED computation
 - [x] DESIGNED 2026-07-31: finality window — author channel needs
       none (only a fresh gated commit moves it); others channel
-      gets a new `local/revoked.lua` tracking table + SETTLE timer
-      (new constant, not reused from Rule 2) + a completed-sync-
-      round check before `rm` is eligible
+      needed protecting against mid-replay oscillation
+- [x] SIMPLIFIED 2026-07-31: dropped the persistent
+      `local/revoked.lua` + calendar `SETTLE` timer — oscillation
+      attacks always cost the caster reps (only the author's own
+      downward self-revoke is free, reps.md:284-285,299-300), so
+      the standalone-timer justification doesn't hold; rule is now
+      just "rm once, on the final sum after this sync's full
+      replay" — no state tracked between syncs
 - [ ] **NEXT: scope the bare-repo plumbing rewrite** — replace
       `git add`/`checkout`/`reset --hard`/`merge --no-commit` in
       `post.lua`, `like.lua`, `sync.lua`, `chains.lua` with
