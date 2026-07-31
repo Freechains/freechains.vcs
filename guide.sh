@@ -68,6 +68,11 @@ HERE=$HASH
 FC --root="$A" chain '#chat' list dag
 FC --root="$A" chain '#chat' list order
 
+# each post can be queried individually: its payload and its metadata
+FC --root="$A" chain '#chat' get payload "$HELLO"
+FC --root="$A" chain '#chat' get payload "$HERE"
+FC --root="$A" chain '#chat' get metadata "$HERE"
+
 echo
 echo "############ Synchronization ############"
 echo
@@ -125,16 +130,17 @@ echo
 echo "############ Posts Reputation & Begging ############"
 echo
 
-# Charlie rates Alice's first two posts: the target is a post, not an
-# author, so the reps land on the content (half) and on Alice (half)
+# Charlie likes and Bob dislikes Alice's first two posts: the target is a
+# post, not an author, so the reps land on the content (half) and on
+# Alice (half)
 FC --root="$B" --now=$((T0+81)) chain '#chat' like    1 post "$HELLO" --sign="$KEYS/charlie"
-FC --root="$B" --now=$((T0+82)) chain '#chat' dislike 1 post "$HERE"  --sign="$KEYS/charlie"
+FC --root="$B" --now=$((T0+82)) chain '#chat' dislike 1 post "$HERE"  --sign="$KEYS/bob"
 
 # expected: 'Hello World' 1 , 'Sync me' 0 , 'I am here' -1
 FC --root="$B" chain '#chat' reps posts
 
-# expected: alice 20 , bob 4 , charlie 3 (the two votes cancel out for
-# Alice, while Charlie pays each of them in full)
+# expected: alice 23 (her two received votes cancel out), while bob and
+# charlie each pay in full for the single vote they cast
 FC --root="$B" chain '#chat' reps authors
 
 # Dave holds no reps at all, so he begs: the post is parked on
@@ -280,51 +286,27 @@ echo
 
 MOD=$((FORK+7*DAY+600))
 
-# Charlie spams the chain from peer B
-FCH --root="$B" --now=$((MOD+0)) chain '#chat' post inline $'BUY NOW\n' --sign="$KEYS/charlie"
+# Dave still holds the reps from his admitted beg, enough to post spam
+FCH --root="$A" --now=$((MOD+0)) chain '#chat' post inline $'BUY NOW\n' --sign="$KEYS/dave"
 SPAM=$HASH
-FC --root="$B" chain '#chat' get payload "$SPAM"
 
-# Bob revokes it with 3 reps: the community channel goes to -3
-FC --root="$B" --now=$((MOD+10)) chain '#chat' revoke 3 "$SPAM" --sign="$KEYS/bob"
-
-# revoked posts print as ~hash~ and refuse their payload
-FC --root="$B" chain '#chat' list order
+# Alice detects the spam and revokes it with 1 rep: the payload vanishes
+FC --root="$A" --now=$((MOD+10)) chain '#chat' revoke 1 "$SPAM" --sign="$KEYS/alice"
 echo "-- expected failure (revoked post):"
-FC --root="$B" chain '#chat' get payload "$SPAM" || true
-
-# a revoke is an ordinary commit, so it propagates like any other
-FC --root="$B" --now=$((MOD+20)) chain '#chat' sync send localhost:$X_PORT
-FC --root="$X" chain '#chat' list revokes
-
-# Alice unrevokes with 2 reps: not enough against Bob's 3
-FC --root="$A" --now=$((MOD+30)) chain '#chat' sync recv localhost:$X_PORT
-FC --root="$A" --now=$((MOD+40)) chain '#chat' unrevoke 2 "$SPAM" --sign="$KEYS/alice"
-echo "-- expected failure (still revoked: -3 +2 = -1):"
 FC --root="$A" chain '#chat' get payload "$SPAM" || true
 
-# both channels of the post, then of every post (author others)
-FC --root="$A" chain '#chat' reps revoke "$SPAM"
-FC --root="$A" chain '#chat' reps revokes
-
-# Bob regrets a post of his own and self-revokes: free and ungated
-FCH --root="$B" --now=$((MOD+50)) chain '#chat' post inline $'my address is ...\n' --sign="$KEYS/bob"
+# Bob catches up, then posts something he regrets and self-revokes: a
+# self-revoke is free (ungated) and absolute (no community reps lift it)
+FC  --root="$B" --now=$((MOD+15)) chain '#chat' sync recv localhost:$X_PORT
+FCH --root="$B" --now=$((MOD+20)) chain '#chat' post inline $'my address is ...\n' --sign="$KEYS/bob"
 REGRET=$HASH
-FC --root="$B" --now=$((MOD+60)) chain '#chat' revoke 1 "$REGRET" --sign="$KEYS/bob"
+FC --root="$B" --now=$((MOD+30)) chain '#chat' revoke 1 "$REGRET" --sign="$KEYS/bob"
 
-# the community channel cannot lift the author channel: Alice casts the
-# attempt, since she is the only one still holding spare reps
-FC --root="$B" --now=$((MOD+70)) chain '#chat' sync send localhost:$X_PORT
-FC --root="$A" --now=$((MOD+80)) chain '#chat' sync recv localhost:$X_PORT
-FC --root="$A" --now=$((MOD+90)) chain '#chat' unrevoke 4 "$REGRET" --sign="$KEYS/alice"
+# a revoke is an ordinary commit, so it propagates to peer A via the hub
+FC --root="$B" --now=$((MOD+40)) chain '#chat' sync send localhost:$X_PORT
+FC --root="$A" --now=$((MOD+50)) chain '#chat' sync recv localhost:$X_PORT
 echo "-- expected failure (self-revoke is absolute):"
 FC --root="$A" chain '#chat' get payload "$REGRET" || true
-
-# only Bob can lift it, and this one does spend reps: a day goes by so
-# that his own posts consolidate and refund him (`common.lua:186-207`)
-FC --root="$B" chain '#chat' reps authors
-FC --root="$B" --now=$((MOD+1*DAY)) chain '#chat' unrevoke 1 "$REGRET" --sign="$KEYS/bob"
-FC --root="$B" chain '#chat' get payload "$REGRET"
 
 echo
 echo "############ DONE ############"

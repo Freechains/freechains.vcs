@@ -399,7 +399,7 @@ $ freechains chain '#chat' list dag
               (^560a55c)
 ```
 
-The post iss now part of the chain and `Dave` becomes a proper member.
+The post is now part of the chain and `Dave` becomes a proper member.
 %
 TODO:
 Note that the like `d8e9f0a` links back to two posts: the beg `c7d8e9f` just
