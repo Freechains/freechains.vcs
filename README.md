@@ -592,118 +592,37 @@ content.
 For such cases, Freechains provides an additional revocation mechanism that
 works in conjunction with the reputation system.
 
-Reputation restrains authors, but it does not remove content: a post
-remains readable even after its author is drained of `reps`.
-For this, Freechains provides an independent revocation axis, through the
-`revoke` and `unrevoke` commands.
-
-The two axes are coupled, but only in one direction:
-
-| operation  | caster | post reps | revocation |
-|------------|--------|-----------|------------|
-| `like`     | `-n`   | `+n`      | `+n`       |
-| `dislike`  | `-n`   | `-n`      | --         |
-| `revoke`   | `-n`   | `-n`      | `-n`       |
-| `unrevoke` | `-n`   | --        | `+n`       |
-
-A `revoke` also counts as a `dislike`, since revoking implies disapproval,
-and a `like` also counts as an `unrevoke`, since approving a post implies
-that it should remain visible.
-The converses do not hold: a `dislike` never hides a payload, and an
-`unrevoke` never rewards a post, it only restores visibility.
-All four operations spend the caster's `reps`, with the single exception
-of a self-revoke, which is free (see below).
-
-To illustrate moderation, let's have `Charlie` post some spam in peer `B`:
+To illustrate moderation, suppose `Dave` posts some spam:
 
 ```
-$ freechains --root=/tmp/B/ chain '#chat' post inline $'BUY NOW\n' --sign=/tmp/charlie
+$ freechains chain '#chat' post inline $'BUY NOW\n' --sign=/tmp/dave
 4a5b6c7...
 ```
 
-The post is immediately readable by everyone in the chain:
+`Alice` detects the SPAM and revokes it:
 
 ```
-$ freechains --root=/tmp/B/ chain '#chat' get payload 4a5b6c7
-BUY NOW
-```
-
-`Bob` now revokes the spam, spending `3 reps`:
-
-```
-$ freechains --root=/tmp/B/ chain '#chat' revoke 3 4a5b6c7 --sign=/tmp/bob
+$ freechains chain '#chat' revoke 1 4a5b6c7 --sign=/tmp/alice
 8f9a0b1...
 ```
 
-As shown in the table, a revoke also acts as a dislike, draining the post
-and its author, but it additionally hides the payload.
-
-The post is now revoked, which `list order` shows between `~`:
+And its payload becomes immediately unavailable:
 
 ```
-$ freechains --root=/tmp/B/ chain '#chat' list order
-...
-~4a5b6c7...~
-```
-
-And its payload is no longer available:
-
-```
-$ freechains --root=/tmp/B/ chain '#chat' get payload 4a5b6c7
-ERROR : chain get : revoked post
-```
-
-Note that only the payload is hidden: the commit remains in the DAG, so
-the history and the consensus order are unaffected.
-
-Being an ordinary commit, a revoke propagates like any other post:
-
-```
-$ freechains --root=/tmp/B/ chain '#chat' sync send localhost:8331
-$ freechains --root=/tmp/X/ chain '#chat' list revokes
-4a5b6c7...
-```
-
-Revocation is also reversible, through the `unrevoke` command, which any
-member may cast to bring a payload back.
-`Alice`, who is now back in the community, disagrees with `Bob` and
-spends `2 reps` to restore the post:
-
-```
-$ freechains chain '#chat' sync recv localhost:8331
-$ freechains chain '#chat' unrevoke 2 4a5b6c7 --sign=/tmp/alice
-2b3c4d5...
 $ freechains chain '#chat' get payload 4a5b6c7
 ERROR : chain get : revoked post
 ```
 
-The post remains revoked, since revocation is `reps`-weighted, and not a
-head count: a payload stays hidden while the revokes outweigh the
-unrevokes.
-`Alice` spent `2 reps` against the `3 reps` from `Bob`, and would need
-`1 rep` more to make the post visible again.
-The `reps revoke` command shows both channels, the author's and the
-community's, in this order:
+Note that only the payload is hidden, whereas the post metadata remains in the
+chain and participates in the consensus.
+`TODO: blob removal`
 
-```
-$ freechains chain '#chat' reps revoke 4a5b6c7
-0 -1
-```
+Revocation is reversible through the analogous command `unrevoke`.
+They are both accounted to determine if a post is available or not.
+As with likes and dislike, revocation operations spends `reps` from casters.
 
-The plural form lists both channels of all posts, most revoked first:
-
-```
-$ freechains chain '#chat' reps revokes
-4a5b6c7... 0 -1
-```
-
-`Alice` could also have used a `like`, which lifts the revocation by the
-same amount and, in addition, rewards the post and its author.
-A `dislike` from `Bob`, on the other hand, would have drained `Charlie`
-further, but would not have hidden the payload.
-
-Members may also revoke their own posts, in a separate and absolute
-channel.
+As the "right to be forgotten", members may also revoke their own posts for
+free.
 Let's say `Bob` posts something he immediately regrets:
 
 ```
@@ -711,36 +630,15 @@ $ freechains --root=/tmp/B/ chain '#chat' post inline $'my address is ...\n' --s
 5d6e7f8...
 $ freechains --root=/tmp/B/ chain '#chat' revoke 1 5d6e7f8 --sign=/tmp/bob
 6e7f8a9...
-```
-
-A self-revoke is free: it spends no `reps` and works even for an author
-with no reputation left.
-It is also absolute: no amount of `reps` from the community can bring the
-payload back.
-
-```
-$ freechains --root=/tmp/B/ chain '#chat' unrevoke 4 5d6e7f8 --sign=/tmp/charlie
-7f8a9b0...
-$ freechains --root=/tmp/B/ chain '#chat' get payload 5d6e7f8
+$ freechains chain '#chat' get payload 5d6e7f8
 ERROR : chain get : revoked post
 ```
 
-This is because authors and community vote in separate channels, and a
-post stays hidden while either of them is negative.
-Only `Bob` can lift his own revocation, and this one does spend `reps`:
+A self-revoke is absolute and other members cannot revert it.
 
-```
-$ freechains --root=/tmp/B/ chain '#chat' unrevoke 1 5d6e7f8 --sign=/tmp/bob
-8a9b0c1...
-```
-
-Note that moderation is always per-chain and per-peer: there is no global
-authority to censor content, and each chain holds its own `reps`.
-Members that disagree with a revocation are free to fork the chain and
-carry on separately, since nobody is forced to relay unwanted content.
-
-`TODO: remove blob`
-
-In summary, moderation in Freechains is just another use of `reps`: those
-who contribute the most to a chain also hold the most weight to protect
-it, while authors keep the last word over their own posts.
+Moderation in Freechains is an extra safety layer to protect the community from
+abuse.
+Note that each chain may apply its own "moderation netiquette", since there is
+no global authority to censor content.
+Members that disagree with a revocation are free to fork the chain and carry on
+separately, since nobody is forced to relay unwanted content.
