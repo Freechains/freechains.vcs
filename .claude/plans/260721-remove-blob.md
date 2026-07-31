@@ -476,13 +476,51 @@ cooperative ceiling as the rest of this design), but it closes
 the hole of an unrevoke entering the DAG while nobody anywhere
 has the bytes.
 
-Open sub-question: does the same gate apply to the `like`-as-
-unrevoke path (reps.md:278), not just the explicit `unrevoke`
-command? For the guarantee to hold on every path back to
-ACCEPTED, it should — a REVOKED-post `like` should be gated the
-same way. Needs a decision before implementation.
+### RESOLVED 2026-07-31: `like`-as-unrevoke gate
+
+Same gate applies to a `like` cast while the target post's local
+state is REVOKED (reps.md:278: a positive `like` also counts as
+an others-channel unrevoke) — it must materialize the blob first
+or refuse, same as explicit `unrevoke`. A `like` on an
+already-ACCEPTED post is untouched: ordinary reputation action,
+no availability promise at stake.
+
+### Found while resolving: gating alone cannot make deletion safe
+
+The revoke/others sum is a commutative, order-independent replay
+(reps.md:309-312: "likes cast *before* a revoke count just the
+same"). So a post can flip REVOKED -> ACCEPTED purely by a node
+re-deriving the sum from commits it already had, or already-signed
+likes arriving late in sync — with no NEW commit being cast at
+that moment. Gating only fires when a commit is created; it
+cannot intercept re-acceptance that happens as a passive side
+effect of sync recomputing an existing sum from data already on
+disk.
+
+Consequence: physical `rm` must NOT be wired to "the instant this
+node's local sum first computes REVOKED." A node that deletes
+eagerly on that signal can see the sum swing back non-negative
+moments later as more votes sync in — blob already gone, no
+gated cast ever happened for that swing.
+
+Resolution: **decouple physical deletion from the Phase-1
+display-hide computation.** Display-hide stays instantaneous,
+recomputed on every commit, as today (`260721-revoke.md`).
+Physical removal (this plan) needs its own finality trigger: only
+`rm` after the local REVOKED state has held through a settling
+window with no new sync activity, not on the first commit that
+computes it. Checked `reps.md` for an existing quiescence
+mechanism to reuse — none exists; the only 0-12h window in that
+doc is the unrelated post-cost discount timer (reps.md:135-153).
+This finality window is a new mechanism to design, not something
+already covered elsewhere.
 
 ## Open questions
+
+- **Finality window for physical deletion** (new, see above): how
+  long must local REVOKED state hold with no new sync activity
+  before an honest node `rm`s the loose blob? Needs its own rule,
+  separate from the Rule 2 discount timer.
 
 - Full initial push/clone still needs the closure -> a chain
   with a removed payload can only onboard new peers via
@@ -532,6 +570,13 @@ same way. Needs a decision before implementation.
       commit unless the local node first materializes the blob
       (local store or by-hash fetch); guarantees at least one
       holder exists the moment a post leaves REVOKED
+- [x] RESOLVED 2026-07-31: `like`-as-unrevoke gate confirmed —
+      same precondition as explicit `unrevoke`, scoped to
+      currently-REVOKED targets only
+- [x] FOUND 2026-07-31: order-independent sum replay means a post
+      can flip back to ACCEPTED with no new gated commit at all ->
+      physical `rm` needs its own finality/settling window,
+      decoupled from the instantaneous Phase-1 REVOKED computation
 - [ ] **NEXT: scope the bare-repo plumbing rewrite** — replace
       `git add`/`checkout`/`reset --hard`/`merge --no-commit` in
       `post.lua`, `like.lua`, `sync.lua`, `chains.lua` with
