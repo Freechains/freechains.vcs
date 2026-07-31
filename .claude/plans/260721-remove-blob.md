@@ -404,12 +404,86 @@ SPARSE handles normal operation (verified). Remaining risk is
 merge/reset under sparse + removal persistence. BARE stays the
 fallback.
 
+## Sync consistency: hard-fail on a non-revoked miss (2026-07-31)
+
+The optimistic-batch + per-blob-fallback loop (transfer model
+above) tolerates misses — but not all misses mean the same
+thing, and conflating them corrupts local state:
+
+- hash IS in the local revoked set -> expected miss -> tombstone,
+  fine;
+- hash is NOT in the local revoked set -> unexpected miss (peer
+  dropped a live payload, network fault, or a malicious peer) ->
+  this must be a hard error, not a tombstone.
+
+Critically: "not in the local revoked set" must be checked
+against **local** state (this node's own `.freechains/revokes/`
+sums, reps.md:287-307), never inferred from the peer's silence —
+a peer simply not having a hash is not proof it was ever revoked.
+
+So the sync procedure is:
+
+1. compute the wanted-hash set for the incoming delta;
+2. cross-reference against the local revoked set;
+3. optimistic batch-fetch everything;
+4. on batch failure, retry per-blob;
+5. any per-blob miss whose hash is **not** locally revoked ->
+   abort the sync before any ref/HEAD update. No partial
+   merge/reset/checkout applied. The chain stays exactly as it
+   was pre-sync.
+6. only misses whose hash **is** locally revoked are tolerated
+   as tombstones, and the sync completes normally.
+
+This is what makes "ignore revoked objects at the protocol
+level" (transfer model above) safe: revocation is the *only*
+sanctioned reason a fetch is allowed to come back incomplete.
+Anything else is a failure, and local consistency wins over
+completing the sync.
+
+## Gated unrevoke: guaranteed availability at flip time (2026-07-31)
+
+`unrevoke` (and, per reps.md:278, a community `like` cast on a
+REVOKED post, which also counts as an unrevoke) is a signed vote
+commit — pure integer math over `.freechains/revokes/` sums,
+blind to payload presence (reps.md:254-312). Nothing today stops
+a node from casting `unrevoke` without holding the payload, which
+would let a post transition out of REVOKED while the bytes are
+gone everywhere — a promise the network cannot honor.
+
+Un-revoke must instead be a **guarantee**, not a hope: the source
+casting the vote must not be able to create it unless the blob is
+actually available.
+
+- Before building/signing the `unrevoke` (or REVOKED-post `like`)
+  commit, the local node must materialize the payload: check the
+  local object store, and if absent, run the by-hash fetch loop
+  (transfer model above) against known peers.
+- Only on success does the command proceed to create and sign the
+  commit.
+- On failure it refuses, same shape as every other guarded
+  command:
+
+  ```
+  ERROR : chain unrevoke : blob unavailable
+  ```
+
+This guarantees that **at the moment a post leaves REVOKED, at
+least one peer (the caster) provably holds the payload** —
+availability was a precondition of the commit existing at all,
+not an afterthought. It does not promise the blob survives
+forever after that (the caster could `rm` it again later — same
+cooperative ceiling as the rest of this design), but it closes
+the hole of an unrevoke entering the DAG while nobody anywhere
+has the bytes.
+
+Open sub-question: does the same gate apply to the `like`-as-
+unrevoke path (reps.md:278), not just the explicit `unrevoke`
+command? For the guarantee to hold on every path back to
+ACCEPTED, it should — a REVOKED-post `like` should be gated the
+same way. Needs a decision before implementation.
+
 ## Open questions
 
-- **Bare-repo migration (now the main blocker):** converting
-  chains to bare removes the resurrection surface and the
-  checkout dependency, but sync (`sync.lua:378,415`) and any
-  worktree assumptions must be reworked. Scope this.
 - Full initial push/clone still needs the closure -> a chain
   with a removed payload can only onboard new peers via
   FILTERED transfer. Confirm both push and fetch paths in
@@ -446,13 +520,32 @@ fallback.
       OK; optimistic-batch + per-blob fallback
 - [x] SPARSE normal ops prototyped (2026-07-22): create/post/
       sync work; `add --sparse` + `reapply` is the only delta
-- [ ] **NEXT: test merge/reset under sparse + removal persists**
-      across a full post/sync cycle
+- [x] DECISION 2026-07-31: SPARSE rejected, BARE accepted — the
+      by-hash fetch machinery is required either way, so sparse's
+      lighter-cost argument no longer holds, and bare's no-worktree
+      structural guarantee beats sparse's open merge/reset risk
+- [x] DECISION 2026-07-31: sync must hard-fail (no ref/HEAD
+      update) on any per-blob miss whose hash is not in the LOCAL
+      revoked set; only locally-known-revoked misses tombstone
+- [x] DECISION 2026-07-31: unrevoke (and REVOKED-post `like`,
+      reps.md:278) must be gated — refuse to create/sign the
+      commit unless the local node first materializes the blob
+      (local store or by-hash fetch); guarantees at least one
+      holder exists the moment a post leaves REVOKED
+- [ ] **NEXT: scope the bare-repo plumbing rewrite** — replace
+      `git add`/`checkout`/`reset --hard`/`merge --no-commit` in
+      `post.lua`, `like.lua`, `sync.lua`, `chains.lua` with
+      `hash-object`/`update-index`/`mktree`/`commit-tree`/
+      `read-tree`/`merge-tree` equivalents
 - [ ] Loose-object git config
 - [ ] `uploadpack.allowFilter` + filtered fetch in `sync.lua`
 - [ ] `get.lua` tolerates absent payload -> tombstone
 - [ ] `rm` revoked loose blob on honest nodes
-- [ ] Doc: cooperative-only guarantee (no global erasure)
+- [ ] Implement hard-fail-on-unexpected-miss check in sync
+- [ ] Implement gated unrevoke (+ decide on `like`-as-unrevoke gate)
+- [ ] Doc: cooperative-only guarantee (no global erasure) — still
+      true for pre-flip holders who choose not to cooperate; the
+      gate above only strengthens the flip moment, not the ceiling
 - [ ] Migration for full-closure chains
 
 ## Cross-references
