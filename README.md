@@ -396,15 +396,13 @@ $ freechains chain '#chat' list dag
                  c7d8e9f
                     |
                  d8e9f0a
-              (^560a55c)
+               (^560a55c)
 ```
 
 The post is now part of the chain and `Dave` becomes a proper member.
-%
-TODO:
-Note that the like `d8e9f0a` links back to two posts: the beg `c7d8e9f` just
-above it, and the previous tip of the chain, which appears as `(^560a55c)`
-because it is not drawn immediately above.
+Note that the like `d8e9f0a` links back to two posts:
+    the beg `c7d8e9f` just above it, and
+    the previous tip pointed as `(^560a55c)`.
 
 In summary, the reputation system of Freechains allows to rate posts and
 members, helping to distinguish quality amid excess.
