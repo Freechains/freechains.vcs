@@ -348,15 +348,7 @@ The working tree is load-bearing across the codebase:
 Reads are already worktree-independent: `get.lua` uses
 `git show <hash>:file` from the object store.
 
-### Option BARE (full) — impractical
-
-A truly bare repo has no worktree/index; every write path above
-would be rewritten to plumbing (`hash-object`, `update-index`,
-`mktree`, `commit-tree`, `read-tree`, `merge-tree`). Touches
-`post`, `like`, `sync`, `chains`. Large, risky, out of
-proportion to the feature. Rejected as first choice.
-
-### Option SPARSE — lighter; normal ops TESTED 2026-07-22
+### Option SPARSE — REJECTED 2026-07-31
 
 Keep the repo non-bare but sparse-checkout so the worktree holds
 ONLY `.freechains/`, never the payload files:
@@ -366,43 +358,69 @@ git sparse-checkout init --no-cone
 git sparse-checkout set  --no-cone '/.freechains/'
 ```
 
-Effects:
+Effects (as prototyped 2026-07-22, create + post + sync, NO
+removal):
 
 - Payload files never materialize in the worktree -> `git add`
-  cannot re-hash them -> **no resurrection**.
+  cannot re-hash them -> no resurrection.
 - `checkout` skips excluded (SKIP_WORKTREE) paths -> does not
-  read the removed blob -> **no checkout error**.
-- State writes under `.freechains/` still use normal porcelain
-  (that subtree stays in the worktree).
-- `get.lua` reads payloads from objects, unaffected.
+  read the removed blob -> no checkout error.
+- Only code delta for normal ops: `git add` -> `git add --sparse`
+  + `git sparse-checkout reapply`.
 
-Prototyped in /tmp (create + post + sync, NO removal yet):
+Normal operation was verified to work. REJECTED anyway:
 
-- create: worktree ends up holding only `.freechains/`. OK.
-- post: naive `git add <payload>` is REFUSED ("outside
-  sparse-checkout"); `git add --sparse <payload>` works, then
-  `git sparse-checkout reapply` drops it from the worktree.
-  `git status` clean; `git show <hash>:file` still reads it.
-- sync (no removal): payloads ride the pack normally; both
-  `git push` and filtered clone transfer them. Sparse is
-  local-only, transport unaffected.
+- `merge --no-commit` / `reset --hard` under sparse with incoming
+  excluded-path changes, and removal-stays-gone across a full
+  post/sync cycle, were never actually tested (see prior "Still
+  to TEST" list) — sparse-checkout + SKIP_WORKTREE bits interact
+  with merge in ways that are easy to get subtly wrong, and that
+  risk was still open, not closed.
+- It only solves local resurrection. It does nothing for the
+  consistency and gating requirements below (hard-fail on a
+  non-revoked miss; gated unrevoke) — those need the same
+  explicit-by-hash-fetch machinery regardless of bare vs sparse.
+  Once that machinery exists, it also removes the local
+  materialization problem `get.lua` already solves via `git show
+  <hash>:file` (object-store read, no worktree involved) — so
+  sparse's only remaining unique value was resurrection-safety
+  for `post`/`like` writes, which bare gets too, structurally,
+  with no merge-interaction risk.
 
-So the ONLY code delta for normal operation is
-`git add` -> `git add --sparse` + a `sparse-checkout reapply`.
+### Option BARE (full) — ACCEPTED 2026-07-31
 
-Still to TEST (deferred):
+A truly bare repo has no worktree/index at all -> no
+resurrection surface, no checkout-needs-blob dependency,
+period. Every write path in the table above is rewritten to
+plumbing (`hash-object`, `update-index`, `mktree`,
+`commit-tree`, `read-tree`, `merge-tree`); touches `post`,
+`like`, `sync`, `chains`.
 
-- Does `merge --no-commit` / `reset --hard` behave under sparse
-  when incoming commits add excluded payload files? Posts are
-  additive (create-mode), so likely no conflicts — verify.
-- That an actual `rm` of a payload STAYS gone across a full
-  post/sync cycle under sparse (no resurrection path left).
+Previously rejected as "large, risky, out of proportion to the
+feature," with sparse-checkout preferred as the lighter option.
+That tradeoff no longer holds:
 
-### Verdict so far
+- the by-hash batch-fetch loop (transfer model above) is
+  required infrastructure either way — sparse did not avoid
+  building it, it only tried to dodge the worktree rewrite;
+- `get.lua` already reads via `git show <hash>:file`, which needs
+  no worktree and works identically on bare;
+- the plumbing rewrite is a known, one-time, mechanical cost;
+  sparse's merge/reset interaction risk was open-ended and only
+  discoverable by testing every future merge shape.
 
-SPARSE handles normal operation (verified). Remaining risk is
-merge/reset under sparse + removal persistence. BARE stays the
-fallback.
+So: pay the plumbing cost once, get a structural guarantee
+(no worktree => no resurrection, ever, by construction) instead
+of a behavioral one that depends on every future commit path
+respecting SKIP_WORKTREE correctly.
+
+### Verdict
+
+BARE is the direction. `sync.lua`'s `checkout --detach` /
+`checkout main` / `reset --hard` / `merge --no-commit` (lines
+378, 415, 449, 507, 563, 569) and `post.lua` / `like.lua`'s
+`git add` + index writes all need plumbing equivalents. Scope
+this rewrite next.
 
 ## Sync consistency: hard-fail on a non-revoked miss (2026-07-31)
 
@@ -515,12 +533,86 @@ doc is the unrelated post-cost discount timer (reps.md:135-153).
 This finality window is a new mechanism to design, not something
 already covered elsewhere.
 
-## Open questions
+## Finality window design (2026-07-31)
 
-- **Finality window for physical deletion** (new, see above): how
-  long must local REVOKED state hold with no new sync activity
-  before an honest node `rm`s the loose blob? Needs its own rule,
-  separate from the Rule 2 discount timer.
+The two revoke channels (reps.md:287-307) have different risk
+profiles, so they get different treatment:
+
+### Author channel — no window needed
+
+`p.revoke.author < 0` can ONLY be moved by a fresh commit signed
+by the author (reps.md:294-296: "only the author's own unrevoke
+lifts it"). That commit is already gated (must materialize the
+blob before signing, see above). So nothing about a lagging or
+partial sync view can silently flip this channel — it is not a
+sum a node can be "wrong about" the way a multi-caster sum can.
+Once this node has pulled the author's full commit history for
+the post, `p.revoke.author < 0` is as final as anything gets here.
+**Eligible for immediate `rm`**, no settle timer required.
+
+### Others channel — needs the window
+
+`p.revoke.others` is a running sum over many independent
+signed casters (reps.md:290-292). A node with a partial DAG view
+can compute a currently-negative sum that was never the network's
+true converged answer — more already-existing, not-yet-pulled
+positive votes could still land and push it non-negative. This
+isn't a legitimate community revocation getting reversed; it's a
+node treating an incomplete view as ground truth for an
+irreversible physical action. That is the case the window guards.
+
+**State tracking** — new `local/revoked.lua`, mirroring the
+existing engine pattern for Rule 2 (reps.md:429-441: recomputed
+on every commit):
+
+```lua
+revoked = {
+  [hash] = { channel = "others", first_seen = <time>, last_change = <time> }
+}
+```
+
+**On every commit** (post, like, dislike, revoke, unrevoke):
+
+1. recompute `others` sum for every tracked hash;
+2. sum >= 0 -> drop the entry (never was, or no longer is, a
+   candidate — no deletion, nothing to do);
+3. sum < 0 and hash not yet tracked -> insert
+   `{first_seen = NOW, last_change = NOW}`;
+4. sum < 0 and hash already tracked, and this commit is a NEW
+   revoke-relevant vote touching it -> reset `last_change = NOW`
+   (still negative, but the view just changed, so the settle
+   clock restarts);
+5. sum < 0 and `NOW - last_change >= SETTLE` and this node has
+   completed at least one full sync round since `first_seen`
+   (not just sitting on a stale replica that never talked to
+   anyone) -> physically `rm`, drop the entry.
+
+**`SETTLE` constant**: deliberately a NEW, separate knob, not a
+reuse of Rule 2's 0-12h ratio-based discount — that formula
+answers "how much of the chain's reputation has since posted,"
+which is about posting-incentive economics, not about whether
+revoke/like votes have finished propagating across a P2P network.
+This window's job is closer to "did every currently-connected
+peer have a chance to tell us about a vote it already holds."
+Start with a fixed conservative default (e.g. 24h) as a policy
+knob, not a derived/proven number — this is inherently a
+tradeoff between removal responsiveness (author's/community's
+interest in the payload actually going away) and safety against
+destroying a post that a slower peer's still-arriving vote would
+have kept ACCEPTED. It can never be a hard guarantee in an open
+P2P network (an offline peer can hold a decisive vote indefinitely)
+— document it as heuristic, same cooperative-ceiling framing as
+the rest of this plan (non-goal section above).
+
+**This does not weaken the gated-unrevoke guarantee.** That
+guarantee (at least one peer holds the payload at the moment a
+post leaves REVOKED) is about explicit commit-creation-time
+checks and holds regardless of any node's deletion timing. The
+finality window is a separate hygiene safeguard: it stops a node
+from destroying a payload based on a merely-transient, not-yet-
+converged local view of a community sum.
+
+## Open questions
 
 - Full initial push/clone still needs the closure -> a chain
   with a removed payload can only onboard new peers via
@@ -577,6 +669,11 @@ already covered elsewhere.
       can flip back to ACCEPTED with no new gated commit at all ->
       physical `rm` needs its own finality/settling window,
       decoupled from the instantaneous Phase-1 REVOKED computation
+- [x] DESIGNED 2026-07-31: finality window — author channel needs
+      none (only a fresh gated commit moves it); others channel
+      gets a new `local/revoked.lua` tracking table + SETTLE timer
+      (new constant, not reused from Rule 2) + a completed-sync-
+      round check before `rm` is eligible
 - [ ] **NEXT: scope the bare-repo plumbing rewrite** — replace
       `git add`/`checkout`/`reset --hard`/`merge --no-commit` in
       `post.lua`, `like.lua`, `sync.lua`, `chains.lua` with
