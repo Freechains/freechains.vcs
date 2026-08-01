@@ -1,0 +1,204 @@
+#!/usr/bin/env lua5.4
+
+require "tests"
+
+-- Phase 2 of revocation (260721-remove-blob.md): honest peers
+-- physically drop a REVOKED post's payload, not just hide it
+-- (260721-revoke.md, Phase 1). Scoped to this iteration: only the
+-- author's own absolute channel triggers physical removal
+-- (`gc_revoked`, common.lua) -- that channel can only move via a
+-- fresh, already-caster-verified commit, so acting immediately is
+-- safe. A community-only revoke still hides the post (Phase 1) but
+-- never touches the blob.
+
+local DIR = ROOT .. "/chains/#cli-remove-blob/"
+
+exec {
+    cmd = ENV_EXE .. " chains add '#cli-remove-blob' init file " .. GEN_3,
+}
+
+local function blob_of (hash)
+    local file = exec {
+        cmd = "git -C " .. DIR .. " diff-tree --no-commit-id -r --name-only " .. hash,
+    }
+    local blob = exec {
+        cmd = "git -C " .. DIR .. " rev-parse " .. hash .. ":" .. file,
+    }
+    return file, blob
+end
+
+do
+    print("==> Physical removal: author self-revoke drops the blob")
+
+    local POST = exec {
+        cmd = ENV_EXE .. " chain '#cli-remove-blob' post inline 'delete-me' --sign " .. KEY1,
+    }
+    local file, blob = blob_of(POST)
+
+    TEST "blob-present-before-revoke"
+    do
+        local _, code = exec {
+            cmd = "git -C " .. DIR .. " cat-file -e " .. blob,
+        }
+        assert(code == 0, "blob should exist before revoke")
+        local f = io.open(DIR .. file, "r")
+        assert(f, "working-tree file should exist before revoke")
+        f:close()
+    end
+
+    exec {
+        cmd = ENV_EXE .. " chain '#cli-remove-blob' revoke 1 " .. POST .. " --sign " .. KEY1,
+    }
+
+    TEST "blob-object-gone-after-self-revoke"
+    do
+        local _, code = exec { err=false,
+            cmd = "git -C " .. DIR .. " cat-file -e " .. blob,
+        }
+        assert(code ~= 0, "blob object should be gone")
+    end
+
+    TEST "worktree-file-gone-after-self-revoke"
+    do
+        local f = io.open(DIR .. file, "r")
+        assert(not f, "working-tree file should be gone")
+    end
+
+    TEST "skip-worktree-bit-set"
+    do
+        local out = exec {
+            cmd = "git -C " .. DIR .. " ls-files -v " .. file,
+        }
+        assert(out:match("^S"), "expected skip-worktree (S) flag: " .. out)
+    end
+
+    TEST "git-status-clean-after-removal"
+    do
+        local out = exec {
+            cmd = "git -C " .. DIR .. " status --porcelain",
+        }
+        assert(out == "", "status should be clean: " .. out)
+    end
+
+    TEST "get-payload-fails-revoked"
+    FAIL {
+        cmd = ENV_EXE .. " chain '#cli-remove-blob' get payload " .. POST,
+        err = "ERROR : chain get : revoked post",
+    }
+
+    TEST "new-post-after-removal-still-works"
+    do
+        local out, code = exec {
+            cmd = ENV_EXE .. " chain '#cli-remove-blob' post inline 'still-works' --sign " .. KEY1,
+        }
+        assert(code == 0, "post-after-removal should succeed: " .. tostring(out))
+    end
+
+    TEST "gated-unrevoke-refused-blob-unavailable"
+    FAIL {
+        cmd = ENV_EXE .. " chain '#cli-remove-blob' unrevoke 1 " .. POST .. " --sign " .. KEY1,
+        err = "ERROR : chain unrevoke : blob unavailable",
+    }
+end
+
+do
+    print("==> Community-only revoke never touches the blob")
+
+    local POST = exec {
+        cmd = ENV_EXE .. " chain '#cli-remove-blob' post inline 'community-only' --sign " .. KEY1,
+    }
+    local file, blob = blob_of(POST)
+
+    exec {
+        cmd = ENV_EXE .. " chain '#cli-remove-blob' revoke 1 " .. POST .. " --sign " .. KEY2,
+    }
+
+    TEST "community-revoke-hides-but-keeps-blob"
+    do
+        FAIL {
+            cmd = ENV_EXE .. " chain '#cli-remove-blob' get payload " .. POST,
+            err = "ERROR : chain get : revoked post",
+        }
+        local _, code = exec {
+            cmd = "git -C " .. DIR .. " cat-file -e " .. blob,
+        }
+        assert(code == 0, "community-only revoke must not remove the blob")
+    end
+
+    TEST "community-unrevoke-not-gated-blob-still-there"
+    do
+        local out, code = exec {
+            cmd = ENV_EXE .. " chain '#cli-remove-blob' unrevoke 1 " .. POST .. " --sign " .. KEY2,
+        }
+        assert(code == 0, "unrevoke should succeed: " .. tostring(out))
+        local pay, pcode = exec {
+            cmd = ENV_EXE .. " chain '#cli-remove-blob' get payload " .. POST,
+        }
+        assert(pcode == 0 and pay == "community-only", "payload should read again: " .. tostring(pay))
+    end
+end
+
+do
+    print("==> Sync survives a removed blob (incremental, peer already holds it)")
+
+    -- Two separate hosts (separate --root, like repl-local-head.lua):
+    -- the clone destination is named after the shared genesis hash,
+    -- so a same-root clone of a chain already present there always
+    -- fails (cli-chains.lua's "clone existing chain fails") -- real
+    -- peers are separate machines, i.e. separate roots.
+    --
+    -- A FULL clone after removal still needs `filter=blob:none` +
+    -- `uploadpack.allowFilter`, which is not implemented yet
+    -- (260721-remove-blob.md open items). Cloning B before any
+    -- removal avoids that and exercises exactly what IS implemented:
+    -- incremental fetch after a removal, which does not renegotiate
+    -- the missing blob.
+    local ROOT_A = ROOT .. "/remove-blob-sync/A/"
+    local ROOT_B = ROOT .. "/remove-blob-sync/B/"
+    local EXE_A  = "../src/freechains.lua --root " .. ROOT_A
+    local EXE_B  = "../src/freechains.lua --root " .. ROOT_B
+    exec { cmd = "mkdir -p " .. ROOT_A }
+    exec { cmd = "mkdir -p " .. ROOT_B }
+
+    exec {
+        cmd = EXE_A .. " chains add '#test' init file " .. GEN_3,
+    }
+    local DIR_A = ROOT_A .. "/chains/#test/"
+
+    local POST = exec {
+        cmd = EXE_A .. " chain '#test' post inline 'to-be-removed' --sign " .. KEY1,
+    }
+
+    -- B clones AFTER this post but BEFORE the removal -- it already
+    -- holds the blob, same as any real pre-revocation holder would.
+    exec {
+        cmd = EXE_B .. " chains add '#test' clone " .. DIR_A,
+    }
+
+    exec {
+        cmd = EXE_A .. " chain '#test' revoke 1 " .. POST .. " --sign " .. KEY1,
+    }
+    exec {
+        cmd = EXE_A .. " chain '#test' post inline 'after-removal' --sign " .. KEY1,
+    }
+
+    TEST "incremental-sync-after-removal-succeeds"
+    do
+        local out, code = exec {
+            cmd = EXE_B .. " chain '#test' sync recv '" .. DIR_A .. "'",
+        }
+        assert(code == 0, "sync recv should succeed despite the removed blob: " .. tostring(out))
+    end
+
+    TEST "peer-sees-the-revoke-via-synced-state"
+    FAIL {
+        cmd = EXE_B .. " chain '#test' get payload " .. POST,
+        err = "ERROR : chain get : revoked post",
+    }
+end
+
+exec {
+    cmd = ENV_EXE .. " chains rem '#cli-remove-blob'",
+}
+
+print("<== ALL PASSED")

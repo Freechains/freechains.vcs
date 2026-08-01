@@ -55,11 +55,51 @@ if to_beg then
     G.posts[ARGS.id] = load(src)()[ARGS.id]
 end
 
--- commit the vote (content only, no state). The trailer + dir
--- distinguish a revoke-axis vote from a like/dislike:
+-- the trailer + dir distinguish a revoke-axis vote from a like/dislike:
 --   like/dislike -> .freechains/likes/   , 'Freechains: like'
 --   revoke/unrev -> .freechains/revokes/ , 'Freechains: revoke'
 local kind = (ARGS.revoke or ARGS.unrevoke) and "revoke" or "like"
+
+-- gated unrevoke: a vote that would flip a currently-REVOKED post
+-- back to ACCEPTED must not succeed unless the payload is still
+-- available -- otherwise it promises visibility nobody can deliver
+-- (260721-remove-blob.md, "Gated unrevoke"). Mirrors apply()'s own
+-- author-vs-others channel pick (common.lua) to predict the outcome
+-- without mutating G; a vote that doesn't actually restore (e.g. a
+-- self-like while the author channel alone still forces REVOKED) is
+-- never gated. A post hidden only via the community channel never
+-- had its blob touched, so this only bites once `gc_revoked` has
+-- actually removed it.
+if ARGS.target == "post" and num>0 and G.posts[ARGS.id] and is_revoked(G.posts[ARGS.id]) then
+    local post = G.posts[ARGS.id]
+    local r = post.revoke or {}
+    local a, o = r.author or 0, r.others or 0
+    -- ARGS.sign is a private-key file PATH; post.author is a
+    -- "ssh-ed25519 <pubkey>" STRING (see ssh.pubkey) -- derive the
+    -- caster's own pubkey the same way chains.lua does before
+    -- comparing, same shape as apply()'s check.
+    local caster = ARGS.sign and ("ssh-ed25519 " .. (exec {
+        cmd = "ssh-keygen -y -f " .. ARGS.sign,
+    }):match("ssh%-ed25519 (%S+)"))
+    if kind=='revoke' and post.author and caster==post.author then
+        a = a + num
+    else
+        o = o + num
+    end
+    if not ((a<0) or (o<0)) then
+        local file = exec {
+            cmd = "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. ARGS.id,
+        } :match("(%S+)")
+        local avail = file and exec { err=false,
+            cmd = "git -C " .. REPO .. " cat-file -e " .. ARGS.id .. ":" .. file,
+        }
+        if not avail then
+            ERROR("chain " .. (ARGS.unrevoke and "unrevoke" or "like") .. " : blob unavailable")
+        end
+    end
+end
+
+-- commit the vote (content only, no state)
 local hash
 do
     local payload = [[
@@ -97,6 +137,10 @@ do
         ERROR("chain " .. kind .. " : " .. err)
     end
     G.order[#G.order+1] = hash
+end
+
+if ARGS.target == "post" then
+    gc_revoked(G, ARGS.id)
 end
 
 -- commit state

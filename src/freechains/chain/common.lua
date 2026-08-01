@@ -124,6 +124,46 @@ function is_revoked (p)
     return ((r.author or 0) < 0) or ((r.others or 0) < 0)
 end
 
+-- Physically drop a REVOKED post's payload: the loose blob AND the
+-- working-tree copy, then mark the path skip-worktree so neither
+-- resurrects it nor breaks a future checkout/reset/merge
+-- (260721-remove-blob.md, "Local removal"). Idempotent: safe to call
+-- on a post that is not revoked, or whose blob is already gone.
+--
+-- Scoped to the AUTHOR channel only (`p.revoke.author < 0`): that
+-- channel can only move via a fresh commit signed by the author (this
+-- one), so it is safe to act on immediately. The COMMUNITY (`others`)
+-- channel is a replay of many independent casters and is NOT handled
+-- here -- per the finality-window design, that one may only be acted
+-- on once caught up with a sync round, not on every individual live
+-- vote. Community-triggered removal is not yet implemented.
+function gc_revoked (G, hash)
+    local post = G.posts[hash]
+    if not (post and post.revoke and post.revoke.author < 0) then
+        return
+    end
+    if trailer(hash) ~= 'post' then
+        return
+    end
+
+    local file = exec {
+        cmd = "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash,
+    } :match("(%S+)")
+    if not file then
+        return
+    end
+
+    local blob = exec {
+        cmd = "git -C " .. REPO .. " rev-parse " .. hash .. ":" .. file,
+    }
+
+    os.remove(REPO .. ".git/objects/" .. blob:sub(1,2) .. "/" .. blob:sub(3))
+    os.remove(REPO .. file)
+    exec { err=false,
+        cmd = "git -C " .. REPO .. " update-index --skip-worktree " .. file,
+    }
+end
+
 -- posts hashes in a stable order: (time, hash); consolidated posts
 -- (time == nil) sort last, then lexicographically by hash. Makes the
 -- discount/consolidation scans deterministic across OS processes.

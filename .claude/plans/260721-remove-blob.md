@@ -778,11 +778,52 @@ is the whole rule.
       `git_config()`, so both `init` and `clone` paths get it.
       Verified: values land correctly on both paths; `cli-chains.lua`
       passes in full; normal log/status/commit unaffected.
-- [ ] `uploadpack.allowFilter` + filtered fetch in `sync.lua`
-- [ ] `get.lua` tolerates absent payload -> tombstone
-- [ ] `rm` revoked loose blob on honest nodes
+- [x] IMPLEMENTED 2026-08-01: `rm` revoked loose blob on honest nodes,
+      scoped to the author channel (`gc_revoked`, `common.lua`) —
+      called from `like.lua` right after a self-revoke's `apply()`
+      succeeds. Removes the loose object, the working-tree file, and
+      sets `--skip-worktree`. `get.lua` already tolerates the result
+      via its existing Phase-1 `is_revoked` guard (never reached the
+      blob read for a revoked post in the first place) — the
+      standalone "tombstone" item is therefore already satisfied for
+      this path, not a separate piece of work.
+- [x] IMPLEMENTED 2026-08-01: gated unrevoke/`like`, scoped correctly
+      -- gates only a vote that would ACTUALLY flip `is_revoked` from
+      true to false (mirrors `apply()`'s own author-vs-others channel
+      pick), not every positive vote on a revoked post. A self-like
+      that can't lift an author-forced revoke anyway is correctly
+      NOT gated; an unrevoke that would restore visibility IS gated
+      and refuses with `ERROR : chain unrevoke : blob unavailable`
+      if the blob is gone. Two bugs found only by tracing real test
+      failures, not by reasoning: (1) comparing `ARGS.sign` (a
+      private-key file PATH) directly against `post.author` (a
+      pubkey STRING) can never match — fixed by deriving the
+      caster's pubkey via `ssh-keygen -y -f` first; (2) an
+      over-broad first version gated ANY positive vote on a revoked
+      post, which incorrectly blocked a self-like that could never
+      have restored visibility anyway.
+- [x] TESTED 2026-08-01: new `tst/cli-remove-blob.lua` (in `make
+      tests`) verifies the object is gone, the working-tree file is
+      gone, the `--skip-worktree` (S) flag is set, `git status` stays
+      clean, a NEW post after removal still commits (exercises
+      `write-tree --missing-ok`), the gate refuses correctly, a
+      community-only revoke never touches the blob, and incremental
+      sync to a peer that already held the blob still succeeds.
+      Updated `cli-revoke.lua`'s two spots that assumed self-revoke
+      was always reversible on a single node with no other holder —
+      it correctly isn't anymore, once physically removed.
+- [ ] `uploadpack.allowFilter` + filtered fetch in `sync.lua` — still
+      needed for a FULL clone to succeed after a removal (proven
+      necessary again by `cli-remove-blob.lua`'s sync test, which
+      deliberately clones the peer BEFORE any removal to avoid this
+      exact gap)
+- [ ] Community-channel (`others`) triggered removal: this iteration
+      only wires `gc_revoked` into `like.lua`'s own self-revoke path.
+      A post revoked purely by community vote count is still hidden
+      (Phase 1) but its blob is deliberately left untouched — wiring
+      the "flip once at end of sync" rule (finality window section
+      above) into `sync.lua` is separate, not-yet-done work.
 - [ ] Implement hard-fail-on-unexpected-miss check in sync
-- [ ] Implement gated unrevoke (+ decide on `like`-as-unrevoke gate)
 - [ ] Doc: cooperative-only guarantee (no global erasure) — still
       true for pre-flip holders who choose not to cooperate; the
       gate above only strengthens the flip moment, not the ceiling

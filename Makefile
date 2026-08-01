@@ -14,6 +14,7 @@ tests:
 	$(L) cli-get-merge.lua
 	$(L) cli-reps.lua
 	$(L) cli-revoke.lua
+	$(L) cli-remove-blob.lua
 	$(L) cli-now.lua
 	$(L) cli-time.lua
 	$(L) cli-begs.lua

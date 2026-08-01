@@ -95,16 +95,21 @@ do
     end
 
     do
-        TEST "revoke-author-unrevoke"
-        -- only the author can lift their own forget
-        exec {
+        TEST "revoke-author-unrevoke-blob-gone"
+        -- the author's own self-revoke physically removed the
+        -- payload (260721-remove-blob.md, "gc_revoked"); even the
+        -- author's own unrevoke is gated on the blob still being
+        -- available (nobody else on this single-node test holds a
+        -- copy), so it is correctly refused, not silently accepted
+        -- into a promise nobody can keep
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-revoke' unrevoke 1 " .. POST .. " --sign " .. KEY1,
+            err = "ERROR : chain unrevoke : blob unavailable",
         }
-        local out, code = exec {
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. POST,
+            err = "ERROR : chain get : revoked post",
         }
-        assert(code == 0, "exit code: " .. tostring(code))
-        assert(out == "revoke-me", "payload should read again: " .. out)
     end
 end
 
@@ -222,7 +227,10 @@ do
     do
         TEST "revoke-self-like-keeps"
         -- the author's own like feeds the community channel, so it
-        -- cannot lift their absolute self-revoke
+        -- cannot lift their absolute self-revoke -- and since it never
+        -- flips the post out of REVOKED (author channel alone still
+        -- forces it), the gate doesn't block it: the self-revoke's
+        -- physical removal (gc_revoked) hasn't happened to THIS vote
         exec {
             cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1 " .. P .. " --sign " .. KEY1,
         }
@@ -233,25 +241,33 @@ do
             cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. P,
             err = "ERROR : chain get : revoked post",
         }
-        exec {
+
+        TEST "revoke-self-like-keeps-unrevoke-blob-gone"
+        -- the self-revoke above physically removed P's payload; this
+        -- unrevoke WOULD flip the author channel back to 0 (a genuine
+        -- restore), so it is correctly gated and refused -- nobody on
+        -- this single-node test still holds a copy
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-revoke' unrevoke 1 " .. P .. " --sign " .. KEY1,
+            err = "ERROR : chain unrevoke : blob unavailable",
         }
-        local out, code = exec {
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. P,
+            err = "ERROR : chain get : revoked post",
         }
-        assert(code == 0, "exit code: " .. tostring(code))
-        assert(out == "coupled", "author unrevoke should restore: " .. out)
     end
 
     do
         TEST "reps-revoke"
-        -- author channel is back to 0, community is +1 (the two likes
-        -- and the unrevoke net against the two revokes)
+        -- author channel stays -1 (the refused unrevoke never
+        -- applied), community is +1 (the two likes net against the
+        -- two revokes -- the self-revoke's blocked unrevoke above
+        -- never touched this channel either way)
         local out, code = exec {
             cmd = ENV_EXE .. " chain '#cli-revoke' reps revoke " .. P,
         }
-        assert(code == 0,    "exit code: " .. tostring(code))
-        assert(out == "0 1", "channels: " .. out)
+        assert(code == 0,     "exit code: " .. tostring(code))
+        assert(out == "-1 1", "channels: " .. out)
     end
 
     do
@@ -260,7 +276,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-revoke' reps revokes",
         }
         assert(code == 0, "exit code: " .. tostring(code))
-        assert(out:find(P .. " 0 1", 1, true), "P not listed: " .. out)
+        assert(out:find(P .. " -1 1", 1, true), "P not listed: " .. out)
     end
 
     do
