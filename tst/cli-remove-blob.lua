@@ -130,11 +130,11 @@ do
         assert(code ~= 0, "community revoke should drop the blob too")
     end
 
-    TEST "community-unrevoke-pending-by-hash-fetch"
+    TEST "community-unrevoke-refused-with-no-supplier"
     do
-        -- reversible by design (reps.md:287-312), but the return path is
-        -- the by-hash step of the next sync, which is not built yet --
-        -- so today the gate refuses. Flips back when step 2 lands.
+        -- no peer here holds a copy, and this node just dropped its own,
+        -- so a plain unrevoke has nothing to restore from and the gate
+        -- refuses. `--file` is the way back -- see the section below.
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-remove-blob' unrevoke 1 " .. POST .. " --sign " .. KEY2,
             err = "ERROR : chain unrevoke : blob unavailable",
@@ -242,6 +242,62 @@ do
             cmd = "git -C " .. ROOT_B .. "/chains/#test/ cat-file -e " .. c_blob,
         }
         assert(ccode ~= 0, "the synced peer should drop it as well")
+    end
+end
+
+do
+    print("==> --file re-seeds a payload nobody serves any more")
+
+    -- Once every honest peer has dropped a payload, no sync can bring it
+    -- back -- there is no supplier left. `--file` is the way back: the
+    -- caster hands over an out-of-band copy. Safe to accept from anyone
+    -- BECAUSE it is content-addressed: only the exact bytes the DAG
+    -- already names can hash to the hash it names.
+    local POST = exec {
+        cmd = ENV_EXE .. " chain '#cli-remove-blob' post inline 'precious' --sign " .. KEY1,
+    }
+    exec { cmd = "printf 'precious' > " .. TMP .. "/backup.txt" }
+    exec { cmd = "printf 'tampered' > " .. TMP .. "/bad.txt" }
+
+    exec {
+        cmd = ENV_EXE .. " chain '#cli-remove-blob' revoke 1 " .. POST .. " --sign " .. KEY2,
+    }
+
+    TEST "file-refused-when-it-does-not-match"
+    FAIL {
+        cmd = ENV_EXE .. " chain '#cli-remove-blob' unrevoke 1 " .. POST ..
+              " --sign " .. KEY2 .. " --file " .. TMP .. "/bad.txt",
+        err = "ERROR : chain unrevoke : file does not match payload",
+    }
+
+    TEST "mismatched-file-never-enters-the-object-store"
+    do
+        local bad = exec { cmd = "git hash-object " .. TMP .. "/bad.txt" }
+        local _, code = exec { err=false,
+            cmd = "git -C " .. DIR .. " cat-file -e " .. bad,
+        }
+        assert(code ~= 0, "a rejected file must not be written")
+    end
+
+    TEST "file-restores-the-payload"
+    do
+        local out, code = exec {
+            cmd = ENV_EXE .. " chain '#cli-remove-blob' unrevoke 1 " .. POST ..
+                  " --sign " .. KEY2 .. " --file " .. TMP .. "/backup.txt",
+        }
+        assert(code == 0, "unrevoke with --file should succeed: " .. tostring(out))
+        local pay, pcode = exec {
+            cmd = ENV_EXE .. " chain '#cli-remove-blob' get payload " .. POST,
+        }
+        assert(pcode == 0 and pay == "precious", "payload should read again: " .. tostring(pay))
+    end
+
+    TEST "worktree-back-under-normal-management"
+    do
+        -- the path was skip-worktree'd when dropped; restoring clears
+        -- that and materialises the file, so status stays clean
+        local out = exec { cmd = "git -C " .. DIR .. " status --porcelain" }
+        assert(out == "", "status should be clean: " .. out)
     end
 end
 

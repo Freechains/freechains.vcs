@@ -92,8 +92,47 @@ if ARGS.target == "post" and num>0 and G.posts[ARGS.id] and is_revoked(G.posts[A
         local avail = file and exec { err=false,
             cmd = "git -C " .. REPO .. " cat-file -e " .. ARGS.id .. ":" .. file,
         }
+        local what = ARGS.unrevoke and "unrevoke" or "like"
+
+        -- --file: re-seed the payload from an out-of-band copy. Safe to
+        -- accept from anywhere BECAUSE it is content-addressed -- only
+        -- the exact bytes the DAG already names can hash to the hash it
+        -- names, so a wrong or tampered file cannot pass. This is the
+        -- only way back once every honest peer has dropped a payload
+        -- and none is left to serve it.
+        if (not avail) and ARGS.file then
+            local abs = exec { stderr=false, err=false,
+                cmd = "realpath " .. ARGS.file,
+            }
+            if not abs then
+                ERROR("chain " .. what .. " : invalid path")
+            end
+            local want = exec {
+                cmd = "git -C " .. REPO .. " rev-parse " .. ARGS.id .. ":" .. file,
+            }
+            local got = exec { stderr=false, err=false,
+                cmd = "git -C " .. REPO .. " hash-object -- " .. abs,
+            }
+            if got ~= want then
+                ERROR("chain " .. what .. " : file does not match payload")
+            end
+            -- only now write it: a mismatched file never enters the store
+            exec {
+                cmd = "git -C " .. REPO .. " hash-object -w -- " .. abs,
+            }
+            -- and put the path back under normal management, so the
+            -- worktree matches the index again
+            exec { err=false,
+                cmd = "git -C " .. REPO .. " update-index --no-skip-worktree " .. file,
+            }
+            exec { err=false,
+                cmd = "git -C " .. REPO .. " checkout -- " .. file,
+            }
+            avail = true
+        end
+
         if not avail then
-            ERROR("chain " .. (ARGS.unrevoke and "unrevoke" or "like") .. " : blob unavailable")
+            ERROR("chain " .. what .. " : blob unavailable")
         end
     end
 end

@@ -199,6 +199,13 @@ do
         cmd.chain[c]._:option("--why")
     end
 
+    -- `--file`: re-seed a payload this node no longer holds, from an
+    -- out-of-band copy, so an upward vote that WOULD lift a revoke can
+    -- pass the availability gate. Only the two votes that can lift one
+    -- take it (a `dislike`/`revoke` never needs the payload).
+    cmd.chain.like._:option("--file")
+    cmd.chain.unrevoke._:option("--file")
+
     -- cmd.chain.destroy : local only (no sign, no network)
     cmd.chain.destroy._ = cmd.chain._:command("destroy")
     cmd.chain.destroy._:argument("hash")
