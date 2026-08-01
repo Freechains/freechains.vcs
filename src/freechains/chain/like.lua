@@ -76,16 +76,8 @@ do
     exec {
         cmd = "git -C " .. REPO .. " add " .. file,
     }
-    local s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=ssh"
     local msg = ARGS.why or "(empty message)"
-    exec { stderr=false,
-        cmd = CMD.git .. "git -C " .. REPO .. s1 .. " commit -S -m '" .. msg ..
-                  "' --trailer 'Freechains: " .. kind .. "'",
-        err = "chain " .. kind .. " : invalid sign key",
-    }
-    hash = exec {
-        cmd = "git -C " .. REPO .. " rev-parse HEAD",
-    }
+    hash = commit_tree(msg, kind, ARGS.sign, "chain " .. kind .. " : invalid sign key")
 end
 
 -- apply
@@ -113,10 +105,7 @@ do
     exec {
         cmd = "git -C " .. REPO .. " add .freechains/state/",
     }
-    exec {
-        cmd = CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
-        .. " --trailer 'Freechains: state'",
-    }
+    commit_tree("(empty message)", "state", nil, nil)
 end
 
 if to_beg then

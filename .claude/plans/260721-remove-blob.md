@@ -754,10 +754,24 @@ is the whole rule.
       not — `commit` calls `write-tree` without `--missing-ok`.
       Fix verified: `write-tree --missing-ok` + `commit-tree`
       (`-S` included) + `update-ref`. `git add` unaffected.
-- [ ] **NEXT: swap the 6 plain-`commit` call sites for the
-      write-tree/commit-tree/update-ref substitution** —
-      `post.lua:53,86`, `like.lua:82,117`, `sync.lua:517,577`.
-      `chains.lua`'s init commit is unaffected (pre-revocation).
+- [x] IMPLEMENTED 2026-08-01: swapped all 6 plain-`commit` call sites
+      for the write-tree/commit-tree/update-ref substitution, via one
+      shared `commit_tree(msg, kind, sign, err)` helper in
+      `chain/common.lua` — `post.lua:53,86`, `like.lua:82,117`,
+      `sync.lua:517,577`. `chains.lua`'s init commit untouched
+      (pre-revocation, nothing could be missing yet). Two details
+      found only by testing, not reasoning: (1) `--trailer` has no
+      `commit-tree` equivalent — reproduced byte-for-byte via
+      `printf '%s\n' "$msg" | git interpret-trailers --trailer '...'`
+      piped into `-m`; (2) concluding a pending merge via `commit-tree
+      -p HEAD -p $(cat MERGE_HEAD)` moves the ref correctly but leaves
+      `.git/MERGE_HEAD`/`MERGE_MODE`/`MERGE_MSG` behind unless removed
+      explicitly — `git status` still reports "still merging" until
+      they're cleaned up. Purely a refactor: no new functionality,
+      `--missing-ok` is a no-op today (nothing removes blobs yet).
+      Verified: `make tests` passes in full (36/36), including
+      `cli-sign.lua`'s `git verify-commit` on a real SSH-signed
+      commit-tree output.
 - [x] IMPLEMENTED 2026-08-01: loose-object git config
       (`gc.auto 0`, `gc.autoPackLimit 0`, `fetch/receive/transfer.
       unpackLimit 2000000000`) added to `chains.lua`'s shared

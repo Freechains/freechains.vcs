@@ -513,10 +513,7 @@ elseif ARGS.recv then
                         err = "content conflict"
                         goto DONE
                     end
-                    exec { stderr=false,
-                        cmd = "git -C " .. REPO .. " commit -m 'x'"
-                        .. " --trailer 'Freechains: merge'"
-                    }
+                    commit_tree("x", "merge", nil, nil)
                 end
 
                 ok, err = pcall(commit, G_fst, hash, nil)
@@ -573,10 +570,7 @@ elseif ARGS.recv then
                 exec {
                     cmd = "git -C " .. REPO .. " add .freechains/state/"
                 }
-                exec {
-                    cmd = CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
-                    .. " --no-edit --trailer 'Freechains: state'"
-                }
+                commit_tree("(empty message)", "state", nil, nil)
             end
         end
     end

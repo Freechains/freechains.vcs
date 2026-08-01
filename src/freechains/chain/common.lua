@@ -51,6 +51,60 @@ function backs (hash)
     return ret
 end
 
+-- Conclude a commit on HEAD (and on MERGE_HEAD too, if a merge is
+-- pending) via plumbing rather than porcelain `git commit`:
+-- `write-tree --missing-ok` tolerates an object missing elsewhere in
+-- the tree (a future revoked/removed payload), which plain `commit`'s
+-- internal `write-tree` call does not -- it fails the whole commit.
+-- `sign`, if given, is a signing key path; `err`, if given, is the
+-- ERROR message on signing failure (mirrors the `err=` each call site
+-- previously passed straight to `exec` for the `git commit` this
+-- replaces). Returns the new commit hash.
+function commit_tree (msg, kind, sign, err)
+    local tree = exec { stderr=false,
+        cmd = "git -C " .. REPO .. " write-tree --missing-ok",
+    }
+
+    local merge_head = REPO .. ".git/MERGE_HEAD"
+    local mh_file = io.open(merge_head, "r")
+    local parents = "-p HEAD"
+    if mh_file then
+        local mh = mh_file:read("l")
+        mh_file:close()
+        parents = parents .. " -p " .. mh
+    end
+
+    local s1, s2 = "", ""
+    if sign then
+        s1 = " -c user.signingkey=" .. sign .. " -c gpg.format=ssh"
+        s2 = " -S"
+    end
+
+    local full_msg = exec { stderr=false,
+        cmd = "printf '%s\\n' '" .. msg .. "' | git -C " .. REPO ..
+              " interpret-trailers --trailer 'Freechains: " .. kind .. "'",
+    }
+
+    local hash = exec { stderr=false,
+        cmd = CMD.git .. "git -C " .. REPO .. s1 .. " commit-tree " .. tree
+              .. " " .. parents .. s2 .. " -m '" .. full_msg .. "'",
+        err = err,
+    }
+
+    exec {
+        cmd = "git -C " .. REPO .. " update-ref HEAD " .. hash,
+    }
+
+    if mh_file then
+        exec {
+            cmd = "rm -f " .. REPO .. ".git/MERGE_HEAD " ..
+                  REPO .. ".git/MERGE_MODE " .. REPO .. ".git/MERGE_MSG",
+        }
+    end
+
+    return hash
+end
+
 function write (G)
     local function f (V, file)
         local f = io.open(file, "w")
