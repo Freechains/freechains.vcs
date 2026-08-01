@@ -44,7 +44,7 @@ do
         cmd = "git -C " .. REPO .. " add " .. file,
     }
     local msg = ARGS.why or "(empty message)"
-    hash = commit_tree(msg, "post", ARGS.sign, "chain post : invalid sign key")
+    hash = commit(msg, "post", ARGS.sign, "chain post : invalid sign key")
 end
 
 -- apply with real hash
@@ -70,7 +70,7 @@ do
     exec {
         cmd = "git -C " .. REPO .. " add .freechains/state/",
     }
-    commit_tree("(empty message)", "state", nil, nil)
+    commit("(empty message)", "state", nil, nil)
 end
 
 if ARGS.beg then

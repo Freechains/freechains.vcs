@@ -117,7 +117,7 @@ do
         cmd = "git -C " .. REPO .. " add " .. file,
     }
     local msg = ARGS.why or "(empty message)"
-    hash = commit_tree(msg, kind, ARGS.sign, "chain " .. kind .. " : invalid sign key")
+    hash = commit(msg, kind, ARGS.sign, "chain " .. kind .. " : invalid sign key")
 end
 
 -- apply
@@ -149,7 +149,7 @@ do
     exec {
         cmd = "git -C " .. REPO .. " add .freechains/state/",
     }
-    commit_tree("(empty message)", "state", nil, nil)
+    commit("(empty message)", "state", nil, nil)
 end
 
 -- author channel only: a live local vote converges nothing about the

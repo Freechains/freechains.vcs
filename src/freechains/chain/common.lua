@@ -60,7 +60,7 @@ end
 -- ERROR message on signing failure (mirrors the `err=` each call site
 -- previously passed straight to `exec` for the `git commit` this
 -- replaces). Returns the new commit hash.
-function commit_tree (msg, kind, sign, err)
+function commit (msg, kind, sign, err)
     local tree = exec { stderr=false,
         cmd = "git -C " .. REPO .. " write-tree --missing-ok",
     }
@@ -209,7 +209,7 @@ local function TIME (hash)
 end
 
 -- the peak RECORDED in a commit's tree (`state/now.lua`): the newest
--- time among all of its ancestors. Derived, never trusted: `commit` in
+-- time among all of its ancestors. Derived, never trusted: `replay` in
 -- sync.lua checks every stored value against its parents' before using
 -- it. Only `state` commits are current -- a post/like may just ADD
 -- files, so its tree still holds the previous state commit's value.

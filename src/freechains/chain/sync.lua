@@ -218,7 +218,7 @@ elseif ARGS.recv then
         -- detached head and discarded, so `main` never holds one
         local KINDS = { post=true, like=true, revoke=true, state=true }
 
-        local function commit (G, hash, beg)
+        local function replay (G, hash, beg)
             local key, err = ssh.verify(REPO, hash)
 
             local out = exec {
@@ -412,7 +412,7 @@ elseif ARGS.recv then
                         meet(G, com, p1, p2, is_beg_merge)
                     end
                     visited[cur] = true
-                    commit(G, cur, beg)
+                    replay(G, cur, beg)
                 end
             end
 
@@ -516,10 +516,10 @@ elseif ARGS.recv then
                         err = "content conflict"
                         goto DONE
                     end
-                    commit_tree("x", "merge", nil, nil)
+                    commit("x", "merge", nil, nil)
                 end
 
-                ok, err = pcall(commit, G_fst, hash, nil)
+                ok, err = pcall(replay, G_fst, hash, nil)
                 if not ok then
                     goto DONE
                 end
@@ -573,7 +573,7 @@ elseif ARGS.recv then
                 exec {
                     cmd = "git -C " .. REPO .. " add .freechains/state/"
                 }
-                commit_tree("(empty message)", "state", nil, nil)
+                commit("(empty message)", "state", nil, nil)
             end
         end
     end
