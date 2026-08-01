@@ -133,37 +133,19 @@ end
 -- under-filling is the only real bug.
 REVOKES = {}
 
--- Physically drop one post's payload: the loose blob AND the
--- working-tree copy, then mark the path skip-worktree so neither
--- resurrects it nor breaks a future checkout/reset/merge
--- (260721-remove-blob.md, "Local removal"). Re-entrant: safe to call
--- again on a post whose blob is already gone (a tree entry names its
--- blob whether or not the object still exists, and os.remove on a
--- missing file is a no-op).
-local function gc (hash)
-    -- a post commit adds exactly one file (get.lua asserts the same)
-    local file = assert((exec {
-        cmd = "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash,
-    }):match("(%S+)"), "bug found")
-
-    local blob = exec {
-        cmd = "git -C " .. REPO .. " rev-parse " .. hash .. ":" .. file,
-    }
-
-    os.remove(REPO .. ".git/objects/" .. blob:sub(1,2) .. "/" .. blob:sub(3))
-    os.remove(REPO .. file)
-    exec { err=false,
-        cmd = "git -C " .. REPO .. " update-index --skip-worktree " .. file,
-    }
-end
-
--- Drop the payload of every REVOKES candidate that the COMMITTED state
--- still says is revoked. Deferred to the end of a command on purpose:
--- a sum that dips negative mid-replay and climbs back before the end
--- must never trigger a deletion (260721-remove-blob.md, finality
--- window). Reads `state/posts.lua` off disk rather than taking a `G`,
--- so it acts on what was actually persisted, not on an in-memory table
--- that a later abort might have rolled back.
+-- Physically drop the payload -- the loose blob AND the working-tree
+-- copy, then skip-worktree the path so neither resurrects it nor
+-- breaks a future checkout/reset/merge -- of every REVOKES candidate
+-- the COMMITTED state still says is revoked (260721-remove-blob.md,
+-- "Local removal").
+--
+-- Deferred to the end of a command on purpose: a sum that dips
+-- negative mid-replay and climbs back before the end must never
+-- trigger a deletion (finality window). Reads `state/posts.lua` off
+-- disk rather than taking a `G`, so it acts on what was actually
+-- persisted, not on an in-memory table a later abort might roll back.
+-- Re-entrant: a tree entry names its blob whether or not the object
+-- still exists, and os.remove on a missing file is a no-op.
 --
 -- `scope` picks which channel counts:
 --   'author'  the author's absolute channel only -- the one a single
@@ -178,7 +160,20 @@ function revokes (scope)
         local hit = ((r.author or 0) < 0)
                  or ((scope == 'all') and ((r.others or 0) < 0))
         if hit then
-            gc(hash)
+            -- a post commit adds exactly one file (get.lua asserts the same)
+            local file = assert((exec {
+                cmd = "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash,
+            }):match("(%S+)"), "bug found")
+
+            local blob = exec {
+                cmd = "git -C " .. REPO .. " rev-parse " .. hash .. ":" .. file,
+            }
+
+            os.remove(REPO .. ".git/objects/" .. blob:sub(1,2) .. "/" .. blob:sub(3))
+            os.remove(REPO .. file)
+            exec { err=false,
+                cmd = "git -C " .. REPO .. " update-index --skip-worktree " .. file,
+            }
         end
     end
     REVOKES = {}
