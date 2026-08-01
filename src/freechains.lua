@@ -215,14 +215,24 @@ end
 
 ARGS = parser:parse()
 
-CMD = { now=os.time(), git="" }
-if ARGS.now then
-    CMD.now = ARGS.now
-    CMD.git = (
-        "GIT_AUTHOR_DATE=$(date -u -d @" .. CMD.now .. " --iso-8601=seconds) " ..
-        "GIT_COMMITTER_DATE=$(date -u -d @" .. CMD.now .. " --iso-8601=seconds) "
-    )
-end
+-- One command, one logical timestamp: `CMD.now`.
+--
+-- The state math depends on it. `apply` stamps posts and the state
+-- commit's `now.lua` with CMD.now, while `replay` (sync.lua) verifies
+-- every state commit with `PEAK(hash) == PEAKS(parents(hash))`, i.e.
+-- against its parents' COMMIT DATES. Letting git date the commits
+-- from its own wall clock made those two disagree whenever a command
+-- straddled a second boundary -- the post lands on second N+1 while
+-- `now.lua` still says N -- and peers then reject the state commit
+-- with "invalid state : now". A ~60ms command hits that roughly 6%
+-- of the time; it was only ever masked because tests pass --now.
+--
+-- So pin the commit dates ALWAYS, not just under --now.
+CMD = { now = ARGS.now or os.time() }
+CMD.git = (
+    "GIT_AUTHOR_DATE=$(date -u -d @" .. CMD.now .. " --iso-8601=seconds) " ..
+    "GIT_COMMITTER_DATE=$(date -u -d @" .. CMD.now .. " --iso-8601=seconds) "
+)
 
 if ARGS.daemon then
     local port = ARGS.port or PORT
