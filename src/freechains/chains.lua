@@ -20,6 +20,22 @@ local function git_config (dir)
     exec {
         cmd = "git -C " .. dir .. " config receive.advertisePushOptions true",
     }
+    -- keep objects loose (rm-able) instead of auto-packed away
+    exec {
+        cmd = "git -C " .. dir .. " config gc.auto 0",
+    }
+    exec {
+        cmd = "git -C " .. dir .. " config gc.autoPackLimit 0",
+    }
+    exec {
+        cmd = "git -C " .. dir .. " config fetch.unpackLimit 2000000000",
+    }
+    exec {
+        cmd = "git -C " .. dir .. " config receive.unpackLimit 2000000000",
+    }
+    exec {
+        cmd = "git -C " .. dir .. " config transfer.unpackLimit 2000000000",
+    }
 end
 
 local function pioneers (dir)

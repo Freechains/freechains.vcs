@@ -758,7 +758,12 @@ is the whole rule.
       write-tree/commit-tree/update-ref substitution** —
       `post.lua:53,86`, `like.lua:82,117`, `sync.lua:517,577`.
       `chains.lua`'s init commit is unaffected (pre-revocation).
-- [ ] Loose-object git config
+- [x] IMPLEMENTED 2026-08-01: loose-object git config
+      (`gc.auto 0`, `gc.autoPackLimit 0`, `fetch/receive/transfer.
+      unpackLimit 2000000000`) added to `chains.lua`'s shared
+      `git_config()`, so both `init` and `clone` paths get it.
+      Verified: values land correctly on both paths; `cli-chains.lua`
+      passes in full; normal log/status/commit unaffected.
 - [ ] `uploadpack.allowFilter` + filtered fetch in `sync.lua`
 - [ ] `get.lua` tolerates absent payload -> tombstone
 - [ ] `rm` revoked loose blob on honest nodes
