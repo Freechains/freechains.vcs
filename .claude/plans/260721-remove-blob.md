@@ -243,18 +243,36 @@ git show HEAD~2:postA.txt -> lazy-fetch -> "not our ref" -> tombstone (revoked)
 - revoked payload: no holder serves it -> graceful tombstone;
   every other payload still transfers individually.
 
-### Consequence: eager replication -> lazy fetch
+### Consequence: one transfer becomes two (CLARIFIED 2026-08-01)
+
+"Lazy" here means only that payloads need a SECOND fetch — not
+that the fetch is deferred to read time. Sync issues it **in
+sequence, immediately**, pulling every payload except the revoked
+ones. A sync is complete when both steps are done:
+
+```
+step 1: filtered pack   -> commits + trees (full DAG)
+step 2: by-hash batch   -> every payload the peer has, minus revoked
+```
+
+So the properties that actually matter are UNCHANGED:
 
 | | Today | Removed-blob design |
 |-------------------|--------------------|--------------------------|
-| Payload transfer  | in the pack always | per-hash, on demand |
-| Replication       | every peer holds all | only peers that fetched it |
-| Availability      | any peer up        | a HOLDER up |
-| Full archive peer | automatic          | must backfill payloads by-hash (plain unfiltered fetch re-demands the revoked blob -> fails) |
+| Payload transfer  | 1 round trip (one pack) | 2 round trips (pack + hash batch) |
+| Replication       | every peer holds all | every peer holds all, minus revoked |
+| Availability      | any peer up | any peer up (unchanged) |
+| Full archive peer | automatic | automatic (step 2 IS the backfill) |
 
-This tradeoff is intrinsic: git offers "omit all blobs, fetch
-back individually", not "omit exactly this one". Accepting
-removal = accepting lazy, per-post payload transfer.
+An earlier revision of this section claimed replication degraded
+to "only peers that fetched it" and availability to "a HOLDER
+up". That was wrong: it assumed a read-time fetch. With step 2
+run eagerly in sync, no such degradation exists — the design does
+not trade availability for removability.
+
+The real cost is the extra round trip, plus the optimistic-batch
++ per-blob fallback needed because one missing object fails a
+whole fetch request (see "Batch atomicity" below).
 
 ### How the per-payload fetch is done (VERIFIED 2026-07-22)
 
@@ -683,8 +701,11 @@ is the whole rule.
   revoked ones tombstone. NOT `git backfill` (batches, aborts
   on missing, promisor-bound, needs 2.44+). Batch atomicity
   proven 2026-07-22.
-- Availability: lazy per-post transfer means a payload dies if
-  all its holders go offline — acceptable for a content system?
+- ~~Availability~~ RESOLVED 2026-08-01: not a question. The
+  by-hash fetch runs in sequence during sync, pulling everything
+  except the revoked payloads, so every synced peer still holds
+  every live payload — replication and availability are exactly
+  as they are today. See the transfer model above.
 - Wire representation of a tombstone (absent vs explicit
   marker) so peers distinguish "revoked" from "not yet synced".
 - Back-compat: existing chains embed payloads in the tree and
