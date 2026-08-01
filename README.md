@@ -634,6 +634,23 @@ ERROR : chain get : revoked post
 
 A self-revoke is absolute and other members cannot revert it.
 
+Revocation is *cooperative*, not enforced.
+Honest peers drop the payload and stop serving it, so a member who only talks
+to honest peers never receives it.
+But the post's hash and signature stay in the chain, and any peer that already
+holds the bytes can simply keep them: nothing in the protocol can compel a
+deletion.
+The same cut runs the other way -- once every honest peer has dropped a
+payload, none is left to serve it back, so a revoke with no surviving copy is
+permanent, and an `unrevoke` then has to supply the bytes itself:
+
+```
+$ freechains chain '#chat' unrevoke 1 5d6e7f8 --sign=/tmp/bob
+ERROR : chain unrevoke : blob unavailable
+$ freechains chain '#chat' unrevoke 1 5d6e7f8 --sign=/tmp/bob --file=/tmp/backup
+7f8a9b0...
+```
+
 Moderation in Freechains is an extra safety layer to protect the community from
 abuse.
 Note that each chain may apply its own "moderation netiquette", since there is

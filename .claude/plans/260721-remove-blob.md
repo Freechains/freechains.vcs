@@ -698,11 +698,12 @@ is the whole rule.
 
 ## Open questions
 
-- Full initial push/clone still needs the closure -> a chain
-  with a removed payload can only onboard new peers via
-  FILTERED transfer. Confirm both push and fetch paths in
-  `sync.lua` can be made filtered, or that sync flips to
-  fetch-pull for such chains.
+- ~~Full initial push/clone~~ RESOLVED 2026-08-01: both `sync
+  recv` and `chains add ... clone` are filtered + by-hash, so a
+  chain with a removed payload onboards new peers fine. PUSH is
+  untouched and still needs the closure, but it is only ever
+  incremental in practice (the receiver's hook turns it into a
+  recv), so it never renegotiates a removed blob.
 - ~~Promisor identity~~ RESOLVED 2026-07-22: skip git promisor;
   fetch payloads by explicit hash from the current sync peer
   (`git fetch <url> <sha>` + `allowAnySHA1InWant`). See transfer
@@ -732,8 +733,8 @@ is the whole rule.
   Residual question is only whether that retry needs to be
   tracked explicitly or can stay implicit in "step 2 requests
   whatever is missing".
-- Back-compat: existing chains embed payloads in the tree and
-  transfer full closure — migration/opt-in path.
+- ~~Back-compat~~ DROPPED 2026-08-01: not needed, chains
+  predating this work get recreated.
 
 ## Progress
 
@@ -899,80 +900,6 @@ is the whole rule.
       Verified: fresh peer clones, reads the surviving post, is refused
       the revoked one, has a clean worktree with the absent path
       skip-worktree'd, no promisor left, and can post afterwards.
-- [ ] REVERSIBILITY IS UNRESOLVED (found 2026-08-01 while testing the
-      above). The plan assumed an unrevoked post "returns on the next
-      sync" via step 2 — but that only holds while SOMEONE still
-      serves the bytes, and `revokes()` makes every honest peer drop
-      on learning the revoke. Verified end to end: A community-revokes
-      and drops; B syncs, learns the revoke, and drops its own copy;
-      now no honest peer can serve it, and B's `unrevoke` is refused
-      with "blob unavailable". So "honest peers drop REVOKED payloads"
-      and "community revocation is reversible" (reps.md:287-312) are
-      in direct conflict: reversibility survives only in the window
-      before peers converge. Options: (a) drop only on the author
-      channel, hide-but-keep on the community one; (b) accept that
-      community revocation is effectively permanent and amend
-      reps.md; (c) `--file` supply argument so a caster with an
-      out-of-band copy can re-seed it.
-      => (c) IMPLEMENTED 2026-08-01 on `like` and `unrevoke`: the file
-      is hashed and compared against the blob the DAG already names,
-      and only the exact original bytes can match, so it is safe to
-      accept from anyone; a mismatch is rejected before anything is
-      written. On success the blob is restored, `--skip-worktree` is
-      cleared and the file materialised.
-- [x] RESOLVED 2026-08-01: (b). A revoke is undoable while someone
-      still holds a copy -- in the network, or out of band via
-      `--file`. IF NOBODY KEPT ONE, IT IS PERMANENT: accepted, not a
-      bug. Both channels keep destroying. The reps math is untouched
-      and stays reversible on the SUMS; what is not guaranteed is that
-      the BYTES are still there to show afterwards. `reps.md` amended
-      to say so at both places that promised reversibility flatly (the
-      Phase-1/Phase-2 note, and the REVOKED -> ACCEPTED edge of the
-      state machine). Rationale: the right-to-be-forgotten guarantee
-      is worth more than guaranteed reversibility, and neither was
-      ever enforceable against a peer that keeps its copy anyway
-      (NON-GOAL section above).
-- [x] IMPLEMENTED 2026-08-01: deferred-candidate refactor. `gc_revoked`
-      became `REVOKES[hash] = true` at the call sites plus one
-      `revokes()` drained at the end of `like.lua` and at `sync.lua`'s
-      `::RECV::`. `revokes` re-reads the COMMITTED `state/posts.lua`
-      and decides there, so the finality window is structural: a sum
-      that dips negative mid-replay and recovers cannot trigger a
-      deletion, and over-filling the candidate set is harmless by
-      construction. The `::RECV::` hook is deliberately not next to a
-      `write(G)`: the fast-forward path writes remote state
-      speculatively and rolls it back on "remote state mismatch"
-      (`sync.lua:447-452`), so acting there would drop payloads on a
-      state that got rejected. Also found: the `consensus(G_oct, ...)`
-      climb replays into a scratch state and so fills the candidate set
-      speculatively -- harmless precisely because decisions are
-      deferred, and a reason not to bury the set inside `apply()`.
-- [x] DECIDED 2026-08-01: BOTH channels destroy -- `revokes` tests
-      `is_revoked`, the same predicate `get.lua` hides by. One rule,
-      applied identically from every caller; no `scope` parameter.
-      I had argued for author-only on the grounds that community
-      revocation is reversible (reps.md:287-312) and that removing
-      would break replay order-independence. Both were wrong. The
-      deferral IS what makes it order-independent -- one evaluation on
-      the final committed sum, so any replay order lands the same --
-      and reversibility never depended on local retention: this plan's
-      own finality-window rule already says an unrevoked post "rejoins
-      the set the by-hash step re-requests" and returns on the next
-      sync.
-- [x] COST, accepted 2026-08-01: that return path does not exist yet,
-      so until the by-hash fetch lands a community revoke STRANDS the
-      payload. Concretely, `like`-as-unrevoke (reps.md:278) is
-      unreachable for a community-revoked post -- the gate refuses the
-      like outright, so the sum never even moves -- and `unrevoke`
-      fails with "blob unavailable". `cli-revoke.lua` and
-      `cli-remove-blob.lua` pin this explicitly, each marked with what
-      it flips back to once step 2 arrives. The coupling rules that do
-      NOT need a payload back (dislike never hides; unrevoke costs but
-      credits nobody; a self-like cannot lift an author revoke) are
-      still tested for real, on posts chosen so the vote under test
-      never has to lift a revoke.
-      => this promotes the by-hash fetch from "needed to onboard new
-      peers" to "needed for documented revoke semantics to work".
 - [x] IMPLEMENTED 2026-08-01: hard-fail on an unexpected miss, in BOTH
       sync and clone. Onboarding cannot half-succeed: the only objects
       a peer may fail to serve are the ones it revoked on purpose, so
@@ -995,10 +922,15 @@ is the whole rule.
       Now `ERROR : chain get : payload unavailable`, per the project's
       error convention. Predated this work but the filtered transfer
       made it reachable in normal operation.
-- [ ] Doc: cooperative-only guarantee (no global erasure) — still
-      true for pre-flip holders who choose not to cooperate; the
-      gate above only strengthens the flip moment, not the ceiling
-- [ ] Migration for full-closure chains
+- [x] DONE 2026-08-01: cooperative-only guarantee documented where
+      the promise is actually made -- `README.md`'s "right to be
+      forgotten" section now says revocation is cooperative, not
+      enforced (a peer that already holds the bytes can keep them,
+      and nothing in the protocol compels a deletion), and that the
+      same cut runs the other way: with no surviving copy a revoke is
+      permanent and `unrevoke` must supply the bytes with `--file`.
+- [x] DROPPED 2026-08-01: migration for full-closure chains. Not
+      needed -- chains predating this work simply get recreated.
 
 ## Cross-references
 
