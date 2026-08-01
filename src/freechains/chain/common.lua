@@ -136,8 +136,8 @@ REVOKES = {}
 -- Physically drop the payload -- the loose blob AND the working-tree
 -- copy, then skip-worktree the path so neither resurrects it nor
 -- breaks a future checkout/reset/merge -- of every REVOKES candidate
--- the COMMITTED state still says the AUTHOR revoked
--- (260721-remove-blob.md, "Local removal").
+-- the COMMITTED state still says is revoked (260721-remove-blob.md,
+-- "Local removal").
 --
 -- Deferred to the end of a command on purpose: a sum that dips
 -- negative mid-replay and climbs back before the end must never
