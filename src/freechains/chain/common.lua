@@ -147,29 +147,29 @@ REVOKES = {}
 -- Re-entrant: a tree entry names its blob whether or not the object
 -- still exists, and os.remove on a missing file is a no-op.
 --
--- AUTHOR channel only, from every caller. The two channels differ in
--- kind, not in how confident we are about them (reps.md:287-312):
+-- BOTH channels -- `is_revoked`, the same predicate `get.lua` hides
+-- by. One rule, applied identically from every caller: if this node
+-- calls a post revoked, it drops the payload.
 --
---   author  the "absolute right to be forgotten" -- forces revoked
---           regardless of the community net, and only the author's own
---           unrevoke lifts it. Permanent by design, so destroying the
---           payload is exactly what the vote means.
---   others  a reps-weighted running sum that is explicitly REVERSIBLE
---           ("a well-liked post is unrevokable by the community") and
---           order-independent on replay. Dropping the payload would
---           make a reversible vote permanent, and would break that
---           order-independence in the physical layer: whether the
---           bytes survive would depend on the order a peer happened to
---           replay votes in.
+-- Community revocation stays REVERSIBLE (reps.md:287-312) without
+-- keeping the bytes locally. A post whose sum climbs back non-negative
+-- simply rejoins the set the by-hash step re-requests on the next
+-- sync, and returns like any other payload this node lacks. Local
+-- retention was never the restore mechanism.
 --
--- So a community revoke HIDES the post (Phase 1, `is_revoked` in
--- get.lua) and never destroys it. Its payload staying put is what
--- keeps the community's own unrevoke able to succeed.
+-- Evaluating ONCE here, on the final committed sum, is also what keeps
+-- this order-independent: two peers replaying the same votes in any
+-- order reach the same sum, hence the same decision.
+--
+-- CAVEAT, until the by-hash fetch lands (plan's open items): that
+-- return path does not exist yet, so a community revoke currently
+-- strands the payload and a later `unrevoke` is refused with "blob
+-- unavailable". cli-revoke.lua records exactly that, and flips back
+-- when step 2 arrives.
 function revokes ()
     local posts = dofile(FC .. "state/posts.lua")
     for hash in pairs(REVOKES) do
-        local r = (posts[hash] or {}).revoke or {}
-        if (r.author or 0) < 0 then
+        if is_revoked(posts[hash] or {}) then
             -- a post commit adds exactly one file (get.lua asserts the same)
             local file = assert((exec {
                 cmd = "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash,

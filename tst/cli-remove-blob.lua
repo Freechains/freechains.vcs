@@ -107,39 +107,39 @@ do
 end
 
 do
-    print("==> Community-only revoke never touches the blob")
+    print("==> Community revoke drops the blob too (one rule, both channels)")
 
     local POST = exec {
         cmd = ENV_EXE .. " chain '#cli-remove-blob' post inline 'community-only' --sign " .. KEY1,
     }
     local file, blob = blob_of(POST)
 
+    -- KEY2 is not the author -> community channel
     exec {
         cmd = ENV_EXE .. " chain '#cli-remove-blob' revoke 1 " .. POST .. " --sign " .. KEY2,
     }
 
-    TEST "community-revoke-hides-but-keeps-blob"
+    TEST "community-revoke-drops-blob"
     do
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-remove-blob' get payload " .. POST,
             err = "ERROR : chain get : revoked post",
         }
-        local _, code = exec {
+        local _, code = exec { err=false,
             cmd = "git -C " .. DIR .. " cat-file -e " .. blob,
         }
-        assert(code == 0, "community-only revoke must not remove the blob")
+        assert(code ~= 0, "community revoke should drop the blob too")
     end
 
-    TEST "community-unrevoke-not-gated-blob-still-there"
+    TEST "community-unrevoke-pending-by-hash-fetch"
     do
-        local out, code = exec {
+        -- reversible by design (reps.md:287-312), but the return path is
+        -- the by-hash step of the next sync, which is not built yet --
+        -- so today the gate refuses. Flips back when step 2 lands.
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-remove-blob' unrevoke 1 " .. POST .. " --sign " .. KEY2,
+            err = "ERROR : chain unrevoke : blob unavailable",
         }
-        assert(code == 0, "unrevoke should succeed: " .. tostring(out))
-        local pay, pcode = exec {
-            cmd = ENV_EXE .. " chain '#cli-remove-blob' get payload " .. POST,
-        }
-        assert(pcode == 0 and pay == "community-only", "payload should read again: " .. tostring(pay))
     end
 end
 
@@ -201,8 +201,8 @@ do
         err = "ERROR : chain get : revoked post",
     }
 
-    -- A community revoke hides but never destroys -- on the node
-    -- casting it AND on every peer that syncs the result.
+    -- A community revoke drops the payload on the voting node, exactly
+    -- like an author one -- one rule, both channels.
     local C_POST = exec {
         cmd = EXE_A .. " chain '#test' post inline 'community-target' --sign " .. KEY1,
     }
@@ -213,25 +213,25 @@ do
         cmd = "git -C " .. DIR_A .. " rev-parse " .. C_POST .. ":" .. c_file,
     }
 
-    -- KEY2 is not the author -> community channel only
+    -- B takes a copy BEFORE the revoke, so it still holds the bytes
+    exec {
+        cmd = EXE_B .. " chain '#test' sync recv '" .. DIR_A .. "'",
+    }
+
     exec {
         cmd = EXE_A .. " chain '#test' revoke 1 " .. C_POST .. " --sign " .. KEY2,
     }
 
-    TEST "community-revoke-keeps-blob-on-the-voting-node"
+    TEST "community-revoke-drops-blob-on-the-voting-node"
     do
-        local _, code = exec {
+        local _, code = exec { err=false,
             cmd = "git -C " .. DIR_A .. " cat-file -e " .. c_blob,
         }
-        assert(code == 0, "a live local community vote must not drop the blob")
+        assert(code ~= 0, "community revoke should drop the blob")
     end
 
-    TEST "community-revoke-keeps-blob-after-sync-replay-too"
+    TEST "community-revoke-drops-blob-on-the-synced-peer-too"
     do
-        -- a community revoke NEVER destroys, on any node: the channel
-        -- is explicitly reversible and order-independent (reps.md:
-        -- 287-312), so the bytes have to survive for a later unrevoke
-        -- or enough likes to bring the post back
         local out, code = exec {
             cmd = EXE_B .. " chain '#test' sync recv '" .. DIR_A .. "'",
         }
@@ -240,10 +240,10 @@ do
             cmd = EXE_B .. " chain '#test' get payload " .. C_POST,
             err = "ERROR : chain get : revoked post",
         }
-        local _, ccode = exec {
+        local _, ccode = exec { err=false,
             cmd = "git -C " .. ROOT_B .. "/chains/#test/ cat-file -e " .. c_blob,
         }
-        assert(ccode == 0, "the synced peer must KEEP a community-revoked blob")
+        assert(ccode ~= 0, "the synced peer should drop it as well")
     end
 end
 

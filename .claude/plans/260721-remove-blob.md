@@ -877,22 +877,32 @@ is the whole rule.
       climb replays into a scratch state and so fills the candidate set
       speculatively -- harmless precisely because decisions are
       deferred, and a reason not to bury the set inside `apply()`.
-- [x] CORRECTED 2026-08-01: only the AUTHOR channel may destroy a
-      payload -- on every node, from every caller. An intermediate
-      version briefly extended removal to the community channel (first
-      via a `scope` argument, then unconditionally); both were wrong.
-      `reps.md:287-312` makes the channels differ in KIND: the author
-      sum is the "absolute right to be forgotten" that only the
-      author's own unrevoke lifts, while the community sum is
-      explicitly REVERSIBLE ("a well-liked post is unrevokable by the
-      community") and order-independent on replay. Destroying on a
-      community revoke makes a reversible vote permanent, and breaks
-      that order-independence in the physical layer -- whether the
-      bytes survive would depend on the order a peer happened to replay
-      votes in. Caught by `cli-revoke.lua`'s `revoke-community-
-      reversible`, which the change broke. A community revoke therefore
-      HIDES (Phase 1) and keeps the bytes, which is exactly what lets
-      its own unrevoke succeed. No `scope` parameter: there is one rule.
+- [x] DECIDED 2026-08-01: BOTH channels destroy -- `revokes` tests
+      `is_revoked`, the same predicate `get.lua` hides by. One rule,
+      applied identically from every caller; no `scope` parameter.
+      I had argued for author-only on the grounds that community
+      revocation is reversible (reps.md:287-312) and that removing
+      would break replay order-independence. Both were wrong. The
+      deferral IS what makes it order-independent -- one evaluation on
+      the final committed sum, so any replay order lands the same --
+      and reversibility never depended on local retention: this plan's
+      own finality-window rule already says an unrevoked post "rejoins
+      the set the by-hash step re-requests" and returns on the next
+      sync.
+- [x] COST, accepted 2026-08-01: that return path does not exist yet,
+      so until the by-hash fetch lands a community revoke STRANDS the
+      payload. Concretely, `like`-as-unrevoke (reps.md:278) is
+      unreachable for a community-revoked post -- the gate refuses the
+      like outright, so the sum never even moves -- and `unrevoke`
+      fails with "blob unavailable". `cli-revoke.lua` and
+      `cli-remove-blob.lua` pin this explicitly, each marked with what
+      it flips back to once step 2 arrives. The coupling rules that do
+      NOT need a payload back (dislike never hides; unrevoke costs but
+      credits nobody; a self-like cannot lift an author revoke) are
+      still tested for real, on posts chosen so the vote under test
+      never has to lift a revoke.
+      => this promotes the by-hash fetch from "needed to onboard new
+      peers" to "needed for documented revoke semantics to work".
 - [ ] Implement hard-fail-on-unexpected-miss check in sync
 - [ ] Doc: cooperative-only guarantee (no global erasure) — still
       true for pre-flip holders who choose not to cooperate; the
