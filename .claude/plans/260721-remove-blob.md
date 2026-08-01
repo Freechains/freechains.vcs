@@ -404,25 +404,78 @@ every other post) is unaffected: no plumbing rewrite of
 `hash-object`/`mktree`/`commit-tree` anywhere in the ordinary
 write paths.
 
-### Still to verify
+### TESTED 2026-07-31: `--skip-worktree` under merge/reset
 
-- `--skip-worktree` behavior under `merge --no-commit` /
-  `reset --hard` (`sync.lua:449,507,563,569`) when the incoming
-  side still carries the path present-but-unmodified — does the
-  skip bit survive, or does merge try to re-materialize it? Same
-  kind of test the earlier sparse prototype ran (2026-07-22), just
-  scoped to one path instead of a `.freechains/`-only tree.
-- Confirm the skip bit persists across the sync's checkout/reset
-  cycle without needing to be re-applied each time (unlike
-  sparse-checkout's cone patterns, which need `reapply`).
+Built a 2-post repo (`postA`, `postB`), cloned it to a peer B
+before revoking, then on the original: `rm` the loose object,
+`rm` the file, `git update-index --skip-worktree postA.txt`.
+
+| Operation | Result |
+|-----------|--------|
+| `git status` after revocation | clean, no resurrection |
+| `git add <new-file>` (unrelated new post) | OK |
+| `git commit` (plain, porcelain) for that new post | **FAILS** — exit 1, `error: invalid object ... Error building trees` |
+| `git write-tree` (plain) | same failure |
+| `git write-tree --missing-ok` | **OK** |
+| `git commit-tree <tree> -p HEAD -m ...` (using the `--missing-ok` tree) | OK, commit lands, `git status` clean |
+| B forks with its own new post (peer never revoked, still has
+  the blob); fetch into A, `git merge --no-commit peer/main` | exit 0, "Automatic merge went well" (stderr noise, ignored below) |
+| conclude that merge with plain `git commit` | **FAILS** — same "Error building trees" |
+| conclude via `write-tree --missing-ok` + `commit-tree -p HEAD -p peer/main` + `update-ref` | OK, both branches' new posts readable, revoked path still gracefully absent |
+| `git checkout --detach <commit whose tree still has the revoked path unmodified>` | exit 0, correct worktree (path absent as expected) — but prints an "invalid object" line to **stderr** despite succeeding |
+| `git checkout main` (back) | same: exit 0, correct, stderr noise |
+| `git reset --hard <any commit>`, both directions | exit 0, correct, **silent** (no stderr at all) |
+
+Confirmed separately: `git commit-tree` accepts `-S`/`--gpg-sign`
+directly, same as `commit` — signing is unaffected by the swap.
+
+### Correction to the "Verdict" below
+
+`--skip-worktree` fully solves resurrection and checkout/reset/
+merge, exactly as hoped. But it does **not** save plain `git
+commit` — `commit` calls `write-tree` internally without
+`--missing-ok`, and there is no porcelain flag to pass one
+through. This is the one thing "keep post.lua/like.lua/sync.lua
+unchanged" got wrong last turn: every commit-creating call site
+in a chain that has ever had a revoked-and-removed payload needs
+the same 3-step substitution —
+
+```
+tree=$(git write-tree --missing-ok)
+commit=$(git commit-tree "$tree" -p HEAD [-p <2nd parent>] [-S ...] -m "$msg" [--trailer ...])
+git update-ref refs/heads/main "$commit"
+```
+
+— in place of the plain `git commit ...` it does today. Grepped
+the actual sites: `post.lua:53` (the post commit) and `post.lua:86`
+(the state commit); `like.lua:82` (the like commit) and
+`like.lua:117` (its state commit); `sync.lua:517` (merge
+conclusion) and `sync.lua:577` (loser-merge conclusion).
+`chains.lua`'s init commit is unaffected — genesis happens before
+any post exists, so nothing could be missing yet. Two of these
+sites fail especially badly today if left as plain `commit`:
+`post.lua:86` has no `err=` set, so it crashes as a raw
+`"bug found"` Lua error; `post.lua:53` has `err = "chain post :
+invalid sign key"`, which would misreport this failure as a
+signing problem.
+
+The good news: `git add` is untouched (new content hashes and
+stages fine regardless of what else is missing), and no
+`hash-object`/`mktree`/`read-tree` is needed anywhere — `write-tree`
+reads the existing index directly. Only the final commit-creation
+step changes, uniformly, at every site that does one.
 
 ### Verdict
 
-Drop the bare-repo migration entirely. `chains.lua`, `post.lua`,
-`like.lua`, `sync.lua` keep their working-tree code exactly as
-today. The only new code: at rm-time, delete the object + file
-and set `--skip-worktree` on that one path; verify it survives
-the existing merge/checkout paths in `sync.lua`.
+Drop the bare-repo migration. Keep working trees everywhere;
+`chains.lua`'s create path and every `git add` call are genuinely
+untouched. But every plain `git commit` in `post.lua`, `like.lua`,
+and `sync.lua` (6 sites, listed above) needs the `write-tree
+--missing-ok` + `commit-tree` + `update-ref` substitution, since
+any of them can run on a chain that has a revoked-and-removed
+payload somewhere in its history. Plus, at rm-time: delete the
+object + file and set `--skip-worktree` on that one path —
+confirmed above to survive checkout/reset/merge cleanly.
 
 ## Sync consistency: hard-fail on a non-revoked miss (2026-07-31)
 
@@ -691,11 +744,20 @@ is the whole rule.
       the standalone-timer justification doesn't hold; rule is now
       just "rm once, on the final sum after this sync's full
       replay" — no state tracked between syncs
-- [ ] **NEXT: verify `--skip-worktree` survives `merge --no-commit`
-      / `reset --hard` in `sync.lua` (lines 449,507,563,569) for a
-      single removed path** — same test shape as the earlier
-      sparse prototype (2026-07-22), scoped to one path instead of
-      a whole `.freechains/`-only tree
+- [x] TESTED 2026-07-31: `--skip-worktree` survives `checkout
+      --detach`/`checkout main`/`reset --hard` and a real
+      `merge --no-commit` between two forks — all exit 0, correct
+      end state, no resurrection
+- [x] FOUND 2026-07-31: plain `git commit` (and thus
+      `merge --no-commit` + plain `commit` to conclude it) FAILS
+      once the index has any missing-blob entry, skip-worktree or
+      not — `commit` calls `write-tree` without `--missing-ok`.
+      Fix verified: `write-tree --missing-ok` + `commit-tree`
+      (`-S` included) + `update-ref`. `git add` unaffected.
+- [ ] **NEXT: swap the 6 plain-`commit` call sites for the
+      write-tree/commit-tree/update-ref substitution** —
+      `post.lua:53,86`, `like.lua:82,117`, `sync.lua:517,577`.
+      `chains.lua`'s init commit is unaffected (pre-revocation).
 - [ ] Loose-object git config
 - [ ] `uploadpack.allowFilter` + filtered fetch in `sync.lua`
 - [ ] `get.lua` tolerates absent payload -> tombstone
