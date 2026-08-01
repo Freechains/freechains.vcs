@@ -9,6 +9,13 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
+# Sign with the keys below and nothing else. An ambient global/system git
+# config (a developer's own commit-signing setup, gpg.ssh.program, ...)
+# otherwise substitutes its key, the pubkey read back off the commit is
+# not the pioneer's, and every post dies with "insufficient reputation".
+export GIT_CONFIG_GLOBAL=/dev/null
+export GIT_CONFIG_SYSTEM=/dev/null
+
 FC () {
     echo "\$ freechains $*"
     LUA_PATH="src/?.lua;src/?/init.lua;;" lua5.4 src/freechains.lua "$@"
