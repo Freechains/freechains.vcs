@@ -585,9 +585,7 @@ elseif ARGS.recv then
     -- to a `write(G)`: the fast-forward path writes remote state
     -- speculatively, then rolls it back on "remote state mismatch" --
     -- acting there would drop payloads on a state that got rejected.
-    -- Both channels: the replay is finished, so this is the converged
-    -- view the finality window asks for.
-    revokes('all')
+    revokes()
 
     -- stale-beg cleanup: drop refs/begs/* whose post is already in main
     do

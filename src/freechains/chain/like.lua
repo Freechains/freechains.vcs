@@ -68,8 +68,7 @@ local kind = (ARGS.revoke or ARGS.unrevoke) and "revoke" or "like"
 -- without mutating G; a vote that doesn't actually restore (e.g. a
 -- self-like while the author channel alone still forces REVOKED) is
 -- never gated. Only bites once the payload is actually gone, i.e.
--- after `revokes` (common.lua) ran for a channel covering this post:
--- 'author' from a local vote here, 'all' from a sync replay.
+-- after `revokes` (common.lua) dropped it.
 if ARGS.target == "post" and num>0 and G.posts[ARGS.id] and is_revoked(G.posts[ARGS.id]) then
     local post = G.posts[ARGS.id]
     local r = post.revoke or {}
@@ -152,9 +151,7 @@ do
     commit("(empty message)", "state", nil, nil)
 end
 
--- author channel only: a live local vote converges nothing about the
--- community sum, which a peer we have not synced with may still move
-revokes('author')
+revokes()
 
 if to_beg then
     exec {

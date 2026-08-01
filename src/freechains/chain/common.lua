@@ -136,8 +136,8 @@ REVOKES = {}
 -- Physically drop the payload -- the loose blob AND the working-tree
 -- copy, then skip-worktree the path so neither resurrects it nor
 -- breaks a future checkout/reset/merge -- of every REVOKES candidate
--- the COMMITTED state still says is revoked (260721-remove-blob.md,
--- "Local removal").
+-- the COMMITTED state still says the AUTHOR revoked
+-- (260721-remove-blob.md, "Local removal").
 --
 -- Deferred to the end of a command on purpose: a sum that dips
 -- negative mid-replay and climbs back before the end must never
@@ -147,19 +147,29 @@ REVOKES = {}
 -- Re-entrant: a tree entry names its blob whether or not the object
 -- still exists, and os.remove on a missing file is a no-op.
 --
--- `scope` picks which channel counts:
---   'author'  the author's absolute channel only -- the one a single
---             fresh author-signed commit fully determines. What a live
---             local vote may use: it converges nothing about `others`.
---   'all'     both channels. Only after a sync replay, where the
---             `others` view is as converged as this node can make it.
-function revokes (scope)
+-- AUTHOR channel only, from every caller. The two channels differ in
+-- kind, not in how confident we are about them (reps.md:287-312):
+--
+--   author  the "absolute right to be forgotten" -- forces revoked
+--           regardless of the community net, and only the author's own
+--           unrevoke lifts it. Permanent by design, so destroying the
+--           payload is exactly what the vote means.
+--   others  a reps-weighted running sum that is explicitly REVERSIBLE
+--           ("a well-liked post is unrevokable by the community") and
+--           order-independent on replay. Dropping the payload would
+--           make a reversible vote permanent, and would break that
+--           order-independence in the physical layer: whether the
+--           bytes survive would depend on the order a peer happened to
+--           replay votes in.
+--
+-- So a community revoke HIDES the post (Phase 1, `is_revoked` in
+-- get.lua) and never destroys it. Its payload staying put is what
+-- keeps the community's own unrevoke able to succeed.
+function revokes ()
     local posts = dofile(FC .. "state/posts.lua")
     for hash in pairs(REVOKES) do
         local r = (posts[hash] or {}).revoke or {}
-        local hit = ((r.author or 0) < 0)
-                 or ((scope == 'all') and ((r.others or 0) < 0))
-        if hit then
+        if (r.author or 0) < 0 then
             -- a post commit adds exactly one file (get.lua asserts the same)
             local file = assert((exec {
                 cmd = "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash,

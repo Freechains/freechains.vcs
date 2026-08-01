@@ -862,27 +862,37 @@ is the whole rule.
       necessary again by `cli-remove-blob.lua`'s sync test, which
       deliberately clones the peer BEFORE any removal to avoid this
       exact gap)
-- [x] IMPLEMENTED 2026-08-01: community-channel (`others`) removal,
-      via the deferred cache refactor. `gc_revoked` split into a
-      private `gc(hash)` primitive plus `revokes(scope)`; call sites
-      just do `REVOKES[hash] = true`. `revokes` re-reads the COMMITTED
-      `state/posts.lua` and decides there, so the finality window is
-      structural: a sum that dips negative mid-replay and recovers can
-      no longer trigger a deletion, and over-filling the candidate set
-      is harmless by construction.
-      Scopes: `like.lua` calls `revokes('author')` (a live local vote
-      converges nothing about `others`); `sync.lua` calls
-      `revokes('all')` at `::RECV::` — after the replay, both channels.
-      The hook is `::RECV::` and NOT next to a `write(G)`: the
-      fast-forward path writes remote state speculatively and rolls it
-      back on "remote state mismatch" (`sync.lua:447-452`), so acting
-      there would drop payloads on a state that got rejected.
-      Also found: the `consensus(G_oct, ...)` climb replays commits
-      into a scratch state, so it fills the candidate set speculatively
-      — harmless precisely because decisions are deferred to committed
-      state, and a reason not to bury the set inside `apply()`.
-      Verified end to end: a local community revoke keeps the blob on
-      the voting node, and the peer drops it on the next sync.
+- [x] IMPLEMENTED 2026-08-01: deferred-candidate refactor. `gc_revoked`
+      became `REVOKES[hash] = true` at the call sites plus one
+      `revokes()` drained at the end of `like.lua` and at `sync.lua`'s
+      `::RECV::`. `revokes` re-reads the COMMITTED `state/posts.lua`
+      and decides there, so the finality window is structural: a sum
+      that dips negative mid-replay and recovers cannot trigger a
+      deletion, and over-filling the candidate set is harmless by
+      construction. The `::RECV::` hook is deliberately not next to a
+      `write(G)`: the fast-forward path writes remote state
+      speculatively and rolls it back on "remote state mismatch"
+      (`sync.lua:447-452`), so acting there would drop payloads on a
+      state that got rejected. Also found: the `consensus(G_oct, ...)`
+      climb replays into a scratch state and so fills the candidate set
+      speculatively -- harmless precisely because decisions are
+      deferred, and a reason not to bury the set inside `apply()`.
+- [x] CORRECTED 2026-08-01: only the AUTHOR channel may destroy a
+      payload -- on every node, from every caller. An intermediate
+      version briefly extended removal to the community channel (first
+      via a `scope` argument, then unconditionally); both were wrong.
+      `reps.md:287-312` makes the channels differ in KIND: the author
+      sum is the "absolute right to be forgotten" that only the
+      author's own unrevoke lifts, while the community sum is
+      explicitly REVERSIBLE ("a well-liked post is unrevokable by the
+      community") and order-independent on replay. Destroying on a
+      community revoke makes a reversible vote permanent, and breaks
+      that order-independence in the physical layer -- whether the
+      bytes survive would depend on the order a peer happened to replay
+      votes in. Caught by `cli-revoke.lua`'s `revoke-community-
+      reversible`, which the change broke. A community revoke therefore
+      HIDES (Phase 1) and keeps the bytes, which is exactly what lets
+      its own unrevoke succeed. No `scope` parameter: there is one rule.
 - [ ] Implement hard-fail-on-unexpected-miss check in sync
 - [ ] Doc: cooperative-only guarantee (no global erasure) — still
       true for pre-flip holders who choose not to cooperate; the

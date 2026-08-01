@@ -6,19 +6,15 @@ require "tests"
 -- physically drop a REVOKED post's payload, not just hide it
 -- (260721-revoke.md, Phase 1).
 --
--- Removal is deferred to the end of a command (`revokes(scope)`,
--- common.lua), and the scope says how converged the caller's view is:
+-- Removal is deferred to the end of a command (`revokes`,
+-- common.lua).
 --
---   'author'  a live local vote (like.lua). Only the author's own
---             absolute channel, which a single fresh author-signed
---             commit fully determines.
---   'all'     a sync replay (sync.lua, at ::RECV::). Both channels --
---             the community sum is only trustworthy once the replay
---             has finished.
---
--- So a community revoke does NOT drop the blob on the node casting
--- it, but does on every peer that syncs the result. Both are pinned
--- below.
+-- Only the AUTHOR channel destroys, on every node. It is the
+-- "absolute right to be forgotten" (reps.md:287-312). The community
+-- channel is explicitly reversible and order-independent, so it hides
+-- (Phase 1) and never drops the bytes -- otherwise a reversible vote
+-- would become permanent, and whether a payload survived would depend
+-- on the order a peer replayed votes in. Both are pinned below.
 
 local DIR = ROOT .. "/chains/#cli-remove-blob/"
 
@@ -205,12 +201,8 @@ do
         err = "ERROR : chain get : revoked post",
     }
 
-    -- The finality window in practice (260721-remove-blob.md): a
-    -- COMMUNITY revoke is a running sum over many independent casters,
-    -- so a live local vote must not act on it -- the local view may be
-    -- missing votes a peer has not pushed yet. It becomes actionable
-    -- only at the end of a sync replay, where the view is as converged
-    -- as this node can make it. `revokes('author')` vs `revokes('all')`.
+    -- A community revoke hides but never destroys -- on the node
+    -- casting it AND on every peer that syncs the result.
     local C_POST = exec {
         cmd = EXE_A .. " chain '#test' post inline 'community-target' --sign " .. KEY1,
     }
@@ -234,16 +226,24 @@ do
         assert(code == 0, "a live local community vote must not drop the blob")
     end
 
-    TEST "community-revoke-drops-blob-after-sync-replay"
+    TEST "community-revoke-keeps-blob-after-sync-replay-too"
     do
+        -- a community revoke NEVER destroys, on any node: the channel
+        -- is explicitly reversible and order-independent (reps.md:
+        -- 287-312), so the bytes have to survive for a later unrevoke
+        -- or enough likes to bring the post back
         local out, code = exec {
             cmd = EXE_B .. " chain '#test' sync recv '" .. DIR_A .. "'",
         }
         assert(code == 0, "sync recv should succeed: " .. tostring(out))
-        local _, ccode = exec { err=false,
+        FAIL {
+            cmd = EXE_B .. " chain '#test' get payload " .. C_POST,
+            err = "ERROR : chain get : revoked post",
+        }
+        local _, ccode = exec {
             cmd = "git -C " .. ROOT_B .. "/chains/#test/ cat-file -e " .. c_blob,
         }
-        assert(ccode ~= 0, "the synced peer should have dropped the blob")
+        assert(ccode == 0, "the synced peer must KEEP a community-revoked blob")
     end
 end
 
