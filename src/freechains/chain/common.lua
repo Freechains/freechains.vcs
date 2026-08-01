@@ -127,8 +127,10 @@ end
 -- Physically drop a REVOKED post's payload: the loose blob AND the
 -- working-tree copy, then mark the path skip-worktree so neither
 -- resurrects it nor breaks a future checkout/reset/merge
--- (260721-remove-blob.md, "Local removal"). Idempotent: safe to call
--- on a post that is not revoked, or whose blob is already gone.
+-- (260721-remove-blob.md, "Local removal"). Re-entrant: safe to call
+-- again on a post whose blob is already gone (a tree entry names its
+-- blob whether or not the object still exists, and os.remove on a
+-- missing file is a no-op).
 --
 -- Scoped to the AUTHOR channel only (`p.revoke.author < 0`): that
 -- channel can only move via a fresh commit signed by the author (this
@@ -138,20 +140,20 @@ end
 -- on once caught up with a sync round, not on every individual live
 -- vote. Community-triggered removal is not yet implemented.
 function gc_revoked (G, hash)
-    local post = G.posts[hash]
-    if not (post and post.revoke and post.revoke.author < 0) then
-        return
-    end
-    if trailer(hash) ~= 'post' then
-        return
+    -- apply() already refused an unknown target ("post not found"),
+    -- and every G.posts key is a post commit, so both hold by
+    -- construction: a miss here is a bug, not a case to swallow.
+    local post = assert(G.posts[hash], "bug found")
+
+    local r = post.revoke or {}
+    if (r.author or 0) >= 0 then
+        return      -- not author-revoked: nothing to drop
     end
 
-    local file = exec {
+    -- a post commit adds exactly one file (get.lua asserts the same)
+    local file = assert((exec {
         cmd = "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash,
-    } :match("(%S+)")
-    if not file then
-        return
-    end
+    }):match("(%S+)"), "bug found")
 
     local blob = exec {
         cmd = "git -C " .. REPO .. " rev-parse " .. hash .. ":" .. file,
