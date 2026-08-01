@@ -195,6 +195,47 @@ do
         cmd = EXE_B .. " chain '#test' get payload " .. POST,
         err = "ERROR : chain get : revoked post",
     }
+
+    -- The finality window in practice (260721-remove-blob.md): a
+    -- COMMUNITY revoke is a running sum over many independent casters,
+    -- so a live local vote must not act on it -- the local view may be
+    -- missing votes a peer has not pushed yet. It becomes actionable
+    -- only at the end of a sync replay, where the view is as converged
+    -- as this node can make it. `revokes('author')` vs `revokes('all')`.
+    local C_POST = exec {
+        cmd = EXE_A .. " chain '#test' post inline 'community-target' --sign " .. KEY1,
+    }
+    local c_file = exec {
+        cmd = "git -C " .. DIR_A .. " diff-tree --no-commit-id -r --name-only " .. C_POST,
+    }
+    local c_blob = exec {
+        cmd = "git -C " .. DIR_A .. " rev-parse " .. C_POST .. ":" .. c_file,
+    }
+
+    -- KEY2 is not the author -> community channel only
+    exec {
+        cmd = EXE_A .. " chain '#test' revoke 1 " .. C_POST .. " --sign " .. KEY2,
+    }
+
+    TEST "community-revoke-keeps-blob-on-the-voting-node"
+    do
+        local _, code = exec {
+            cmd = "git -C " .. DIR_A .. " cat-file -e " .. c_blob,
+        }
+        assert(code == 0, "a live local community vote must not drop the blob")
+    end
+
+    TEST "community-revoke-drops-blob-after-sync-replay"
+    do
+        local out, code = exec {
+            cmd = EXE_B .. " chain '#test' sync recv '" .. DIR_A .. "'",
+        }
+        assert(code == 0, "sync recv should succeed: " .. tostring(out))
+        local _, ccode = exec { err=false,
+            cmd = "git -C " .. ROOT_B .. "/chains/#test/ cat-file -e " .. c_blob,
+        }
+        assert(ccode ~= 0, "the synced peer should have dropped the blob")
+    end
 end
 
 exec {

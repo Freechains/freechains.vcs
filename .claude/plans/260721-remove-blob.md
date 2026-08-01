@@ -817,12 +817,27 @@ is the whole rule.
       necessary again by `cli-remove-blob.lua`'s sync test, which
       deliberately clones the peer BEFORE any removal to avoid this
       exact gap)
-- [ ] Community-channel (`others`) triggered removal: this iteration
-      only wires `gc_revoked` into `like.lua`'s own self-revoke path.
-      A post revoked purely by community vote count is still hidden
-      (Phase 1) but its blob is deliberately left untouched — wiring
-      the "flip once at end of sync" rule (finality window section
-      above) into `sync.lua` is separate, not-yet-done work.
+- [x] IMPLEMENTED 2026-08-01: community-channel (`others`) removal,
+      via the deferred cache refactor. `gc_revoked` split into a
+      private `gc(hash)` primitive plus `revokes(scope)`; call sites
+      just do `REVOKES[hash] = true`. `revokes` re-reads the COMMITTED
+      `state/posts.lua` and decides there, so the finality window is
+      structural: a sum that dips negative mid-replay and recovers can
+      no longer trigger a deletion, and over-filling the candidate set
+      is harmless by construction.
+      Scopes: `like.lua` calls `revokes('author')` (a live local vote
+      converges nothing about `others`); `sync.lua` calls
+      `revokes('all')` at `::RECV::` — after the replay, both channels.
+      The hook is `::RECV::` and NOT next to a `write(G)`: the
+      fast-forward path writes remote state speculatively and rolls it
+      back on "remote state mismatch" (`sync.lua:447-452`), so acting
+      there would drop payloads on a state that got rejected.
+      Also found: the `consensus(G_oct, ...)` climb replays commits
+      into a scratch state, so it fills the candidate set speculatively
+      — harmless precisely because decisions are deferred to committed
+      state, and a reason not to bury the set inside `apply()`.
+      Verified end to end: a local community revoke keeps the blob on
+      the voting node, and the peer drops it on the next sync.
 - [ ] Implement hard-fail-on-unexpected-miss check in sync
 - [ ] Doc: cooperative-only guarantee (no global erasure) — still
       true for pre-flip holders who choose not to cooperate; the

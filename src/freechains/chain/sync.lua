@@ -314,6 +314,9 @@ elseif ARGS.recv then
                 if not ok then
                     error("invalid " .. kind .. " : " .. err, 0)
                 end
+                if t.post then
+                    REVOKES[t.post] = true
+                end
                 G.order[#G.order+1] = hash
             elseif kind == 'post' then
                 local ok, err = apply(G, 'post', tonumber(time), {
@@ -576,6 +579,15 @@ elseif ARGS.recv then
     end
 
     ::RECV::
+
+    -- The single point every SUCCESSFUL recv path reaches, and no
+    -- aborting one does (ERROR exits). It has to be here and not next
+    -- to a `write(G)`: the fast-forward path writes remote state
+    -- speculatively, then rolls it back on "remote state mismatch" --
+    -- acting there would drop payloads on a state that got rejected.
+    -- Both channels: the replay is finished, so this is the converged
+    -- view the finality window asks for.
+    revokes('all')
 
     -- stale-beg cleanup: drop refs/begs/* whose post is already in main
     do

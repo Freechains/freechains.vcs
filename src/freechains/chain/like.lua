@@ -140,7 +140,7 @@ do
 end
 
 if ARGS.target == "post" then
-    gc_revoked(G, ARGS.id)
+    REVOKES[ARGS.id] = true
 end
 
 -- commit state
@@ -151,6 +151,10 @@ do
     }
     commit_tree("(empty message)", "state", nil, nil)
 end
+
+-- author channel only: a live local vote converges nothing about the
+-- community sum, which a peer we have not synced with may still move
+revokes('author')
 
 if to_beg then
     exec {

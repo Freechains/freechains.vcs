@@ -124,32 +124,23 @@ function is_revoked (p)
     return ((r.author or 0) < 0) or ((r.others or 0) < 0)
 end
 
--- Physically drop a REVOKED post's payload: the loose blob AND the
+-- Posts whose revoke sums may have moved this run: CANDIDATES to
+-- re-check once everything has settled, never decisions taken now.
+-- Filled by a plain `REVOKES[hash] = true` wherever a revoke-axis vote
+-- is applied. All correctness lives in `revokes` below, which re-reads
+-- the COMMITTED state and decides there -- so over-filling this is
+-- harmless (a candidate that is not actually revoked is skipped) and
+-- under-filling is the only real bug.
+REVOKES = {}
+
+-- Physically drop one post's payload: the loose blob AND the
 -- working-tree copy, then mark the path skip-worktree so neither
 -- resurrects it nor breaks a future checkout/reset/merge
 -- (260721-remove-blob.md, "Local removal"). Re-entrant: safe to call
 -- again on a post whose blob is already gone (a tree entry names its
 -- blob whether or not the object still exists, and os.remove on a
 -- missing file is a no-op).
---
--- Scoped to the AUTHOR channel only (`p.revoke.author < 0`): that
--- channel can only move via a fresh commit signed by the author (this
--- one), so it is safe to act on immediately. The COMMUNITY (`others`)
--- channel is a replay of many independent casters and is NOT handled
--- here -- per the finality-window design, that one may only be acted
--- on once caught up with a sync round, not on every individual live
--- vote. Community-triggered removal is not yet implemented.
-function gc_revoked (G, hash)
-    -- apply() already refused an unknown target ("post not found"),
-    -- and every G.posts key is a post commit, so both hold by
-    -- construction: a miss here is a bug, not a case to swallow.
-    local post = assert(G.posts[hash], "bug found")
-
-    local r = post.revoke or {}
-    if (r.author or 0) >= 0 then
-        return      -- not author-revoked: nothing to drop
-    end
-
+local function gc (hash)
     -- a post commit adds exactly one file (get.lua asserts the same)
     local file = assert((exec {
         cmd = "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash,
@@ -164,6 +155,33 @@ function gc_revoked (G, hash)
     exec { err=false,
         cmd = "git -C " .. REPO .. " update-index --skip-worktree " .. file,
     }
+end
+
+-- Drop the payload of every REVOKES candidate that the COMMITTED state
+-- still says is revoked. Deferred to the end of a command on purpose:
+-- a sum that dips negative mid-replay and climbs back before the end
+-- must never trigger a deletion (260721-remove-blob.md, finality
+-- window). Reads `state/posts.lua` off disk rather than taking a `G`,
+-- so it acts on what was actually persisted, not on an in-memory table
+-- that a later abort might have rolled back.
+--
+-- `scope` picks which channel counts:
+--   'author'  the author's absolute channel only -- the one a single
+--             fresh author-signed commit fully determines. What a live
+--             local vote may use: it converges nothing about `others`.
+--   'all'     both channels. Only after a sync replay, where the
+--             `others` view is as converged as this node can make it.
+function revokes (scope)
+    local posts = dofile(FC .. "state/posts.lua")
+    for hash in pairs(REVOKES) do
+        local r = (posts[hash] or {}).revoke or {}
+        local hit = ((r.author or 0) < 0)
+                 or ((scope == 'all') and ((r.others or 0) < 0))
+        if hit then
+            gc(hash)
+        end
+    end
+    REVOKES = {}
 end
 
 -- posts hashes in a stable order: (time, hash); consolidated posts
