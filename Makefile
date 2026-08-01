@@ -1,4 +1,4 @@
-L = cd tst && LUA_PATH="../src/?.lua;../src/?/init.lua;;" lua5.4
+L = cd tst && GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null LUA_PATH="../src/?.lua;../src/?/init.lua;;" lua5.4
 
 tests:
 	@rm -Rf /tmp/freechains/
