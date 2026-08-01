@@ -134,7 +134,9 @@ do
     do
         -- no peer here holds a copy, and this node just dropped its own,
         -- so a plain unrevoke has nothing to restore from and the gate
-        -- refuses. `--file` is the way back -- see the section below.
+        -- refuses. `--file` is the way back if someone kept one out of
+        -- band (section below); if nobody did, the revoke is permanent
+        -- -- decided, not a bug (reps.md, "Reversible on the SUMS").
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-remove-blob' unrevoke 1 " .. POST .. " --sign " .. KEY2,
             err = "ERROR : chain unrevoke : blob unavailable",

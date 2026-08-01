@@ -904,10 +904,19 @@ is the whole rule.
       and only the exact original bytes can match, so it is safe to
       accept from anyone; a mismatch is rejected before anything is
       written. On success the blob is restored, `--skip-worktree` is
-      cleared and the file materialised. That gives a way back that
-      does not depend on any peer having retained the bytes -- but it
-      needs someone to have kept a copy OUTSIDE the system, so (a) vs
-      (b) is still the open question for what happens when nobody did.
+      cleared and the file materialised.
+- [x] RESOLVED 2026-08-01: (b). A revoke is undoable while someone
+      still holds a copy -- in the network, or out of band via
+      `--file`. IF NOBODY KEPT ONE, IT IS PERMANENT: accepted, not a
+      bug. Both channels keep destroying. The reps math is untouched
+      and stays reversible on the SUMS; what is not guaranteed is that
+      the BYTES are still there to show afterwards. `reps.md` amended
+      to say so at both places that promised reversibility flatly (the
+      Phase-1/Phase-2 note, and the REVOKED -> ACCEPTED edge of the
+      state machine). Rationale: the right-to-be-forgotten guarantee
+      is worth more than guaranteed reversibility, and neither was
+      ever enforceable against a peer that keeps its copy anyway
+      (NON-GOAL section above).
 - [x] IMPLEMENTED 2026-08-01: deferred-candidate refactor. `gc_revoked`
       became `REVOKES[hash] = true` at the call sites plus one
       `revokes()` drained at the end of `like.lua` and at `sync.lua`'s
