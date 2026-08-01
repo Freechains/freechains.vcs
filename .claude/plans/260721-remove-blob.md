@@ -897,8 +897,17 @@ is the whole rule.
       before peers converge. Options: (a) drop only on the author
       channel, hide-but-keep on the community one; (b) accept that
       community revocation is effectively permanent and amend
-      reps.md; (c) `--blob`/`--file` supply argument so a caster with
-      an out-of-band copy can re-seed it. NEEDS A DECISION.
+      reps.md; (c) `--file` supply argument so a caster with an
+      out-of-band copy can re-seed it.
+      => (c) IMPLEMENTED 2026-08-01 on `like` and `unrevoke`: the file
+      is hashed and compared against the blob the DAG already names,
+      and only the exact original bytes can match, so it is safe to
+      accept from anyone; a mismatch is rejected before anything is
+      written. On success the blob is restored, `--skip-worktree` is
+      cleared and the file materialised. That gives a way back that
+      does not depend on any peer having retained the bytes -- but it
+      needs someone to have kept a copy OUTSIDE the system, so (a) vs
+      (b) is still the open question for what happens when nobody did.
 - [x] IMPLEMENTED 2026-08-01: deferred-candidate refactor. `gc_revoked`
       became `REVOKES[hash] = true` at the call sites plus one
       `revokes()` drained at the end of `like.lua` and at `sync.lua`'s
