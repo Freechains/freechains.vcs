@@ -161,11 +161,12 @@ REVOKES = {}
 -- this order-independent: two peers replaying the same votes in any
 -- order reach the same sum, hence the same decision.
 --
--- CAVEAT, until the by-hash fetch lands (plan's open items): that
--- return path does not exist yet, so a community revoke currently
--- strands the payload and a later `unrevoke` is refused with "blob
--- unavailable". cli-revoke.lua records exactly that, and flips back
--- when step 2 arrives.
+-- CAVEAT: the return path only works while SOMEONE still serves the
+-- bytes. Every honest peer drops on learning the revoke, so once they
+-- have all synced, none can serve it back and no unrevoke can be cast
+-- (the gate refuses: "blob unavailable"). Community revocation is
+-- therefore reversible only in the window before peers converge --
+-- see the plan's open items.
 function revokes ()
     local posts = dofile(FC .. "state/posts.lua")
     for hash in pairs(REVOKES) do
@@ -187,6 +188,86 @@ function revokes ()
         end
     end
     REVOKES = {}
+end
+
+-- Step 2 of a sync. Step 1 pulls a FILTERED pack -- commits and trees
+-- only, so a peer holding a removed payload can still serve it -- and
+-- this pulls the payloads themselves, BY EXPLICIT HASH, from that same
+-- peer. It runs in sequence right after, not at read time: a sync is
+-- not finished until this has run, so a completed sync still leaves
+-- this node holding every live payload. Replication is unchanged;
+-- what changed is that it takes two round trips instead of one.
+--
+-- Deliberately NOT git's promisor machinery (which `--filter` sets up
+-- behind our back, and which `sync.lua` strips): that binds one remote
+-- URL, while Freechains syncs whatever peer it was pointed at, and it
+-- would lazily re-fetch on any read -- including a read of something
+-- this node revoked on purpose.
+--
+-- A fetch REQUEST is all-or-nothing: one absent hash sinks the whole
+-- batch and its available siblings are NOT delivered. So: one
+-- optimistic batch (the fast path, a single round trip when nothing
+-- in the set is revoked), and only on failure a per-blob retry, where
+-- the available ones land and the absent ones fail individually.
+function payloads (url)
+    -- FETCH_HEAD as well as --all: this runs BEFORE the replay moves
+    -- any ref, so the commits just fetched are reachable only from
+    -- there, and their payloads are exactly what we came for.
+    local missing = {}
+    local out = exec { err=false,
+        cmd = "git -C " .. REPO ..
+              " rev-list --objects --missing=print --all FETCH_HEAD",
+    }
+    if not out then
+        return
+    end
+    for h in out:gmatch("%?(%x+)") do
+        missing[h] = true
+    end
+    if not next(missing) then
+        return
+    end
+
+    -- Never ask for what we ourselves call revoked: no honest peer
+    -- serves it, and asking would sink the batch every single sync.
+    local posts = dofile(FC .. "state/posts.lua")
+    for hash, p in pairs(posts) do
+        if is_revoked(p) then
+            local file = (exec {
+                cmd = "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash,
+            }):match("(%S+)")
+            local blob = file and exec { err=false,
+                cmd = "git -C " .. REPO .. " rev-parse " .. hash .. ":" .. file,
+            }
+            if blob then
+                missing[blob] = nil
+            end
+        end
+    end
+
+    local want = {}
+    for h in pairs(missing) do
+        want[#want+1] = h
+    end
+    if #want == 0 then
+        return
+    end
+    table.sort(want)    -- deterministic request order
+
+    -- --no-write-fetch-head: a by-hash fetch would otherwise point
+    -- FETCH_HEAD at the BLOB, and the caller still needs it pointing at
+    -- the remote tip it just fetched in step 1.
+    local F = "git -C " .. REPO .. " fetch --no-write-fetch-head " .. url .. " "
+    local ok = exec { stderr=false, err=false,
+        cmd = F .. table.concat(want, " "),
+    }
+    if not ok then
+        for _, h in ipairs(want) do
+            exec { stderr=false, err=false,
+                cmd = F .. h,
+            }
+        end
+    end
 end
 
 -- posts hashes in a stable order: (time, hash); consolidated posts

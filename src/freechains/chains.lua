@@ -20,6 +20,14 @@ local function git_config (dir)
     exec {
         cmd = "git -C " .. dir .. " config receive.advertisePushOptions true",
     }
+    -- serve a filtered pack (step 1 of a sync) and answer a by-hash
+    -- want for a payload (step 2) -- see `payloads` in chain/common.lua
+    exec {
+        cmd = "git -C " .. dir .. " config uploadpack.allowFilter true",
+    }
+    exec {
+        cmd = "git -C " .. dir .. " config uploadpack.allowAnySHA1InWant true",
+    }
     -- keep objects loose (rm-able) instead of auto-packed away
     exec {
         cmd = "git -C " .. dir .. " config gc.auto 0",

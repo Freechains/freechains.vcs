@@ -9,12 +9,11 @@ require "tests"
 -- Removal is deferred to the end of a command (`revokes`,
 -- common.lua).
 --
--- Only the AUTHOR channel destroys, on every node. It is the
--- "absolute right to be forgotten" (reps.md:287-312). The community
--- channel is explicitly reversible and order-independent, so it hides
--- (Phase 1) and never drops the bytes -- otherwise a reversible vote
--- would become permanent, and whether a payload survived would depend
--- on the order a peer replayed votes in. Both are pinned below.
+-- BOTH channels destroy: `revokes` tests `is_revoked`, the same
+-- predicate `get.lua` hides by. Transfer is two steps -- a filtered
+-- pack, then the payloads by explicit hash -- so a peer holding a
+-- removed payload can still serve, and a completed sync still leaves
+-- the peer holding every live payload.
 
 local DIR = ROOT .. "/chains/#cli-remove-blob/"
 
@@ -152,12 +151,11 @@ do
     -- fails (cli-chains.lua's "clone existing chain fails") -- real
     -- peers are separate machines, i.e. separate roots.
     --
-    -- A FULL clone after removal still needs `filter=blob:none` +
-    -- `uploadpack.allowFilter`, which is not implemented yet
-    -- (260721-remove-blob.md open items). Cloning B before any
-    -- removal avoids that and exercises exactly what IS implemented:
-    -- incremental fetch after a removal, which does not renegotiate
-    -- the missing blob.
+    -- `chains add ... clone` still uses a plain `git clone`, which is
+    -- unfiltered and so cannot onboard from a peer with a removed
+    -- payload (260721-remove-blob.md open items). Cloning B before any
+    -- removal sidesteps that; the filtered path is exercised by
+    -- `sync recv` below and by the two-step section at the end.
     local ROOT_A = ROOT .. "/remove-blob-sync/A/"
     local ROOT_B = ROOT .. "/remove-blob-sync/B/"
     local EXE_A  = "../src/freechains.lua --root " .. ROOT_A
@@ -244,6 +242,63 @@ do
             cmd = "git -C " .. ROOT_B .. "/chains/#test/ cat-file -e " .. c_blob,
         }
         assert(ccode ~= 0, "the synced peer should drop it as well")
+    end
+end
+
+do
+    print("==> Two-step transfer: filtered pack, then payloads by hash")
+
+    -- step 1 pulls commits+trees only (so a peer holding a removed
+    -- payload can still serve), step 2 pulls the payloads themselves by
+    -- explicit hash, in sequence, from that same peer. A completed sync
+    -- therefore still leaves the peer holding every live payload --
+    -- replication is unchanged, it just takes two round trips.
+    local ROOT_X = ROOT .. "/two-step/X/"
+    local ROOT_Y = ROOT .. "/two-step/Y/"
+    local EXE_X  = "../src/freechains.lua --root " .. ROOT_X
+    local EXE_Y  = "../src/freechains.lua --root " .. ROOT_Y
+    exec { cmd = "mkdir -p " .. ROOT_X }
+    exec { cmd = "mkdir -p " .. ROOT_Y }
+
+    exec { cmd = EXE_X .. " chains add '#test' init file " .. GEN_3 }
+    local DIR_X = ROOT_X .. "/chains/#test/"
+    exec { cmd = EXE_Y .. " chains add '#test' clone " .. DIR_X }
+    local DIR_Y = ROOT_Y .. "/chains/#test/"
+
+    local A = exec {
+        cmd = EXE_X .. " chain '#test' post inline 'alpha' --sign " .. KEY1,
+    }
+    local B = exec {
+        cmd = EXE_X .. " chain '#test' post inline 'beta' --sign " .. KEY1,
+    }
+
+    TEST "sync-lands-every-payload"
+    do
+        local out, code = exec {
+            cmd = EXE_Y .. " chain '#test' sync recv '" .. DIR_X .. "'",
+        }
+        assert(code == 0, "sync recv should succeed: " .. tostring(out))
+        -- nothing deferred: step 2 already pulled what step 1 filtered out
+        local miss = exec {
+            cmd = "git -C " .. DIR_Y .. " rev-list --objects --all --missing=print"
+                  .. " | grep -c '^?' || true",
+        }
+        assert(miss == "0", "peer should hold every object, missing: " .. miss)
+        local pa = exec { cmd = EXE_Y .. " chain '#test' get payload " .. A }
+        local pb = exec { cmd = EXE_Y .. " chain '#test' get payload " .. B }
+        assert(pa == "alpha" and pb == "beta", "payloads: " .. pa .. "/" .. pb)
+    end
+
+    TEST "no-promisor-config-left-behind"
+    do
+        -- --filter registers the peer as a promisor remote, which would
+        -- lazily re-fetch on any read -- including a read of something
+        -- this node revoked on purpose. sync strips it.
+        local out = exec {
+            cmd = "git -C " .. DIR_Y .. " config --get-regexp"
+                  .. " 'promisor|partialclone|extensions' || true",
+        }
+        assert(out == "", "promisor config should be stripped: " .. out)
     end
 end
 

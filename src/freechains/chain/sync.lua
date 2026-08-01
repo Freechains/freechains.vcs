@@ -22,12 +22,43 @@ if ARGS.send then
     end
 
 elseif ARGS.recv then
+    -- git refuses to register a promisor remote whose name begins with
+    -- '/', and --filter cannot run without one -- so a bare absolute
+    -- path (what URL gives for a local peer) fails outright with
+    -- "did not send all necessary objects". file:// is the same
+    -- transport under a name git will accept.
+    local FETCH_URL = URL(ARGS.remote, ARGS.alias)
+    if FETCH_URL:sub(1,1) == "/" then
+        FETCH_URL = "file://" .. FETCH_URL
+    end
     do
+        -- step 1: metadata only. A peer that dropped a revoked payload
+        -- cannot serve an unfiltered pack at all (pack-objects needs
+        -- the whole closure), but it can always serve commits+trees.
+        -- The payloads follow in step 2, `payloads` in common.lua.
         exec { stderr=false,
-            cmd = "git -C " .. REPO .. " fetch " .. URL(ARGS.remote, ARGS.alias) ..
+            cmd = "git -C " .. REPO .. " fetch --filter=blob:none " .. FETCH_URL ..
                 " main refs/begs/*:refs/begs/*",
             err = "chain sync : fetch failed",
         }
+
+        -- `--filter` silently registers the peer as a PROMISOR remote,
+        -- which would then lazily re-fetch any missing object on any
+        -- read -- uncontrolled, bound to whichever peer synced last,
+        -- and it would fire on a payload this node revoked on purpose.
+        -- Drop it: step 2 fetches what we want, explicitly.
+        exec { err=false,
+            cmd = "git -C " .. REPO .. " config --remove-section 'remote." .. FETCH_URL .. "'",
+        }
+
+        -- step 2, and it has to be HERE, before the replay: this repo
+        -- has a working tree, so `merge --no-commit` below materialises
+        -- each incoming post's file and would fail on a payload we do
+        -- not hold. Uses the state as it stands now -- anything the
+        -- INCOMING votes revoke is dropped again by `revokes` at the
+        -- end, which costs one wasted transfer and keeps the merge able
+        -- to run.
+        payloads(FETCH_URL)
 
         local loc = exec {
             cmd = "git -C " .. REPO .. " rev-parse HEAD"

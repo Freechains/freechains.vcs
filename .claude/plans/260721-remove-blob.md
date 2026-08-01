@@ -857,11 +857,48 @@ is the whole rule.
       Updated `cli-revoke.lua`'s two spots that assumed self-revoke
       was always reversible on a single node with no other holder —
       it correctly isn't anymore, once physically removed.
-- [ ] `uploadpack.allowFilter` + filtered fetch in `sync.lua` — still
-      needed for a FULL clone to succeed after a removal (proven
-      necessary again by `cli-remove-blob.lua`'s sync test, which
-      deliberately clones the peer BEFORE any removal to avoid this
-      exact gap)
+- [x] IMPLEMENTED 2026-08-01: the two-step transfer. `chains.lua`
+      sets `uploadpack.allowFilter` + `uploadpack.allowAnySHA1InWant`
+      on every chain; `sync recv` fetches `--filter=blob:none` (step 1)
+      and then `payloads()` (common.lua) pulls every missing,
+      non-revoked blob BY HASH from that same peer (step 2), as an
+      optimistic batch with a per-blob fallback. Verified: a peer ends
+      a sync with zero missing objects and readable payloads.
+      Four things only testing surfaced:
+      - git REFUSES a promisor remote whose name begins with `/`, so
+        `--filter` fails outright on the bare absolute path `URL()`
+        returns ("did not send all necessary objects"). Fixed by
+        prefixing `file://` — same transport, a name git accepts.
+      - `--filter` silently registers the peer as a promisor remote,
+        which would lazily re-fetch on ANY read, including a read of
+        something this node revoked on purpose. `sync.lua` strips it.
+      - a by-hash `git fetch <url> <sha>` WRITES FETCH_HEAD, pointing
+        it at the blob and destroying the tip step 1 just fetched.
+        Fixed with `--no-write-fetch-head`.
+      - step 2 must run BEFORE the replay, not after: this repo has a
+        working tree, so `merge --no-commit` materialises each incoming
+        post's file and fails on a payload we do not hold.
+- [ ] Filtered CLONE for onboarding: `chains add ... clone` still uses
+      a plain `git clone`, so a brand-new peer still cannot onboard
+      from a node that removed a payload. Needs `--filter=blob:none`
+      plus a way to populate the worktree (a plain filtered clone
+      fails at checkout, and the removed path needs `--skip-worktree`
+      set before any checkout can succeed).
+- [ ] REVERSIBILITY IS UNRESOLVED (found 2026-08-01 while testing the
+      above). The plan assumed an unrevoked post "returns on the next
+      sync" via step 2 — but that only holds while SOMEONE still
+      serves the bytes, and `revokes()` makes every honest peer drop
+      on learning the revoke. Verified end to end: A community-revokes
+      and drops; B syncs, learns the revoke, and drops its own copy;
+      now no honest peer can serve it, and B's `unrevoke` is refused
+      with "blob unavailable". So "honest peers drop REVOKED payloads"
+      and "community revocation is reversible" (reps.md:287-312) are
+      in direct conflict: reversibility survives only in the window
+      before peers converge. Options: (a) drop only on the author
+      channel, hide-but-keep on the community one; (b) accept that
+      community revocation is effectively permanent and amend
+      reps.md; (c) `--blob`/`--file` supply argument so a caster with
+      an out-of-band copy can re-seed it. NEEDS A DECISION.
 - [x] IMPLEMENTED 2026-08-01: deferred-candidate refactor. `gc_revoked`
       became `REVOKES[hash] = true` at the call sites plus one
       `revokes()` drained at the end of `like.lua` and at `sync.lua`'s
