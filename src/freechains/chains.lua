@@ -210,6 +210,20 @@ if ARGS.add then
         -- just fails and the per-object pass sorts it out.
         fetch_objects(tmp, url, missing_objects(tmp, "--all"))
 
+        -- Onboarding cannot half-succeed. The state file has landed by
+        -- now (it is not revoked, so the peer served it), so we can ask
+        -- what it claims to have revoked -- those are the only objects
+        -- it is allowed not to have. Anything else still absent means
+        -- this peer cannot serve content it should: refuse it, and let
+        -- the user onboard from an honest one instead.
+        local ok_absent = revoked_blobs(tmp, "HEAD")
+        for _, h in ipairs(missing_objects(tmp, "--all")) do
+            if not ok_absent[h] then
+                exec { cmd = "rm -rf " .. tmp }
+                ERROR("chains add : clone failed : peer lacks payload : " .. h)
+            end
+        end
+
         -- Now the checkout `--no-checkout` deferred: populate the index
         -- from HEAD, mark whatever is STILL absent `--skip-worktree` so
         -- git does not try to write it, and materialise the rest.

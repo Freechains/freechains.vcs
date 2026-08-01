@@ -118,12 +118,6 @@ function write (G)
     f(G.now,     FC .. "state/now.lua")
 end
 
--- REVOKED when either the author's or the community's net revoke sum is negative.
-function is_revoked (p)
-    local r = p.revoke or {}
-    return ((r.author or 0) < 0) or ((r.others or 0) < 0)
-end
-
 -- Posts whose revoke sums may have moved this run: CANDIDATES to
 -- re-check once everything has settled, never decisions taken now.
 -- Filled by a plain `REVOKES[hash] = true` wherever a revoke-axis vote
@@ -221,28 +215,35 @@ function payloads (url)
         return
     end
 
-    -- Never ask for what we ourselves call revoked: no honest peer
-    -- serves it, and asking would sink the batch every single sync.
-    local posts = dofile(FC .. "state/posts.lua")
-    for hash, p in pairs(posts) do
-        if is_revoked(p) then
-            local file = (exec {
-                cmd = "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash,
-            }):match("(%S+)")
-            local blob = file and exec { err=false,
-                cmd = "git -C " .. REPO .. " rev-parse " .. hash .. ":" .. file,
-            }
-            if blob then
-                missing[blob] = nil
-            end
-        end
+    -- The ONLY objects a peer is allowed not to serve are the ones it
+    -- dropped on purpose. Ours, and the ones the REMOTE says it
+    -- revoked -- the incoming votes may revoke something we have not
+    -- replayed yet, and refusing to accept that would break syncing
+    -- from an honest peer. If the remote is lying about what it
+    -- revoked, the replay validates its state and rejects it anyway.
+    local ok_absent = revoked_blobs(REPO, "HEAD")
+    for b in pairs(revoked_blobs(REPO, "FETCH_HEAD")) do
+        ok_absent[b] = true
     end
 
     local want = {}
     for h in pairs(missing) do
-        want[#want+1] = h
+        if not ok_absent[h] then
+            want[#want+1] = h
+        end
     end
+
     fetch_objects(REPO, url, want)
+
+    -- Onboarding cannot half-succeed. Anything still absent that is not
+    -- revoked means this peer could not serve content it should have:
+    -- it is not an honest peer to sync from. Fail before any ref moves,
+    -- so the chain is untouched and another peer can be tried.
+    for _, h in ipairs(missing_objects(REPO, "--all FETCH_HEAD")) do
+        if not ok_absent[h] then
+            ERROR("chain sync : peer lacks payload : " .. h)
+        end
+    end
 end
 
 -- posts hashes in a stable order: (time, hash); consolidated posts

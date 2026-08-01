@@ -432,6 +432,94 @@ do
     end
 end
 
+do
+    print("==> A peer that cannot serve a LIVE payload is refused")
+
+    -- Onboarding cannot half-succeed. The only objects a peer may fail
+    -- to serve are the ones it revoked on purpose; anything else means
+    -- it cannot serve content it should, so we refuse it and the user
+    -- onboards from an honest peer instead. Never a silent hole.
+    local ROOT_H = ROOT .. "/dishonest/H/"
+    local ROOT_C = ROOT .. "/dishonest/C/"
+    local ROOT_F = ROOT .. "/dishonest/F/"
+    local EXE_H  = "../src/freechains.lua --root " .. ROOT_H
+    local EXE_C  = "../src/freechains.lua --root " .. ROOT_C
+    local EXE_F  = "../src/freechains.lua --root " .. ROOT_F
+    exec { cmd = "mkdir -p " .. ROOT_H }
+    exec { cmd = "mkdir -p " .. ROOT_C }
+    exec { cmd = "mkdir -p " .. ROOT_F }
+
+    exec { cmd = EXE_H .. " chains add '#test' init file " .. GEN_3 }
+    local DIR_H = ROOT_H .. "/chains/#test/"
+
+    -- C onboards while the peer is still honest, at genesis
+    exec { cmd = EXE_C .. " chains add '#test' clone " .. DIR_H }
+    local DIR_C = ROOT_C .. "/chains/#test/"
+    local BEFORE = exec { cmd = "git -C " .. DIR_C .. " rev-parse HEAD" }
+
+    -- then it posts, and loses that payload WITHOUT revoking it
+    local LIVE = exec {
+        cmd = EXE_H .. " chain '#test' post inline 'live-post' --sign " .. KEY1,
+    }
+    local lf = exec {
+        cmd = "git -C " .. DIR_H .. " diff-tree --no-commit-id -r --name-only " .. LIVE,
+    }
+    local lb = exec {
+        cmd = "git -C " .. DIR_H .. " rev-parse " .. LIVE .. ":" .. lf,
+    }
+    exec {
+        cmd = "rm -f " .. DIR_H .. ".git/objects/" .. lb:sub(1,2) .. "/" .. lb:sub(3),
+    }
+
+    TEST "sync-refuses-a-peer-missing-a-live-payload"
+    FAIL {
+        cmd = EXE_C .. " chain '#test' sync recv '" .. DIR_H .. "'",
+        err = "ERROR : chain sync : peer lacks payload : " .. lb,
+    }
+
+    TEST "refused-sync-leaves-the-chain-untouched"
+    do
+        local now = exec { cmd = "git -C " .. DIR_C .. " rev-parse HEAD" }
+        assert(now == BEFORE, "HEAD must not move: " .. BEFORE .. " -> " .. now)
+        local miss = exec {
+            cmd = "git -C " .. DIR_C .. " rev-list --objects --all --missing=print"
+                  .. " | grep -c '^?' || true",
+        }
+        assert(miss == "0", "no half-fetched state should remain: " .. miss)
+    end
+
+    TEST "clone-refuses-the-same-peer"
+    FAIL {
+        cmd = EXE_F .. " chains add '#test' clone " .. DIR_H,
+        err = "ERROR : chains add : clone failed : peer lacks payload : " .. lb,
+    }
+
+    TEST "refused-clone-leaves-nothing-behind"
+    do
+        local out = exec { cmd = "ls -A " .. ROOT_F .. "/chains/ 2>/dev/null | wc -l" }
+        assert(out == "0", "the aborted clone should be cleaned up, got " .. out)
+    end
+end
+
+do
+    print("==> A locally lost payload errors cleanly, never a traceback")
+
+    local POST = exec {
+        cmd = ENV_EXE .. " chain '#cli-remove-blob' post inline 'corrupt-me' --sign " .. KEY1,
+    }
+    local file, blob = blob_of(POST)
+    -- not revoked -- simulate the object store losing it some other way
+    exec {
+        cmd = "rm -f " .. DIR .. ".git/objects/" .. blob:sub(1,2) .. "/" .. blob:sub(3),
+    }
+
+    TEST "get-payload-reports-unavailable"
+    FAIL {
+        cmd = ENV_EXE .. " chain '#cli-remove-blob' get payload " .. POST,
+        err = "ERROR : chain get : payload unavailable",
+    }
+end
+
 exec {
     cmd = ENV_EXE .. " chains rem '#cli-remove-blob'",
 }

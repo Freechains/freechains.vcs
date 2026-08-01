@@ -71,6 +71,45 @@ function serial (t)
     return "return " .. val(t) .. "\n"
 end
 
+-- REVOKED when either the author's or the community's net revoke sum is negative.
+function is_revoked (p)
+    local r = p.revoke or {}
+    return ((r.author or 0) < 0) or ((r.others or 0) < 0)
+end
+
+-- Blob hashes of every REVOKED post according to the `state/posts.lua`
+-- committed at `ref`. These are the ONLY objects a peer is allowed to
+-- be unable to serve: it dropped them on purpose. Anything else it
+-- cannot serve makes it a peer we should not be onboarding from.
+function revoked_blobs (dir, ref)
+    local T = {}
+    local src = exec { stderr=false, err=false,
+        cmd = "git -C " .. dir .. " show " .. ref .. ":.freechains/state/posts.lua",
+    }
+    if not src then
+        return T
+    end
+    local f = load(src)
+    local ok, posts = pcall(f)
+    if not (ok and type(posts) == 'table') then
+        return T
+    end
+    for hash, p in pairs(posts) do
+        if is_revoked(p) then
+            local file = (exec { stderr=false, err=false,
+                cmd = "git -C " .. dir .. " diff-tree --no-commit-id -r --name-only " .. hash,
+            } or ""):match("(%S+)")
+            local blob = file and exec { stderr=false, err=false,
+                cmd = "git -C " .. dir .. " rev-parse " .. hash .. ":" .. file,
+            }
+            if blob then
+                T[blob] = true
+            end
+        end
+    end
+    return T
+end
+
 -- Objects reachable from `tips` that this repo does not have.
 -- `rev-list --missing=print` prefixes those with '?'.
 function missing_objects (dir, tips)

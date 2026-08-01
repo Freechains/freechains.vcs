@@ -973,7 +973,28 @@ is the whole rule.
       never has to lift a revoke.
       => this promotes the by-hash fetch from "needed to onboard new
       peers" to "needed for documented revoke semantics to work".
-- [ ] Implement hard-fail-on-unexpected-miss check in sync
+- [x] IMPLEMENTED 2026-08-01: hard-fail on an unexpected miss, in BOTH
+      sync and clone. Onboarding cannot half-succeed: the only objects
+      a peer may fail to serve are the ones it revoked on purpose, so
+      anything else still absent after the by-hash step means it cannot
+      serve content it should, and we refuse it -- the user onboards
+      from an honest peer instead. `ERROR : chain sync : peer lacks
+      payload : <hash>` / `ERROR : chains add : clone failed : peer
+      lacks payload : <hash>`. Verified: the refused sync leaves HEAD
+      unmoved with no half-fetched objects, and the refused clone
+      removes its temp dir.
+      The allowed-absent set is the revoked blobs per LOCAL state UNION
+      per the REMOTE's state at FETCH_HEAD -- the incoming votes may
+      revoke something we have not replayed yet, and refusing that
+      would break syncing from an honest peer. A remote lying about
+      what it revoked is caught by the replay, which validates its
+      state anyway.
+- [x] FIXED 2026-08-01: `get.lua` crashed with a raw Lua traceback
+      (`bug found : [128] : git show ...`) on a payload that was
+      missing but NOT revoked -- it only guarded the revoked case.
+      Now `ERROR : chain get : payload unavailable`, per the project's
+      error convention. Predated this work but the filtered transfer
+      made it reachable in normal operation.
 - [ ] Doc: cooperative-only guarantee (no global erasure) — still
       true for pre-flip holders who choose not to cooperate; the
       gate above only strengthens the flip moment, not the ceiling
