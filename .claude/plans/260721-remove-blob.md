@@ -878,12 +878,27 @@ is the whole rule.
       - step 2 must run BEFORE the replay, not after: this repo has a
         working tree, so `merge --no-commit` materialises each incoming
         post's file and fails on a payload we do not hold.
-- [ ] Filtered CLONE for onboarding: `chains add ... clone` still uses
-      a plain `git clone`, so a brand-new peer still cannot onboard
-      from a node that removed a payload. Needs `--filter=blob:none`
-      plus a way to populate the worktree (a plain filtered clone
-      fails at checkout, and the removed path needs `--skip-worktree`
-      set before any checkout can succeed).
+- [x] IMPLEMENTED 2026-08-01: filtered CLONE, so a brand-new peer can
+      onboard from a node that removed a payload -- the last thing the
+      serving wall still blocked. `chains add ... clone` now does
+      `--filter=blob:none --no-checkout`, strips the promisor, pulls
+      what the peer will serve via `fetch_objects`, then does the
+      checkout it deferred: `read-tree HEAD`, `--skip-worktree` on
+      whatever is STILL absent, `checkout -- .`.
+      Notes:
+      - a CLONE keys the promisor on `remote.origin`, where a FETCH
+        keys it by URL -- so the strip needs both spellings. Missing
+        this is silent: the leftover promisor lazily re-fetches during
+        detection and hides the very blob you are looking for.
+      - no state file exists yet at that point (it is a blob too, and
+        was filtered out), so the revoked set cannot be pre-excluded
+        here; the optimistic batch just fails and the per-object pass
+        sorts it out.
+      - `missing_objects` / `fetch_objects` / `FILTERABLE` moved to
+        `freechains/common.lua` so clone and sync share one mechanism.
+      Verified: fresh peer clones, reads the surviving post, is refused
+      the revoked one, has a clean worktree with the absent path
+      skip-worktree'd, no promisor left, and can post afterwards.
 - [ ] REVERSIBILITY IS UNRESOLVED (found 2026-08-01 while testing the
       above). The plan assumed an unrevoked post "returns on the next
       sync" via step 2 — but that only holds while SOMEONE still

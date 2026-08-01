@@ -214,14 +214,7 @@ function payloads (url)
     -- any ref, so the commits just fetched are reachable only from
     -- there, and their payloads are exactly what we came for.
     local missing = {}
-    local out = exec { err=false,
-        cmd = "git -C " .. REPO ..
-              " rev-list --objects --missing=print --all FETCH_HEAD",
-    }
-    if not out then
-        return
-    end
-    for h in out:gmatch("%?(%x+)") do
+    for _, h in ipairs(missing_objects(REPO, "--all FETCH_HEAD")) do
         missing[h] = true
     end
     if not next(missing) then
@@ -249,25 +242,7 @@ function payloads (url)
     for h in pairs(missing) do
         want[#want+1] = h
     end
-    if #want == 0 then
-        return
-    end
-    table.sort(want)    -- deterministic request order
-
-    -- --no-write-fetch-head: a by-hash fetch would otherwise point
-    -- FETCH_HEAD at the BLOB, and the caller still needs it pointing at
-    -- the remote tip it just fetched in step 1.
-    local F = "git -C " .. REPO .. " fetch --no-write-fetch-head " .. url .. " "
-    local ok = exec { stderr=false, err=false,
-        cmd = F .. table.concat(want, " "),
-    }
-    if not ok then
-        for _, h in ipairs(want) do
-            exec { stderr=false, err=false,
-                cmd = F .. h,
-            }
-        end
-    end
+    fetch_objects(REPO, url, want)
 end
 
 -- posts hashes in a stable order: (time, hash); consolidated posts

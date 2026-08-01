@@ -71,6 +71,59 @@ function serial (t)
     return "return " .. val(t) .. "\n"
 end
 
+-- Objects reachable from `tips` that this repo does not have.
+-- `rev-list --missing=print` prefixes those with '?'.
+function missing_objects (dir, tips)
+    local out = exec { err=false,
+        cmd = "git -C " .. dir .. " rev-list --objects --missing=print " .. tips,
+    }
+    local T = {}
+    if out then
+        for h in out:gmatch("%?(%x+)") do
+            T[#T+1] = h
+        end
+    end
+    return T
+end
+
+-- Fetch `want` (an array of object hashes) from `url` BY HASH.
+--
+-- A fetch REQUEST is all-or-nothing: one absent hash sinks the whole
+-- batch and its available siblings are NOT delivered. So try one
+-- optimistic batch -- a single round trip whenever everything asked
+-- for is there -- and only on failure retry per object, where the
+-- available ones land and the absent ones fail individually.
+--
+-- --no-write-fetch-head: a by-hash fetch would otherwise point
+-- FETCH_HEAD at the object, clobbering the tip a caller may still
+-- need.
+function fetch_objects (dir, url, want)
+    if #want == 0 then
+        return
+    end
+    table.sort(want)    -- deterministic request order
+    local F = "git -C " .. dir .. " fetch --no-write-fetch-head " .. url .. " "
+    local ok = exec { stderr=false, err=false,
+        cmd = F .. table.concat(want, " "),
+    }
+    if not ok then
+        for _, h in ipairs(want) do
+            exec { stderr=false, err=false, cmd = F .. h }
+        end
+    end
+end
+
+-- git refuses to register a promisor remote whose name begins with
+-- '/', and --filter cannot run without one, so a bare absolute path
+-- fails outright with "did not send all necessary objects". file:// is
+-- the same transport under a name git will accept.
+function FILTERABLE (url)
+    if url:sub(1,1) == "/" then
+        return "file://" .. url
+    end
+    return url
+end
+
 function URL (raw, alias)
     if not raw:find("#") then
         local sep = (raw:sub(-1) == "/") and "" or "/"

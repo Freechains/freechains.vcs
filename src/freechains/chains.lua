@@ -179,11 +179,64 @@ if ARGS.add then
             err = "chains add : clone failed",
         }
         local tmp = DIR .. "/_tmp-" .. math.random(0, 9999999999) .. "/"
+
+        -- Onboard the same way a sync transfers: FILTERED, then the
+        -- payloads by hash. A peer that dropped a revoked payload
+        -- cannot serve an unfiltered clone -- `pack-objects` needs the
+        -- whole closure -- and even where the objects are copied
+        -- directly (local path), the checkout then dies trying to
+        -- materialise the blob that is gone. `--no-checkout` defers
+        -- that until we know which paths we can actually write.
+        local url = FILTERABLE(URL(ARGS.url, ARGS.alias))
         exec { stderr=false,
-            cmd = "git clone " .. URL(ARGS.url, ARGS.alias) .. " " .. tmp,
+            cmd = "git clone --filter=blob:none --no-checkout " .. url .. " " .. tmp,
             err = "chains add : clone failed",
         }
         git_config(tmp)
+
+        -- A clone puts the promisor on `origin` (a fetch keys it by
+        -- URL instead); drop it so nothing lazily re-fetches behind our
+        -- back -- including a payload this chain revoked on purpose.
+        exec { err=false,
+            cmd = "git -C " .. tmp .. " config --unset remote.origin.promisor",
+        }
+        exec { err=false,
+            cmd = "git -C " .. tmp .. " config --unset remote.origin.partialclonefilter",
+        }
+
+        -- Pull every object the peer will serve. There is no state file
+        -- to read yet -- it is a blob too, and was filtered out -- so we
+        -- cannot pre-exclude the revoked ones here: the optimistic batch
+        -- just fails and the per-object pass sorts it out.
+        fetch_objects(tmp, url, missing_objects(tmp, "--all"))
+
+        -- Now the checkout `--no-checkout` deferred: populate the index
+        -- from HEAD, mark whatever is STILL absent `--skip-worktree` so
+        -- git does not try to write it, and materialise the rest.
+        exec {
+            cmd = "git -C " .. tmp .. " read-tree HEAD",
+        }
+        do
+            local paths = {}
+            local idx = exec {
+                cmd = "git -C " .. tmp .. " ls-files -s",
+            }
+            for h, path in idx:gmatch("%d+ (%x+) %d+\t([^\n]+)") do
+                paths[h] = paths[h] or {}
+                table.insert(paths[h], path)
+            end
+            for _, h in ipairs(missing_objects(tmp, "--all")) do
+                for _, path in ipairs(paths[h] or {}) do
+                    exec { err=false,
+                        cmd = "git -C " .. tmp .. " update-index --skip-worktree '" .. path .. "'",
+                    }
+                end
+            end
+        end
+        exec { stderr=false, err=false,
+            cmd = "git -C " .. tmp .. " checkout -- .",
+        }
+
         exec {
             cmd = "cp " .. HERE .. "/hooks/pre-receive " .. tmp .. "/.git/hooks/pre-receive && chmod +x " .. tmp .. "/.git/hooks/pre-receive",
         }

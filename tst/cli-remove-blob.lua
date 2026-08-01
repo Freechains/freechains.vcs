@@ -153,11 +153,9 @@ do
     -- fails (cli-chains.lua's "clone existing chain fails") -- real
     -- peers are separate machines, i.e. separate roots.
     --
-    -- `chains add ... clone` still uses a plain `git clone`, which is
-    -- unfiltered and so cannot onboard from a peer with a removed
-    -- payload (260721-remove-blob.md open items). Cloning B before any
-    -- removal sidesteps that; the filtered path is exercised by
-    -- `sync recv` below and by the two-step section at the end.
+    -- B clones before any removal here, so this section stays about
+    -- incremental sync. Onboarding a peer AFTER a removal is its own
+    -- section at the end of this file.
     local ROOT_A = ROOT .. "/remove-blob-sync/A/"
     local ROOT_B = ROOT .. "/remove-blob-sync/B/"
     local EXE_A  = "../src/freechains.lua --root " .. ROOT_A
@@ -357,6 +355,80 @@ do
                   .. " 'promisor|partialclone|extensions' || true",
         }
         assert(out == "", "promisor config should be stripped: " .. out)
+    end
+end
+
+do
+    print("==> A brand-new peer can onboard from a node that removed a payload")
+
+    -- The case a plain `git clone` cannot do: an unfiltered clone needs
+    -- the whole object closure and dies on the missing blob, and even
+    -- where objects are copied directly (local path) the checkout then
+    -- dies materialising it. Clone filtered + --no-checkout, pull what
+    -- the peer will serve, skip-worktree what is gone, then check out.
+    local ROOT_S = ROOT .. "/onboard/S/"
+    local ROOT_N = ROOT .. "/onboard/N/"
+    local EXE_S  = "../src/freechains.lua --root " .. ROOT_S
+    local EXE_N  = "../src/freechains.lua --root " .. ROOT_N
+    exec { cmd = "mkdir -p " .. ROOT_S }
+    exec { cmd = "mkdir -p " .. ROOT_N }
+
+    exec { cmd = EXE_S .. " chains add '#test' init file " .. GEN_3 }
+    local DIR_S = ROOT_S .. "/chains/#test/"
+    local GONE = exec {
+        cmd = EXE_S .. " chain '#test' post inline 'revoked-content' --sign " .. KEY1,
+    }
+    local KEPT = exec {
+        cmd = EXE_S .. " chain '#test' post inline 'public-content' --sign " .. KEY1,
+    }
+    exec {
+        cmd = EXE_S .. " chain '#test' revoke 1 " .. GONE .. " --sign " .. KEY2,
+    }
+
+    TEST "clone-succeeds-from-a-blob-removed-peer"
+    do
+        local out, code = exec {
+            cmd = EXE_N .. " chains add '#test' clone " .. DIR_S,
+        }
+        assert(code == 0, "clone should succeed: " .. tostring(out))
+    end
+
+    local DIR_N = ROOT_N .. "/chains/#test/"
+
+    TEST "new-peer-reads-what-survived"
+    do
+        local out = exec { cmd = EXE_N .. " chain '#test' get payload " .. KEPT }
+        assert(out == "public-content", "payload: " .. out)
+    end
+
+    TEST "new-peer-never-receives-the-revoked-one"
+    FAIL {
+        cmd = EXE_N .. " chain '#test' get payload " .. GONE,
+        err = "ERROR : chain get : revoked post",
+    }
+
+    TEST "new-peer-worktree-is-clean-and-usable"
+    do
+        local st = exec { cmd = "git -C " .. DIR_N .. " status --porcelain" }
+        assert(st == "", "status should be clean: " .. st)
+        -- the absent payload is skip-worktree'd, not missing-and-dirty
+        local sw = exec {
+            cmd = "git -C " .. DIR_N .. " ls-files -v | grep -c '^S' || true",
+        }
+        assert(sw == "1", "expected exactly one skipped path, got " .. sw)
+        local prom = exec {
+            cmd = "git -C " .. DIR_N .. " config --get-regexp"
+                  .. " 'promisor|partialclone' || true",
+        }
+        assert(prom == "", "promisor config should be stripped: " .. prom)
+    end
+
+    TEST "new-peer-can-post"
+    do
+        local out, code = exec {
+            cmd = EXE_N .. " chain '#test' post inline 'from-new-peer' --sign " .. KEY1,
+        }
+        assert(code == 0, "post from the fresh peer should work: " .. tostring(out))
     end
 end
 

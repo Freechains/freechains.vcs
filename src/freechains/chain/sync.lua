@@ -22,15 +22,7 @@ if ARGS.send then
     end
 
 elseif ARGS.recv then
-    -- git refuses to register a promisor remote whose name begins with
-    -- '/', and --filter cannot run without one -- so a bare absolute
-    -- path (what URL gives for a local peer) fails outright with
-    -- "did not send all necessary objects". file:// is the same
-    -- transport under a name git will accept.
-    local FETCH_URL = URL(ARGS.remote, ARGS.alias)
-    if FETCH_URL:sub(1,1) == "/" then
-        FETCH_URL = "file://" .. FETCH_URL
-    end
+    local FETCH_URL = FILTERABLE(URL(ARGS.remote, ARGS.alias))
     do
         -- step 1: metadata only. A peer that dropped a revoked payload
         -- cannot serve an unfiltered pack at all (pack-objects needs
