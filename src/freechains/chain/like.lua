@@ -67,9 +67,9 @@ local kind = (ARGS.revoke or ARGS.unrevoke) and "revoke" or "like"
 -- author-vs-others channel pick (common.lua) to predict the outcome
 -- without mutating G; a vote that doesn't actually restore (e.g. a
 -- self-like while the author channel alone still forces REVOKED) is
--- never gated. A post hidden only via the community channel never
--- had its blob touched, so this only bites once `gc_revoked` has
--- actually removed it.
+-- never gated. Only bites once the payload is actually gone, i.e.
+-- after `revokes` (common.lua) ran for a channel covering this post:
+-- 'author' from a local vote here, 'all' from a sync replay.
 if ARGS.target == "post" and num>0 and G.posts[ARGS.id] and is_revoked(G.posts[ARGS.id]) then
     local post = G.posts[ARGS.id]
     local r = post.revoke or {}

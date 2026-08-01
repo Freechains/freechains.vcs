@@ -4,12 +4,21 @@ require "tests"
 
 -- Phase 2 of revocation (260721-remove-blob.md): honest peers
 -- physically drop a REVOKED post's payload, not just hide it
--- (260721-revoke.md, Phase 1). Scoped to this iteration: only the
--- author's own absolute channel triggers physical removal
--- (`gc_revoked`, common.lua) -- that channel can only move via a
--- fresh, already-caster-verified commit, so acting immediately is
--- safe. A community-only revoke still hides the post (Phase 1) but
--- never touches the blob.
+-- (260721-revoke.md, Phase 1).
+--
+-- Removal is deferred to the end of a command (`revokes(scope)`,
+-- common.lua), and the scope says how converged the caller's view is:
+--
+--   'author'  a live local vote (like.lua). Only the author's own
+--             absolute channel, which a single fresh author-signed
+--             commit fully determines.
+--   'all'     a sync replay (sync.lua, at ::RECV::). Both channels --
+--             the community sum is only trustworthy once the replay
+--             has finished.
+--
+-- So a community revoke does NOT drop the blob on the node casting
+-- it, but does on every peer that syncs the result. Both are pinned
+-- below.
 
 local DIR = ROOT .. "/chains/#cli-remove-blob/"
 

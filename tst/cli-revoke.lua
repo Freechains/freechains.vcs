@@ -97,7 +97,7 @@ do
     do
         TEST "revoke-author-unrevoke-blob-gone"
         -- the author's own self-revoke physically removed the
-        -- payload (260721-remove-blob.md, "gc_revoked"); even the
+        -- payload (260721-remove-blob.md, `revokes`); even the
         -- author's own unrevoke is gated on the blob still being
         -- available (nobody else on this single-node test holds a
         -- copy), so it is correctly refused, not silently accepted
@@ -230,7 +230,7 @@ do
         -- cannot lift their absolute self-revoke -- and since it never
         -- flips the post out of REVOKED (author channel alone still
         -- forces it), the gate doesn't block it: the self-revoke's
-        -- physical removal (gc_revoked) hasn't happened to THIS vote
+        -- physical removal (`revokes`) hasn't happened to THIS vote
         exec {
             cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1 " .. P .. " --sign " .. KEY1,
         }

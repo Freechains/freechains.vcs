@@ -108,16 +108,21 @@ changing hashes, storage, or signing:
 
 - Served pack is commits + trees only (`filter=blob:none`), so
   a `rm`'d blob is never read -> serve succeeds.
-- Client then fetches the payloads it wants BY EXPLICIT HASH
-  from the sync peer (NOT git's promisor — see "How the
+- Client then fetches ALL the payloads it lacks BY EXPLICIT HASH
+  from the sync peer, immediately after, as part of the same sync
+  (NOT git's promisor, and NOT at read time — see "How the
   per-payload fetch is done" below); a REVOKED payload has no
   provider -> peer lacks it (graceful, not fsck corruption).
 - Payloads stay in the tree; signing model unchanged.
+- Replication is unchanged: a completed sync still leaves the
+  peer holding every live payload.
 
 Steps:
 
 - enable `uploadpack.allowFilter` on serving side;
 - switch `sync.lua` fetch to a filtered/partial fetch;
+- follow it, in the same sync, with the by-hash batch for every
+  payload not already held;
 - reader (`get.lua`) tolerates an absent payload -> tombstone;
 - honest node `rm`s the revoked loose blob (loose-object config
   above) and stops offering it.
@@ -222,26 +227,31 @@ EVERY blob — git has no "omit exactly this one blob". So once a
 chain must be served filtered (because a payload was removed),
 NONE of its payloads ride the bulk pack.
 
-Payloads therefore change how they move:
+Payloads therefore change how they move — one transfer becomes
+two STEPS OF THE SAME SYNC, not a transfer plus a later one:
 
 ```
 TODAY:  one pack = commits + trees + ALL payload blobs   (full replication)
-DESIGN: one pack = commits + trees only  (filtered)
-        each payload -> fetched later, per-post, BY HASH
-```
-
-Demonstrated 2026-07-21 (partial clone, then read):
-
-```
-git show HEAD:postC.txt   -> lazy-fetch postC blob from origin -> OK
-git show HEAD~2:postA.txt -> lazy-fetch -> "not our ref" -> tombstone (revoked)
+DESIGN: step 1 = one pack, commits + trees only (filtered)
+        step 2 = one by-hash batch, ALL payloads except revoked
+        ^ both run in sequence; sync is not done until step 2 is
 ```
 
 - metadata (commits+trees): one cheap filtered pack, full DAG;
-- each payload: fetched on demand, by explicit hash, from the
-  current sync peer (see per-payload-fetch section below);
+- payloads: requested by explicit hash from the current sync peer
+  (see per-payload-fetch section below), issued right after step 1
+  — NOT deferred to whenever someone happens to read a post;
 - revoked payload: no holder serves it -> graceful tombstone;
-  every other payload still transfers individually.
+  every other payload still transfers in the same sync.
+
+Git's own machinery would have made this read-time instead: a
+`filter=blob:none` clone leaves the repo a partial clone, so
+`git show <c>:file` transparently lazy-fetches the blob from the
+promisor remote on first read (demonstrated 2026-07-21). That is
+the behaviour this design deliberately does NOT rely on — see
+"How the per-payload fetch is done": Freechains drives its own
+by-hash loop against the current peer instead, which is also what
+makes step 2 eager rather than read-triggered.
 
 ### Consequence: one transfer becomes two (CLARIFIED 2026-08-01)
 
@@ -663,8 +673,10 @@ what actually motivated it:
   same cooperative-not-guaranteed ceiling the whole plan already
   declares (NON-GOAL section above). A false-negative `rm` from a
   lagging view recovers the same way anything else here does: the
-  next read lazy-fetches by hash (transfer model above) and
-  succeeds if any peer still holds the bytes.
+  NEXT SYNC's by-hash step (transfer model above) re-requests every
+  payload this node lacks and is not locally revoked, so it comes
+  back if any peer still holds the bytes — no read has to trigger
+  it, and nothing stays missing until someone happens to look.
 
 **Resulting rule** (no persistent state, nothing tracked between
 syncs):
@@ -677,8 +689,8 @@ syncs):
   author channel) and are still locally present;
 - a post whose sum recomputes non-negative needs no explicit
   restore step — if this node had already `rm`'d it in some prior
-  sync, the next read simply lazy-fetches it by hash, same as any
-  other on-demand payload fetch.
+  sync, it is simply back in the set of payloads the by-hash step
+  requests, and returns on that sync like any other missing one.
 
 No `local/revoked.lua`, no `SETTLE` constant, no completed-sync-
 round bookkeeping — "act once, at the end of this sync's replay"
@@ -695,12 +707,15 @@ is the whole rule.
   fetch payloads by explicit hash from the current sync peer
   (`git fetch <url> <sha>` + `allowAnySHA1InWant`). See transfer
   model above.
-- Archive backfill: use OPTIMISTIC BATCH + per-blob fallback
-  (see transfer model). Big single fetch when nothing revoked;
-  on failure, retry per-blob so available payloads land and
-  revoked ones tombstone. NOT `git backfill` (batches, aborts
-  on missing, promisor-bound, needs 2.44+). Batch atomicity
-  proven 2026-07-22.
+- ~~Archive backfill~~ REFRAMED 2026-08-01: there is no separate
+  "archive peer" problem. Step 2 of every sync already requests
+  every payload the node lacks, so an archive peer is just a
+  normal peer — it backfills by syncing. What remains is the
+  mechanism of step 2 itself: OPTIMISTIC BATCH + per-blob
+  fallback (big single fetch; on failure retry per-blob so
+  available payloads land and revoked ones tombstone). NOT
+  `git backfill` (batches, aborts on missing, promisor-bound,
+  needs 2.44+). Batch atomicity proven 2026-07-22.
 - ~~Availability~~ RESOLVED 2026-08-01: not a question. The
   by-hash fetch runs in sequence during sync, pulling everything
   except the revoked payloads, so every synced peer still holds
@@ -708,6 +723,15 @@ is the whole rule.
   as they are today. See the transfer model above.
 - Wire representation of a tombstone (absent vs explicit
   marker) so peers distinguish "revoked" from "not yet synced".
+  NARROWED 2026-08-01: eager step 2 removes most of this. The
+  revoke votes are already the wire representation (signed
+  commits, replayed into sums), and a reader decides from LOCAL
+  state via `is_revoked` — not from a payload's absence. After a
+  completed sync, absence means either locally-revoked (state
+  says so) or the peer lacked it (retry another peer next sync).
+  Residual question is only whether that retry needs to be
+  tracked explicitly or can stay implicit in "step 2 requests
+  whatever is missing".
 - Back-compat: existing chains embed payloads in the tree and
   transfer full closure — migration/opt-in path.
 
