@@ -1,5 +1,12 @@
 # Plan: state-hash (FF integrity without cyclic garbage)
 
+> **Extended by [260802-state-verify.md](260802-state-verify.md).**
+> What shipped here still stands, but it covers the FF path only.
+> The non-FF exclusion below turned out to be a hole, not just a
+> scope decision: on the diverge path no comparison happens at
+> all, so a forged state commit rides into shared history and is
+> read back later as `G_oct` (`tst/bug-forged-state.lua`).
+
 ## Problem
 
 On FF recv/send, remote's state files land verbatim on
@@ -85,6 +92,11 @@ If/when option B lands, trailer is:
 
 (send hook, reset/rewrite, non-FF all dropped from scope)
 
+non-FF picked back up in
+[260802-state-verify.md](260802-state-verify.md): the comparison
+moves off the FF path and off the replay entirely, becoming a
+per-commit check against the commit's own parent.
+
 ## TODO
 
 - [x] recv FF: verify remote state vs replayed G_rem;
@@ -96,3 +108,6 @@ If/when option B lands, trailer is:
 ## Pending
 
 (none — error prefixes unified to `chain sync`)
+
+Follow-on work is tracked in
+[260802-state-verify.md](260802-state-verify.md), not here.
