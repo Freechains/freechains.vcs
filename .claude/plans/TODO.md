@@ -5,6 +5,22 @@
 
 # Open
 
+## Hard-prune plan is stale on rule 1
+
+- `260723-hard-prune.md` predates the refuse-semantics rule 1
+- Written against `hardfork(oct, loc)`: entrenched branch WON
+- Now it REFUSES, so no merge and no checkpoint forms
+- Its Goal anchors the graft on that checkpoint
+- Noted in the plan (`## STALE`), not yet fixed
+- Fix: drop the hardfork trigger, keep `c1` time/count driven
+
+- Also recorded there, both new:
+    - `## MEASURED`: Track A reclaims metadata only
+        - blobs ride forward in `c1`'s tree, clone gets them all
+        - provenance is lost, content is not
+    - fold list was incomplete: `kind`, vote table, filename
+        - `time`/`sign` already stored but still re-derived
+
 ## Idle chains are never entrenched
 
 ### Problem

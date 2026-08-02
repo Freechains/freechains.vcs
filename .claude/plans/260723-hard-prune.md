@@ -150,6 +150,29 @@ missing, plus **`backs`** (currently a DAG walk that breaks
 below `c1`). Add those to `posts.lua` and rework the resolvers
 to read state + blob store instead of the commit.
 
+Audited 2026-08-02 against `get.lua` — the fold list above is
+INCOMPLETE. Also commit-only:
+
+- **`kind`** — `get.lua:13` calls `trailer(hash)`, rejects
+  anything not post/like/revoke, and KEYS the emitted record by
+  it (`T[kind] = val`). `posts.lua` cannot tell a post from a
+  like today, so without `kind` the record cannot even be shaped
+- **the like/revoke vote table** — for those kinds `val` is
+  `load()`ed from a file under `.freechains/<kind>s/`, located
+  via `diff-tree` against the commit. Same breakage as the
+  payload path, and no field holds it
+- **the payload FILENAME** — `diff-tree --cc --name-only`
+  (the `blob` field covers the bytes, not the name)
+
+And two that are already stored but still re-derived from the
+commit, so part of this step is just to stop doing that:
+
+- `time` -> `posts.lua.time`, yet read via `log -1 --format=%at`
+- `sign` -> `posts.lua.author`, yet read via `ssh.pubkey(commit)`
+
+Irreducible: `ssh.verify` signs the COMMIT. Fold everything else
+and the payload is servable but no longer provably authored.
+
 The fold **must be eager** — populated *before* the graft, while
 the commits still exist. Lazy population is impossible: the
 prune destroys the very commit the fields would be read from.
@@ -334,6 +357,51 @@ is verifiable anymore — that is the accepted cost of pruning
 everywhere, and the reason sub-boundary forks are rejected
 (Blocker 3) rather than reconciled.
 
+## STALE: rule 1 no longer merges (2026-08-02)
+
+This plan was written against `hardfork(oct, loc)`, where an
+entrenched branch **won the merge**. That is no longer the rule.
+
+- Rule 1 now REFUSES the sync (`sync.lua`, `hardfork(their)`)
+- No merge commit is produced, so no state checkpoint forms
+- The Goal section's anchor — "the checkpoint that forms right
+  after the hard-fork merge" — never comes into existence
+
+The permanence argument SURVIVES, arguably stronger: the two
+peers stop merging entirely, so nothing below is ever needed
+again. Only the anchor must be re-derived.
+
+- Re-derive `c1` locally: newest state checkpoint older than
+  `T_keep`, on either axis
+- That is what "Flatten recipe" already says (`c1` trails
+  `T_keep`, **not** the 7-day hardfork checkpoint)
+- So the fix is to drop the hardfork trigger from the Goal and
+  keep the boundary purely time/count driven
+- Bonus: decouples pruning from rule 1 entirely
+
+## MEASURED: Track A reclaims metadata only (2026-08-02)
+
+Verified on a real graft + `gc --prune=now`, 5 commits each
+adding one file, grafted at c3:
+
+- old commits: GONE
+- old trees: GONE
+- oldest post's BLOB: **PRESENT**
+- `git show HEAD:post1.txt` still prints its payload
+- `git checkout <old commit>` -> `fatal: reference is not a tree`
+
+A fresh `git clone` from the pruned repo received 3 commits,
+`is_shallow: yes`, and **all five payload files**.
+
+- Freechains is add-only (create-mode check), so every payload
+  rides forward in `c1`'s tree
+- Blobs are not referenced only by the old commits — `c1`'s tree
+  references them directly
+- So Track A frees commits and old trees, a few hundred bytes
+  each, and none of the bulk
+- What is lost is PROVENANCE, not content
+- This is why Track B exists, and why it costs what it costs
+
 ## Open questions
 
 None — design complete. All policy decisions made and the one
@@ -390,7 +458,7 @@ become unresolvable; reject (step 5) must precede rolling-auto
 | # | step | file / place | notes |
 |---|------|--------------|-------|
 | 1 | `T_keep` constant | `constants.lua` — new `keep = { time = 30*24*h, posts = 500 }` next to `fork` | knob for boundary select |
-| 2 | eager metadata fold | `common.lua` ~193 (post entry): add `blob`, `why`, `backs`; `get.lua`: resolve `--payload`/`--metadata` from `posts.lua` + blob store, not the commit | prerequisite for every later step |
+| 2 | eager metadata fold | `common.lua` ~193 (post entry): add `blob`, `file`, `kind`, `why`, `backs`, and the like/revoke vote table; `get.lua`: resolve `--payload`/`--metadata` from `posts.lua` + blob store, not the commit; stop re-deriving `time`/`sign`, both already stored | prerequisite for every later step |
 | 3 | boundary select + shallow graft | new `chain/flatten.lua` (or maintenance path): pick newest checkpoint older than `T_keep` (either axis) as `c1`; write `.git/shallow`, `reflog expire`, `gc --prune=now` | keeps `c1` real hash |
 | 4 | beg drop | `sync.lua` ~499: extend stale-beg cleanup to drop `refs/begs/*` below the boundary | else begs pin the ancestry |
 | 5 | Blocker-1 guard | `sync.lua:54-61`: compare on the chain-id genesis hash (`#<genesis-hash>` dir name) instead of `rev-list --max-parents=0` | lets shallow peers sync |
