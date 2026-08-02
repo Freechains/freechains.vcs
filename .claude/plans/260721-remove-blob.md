@@ -460,8 +460,12 @@ directly, same as `commit` — signing is unaffected by the swap.
 ### Correction to the "Verdict" below
 
 `--skip-worktree` fully solves resurrection and checkout/reset/
-merge, exactly as hoped. But it does **not** save plain `git
-commit` — `commit` calls `write-tree` internally without
+merge, exactly as hoped. *(Overturned 2026-08-01 — see Progress:
+it only covers a path already IN the index, never one the
+operation is ADDING, which is exactly what a sync does with an
+incoming post that arrives already revoked. All of that porcelain
+is now `checkout()`/`merge-tree` instead.)* But it does **not**
+save plain `git commit` — `commit` calls `write-tree` without
 `--missing-ok`, and there is no porcelain flag to pass one
 through. This is the one thing "keep post.lua/like.lua/sync.lua
 unchanged" got wrong last turn: every commit-creating call site
@@ -931,6 +935,60 @@ is the whole rule.
       permanent and `unrevoke` must supply the bytes with `--file`.
 - [x] DROPPED 2026-08-01: migration for full-closure chains. Not
       needed -- chains predating this work simply get recreated.
+- [x] FOUND + FIXED 2026-08-01: `guide.sh` (the README run end to
+      end) was the first exercise of the ONE case the unit tests
+      never built: a post revoked BEFORE it was ever synced, so no
+      peer anywhere holds the bytes, propagating to peers that have
+      never seen them. It broke every layer in turn.
+      - `sync send` pushed `+main +refs/begs/*`, and `pack-objects`
+        must READ every object it carries -- so the push died with
+        "unable to read <blob>" on the payload the sender had just
+        dropped. But the push is a TRIGGER, not a transfer: the
+        receiver's hook always rejects it and runs `sync recv` back
+        against the pusher, which is where the data actually moves.
+        So it now pushes GENESIS to `refs/begs/sync` -- both sides
+        hold it by definition, so ZERO objects travel and the hook
+        still fires. Under `refs/begs/` so that even a receiver that
+        somehow ACCEPTED it only gains a stray beg at the root
+        commit, swept by the next recv's stale-beg pass; an accepted
+        `main` would have reset the receiver to genesis.
+      - CORRECTION to the 2026-07-31 test above: `--skip-worktree`
+        does NOT fully cover merge/checkout/reset. It covers a path
+        already IN the index; it does nothing for one the operation
+        is ADDING, because the index entry is validated before the
+        bit is consulted -- `merge --ff-only` dies with "unable to
+        read <blob>" even with the entry pre-registered via
+        `update-index --add --cacheinfo` and marked S (verified).
+        The earlier test only ever exercised paths already present.
+      - So the porcelain that writes a working tree is gone from
+        this code path entirely, replaced by `checkout(dir, tree)`
+        (`common.lua`): `read-tree` (index by hash, never opens a
+        blob) + `--skip-worktree` on exactly the absent paths +
+        `checkout -- .`. Moving HEAD stays with the caller
+        (`update-ref`, `update-ref --no-deref`, `symbolic-ref`) --
+        pure ref writes -- which is what lets one function serve the
+        fast-forward, `checkout --detach`, `checkout main`, `reset
+        --hard` and the clone checkout alike. Since `checkout -- .`
+        only ever writes, it also removes by hand the paths the new
+        tree drops.
+      - `merge --no-commit` had no `--skip-worktree` answer at all
+        (it refuses before the index exists), so the divergence path
+        now uses `merge-tree --write-tree`, which merges from trees
+        and hashes alone and passes an absent blob straight through.
+        Its result is placed by hand: MERGE_HEAD for `commit`'s
+        second parent, the tree via `checkout`. Content conflicts
+        are still reported the same way (non-zero exit).
+      - `payloads()` was asking the peer for blobs the peer had
+        revoked, because it read the remote's revoked set only AFTER
+        the batch -- the set lives in `state/posts.lua`, itself a
+        blob filtered out of step 1. Every sync carrying a new
+        revoke therefore sank its batch and degraded to one round
+        trip per object. Now that one blob is pulled first and alone
+        (its hash is a tree lookup, no bytes needed), so the batch
+        below is right the first time.
+      Verified: `guide.sh` output is line-for-line identical to
+      `main`'s (325 lines, exit 0) apart from the push refspec and
+      the per-run ssh keys, and `make tests` stays at 37/37.
 
 ## Cross-references
 

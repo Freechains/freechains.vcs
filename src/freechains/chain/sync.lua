@@ -8,11 +8,32 @@ if ARGS.send then
     }
     -- forward --now as push option so receiver hook pin commit dates
     local now = (ARGS.now and (" -o now=" .. CMD.now) or "")
+
+    -- The push is a TRIGGER, not a transfer. The receiver's hook always
+    -- rejects it (`pre-receive` ends in `os.exit(1)` whatever happens),
+    -- so nothing pushed is ever kept; what actually moves the data is
+    -- the `sync recv` that hook runs back against US, which is filtered
+    -- then by-hash and so coped with a payload we dropped.
+    --
+    -- Pushing `main` defeated exactly that: `pack-objects` must read
+    -- every object it carries, so a post revoked BEFORE it was ever
+    -- synced -- the README's own right-to-be-forgotten flow -- made the
+    -- whole push fail with "unable to read <blob>".
+    --
+    -- So push GENESIS instead: both sides hold it by definition (same
+    -- chain, and `recv` rejects a different root), so it carries ZERO
+    -- objects and still fires the hook. Under refs/begs/ so that even a
+    -- receiver that somehow accepted it just gains a stray beg pointing
+    -- at genesis, which the next recv's stale-beg sweep deletes -- where
+    -- an accepted `main` would have reset it to the root commit.
+    local genesis = (exec {
+        cmd = "git -C " .. REPO .. " rev-list --max-parents=0 HEAD",
+    }):match("%x+")
     local _, Q, err = exec { err=false,
         cmd = "git -C " .. REPO ..  " push -o freechains=true"
             .. " -o 'url=" .. url .. "'" .. now
             .. " " .. URL(ARGS.remote, ARGS.alias)
-            .. " +main +refs/begs/*:refs/begs/*"
+            .. " +" .. genesis .. ":refs/begs/sync"
     }
     if err and err:find("Freechains: OK") then
         -- success: receiver's hook ran recv and rejected the push
@@ -43,13 +64,13 @@ elseif ARGS.recv then
             cmd = "git -C " .. REPO .. " config --remove-section 'remote." .. FETCH_URL .. "'",
         }
 
-        -- step 2, and it has to be HERE, before the replay: this repo
-        -- has a working tree, so `merge --no-commit` below materialises
-        -- each incoming post's file and would fail on a payload we do
-        -- not hold. Uses the state as it stands now -- anything the
-        -- INCOMING votes revoke is dropped again by `revokes` at the
-        -- end, which costs one wasted transfer and keeps the merge able
-        -- to run.
+        -- step 2, and it has to be HERE, before anything moves: this is
+        -- also where a peer that cannot serve a live payload is
+        -- refused, and refusing has to leave the chain untouched. What
+        -- it does pull is judged against the state as it stands now,
+        -- plus what the REMOTE already says it revoked; anything the
+        -- incoming votes revoke on top of that is dropped again by
+        -- `revokes` at the end, one wasted transfer at most.
         payloads(FETCH_URL)
 
         local loc = exec {
@@ -460,9 +481,13 @@ elseif ARGS.recv then
 
         -- 3. local has nothing new
         if ff then
+            -- not `merge --ff-only`: the remote may be handing us a post
+            -- it has already revoked, whose payload no honest peer will
+            -- ever serve, and the merge dies materialising it
             exec {
-                cmd = "git -C " .. REPO .. " merge --ff-only " .. rem
+                cmd = "git -C " .. REPO .. " update-ref HEAD " .. rem
             }
+            checkout(REPO)
             -- verify remote state: overwrite with G_rem, diff vs HEAD
             do
                 G_rem.now = PEAKS(parents("HEAD"))
@@ -518,9 +543,13 @@ elseif ARGS.recv then
                 O_snd = filtered
             end
 
-            exec { stderr=false,
-                cmd = "git -C " .. REPO .. " checkout --detach " .. fst
+            -- `checkout --detach`: HEAD by hand, working tree by
+            -- `checkout` -- the loser we are about to try may carry a
+            -- payload nobody serves any more
+            exec {
+                cmd = "git -C " .. REPO .. " update-ref --no-deref HEAD " .. fst
             }
+            checkout(REPO)
 
             local ok  = true
             local err = nil
@@ -529,16 +558,12 @@ elseif ARGS.recv then
                 local kind = trailer(hash)
 
                 if kind~='state' then
-                    ok = exec { stderr=false, err=false,
-                        cmd = "git -C " .. REPO .. " merge --no-commit " .. hash
-                    }
-                    if not ok then
-                        exec { stderr=false, err=false,
-                            cmd = "git -C " .. REPO .. " merge --abort"
-                        }
-                        err = "content conflict"
+                    local tree = merge_tree(hash)
+                    if not tree then
+                        ok, err = false, "content conflict"
                         goto DONE
                     end
+                    checkout(REPO, tree)
                     commit("x", "merge", nil, nil)
                 end
 
@@ -552,9 +577,12 @@ elseif ARGS.recv then
 
             ::DONE::
 
-            exec { stderr=false,
-                cmd = "git -C " .. REPO .. " checkout main"
+            -- `checkout main`: re-attaching HEAD is a ref write, and
+            -- the working tree follows as everywhere else
+            exec {
+                cmd = "git -C " .. REPO .. " symbolic-ref HEAD refs/heads/main"
             }
+            checkout(REPO)
             if not ok then
                 io.stderr:write("ERROR : " .. err .. "\n")
             end
@@ -582,15 +610,16 @@ elseif ARGS.recv then
         -- reset HEAD to winner tip, merge last non-conflicting loser + state
         do
             if fst ~= loc then
+                -- `reset --hard`, minus the part that reads blobs
                 exec {
-                    cmd = "git -C " .. REPO .. " reset --hard " .. fst
+                    cmd = "git -C " .. REPO .. " update-ref HEAD " .. fst
                 }
+                checkout(REPO)
             end
 
             if merge then
-                exec { stderr=false,
-                    cmd = "git -C " .. REPO .. " merge --no-commit " .. merge
-                }
+                -- already proven conflict-free by the loop above
+                checkout(REPO, assert(merge_tree(merge), "bug found"))
                 G_fst.now = PEAKS { "HEAD", "MERGE_HEAD" }
                 write(G_fst)
                 exec {

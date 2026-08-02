@@ -125,6 +125,90 @@ function missing_objects (dir, tips)
     return T
 end
 
+-- Which of `hashes` (an array) this repo does not actually have.
+-- Unlike `missing_objects` this asks about loose hashes rather than
+-- what is reachable from a tip, so it also answers for a tree that is
+-- not yet pointed at by any ref. GIT_NO_LAZY_FETCH: a `--filter` clone
+-- leaves a promisor behind and `cat-file` would silently go fetch the
+-- object over the network instead of reporting it absent.
+local function absent (dir, hashes)
+    local T = {}
+    if #hashes == 0 then
+        return T
+    end
+    local out = exec { stderr=false, err=false,
+        cmd = "printf '%s\\n' " .. table.concat(hashes, " ") ..
+              " | GIT_NO_LAZY_FETCH=1 git -C " .. dir .. " cat-file --batch-check",
+    }
+    for h in (out or ""):gmatch("(%x+) missing") do
+        T[h] = true
+    end
+    return T
+end
+
+-- Point `dir`'s working tree at `tree` (default: HEAD), WITHOUT
+-- touching a payload this node does not hold.
+--
+-- Replaces the porcelain that would do it -- `merge`, `checkout`,
+-- `reset --hard`, `clone`'s implicit checkout -- because none of them
+-- can be talked out of reading a blob that is gone. `--skip-worktree`
+-- does not save them either: they validate the index entry before
+-- consulting the bit and die with "unable to read <blob>" on a path
+-- they are merely ADDING. So drive it by hand:
+--
+--   read-tree      index := that tree, by hash; never opens a blob
+--   skip-worktree  on exactly the paths whose blob is absent
+--   checkout -- .  write the rest; the marked paths are left alone
+--
+-- read-tree wipes the index clean each time, so the marks are rebuilt
+-- from what is ACTUALLY missing right now -- a payload that came back
+-- simply stops being marked and lands in the working tree again.
+--
+-- `checkout -- .` only ever writes, so paths the new tree drops are
+-- removed here by hand; git's own checkout is what used to do that.
+--
+-- Moving HEAD is the caller's job (`update-ref`, `symbolic-ref`): those
+-- are pure ref writes, and keeping them out here is what lets the same
+-- function serve a fast-forward, a branch switch and a merge result.
+function checkout (dir, tree)
+    local gone = {}
+    for path in (exec { cmd = "git -C " .. dir .. " ls-files" }):gmatch("[^\n]+") do
+        gone[path] = true
+    end
+
+    exec {
+        cmd = "git -C " .. dir .. " read-tree " .. (tree or "HEAD"),
+    }
+
+    local hashes, paths = {}, {}
+    local idx = exec {
+        cmd = "git -C " .. dir .. " ls-files -s",
+    }
+    for h, path in idx:gmatch("%d+ (%x+) %d+\t([^\n]+)") do
+        gone[path] = nil
+        if not paths[h] then
+            paths[h] = {}
+            hashes[#hashes+1] = h
+        end
+        table.insert(paths[h], path)
+    end
+
+    for path in pairs(gone) do
+        os.remove(dir .. "/" .. path)
+    end
+    for h in pairs(absent(dir, hashes)) do
+        for _, path in ipairs(paths[h]) do
+            exec { err=false,
+                cmd = "git -C " .. dir .. " update-index --skip-worktree '" .. path .. "'",
+            }
+        end
+    end
+
+    exec { stderr=false, err=false,
+        cmd = "git -C " .. dir .. " checkout -- .",
+    }
+end
+
 -- Fetch `want` (an array of object hashes) from `url` BY HASH.
 --
 -- A fetch REQUEST is all-or-nothing: one absent hash sinks the whole

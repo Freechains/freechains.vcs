@@ -224,32 +224,9 @@ if ARGS.add then
             end
         end
 
-        -- Now the checkout `--no-checkout` deferred: populate the index
-        -- from HEAD, mark whatever is STILL absent `--skip-worktree` so
-        -- git does not try to write it, and materialise the rest.
-        exec {
-            cmd = "git -C " .. tmp .. " read-tree HEAD",
-        }
-        do
-            local paths = {}
-            local idx = exec {
-                cmd = "git -C " .. tmp .. " ls-files -s",
-            }
-            for h, path in idx:gmatch("%d+ (%x+) %d+\t([^\n]+)") do
-                paths[h] = paths[h] or {}
-                table.insert(paths[h], path)
-            end
-            for _, h in ipairs(missing_objects(tmp, "--all")) do
-                for _, path in ipairs(paths[h] or {}) do
-                    exec { err=false,
-                        cmd = "git -C " .. tmp .. " update-index --skip-worktree '" .. path .. "'",
-                    }
-                end
-            end
-        end
-        exec { stderr=false, err=false,
-            cmd = "git -C " .. tmp .. " checkout -- .",
-        }
+        -- Now the checkout `--no-checkout` deferred -- HEAD is already
+        -- where it belongs, so only the working tree is missing.
+        checkout(tmp)
 
         exec {
             cmd = "cp " .. HERE .. "/hooks/pre-receive " .. tmp .. "/.git/hooks/pre-receive && chmod +x " .. tmp .. "/.git/hooks/pre-receive",

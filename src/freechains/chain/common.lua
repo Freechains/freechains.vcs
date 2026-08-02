@@ -51,6 +51,31 @@ function backs (hash)
     return ret
 end
 
+-- Prepare the merge of `hash` into HEAD, for `checkout` + `commit` to
+-- conclude. Returns the merged tree, or nil on a content conflict.
+--
+-- Not `git merge`: it insists on materialising every path it touches,
+-- and a post revoked before it ever reached us has no bytes to write
+-- -- no honest peer serves them -- so an ordinary sync would die on
+-- perfectly valid history. `merge-tree` works from trees and hashes
+-- alone, and an absent blob simply passes through by hash.
+--
+-- It touches neither index nor working tree, so its output is placed
+-- by hand: MERGE_HEAD here, for the second parent `commit` picks up,
+-- and the tree by the `checkout` the caller makes next.
+function merge_tree (hash)
+    local tree = exec { stderr=false, err=false,
+        cmd = "git -C " .. REPO .. " merge-tree --write-tree HEAD " .. hash,
+    }
+    if not tree then
+        return nil
+    end
+    local f = io.open(REPO .. ".git/MERGE_HEAD", "w")
+    f:write(hash .. "\n")
+    f:close()
+    return tree
+end
+
 -- Conclude a commit on HEAD (and on MERGE_HEAD too, if a merge is
 -- pending) via plumbing rather than porcelain `git commit`:
 -- `write-tree --missing-ok` tolerates an object missing elsewhere in
@@ -190,7 +215,8 @@ end
 -- peer. It runs in sequence right after, not at read time: a sync is
 -- not finished until this has run, so a completed sync still leaves
 -- this node holding every live payload. Replication is unchanged;
--- what changed is that it takes two round trips instead of one.
+-- what changed is that it takes two round trips instead of one (three
+-- when the remote's own revoked set has to be read first, below).
 --
 -- Deliberately NOT git's promisor machinery (which `--filter` sets up
 -- behind our back, and which `sync.lua` strips): that binds one remote
@@ -207,27 +233,42 @@ function payloads (url)
     -- FETCH_HEAD as well as --all: this runs BEFORE the replay moves
     -- any ref, so the commits just fetched are reachable only from
     -- there, and their payloads are exactly what we came for.
-    local missing = {}
-    for _, h in ipairs(missing_objects(REPO, "--all FETCH_HEAD")) do
-        missing[h] = true
-    end
-    if not next(missing) then
+    local missing = missing_objects(REPO, "--all FETCH_HEAD")
+    if #missing == 0 then
         return
     end
 
-    -- The ONLY objects a peer is allowed not to serve are the ones it
-    -- dropped on purpose. Ours, and the ones the REMOTE says it
-    -- revoked -- the incoming votes may revoke something we have not
-    -- replayed yet, and refusing to accept that would break syncing
-    -- from an honest peer. If the remote is lying about what it
-    -- revoked, the replay validates its state and rejects it anyway.
+    -- Never ask for what WE already call revoked: no honest peer serves
+    -- it, and asking would sink the optimistic batch on every sync.
     local ok_absent = revoked_blobs(REPO, "HEAD")
-    for b in pairs(revoked_blobs(REPO, "FETCH_HEAD")) do
-        ok_absent[b] = true
+
+    -- Nor for what the REMOTE revoked -- which is most of the point,
+    -- since the votes arriving right now are exactly the ones we have
+    -- not replayed yet, and the peer is right not to serve what they
+    -- condemn. Its `state/posts.lua` says so, but that is a blob too,
+    -- filtered out of step 1, so pull it first and ALONE: one small
+    -- extra round trip buys the whole batch below, which would
+    -- otherwise sink on the first such payload and degrade into one
+    -- round trip per object. Its hash is a tree lookup, no bytes
+    -- needed. A peer refusing THIS is caught by the check at the end.
+    do
+        local state = exec { stderr=false, err=false,
+            cmd = "git -C " .. REPO ..
+                  " rev-parse FETCH_HEAD:.freechains/state/posts.lua",
+        }
+        for _, h in ipairs(missing) do
+            if h == state then
+                fetch_objects(REPO, url, {state})
+                break
+            end
+        end
+        for b in pairs(revoked_blobs(REPO, "FETCH_HEAD")) do
+            ok_absent[b] = true
+        end
     end
 
     local want = {}
-    for h in pairs(missing) do
+    for _, h in ipairs(missing) do
         if not ok_absent[h] then
             want[#want+1] = h
         end
@@ -235,10 +276,10 @@ function payloads (url)
 
     fetch_objects(REPO, url, want)
 
-    -- Onboarding cannot half-succeed. Anything still absent that is not
-    -- revoked means this peer could not serve content it should have:
-    -- it is not an honest peer to sync from. Fail before any ref moves,
-    -- so the chain is untouched and another peer can be tried.
+    -- Onboarding cannot half-succeed. Anything still absent that nobody
+    -- calls revoked means this peer could not serve content it should:
+    -- it is not honest, so fail before any ref moves and let another
+    -- peer be tried.
     for _, h in ipairs(missing_objects(REPO, "--all FETCH_HEAD")) do
         if not ok_absent[h] then
             ERROR("chain sync : peer lacks payload : " .. h)
