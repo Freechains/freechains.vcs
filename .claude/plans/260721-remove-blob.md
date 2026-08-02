@@ -108,16 +108,21 @@ changing hashes, storage, or signing:
 
 - Served pack is commits + trees only (`filter=blob:none`), so
   a `rm`'d blob is never read -> serve succeeds.
-- Client then fetches the payloads it wants BY EXPLICIT HASH
-  from the sync peer (NOT git's promisor — see "How the
+- Client then fetches ALL the payloads it lacks BY EXPLICIT HASH
+  from the sync peer, immediately after, as part of the same sync
+  (NOT git's promisor, and NOT at read time — see "How the
   per-payload fetch is done" below); a REVOKED payload has no
   provider -> peer lacks it (graceful, not fsck corruption).
 - Payloads stay in the tree; signing model unchanged.
+- Replication is unchanged: a completed sync still leaves the
+  peer holding every live payload.
 
 Steps:
 
 - enable `uploadpack.allowFilter` on serving side;
 - switch `sync.lua` fetch to a filtered/partial fetch;
+- follow it, in the same sync, with the by-hash batch for every
+  payload not already held;
 - reader (`get.lua`) tolerates an absent payload -> tombstone;
 - honest node `rm`s the revoked loose blob (loose-object config
   above) and stops offering it.
@@ -208,54 +213,76 @@ payload lives in TWO places: object store + working tree
    git checkout main  -> needs blob to materialize file -> ERRORS
 ```
 
-Cooperative removal is NOT viable while chains keep a working
-tree. Prerequisite: **make chain repos bare** (no worktree ->
-no resurrection surface, no checkout dependency). `get.lua`
-already reads via `git show <hash>:file`, which works on bare;
-sync's checkout steps would need rework.
+Looked at first like this required bare repos. See "Local
+removal — scoping" below: the actual fix is narrower — a
+per-path `--skip-worktree` bit set only on the removed file,
+not a whole-repo migration.
 
 ## Payload transfer model (the core consequence)
 
-Sparse-checkout fixes only the local worktree; it does NOT
-change what the pack transfers. And the filter is
-**all-or-nothing**: `filter=blob:none` omits EVERY blob — git
-has no "omit exactly this one blob". So once a chain must be
-served filtered (because a payload was removed), NONE of its
-payloads ride the bulk pack.
+Any local worktree trick (`--skip-worktree` included) fixes only
+the local worktree; it does NOT change what the pack transfers.
+And the filter is **all-or-nothing**: `filter=blob:none` omits
+EVERY blob — git has no "omit exactly this one blob". So once a
+chain must be served filtered (because a payload was removed),
+NONE of its payloads ride the bulk pack.
 
-Payloads therefore change how they move:
+Payloads therefore change how they move — one transfer becomes
+two STEPS OF THE SAME SYNC, not a transfer plus a later one:
 
 ```
 TODAY:  one pack = commits + trees + ALL payload blobs   (full replication)
-DESIGN: one pack = commits + trees only  (filtered)
-        each payload -> fetched later, per-post, BY HASH
-```
-
-Demonstrated 2026-07-21 (partial clone, then read):
-
-```
-git show HEAD:postC.txt   -> lazy-fetch postC blob from origin -> OK
-git show HEAD~2:postA.txt -> lazy-fetch -> "not our ref" -> tombstone (revoked)
+DESIGN: step 1 = one pack, commits + trees only (filtered)
+        step 2 = one by-hash batch, ALL payloads except revoked
+        ^ both run in sequence; sync is not done until step 2 is
 ```
 
 - metadata (commits+trees): one cheap filtered pack, full DAG;
-- each payload: fetched on demand, by explicit hash, from the
-  current sync peer (see per-payload-fetch section below);
+- payloads: requested by explicit hash from the current sync peer
+  (see per-payload-fetch section below), issued right after step 1
+  — NOT deferred to whenever someone happens to read a post;
 - revoked payload: no holder serves it -> graceful tombstone;
-  every other payload still transfers individually.
+  every other payload still transfers in the same sync.
 
-### Consequence: eager replication -> lazy fetch
+Git's own machinery would have made this read-time instead: a
+`filter=blob:none` clone leaves the repo a partial clone, so
+`git show <c>:file` transparently lazy-fetches the blob from the
+promisor remote on first read (demonstrated 2026-07-21). That is
+the behaviour this design deliberately does NOT rely on — see
+"How the per-payload fetch is done": Freechains drives its own
+by-hash loop against the current peer instead, which is also what
+makes step 2 eager rather than read-triggered.
+
+### Consequence: one transfer becomes two (CLARIFIED 2026-08-01)
+
+"Lazy" here means only that payloads need a SECOND fetch — not
+that the fetch is deferred to read time. Sync issues it **in
+sequence, immediately**, pulling every payload except the revoked
+ones. A sync is complete when both steps are done:
+
+```
+step 1: filtered pack   -> commits + trees (full DAG)
+step 2: by-hash batch   -> every payload the peer has, minus revoked
+```
+
+So the properties that actually matter are UNCHANGED:
 
 | | Today | Removed-blob design |
 |-------------------|--------------------|--------------------------|
-| Payload transfer  | in the pack always | per-hash, on demand |
-| Replication       | every peer holds all | only peers that fetched it |
-| Availability      | any peer up        | a HOLDER up |
-| Full archive peer | automatic          | must backfill payloads by-hash (plain unfiltered fetch re-demands the revoked blob -> fails) |
+| Payload transfer  | 1 round trip (one pack) | 2 round trips (pack + hash batch) |
+| Replication       | every peer holds all | every peer holds all, minus revoked |
+| Availability      | any peer up | any peer up (unchanged) |
+| Full archive peer | automatic | automatic (step 2 IS the backfill) |
 
-This tradeoff is intrinsic: git offers "omit all blobs, fetch
-back individually", not "omit exactly this one". Accepting
-removal = accepting lazy, per-post payload transfer.
+An earlier revision of this section claimed replication degraded
+to "only peers that fetched it" and availability to "a HOLDER
+up". That was wrong: it assumed a read-time fetch. With step 2
+run eagerly in sync, no such degradation exists — the design does
+not trade availability for removability.
+
+The real cost is the extra round trip, plus the optimistic-batch
++ per-blob fallback needed because one missing object fails a
+whole fetch request (see "Batch atomicity" below).
 
 ### How the per-payload fetch is done (VERIFIED 2026-07-22)
 
@@ -328,109 +355,390 @@ cloning from a blobless source pulled none. May be a
 local-transport artifact — verify blobs are truly deferred on
 the real serve path.
 
-## Bare-repo migration — scoping (paper only, 2026-07-21)
+## Local removal — scoping (SUPERSEDES bare-repo migration, 2026-07-31)
 
-### Working-tree dependency map
+Two problems were conflated under "bare-repo migration." Split
+them:
 
-The working tree is load-bearing across the codebase:
+1. **Lazy fetch** (a peer not eagerly downloading every payload)
+   is pure transport: `filter=blob:none` fetch + the by-hash
+   fetch loop, touching only `sync.lua` and `get.lua`. Zero
+   changes to `post.lua`, `like.lua`, `chains.lua` — working
+   trees stay exactly as-is for ordinary create/post/like/sync.
+2. **Physically removing a payload this node already holds** is
+   the only thing that needs special handling — and it turns out
+   to be much narrower than "make the whole repo bare."
 
-| Site | Op | Needs worktree |
-|--------------------|----------------------------------|----------------|
-| `post.lua:24,39`   | `io.open`/`cp` payload -> add    | yes |
-| `post.lua:44,83`   | `git add` file / state           | yes (index+wt) |
-| `like.lua:62,66`   | write like -> `git add`          | yes |
-| `sync.lua:451`     | `git add` state                  | yes |
-| `post.lua:72,96`   | `reset --hard`                   | yes |
-| `like.lua:40`      | `merge -X ours`                  | yes |
-| `sync.lua:320,378,389,415,441,447` | merge / `checkout` / reset | yes |
-| 7x `commit -...`   | porcelain commit                 | index |
+### Why full-bare was the wrong shape
 
-Reads are already worktree-independent: `get.lua` uses
-`git show <hash>:file` from the object store.
+Two concrete problems, not just "large and risky":
 
-### Option BARE (full) — impractical
+- `git mktree` validates by default that every referenced blob
+  exists. Rebuilding a new commit's tree as "prior tree's entries
+  + one new entry" (`git ls-tree HEAD^{tree} | ... | git mktree`)
+  fails the moment ANY earlier entry references an already-removed
+  blob — which is exactly what this feature causes on every post
+  after the first removal. Every plumbing call touching "the
+  existing tree" needs `--missing` or equivalent, a correctness
+  burden threaded through every commit-creation path, not a
+  one-off.
+- A repo configured for `filter=blob:none` gets a `promisor`
+  remote set as a side effect. Many otherwise-unrelated plumbing
+  commands silently attempt to auto-fetch a missing object from
+  that promisor remote when they touch one — uncontrolled, and
+  exactly the mechanism already rejected for the deliberate
+  by-hash loop ("Freechains syncs explicit peer IPs, not a fixed
+  origin," per-payload-fetch section above). Going bare doesn't
+  dodge this; the promisor bits get set by the partial-clone
+  fetch side regardless of worktree.
+- Full-bare's justification ("no worktree -> no resurrection,
+  ever") was solving for "every payload, all the time." The
+  actual need is "one path, at the rare moment it's removed."
 
-A truly bare repo has no worktree/index; every write path above
-would be rewritten to plumbing (`hash-object`, `update-index`,
-`mktree`, `commit-tree`, `read-tree`, `merge-tree`). Touches
-`post`, `like`, `sync`, `chains`. Large, risky, out of
-proportion to the feature. Rejected as first choice.
+### Actual scope: targeted `--skip-worktree`, not bare or sparse
 
-### Option SPARSE — lighter; normal ops TESTED 2026-07-22
+Re-examining the original NON-BARE blocker's two components
+(`chains.lua:102` working tree; `sync.lua:378,415` checkout):
 
-Keep the repo non-bare but sparse-checkout so the worktree holds
-ONLY `.freechains/`, never the payload files:
+- **Resurrection via `git add`**: every `git add` call in the
+  codebase already targets an explicit path (`post.lua:44`'s
+  `git add <file>`, `chains.lua:127`'s
+  `git add .freechains/ ...`) — none does a blanket `git add .`.
+  An already-`rm`'d payload sitting in the working tree is never
+  swept back in by any *existing* write path; the resurrection
+  risk demonstrated in the original prototype (`git add .`)
+  doesn't actually occur on any current code path.
+- **Checkout needing the missing blob** is the one real blocker
+  (`sync.lua:378` `checkout --detach`, `415` `checkout main`) —
+  checking out a commit whose tree includes the removed path
+  needs to materialize that file.
+
+Fix, applied only to the specific removed path, only at removal
+time:
 
 ```
-git sparse-checkout init --no-cone
-git sparse-checkout set  --no-cone '/.freechains/'
+rm <object store copy of the blob>
+rm <path>                                  -- working-tree file
+git update-index --skip-worktree <path>    -- same bit sparse-checkout sets internally
 ```
 
-Effects:
+`--skip-worktree` tells git: don't complain this path is missing,
+don't try to materialize it on checkout, don't diff it. No
+sparse-checkout subsystem, no cone-mode config, no policy change
+for every other payload — this touches exactly the one file being
+revoked. Everything else (chain creation, posting, liking, syncing
+every other post) is unaffected: no plumbing rewrite of
+`post.lua`/`like.lua`/`chains.lua`, no bare repo, no
+`hash-object`/`mktree`/`commit-tree` anywhere in the ordinary
+write paths.
 
-- Payload files never materialize in the worktree -> `git add`
-  cannot re-hash them -> **no resurrection**.
-- `checkout` skips excluded (SKIP_WORKTREE) paths -> does not
-  read the removed blob -> **no checkout error**.
-- State writes under `.freechains/` still use normal porcelain
-  (that subtree stays in the worktree).
-- `get.lua` reads payloads from objects, unaffected.
+### TESTED 2026-07-31: `--skip-worktree` under merge/reset
 
-Prototyped in /tmp (create + post + sync, NO removal yet):
+Built a 2-post repo (`postA`, `postB`), cloned it to a peer B
+before revoking, then on the original: `rm` the loose object,
+`rm` the file, `git update-index --skip-worktree postA.txt`.
 
-- create: worktree ends up holding only `.freechains/`. OK.
-- post: naive `git add <payload>` is REFUSED ("outside
-  sparse-checkout"); `git add --sparse <payload>` works, then
-  `git sparse-checkout reapply` drops it from the worktree.
-  `git status` clean; `git show <hash>:file` still reads it.
-- sync (no removal): payloads ride the pack normally; both
-  `git push` and filtered clone transfer them. Sparse is
-  local-only, transport unaffected.
+| Operation | Result |
+|-----------|--------|
+| `git status` after revocation | clean, no resurrection |
+| `git add <new-file>` (unrelated new post) | OK |
+| `git commit` (plain, porcelain) for that new post | **FAILS** — exit 1, `error: invalid object ... Error building trees` |
+| `git write-tree` (plain) | same failure |
+| `git write-tree --missing-ok` | **OK** |
+| `git commit-tree <tree> -p HEAD -m ...` (using the `--missing-ok` tree) | OK, commit lands, `git status` clean |
+| B forks with its own new post (peer never revoked, still has
+  the blob); fetch into A, `git merge --no-commit peer/main` | exit 0, "Automatic merge went well" (stderr noise, ignored below) |
+| conclude that merge with plain `git commit` | **FAILS** — same "Error building trees" |
+| conclude via `write-tree --missing-ok` + `commit-tree -p HEAD -p peer/main` + `update-ref` | OK, both branches' new posts readable, revoked path still gracefully absent |
+| `git checkout --detach <commit whose tree still has the revoked path unmodified>` | exit 0, correct worktree (path absent as expected) — but prints an "invalid object" line to **stderr** despite succeeding |
+| `git checkout main` (back) | same: exit 0, correct, stderr noise |
+| `git reset --hard <any commit>`, both directions | exit 0, correct, **silent** (no stderr at all) |
 
-So the ONLY code delta for normal operation is
-`git add` -> `git add --sparse` + a `sparse-checkout reapply`.
+Confirmed separately: `git commit-tree` accepts `-S`/`--gpg-sign`
+directly, same as `commit` — signing is unaffected by the swap.
 
-Still to TEST (deferred):
+### Correction to the "Verdict" below
 
-- Does `merge --no-commit` / `reset --hard` behave under sparse
-  when incoming commits add excluded payload files? Posts are
-  additive (create-mode), so likely no conflicts — verify.
-- That an actual `rm` of a payload STAYS gone across a full
-  post/sync cycle under sparse (no resurrection path left).
+`--skip-worktree` fully solves resurrection and checkout/reset/
+merge, exactly as hoped. *(Overturned 2026-08-01 — see Progress:
+it only covers a path already IN the index, never one the
+operation is ADDING, which is exactly what a sync does with an
+incoming post that arrives already revoked. All of that porcelain
+is now `checkout()`/`merge-tree` instead.)* But it does **not**
+save plain `git commit` — `commit` calls `write-tree` without
+`--missing-ok`, and there is no porcelain flag to pass one
+through. This is the one thing "keep post.lua/like.lua/sync.lua
+unchanged" got wrong last turn: every commit-creating call site
+in a chain that has ever had a revoked-and-removed payload needs
+the same 3-step substitution —
 
-### Verdict so far
+```
+tree=$(git write-tree --missing-ok)
+commit=$(git commit-tree "$tree" -p HEAD [-p <2nd parent>] [-S ...] -m "$msg" [--trailer ...])
+git update-ref refs/heads/main "$commit"
+```
 
-SPARSE handles normal operation (verified). Remaining risk is
-merge/reset under sparse + removal persistence. BARE stays the
-fallback.
+— in place of the plain `git commit ...` it does today. Grepped
+the actual sites: `post.lua:53` (the post commit) and `post.lua:86`
+(the state commit); `like.lua:82` (the like commit) and
+`like.lua:117` (its state commit); `sync.lua:517` (merge
+conclusion) and `sync.lua:577` (loser-merge conclusion).
+`chains.lua`'s init commit is unaffected — genesis happens before
+any post exists, so nothing could be missing yet. Two of these
+sites fail especially badly today if left as plain `commit`:
+`post.lua:86` has no `err=` set, so it crashes as a raw
+`"bug found"` Lua error; `post.lua:53` has `err = "chain post :
+invalid sign key"`, which would misreport this failure as a
+signing problem.
+
+The good news: `git add` is untouched (new content hashes and
+stages fine regardless of what else is missing), and no
+`hash-object`/`mktree`/`read-tree` is needed anywhere — `write-tree`
+reads the existing index directly. Only the final commit-creation
+step changes, uniformly, at every site that does one.
+
+### Verdict
+
+Drop the bare-repo migration. Keep working trees everywhere;
+`chains.lua`'s create path and every `git add` call are genuinely
+untouched. But every plain `git commit` in `post.lua`, `like.lua`,
+and `sync.lua` (6 sites, listed above) needs the `write-tree
+--missing-ok` + `commit-tree` + `update-ref` substitution, since
+any of them can run on a chain that has a revoked-and-removed
+payload somewhere in its history. Plus, at rm-time: delete the
+object + file and set `--skip-worktree` on that one path —
+confirmed above to survive checkout/reset/merge cleanly.
+
+## Sync consistency: hard-fail on a non-revoked miss (2026-07-31)
+
+The optimistic-batch + per-blob-fallback loop (transfer model
+above) tolerates misses — but not all misses mean the same
+thing, and conflating them corrupts local state:
+
+- hash IS in the local revoked set -> expected miss -> tombstone,
+  fine;
+- hash is NOT in the local revoked set -> unexpected miss (peer
+  dropped a live payload, network fault, or a malicious peer) ->
+  this must be a hard error, not a tombstone.
+
+Critically: "not in the local revoked set" must be checked
+against **local** state (this node's own `.freechains/revokes/`
+sums, reps.md:287-307), never inferred from the peer's silence —
+a peer simply not having a hash is not proof it was ever revoked.
+
+So the sync procedure is:
+
+1. compute the wanted-hash set for the incoming delta;
+2. cross-reference against the local revoked set;
+3. optimistic batch-fetch everything;
+4. on batch failure, retry per-blob;
+5. any per-blob miss whose hash is **not** locally revoked ->
+   abort the sync before any ref/HEAD update. No partial
+   merge/reset/checkout applied. The chain stays exactly as it
+   was pre-sync.
+6. only misses whose hash **is** locally revoked are tolerated
+   as tombstones, and the sync completes normally.
+
+This is what makes "ignore revoked objects at the protocol
+level" (transfer model above) safe: revocation is the *only*
+sanctioned reason a fetch is allowed to come back incomplete.
+Anything else is a failure, and local consistency wins over
+completing the sync.
+
+## Gated unrevoke: guaranteed availability at flip time (2026-07-31)
+
+`unrevoke` (and, per reps.md:278, a community `like` cast on a
+REVOKED post, which also counts as an unrevoke) is a signed vote
+commit — pure integer math over `.freechains/revokes/` sums,
+blind to payload presence (reps.md:254-312). Nothing today stops
+a node from casting `unrevoke` without holding the payload, which
+would let a post transition out of REVOKED while the bytes are
+gone everywhere — a promise the network cannot honor.
+
+Un-revoke must instead be a **guarantee**, not a hope: the source
+casting the vote must not be able to create it unless the blob is
+actually available.
+
+- Before building/signing the `unrevoke` (or REVOKED-post `like`)
+  commit, the local node must materialize the payload: check the
+  local object store, and if absent, run the by-hash fetch loop
+  (transfer model above) against known peers.
+- Only on success does the command proceed to create and sign the
+  commit.
+- On failure it refuses, same shape as every other guarded
+  command:
+
+  ```
+  ERROR : chain unrevoke : blob unavailable
+  ```
+
+This guarantees that **at the moment a post leaves REVOKED, at
+least one peer (the caster) provably holds the payload** —
+availability was a precondition of the commit existing at all,
+not an afterthought. It does not promise the blob survives
+forever after that (the caster could `rm` it again later — same
+cooperative ceiling as the rest of this design), but it closes
+the hole of an unrevoke entering the DAG while nobody anywhere
+has the bytes.
+
+### RESOLVED 2026-07-31: `like`-as-unrevoke gate
+
+Same gate applies to a `like` cast while the target post's local
+state is REVOKED (reps.md:278: a positive `like` also counts as
+an others-channel unrevoke) — it must materialize the blob first
+or refuse, same as explicit `unrevoke`. A `like` on an
+already-ACCEPTED post is untouched: ordinary reputation action,
+no availability promise at stake.
+
+### Found while resolving: gating alone cannot make deletion safe
+
+The revoke/others sum is a commutative, order-independent replay
+(reps.md:309-312: "likes cast *before* a revoke count just the
+same"). So a post can flip REVOKED -> ACCEPTED purely by a node
+re-deriving the sum from commits it already had, or already-signed
+likes arriving late in sync — with no NEW commit being cast at
+that moment. Gating only fires when a commit is created; it
+cannot intercept re-acceptance that happens as a passive side
+effect of sync recomputing an existing sum from data already on
+disk.
+
+Consequence: physical `rm` must NOT be wired to "the instant this
+node's local sum first computes REVOKED." A node that deletes
+eagerly on that signal can see the sum swing back non-negative
+moments later as more votes sync in — blob already gone, no
+gated cast ever happened for that swing.
+
+Resolution: **decouple physical deletion from the Phase-1
+display-hide computation.** Display-hide stays instantaneous,
+recomputed on every commit, as today (`260721-revoke.md`).
+Physical removal (this plan) needs its own finality trigger: only
+`rm` after the local REVOKED state has held through a settling
+window with no new sync activity, not on the first commit that
+computes it. Checked `reps.md` for an existing quiescence
+mechanism to reuse — none exists; the only 0-12h window in that
+doc is the unrelated post-cost discount timer (reps.md:135-153).
+This finality window is a new mechanism to design, not something
+already covered elsewhere.
+
+## Finality window design (2026-07-31)
+
+The two revoke channels (reps.md:287-307) have different risk
+profiles, so they get different treatment:
+
+### Author channel — no window needed
+
+`p.revoke.author < 0` can ONLY be moved by a fresh commit signed
+by the author (reps.md:294-296: "only the author's own unrevoke
+lifts it"). That commit is already gated (must materialize the
+blob before signing, see above). So nothing about a lagging or
+partial sync view can silently flip this channel — it is not a
+sum a node can be "wrong about" the way a multi-caster sum can.
+Once this node has pulled the author's full commit history for
+the post, `p.revoke.author < 0` is as final as anything gets here.
+**Eligible for immediate `rm`**, no settle timer required.
+
+### Others channel — SIMPLIFIED 2026-07-31: flip once at end of sync
+
+`p.revoke.others` is a running sum over many independent
+signed casters (reps.md:290-292). A node with a partial DAG view
+can compute a currently-negative sum that was never the network's
+true converged answer — more already-existing, not-yet-pulled
+positive votes could still land and push it non-negative. This
+isn't a legitimate community revocation getting reversed; it's a
+node treating an incomplete view as ground truth for an
+irreversible physical action.
+
+Originally designed as a persistent `local/revoked.lua` table +
+calendar `SETTLE` timer (see history). Simplified after checking
+what actually motivated it:
+
+- **Never act mid-replay** — intrinsic, and needs no timer at all.
+  The engine walks the git log in date-order and recomputes
+  incrementally, same pattern as the Rule 2 engine (reps.md:429-
+  441). During that walk a sum can dip negative and climb back
+  positive purely from processing order, even over commits this
+  node already has in full — no network involved. Fix: act only
+  ONCE, on the FINAL sum after this sync's full pulled delta has
+  been replayed, never on an intermediate crossing mid-walk.
+- **Hedge against a not-yet-synced honest peer** — was going to be
+  the calendar buffer's job. Checked whether the risk that
+  actually justifies a standalone timer (cheap malicious
+  oscillation forcing repeated rm/re-fetch churn) is real: every
+  vote in the table above costs `-n` to the caster (reps.md:269-
+  274); the only free move in the whole system is the author's own
+  downward self-revoke (reps.md:284-285, 299-300) — every upward
+  move (`like`, `unrevoke`, including the author's own) always
+  costs. Forcing an oscillation needs an upward move each cycle,
+  so it is bounded by the attacker's reps balance, the 30-rep cap
+  (Rule 4.b), and +1/day regen — not free spam. That kills the
+  standalone-timer justification.
+- What's left is a non-adversarial residual: an honest, merely-
+  slow peer's vote not yet received. Accepted as-is — it's the
+  same cooperative-not-guaranteed ceiling the whole plan already
+  declares (NON-GOAL section above). A false-negative `rm` from a
+  lagging view recovers the same way anything else here does: the
+  NEXT SYNC's by-hash step (transfer model above) re-requests every
+  payload this node lacks and is not locally revoked, so it comes
+  back if any peer still holds the bytes — no read has to trigger
+  it, and nothing stays missing until someone happens to look.
+
+**Resulting rule** (no persistent state, nothing tracked between
+syncs):
+
+- at the end of processing a sync's pulled delta (after the full
+  incoming batch has been replayed, not per intermediate commit),
+  recompute the final `others` sum for every post touched by that
+  batch;
+- `rm` the loose blob for any that land negative (community or
+  author channel) and are still locally present;
+- a post whose sum recomputes non-negative needs no explicit
+  restore step — if this node had already `rm`'d it in some prior
+  sync, it is simply back in the set of payloads the by-hash step
+  requests, and returns on that sync like any other missing one.
+
+No `local/revoked.lua`, no `SETTLE` constant, no completed-sync-
+round bookkeeping — "act once, at the end of this sync's replay"
+is the whole rule.
 
 ## Open questions
 
-- **Bare-repo migration (now the main blocker):** converting
-  chains to bare removes the resurrection surface and the
-  checkout dependency, but sync (`sync.lua:378,415`) and any
-  worktree assumptions must be reworked. Scope this.
-- Full initial push/clone still needs the closure -> a chain
-  with a removed payload can only onboard new peers via
-  FILTERED transfer. Confirm both push and fetch paths in
-  `sync.lua` can be made filtered, or that sync flips to
-  fetch-pull for such chains.
+- ~~Full initial push/clone~~ RESOLVED 2026-08-01: both `sync
+  recv` and `chains add ... clone` are filtered + by-hash, so a
+  chain with a removed payload onboards new peers fine. PUSH is
+  untouched and still needs the closure, but it is only ever
+  incremental in practice (the receiver's hook turns it into a
+  recv), so it never renegotiates a removed blob.
 - ~~Promisor identity~~ RESOLVED 2026-07-22: skip git promisor;
   fetch payloads by explicit hash from the current sync peer
   (`git fetch <url> <sha>` + `allowAnySHA1InWant`). See transfer
   model above.
-- Archive backfill: use OPTIMISTIC BATCH + per-blob fallback
-  (see transfer model). Big single fetch when nothing revoked;
-  on failure, retry per-blob so available payloads land and
-  revoked ones tombstone. NOT `git backfill` (batches, aborts
-  on missing, promisor-bound, needs 2.44+). Batch atomicity
-  proven 2026-07-22.
-- Availability: lazy per-post transfer means a payload dies if
-  all its holders go offline — acceptable for a content system?
+- ~~Archive backfill~~ REFRAMED 2026-08-01: there is no separate
+  "archive peer" problem. Step 2 of every sync already requests
+  every payload the node lacks, so an archive peer is just a
+  normal peer — it backfills by syncing. What remains is the
+  mechanism of step 2 itself: OPTIMISTIC BATCH + per-blob
+  fallback (big single fetch; on failure retry per-blob so
+  available payloads land and revoked ones tombstone). NOT
+  `git backfill` (batches, aborts on missing, promisor-bound,
+  needs 2.44+). Batch atomicity proven 2026-07-22.
+- ~~Availability~~ RESOLVED 2026-08-01: not a question. The
+  by-hash fetch runs in sequence during sync, pulling everything
+  except the revoked payloads, so every synced peer still holds
+  every live payload — replication and availability are exactly
+  as they are today. See the transfer model above.
 - Wire representation of a tombstone (absent vs explicit
   marker) so peers distinguish "revoked" from "not yet synced".
-- Back-compat: existing chains embed payloads in the tree and
-  transfer full closure — migration/opt-in path.
+  NARROWED 2026-08-01: eager step 2 removes most of this. The
+  revoke votes are already the wire representation (signed
+  commits, replayed into sums), and a reader decides from LOCAL
+  state via `is_revoked` — not from a payload's absence. After a
+  completed sync, absence means either locally-revoked (state
+  says so) or the peer lacked it (retry another peer next sync).
+  Residual question is only whether that retry needs to be
+  tracked explicitly or can stay implicit in "step 2 requests
+  whatever is missing".
+- ~~Back-compat~~ DROPPED 2026-08-01: not needed, chains
+  predating this work get recreated.
 
 ## Progress
 
@@ -446,14 +754,241 @@ fallback.
       OK; optimistic-batch + per-blob fallback
 - [x] SPARSE normal ops prototyped (2026-07-22): create/post/
       sync work; `add --sparse` + `reapply` is the only delta
-- [ ] **NEXT: test merge/reset under sparse + removal persists**
-      across a full post/sync cycle
-- [ ] Loose-object git config
-- [ ] `uploadpack.allowFilter` + filtered fetch in `sync.lua`
-- [ ] `get.lua` tolerates absent payload -> tombstone
-- [ ] `rm` revoked loose blob on honest nodes
-- [ ] Doc: cooperative-only guarantee (no global erasure)
-- [ ] Migration for full-closure chains
+- [x] DECISION 2026-07-31: SPARSE rejected, BARE accepted — the
+      by-hash fetch machinery is required either way, so sparse's
+      lighter-cost argument no longer holds, and bare's no-worktree
+      structural guarantee beats sparse's open merge/reset risk
+- [x] REVERSED 2026-07-31 (same day): bare dropped entirely. Two
+      real problems found: `mktree`'s default existence check
+      breaks the moment any prior tree entry is an already-removed
+      blob (i.e. on every post after the first removal); partial-
+      clone promisor bits can trigger silent auto-fetch from
+      unrelated plumbing calls. Also realized lazy-fetch
+      (transport) and physical local removal are separable — only
+      the latter needs anything special, and it's narrow: a
+      per-path `git update-index --skip-worktree` at rm-time, not
+      a whole-repo bare or sparse migration. `post.lua`/`like.lua`/
+      `chains.lua` keep their working-tree code unchanged.
+- [x] DECISION 2026-07-31: sync must hard-fail (no ref/HEAD
+      update) on any per-blob miss whose hash is not in the LOCAL
+      revoked set; only locally-known-revoked misses tombstone
+- [x] DECISION 2026-07-31: unrevoke (and REVOKED-post `like`,
+      reps.md:278) must be gated — refuse to create/sign the
+      commit unless the local node first materializes the blob
+      (local store or by-hash fetch); guarantees at least one
+      holder exists the moment a post leaves REVOKED
+- [x] RESOLVED 2026-07-31: `like`-as-unrevoke gate confirmed —
+      same precondition as explicit `unrevoke`, scoped to
+      currently-REVOKED targets only
+- [x] FOUND 2026-07-31: order-independent sum replay means a post
+      can flip back to ACCEPTED with no new gated commit at all ->
+      physical `rm` needs its own finality/settling window,
+      decoupled from the instantaneous Phase-1 REVOKED computation
+- [x] DESIGNED 2026-07-31: finality window — author channel needs
+      none (only a fresh gated commit moves it); others channel
+      needed protecting against mid-replay oscillation
+- [x] SIMPLIFIED 2026-07-31: dropped the persistent
+      `local/revoked.lua` + calendar `SETTLE` timer — oscillation
+      attacks always cost the caster reps (only the author's own
+      downward self-revoke is free, reps.md:284-285,299-300), so
+      the standalone-timer justification doesn't hold; rule is now
+      just "rm once, on the final sum after this sync's full
+      replay" — no state tracked between syncs
+- [x] TESTED 2026-07-31: `--skip-worktree` survives `checkout
+      --detach`/`checkout main`/`reset --hard` and a real
+      `merge --no-commit` between two forks — all exit 0, correct
+      end state, no resurrection
+- [x] FOUND 2026-07-31: plain `git commit` (and thus
+      `merge --no-commit` + plain `commit` to conclude it) FAILS
+      once the index has any missing-blob entry, skip-worktree or
+      not — `commit` calls `write-tree` without `--missing-ok`.
+      Fix verified: `write-tree --missing-ok` + `commit-tree`
+      (`-S` included) + `update-ref`. `git add` unaffected.
+- [x] IMPLEMENTED 2026-08-01: swapped all 6 plain-`commit` call sites
+      for the write-tree/commit-tree/update-ref substitution, via one
+      shared `commit_tree(msg, kind, sign, err)` helper in
+      `chain/common.lua` — `post.lua:53,86`, `like.lua:82,117`,
+      `sync.lua:517,577`. `chains.lua`'s init commit untouched
+      (pre-revocation, nothing could be missing yet). Two details
+      found only by testing, not reasoning: (1) `--trailer` has no
+      `commit-tree` equivalent — reproduced byte-for-byte via
+      `printf '%s\n' "$msg" | git interpret-trailers --trailer '...'`
+      piped into `-m`; (2) concluding a pending merge via `commit-tree
+      -p HEAD -p $(cat MERGE_HEAD)` moves the ref correctly but leaves
+      `.git/MERGE_HEAD`/`MERGE_MODE`/`MERGE_MSG` behind unless removed
+      explicitly — `git status` still reports "still merging" until
+      they're cleaned up. Purely a refactor: no new functionality,
+      `--missing-ok` is a no-op today (nothing removes blobs yet).
+      Verified: `make tests` passes in full (36/36), including
+      `cli-sign.lua`'s `git verify-commit` on a real SSH-signed
+      commit-tree output.
+- [x] IMPLEMENTED 2026-08-01: loose-object git config
+      (`gc.auto 0`, `gc.autoPackLimit 0`, `fetch/receive/transfer.
+      unpackLimit 2000000000`) added to `chains.lua`'s shared
+      `git_config()`, so both `init` and `clone` paths get it.
+      Verified: values land correctly on both paths; `cli-chains.lua`
+      passes in full; normal log/status/commit unaffected.
+- [x] IMPLEMENTED 2026-08-01: `rm` revoked loose blob on honest nodes,
+      scoped to the author channel (`gc_revoked`, `common.lua`) —
+      called from `like.lua` right after a self-revoke's `apply()`
+      succeeds. Removes the loose object, the working-tree file, and
+      sets `--skip-worktree`. `get.lua` already tolerates the result
+      via its existing Phase-1 `is_revoked` guard (never reached the
+      blob read for a revoked post in the first place) — the
+      standalone "tombstone" item is therefore already satisfied for
+      this path, not a separate piece of work.
+- [x] IMPLEMENTED 2026-08-01: gated unrevoke/`like`, scoped correctly
+      -- gates only a vote that would ACTUALLY flip `is_revoked` from
+      true to false (mirrors `apply()`'s own author-vs-others channel
+      pick), not every positive vote on a revoked post. A self-like
+      that can't lift an author-forced revoke anyway is correctly
+      NOT gated; an unrevoke that would restore visibility IS gated
+      and refuses with `ERROR : chain unrevoke : blob unavailable`
+      if the blob is gone. Two bugs found only by tracing real test
+      failures, not by reasoning: (1) comparing `ARGS.sign` (a
+      private-key file PATH) directly against `post.author` (a
+      pubkey STRING) can never match — fixed by deriving the
+      caster's pubkey via `ssh-keygen -y -f` first; (2) an
+      over-broad first version gated ANY positive vote on a revoked
+      post, which incorrectly blocked a self-like that could never
+      have restored visibility anyway.
+- [x] TESTED 2026-08-01: new `tst/cli-remove-blob.lua` (in `make
+      tests`) verifies the object is gone, the working-tree file is
+      gone, the `--skip-worktree` (S) flag is set, `git status` stays
+      clean, a NEW post after removal still commits (exercises
+      `write-tree --missing-ok`), the gate refuses correctly, a
+      community-only revoke never touches the blob, and incremental
+      sync to a peer that already held the blob still succeeds.
+      Updated `cli-revoke.lua`'s two spots that assumed self-revoke
+      was always reversible on a single node with no other holder —
+      it correctly isn't anymore, once physically removed.
+- [x] IMPLEMENTED 2026-08-01: the two-step transfer. `chains.lua`
+      sets `uploadpack.allowFilter` + `uploadpack.allowAnySHA1InWant`
+      on every chain; `sync recv` fetches `--filter=blob:none` (step 1)
+      and then `payloads()` (common.lua) pulls every missing,
+      non-revoked blob BY HASH from that same peer (step 2), as an
+      optimistic batch with a per-blob fallback. Verified: a peer ends
+      a sync with zero missing objects and readable payloads.
+      Four things only testing surfaced:
+      - git REFUSES a promisor remote whose name begins with `/`, so
+        `--filter` fails outright on the bare absolute path `URL()`
+        returns ("did not send all necessary objects"). Fixed by
+        prefixing `file://` — same transport, a name git accepts.
+      - `--filter` silently registers the peer as a promisor remote,
+        which would lazily re-fetch on ANY read, including a read of
+        something this node revoked on purpose. `sync.lua` strips it.
+      - a by-hash `git fetch <url> <sha>` WRITES FETCH_HEAD, pointing
+        it at the blob and destroying the tip step 1 just fetched.
+        Fixed with `--no-write-fetch-head`.
+      - step 2 must run BEFORE the replay, not after: this repo has a
+        working tree, so `merge --no-commit` materialises each incoming
+        post's file and fails on a payload we do not hold.
+- [x] IMPLEMENTED 2026-08-01: filtered CLONE, so a brand-new peer can
+      onboard from a node that removed a payload -- the last thing the
+      serving wall still blocked. `chains add ... clone` now does
+      `--filter=blob:none --no-checkout`, strips the promisor, pulls
+      what the peer will serve via `fetch_objects`, then does the
+      checkout it deferred: `read-tree HEAD`, `--skip-worktree` on
+      whatever is STILL absent, `checkout -- .`.
+      Notes:
+      - a CLONE keys the promisor on `remote.origin`, where a FETCH
+        keys it by URL -- so the strip needs both spellings. Missing
+        this is silent: the leftover promisor lazily re-fetches during
+        detection and hides the very blob you are looking for.
+      - no state file exists yet at that point (it is a blob too, and
+        was filtered out), so the revoked set cannot be pre-excluded
+        here; the optimistic batch just fails and the per-object pass
+        sorts it out.
+      - `missing_objects` / `fetch_objects` / `FILTERABLE` moved to
+        `freechains/common.lua` so clone and sync share one mechanism.
+      Verified: fresh peer clones, reads the surviving post, is refused
+      the revoked one, has a clean worktree with the absent path
+      skip-worktree'd, no promisor left, and can post afterwards.
+- [x] IMPLEMENTED 2026-08-01: hard-fail on an unexpected miss, in BOTH
+      sync and clone. Onboarding cannot half-succeed: the only objects
+      a peer may fail to serve are the ones it revoked on purpose, so
+      anything else still absent after the by-hash step means it cannot
+      serve content it should, and we refuse it -- the user onboards
+      from an honest peer instead. `ERROR : chain sync : peer lacks
+      payload : <hash>` / `ERROR : chains add : clone failed : peer
+      lacks payload : <hash>`. Verified: the refused sync leaves HEAD
+      unmoved with no half-fetched objects, and the refused clone
+      removes its temp dir.
+      The allowed-absent set is the revoked blobs per LOCAL state UNION
+      per the REMOTE's state at FETCH_HEAD -- the incoming votes may
+      revoke something we have not replayed yet, and refusing that
+      would break syncing from an honest peer. A remote lying about
+      what it revoked is caught by the replay, which validates its
+      state anyway.
+- [x] FIXED 2026-08-01: `get.lua` crashed with a raw Lua traceback
+      (`bug found : [128] : git show ...`) on a payload that was
+      missing but NOT revoked -- it only guarded the revoked case.
+      Now `ERROR : chain get : payload unavailable`, per the project's
+      error convention. Predated this work but the filtered transfer
+      made it reachable in normal operation.
+- [x] DONE 2026-08-01: cooperative-only guarantee documented where
+      the promise is actually made -- `README.md`'s "right to be
+      forgotten" section now says revocation is cooperative, not
+      enforced (a peer that already holds the bytes can keep them,
+      and nothing in the protocol compels a deletion), and that the
+      same cut runs the other way: with no surviving copy a revoke is
+      permanent and `unrevoke` must supply the bytes with `--file`.
+- [x] DROPPED 2026-08-01: migration for full-closure chains. Not
+      needed -- chains predating this work simply get recreated.
+- [x] FOUND + FIXED 2026-08-01: `guide.sh` (the README run end to
+      end) was the first exercise of the ONE case the unit tests
+      never built: a post revoked BEFORE it was ever synced, so no
+      peer anywhere holds the bytes, propagating to peers that have
+      never seen them. It broke every layer in turn.
+      - `sync send` pushed `+main +refs/begs/*`, and `pack-objects`
+        must READ every object it carries -- so the push died with
+        "unable to read <blob>" on the payload the sender had just
+        dropped. But the push is a TRIGGER, not a transfer: the
+        receiver's hook always rejects it and runs `sync recv` back
+        against the pusher, which is where the data actually moves.
+        So it now pushes GENESIS to `refs/begs/sync` -- both sides
+        hold it by definition, so ZERO objects travel and the hook
+        still fires. Under `refs/begs/` so that even a receiver that
+        somehow ACCEPTED it only gains a stray beg at the root
+        commit, swept by the next recv's stale-beg pass; an accepted
+        `main` would have reset the receiver to genesis.
+      - CORRECTION to the 2026-07-31 test above: `--skip-worktree`
+        does NOT fully cover merge/checkout/reset. It covers a path
+        already IN the index; it does nothing for one the operation
+        is ADDING, because the index entry is validated before the
+        bit is consulted -- `merge --ff-only` dies with "unable to
+        read <blob>" even with the entry pre-registered via
+        `update-index --add --cacheinfo` and marked S (verified).
+        The earlier test only ever exercised paths already present.
+      - So the porcelain that writes a working tree is gone from
+        this code path entirely, replaced by `checkout(dir, tree)`
+        (`common.lua`): `read-tree` (index by hash, never opens a
+        blob) + `--skip-worktree` on exactly the absent paths +
+        `checkout -- .`. Moving HEAD stays with the caller
+        (`update-ref`, `update-ref --no-deref`, `symbolic-ref`) --
+        pure ref writes -- which is what lets one function serve the
+        fast-forward, `checkout --detach`, `checkout main`, `reset
+        --hard` and the clone checkout alike. Since `checkout -- .`
+        only ever writes, it also removes by hand the paths the new
+        tree drops.
+      - `merge --no-commit` had no `--skip-worktree` answer at all
+        (it refuses before the index exists), so the divergence path
+        now uses `merge-tree --write-tree`, which merges from trees
+        and hashes alone and passes an absent blob straight through.
+        Its result is placed by hand: MERGE_HEAD for `commit`'s
+        second parent, the tree via `checkout`. Content conflicts
+        are still reported the same way (non-zero exit).
+      - `payloads()` was asking the peer for blobs the peer had
+        revoked, because it read the remote's revoked set only AFTER
+        the batch -- the set lives in `state/posts.lua`, itself a
+        blob filtered out of step 1. Every sync carrying a new
+        revoke therefore sank its batch and degraded to one round
+        trip per object. Now that one blob is pulled first and alone
+        (its hash is a tree lookup, no bytes needed), so the batch
+        below is right the first time.
+      Verified: `guide.sh` output is line-for-line identical to
+      `main`'s (325 lines, exit 0) apart from the push refspec and
+      the per-run ssh keys, and `make tests` stays at 37/37.
 
 ## Cross-references
 

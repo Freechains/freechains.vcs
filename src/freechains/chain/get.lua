@@ -35,9 +35,16 @@ if ARGS.payload then
     end
 
     local file = commit_file()
-    local out = exec { trim=false,
+    -- Not revoked, so we SHOULD hold it -- sync and clone both refuse a
+    -- peer that cannot serve a live payload. Reaching here means the
+    -- object store lost it some other way; say so, rather than letting
+    -- `git show` fail and surface as a raw traceback.
+    local out, code = exec { stderr=false, err=false, trim=false,
         cmd = "git -C " .. REPO .. " show " .. ARGS.hash .. ":" .. file,
     }
+    if not out then
+        ERROR("chain get : payload unavailable")
+    end
     io.write(out)
 
 elseif ARGS.metadata then

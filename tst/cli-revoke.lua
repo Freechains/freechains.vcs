@@ -47,16 +47,26 @@ do
     end
 
     do
-        TEST "revoke-community-reversible"
-        -- KEY2 unrevoke -> net 0 -> readable
-        exec {
+        TEST "revoke-community-unrevoke-no-copy"
+        -- Community revocation IS reversible by design (reps.md:287-312)
+        -- and stays so: `revokes` (common.lua) drops the payload on
+        -- either channel, and an unrevoked post returns via the by-hash
+        -- step of the next sync -- local retention was never the
+        -- restore mechanism.
+        --
+        -- This is a SINGLE node, so there is no peer to fetch it back
+        -- from and no `--file` copy offered: the payload is gone for
+        -- good and the gate refuses rather than promise a restore
+        -- nobody can deliver. Not a missing feature -- the decision
+        -- that a revoke with no surviving copy is permanent.
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-revoke' unrevoke 1 " .. POST .. " --sign " .. KEY2,
+            err = "ERROR : chain unrevoke : blob unavailable",
         }
-        local out, code = exec {
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. POST,
+            err = "ERROR : chain get : revoked post",
         }
-        assert(code == 0, "exit code: " .. tostring(code))
-        assert(out == "revoke-me", "payload should read: " .. out)
     end
 end
 
@@ -95,16 +105,21 @@ do
     end
 
     do
-        TEST "revoke-author-unrevoke"
-        -- only the author can lift their own forget
-        exec {
+        TEST "revoke-author-unrevoke-blob-gone"
+        -- the author's own self-revoke physically removed the
+        -- payload (260721-remove-blob.md, `revokes`); even the
+        -- author's own unrevoke is gated on the blob still being
+        -- available (nobody else on this single-node test holds a
+        -- copy), so it is correctly refused, not silently accepted
+        -- into a promise nobody can keep
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-revoke' unrevoke 1 " .. POST .. " --sign " .. KEY1,
+            err = "ERROR : chain unrevoke : blob unavailable",
         }
-        local out, code = exec {
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. POST,
+            err = "ERROR : chain get : revoked post",
         }
-        assert(code == 0, "exit code: " .. tostring(code))
-        assert(out == "revoke-me", "payload should read again: " .. out)
     end
 end
 
@@ -151,7 +166,12 @@ do
     }
 
     do
-        TEST "revoke-like-lifts"
+        TEST "revoke-like-lift-no-copy"
+        -- reps.md:278 -- a positive `like` also counts as an unrevoke,
+        -- and is gated exactly like one. `revokes` dropped the payload
+        -- and this single node has no way to get it back, so the gate
+        -- refuses the like outright and the sum never moves. With a
+        -- peer still serving the bytes (or `--file`) it would succeed.
         exec {
             cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1 " .. P .. " --sign " .. KEY2,
         }
@@ -159,99 +179,104 @@ do
             cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. P,
             err = "ERROR : chain get : revoked post",
         }
-        exec {
+        FAIL {
             cmd = ENV_EXE .. " chain '#cli-revoke' like 1 post " .. P .. " --sign " .. KEY2,
+            err = "ERROR : chain like : blob unavailable",
         }
-        local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. P,
-        }
-        assert(code == 0, "exit code: " .. tostring(code))
-        assert(out == "coupled", "like should lift the revoke: " .. out)
     end
+
+    -- The remaining coupling rules do not need a payload to come back,
+    -- so they are still tested for real -- on posts chosen so the vote
+    -- under test never has to lift a revoke.
 
     do
         TEST "revoke-dislike-keeps"
-        -- a dislike drains the post, but never hides it
+        -- a dislike drains the post, but never hides it: use a post that
+        -- was never revoked, so nothing was dropped
+        local D = exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' post inline 'drained' --sign " .. KEY1,
+        }
         local before = tonumber((exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' reps post " .. P,
+            cmd = ENV_EXE .. " chain '#cli-revoke' reps post " .. D,
         }))
         exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' dislike 1 post " .. P .. " --sign " .. KEY2,
+            cmd = ENV_EXE .. " chain '#cli-revoke' dislike 1 post " .. D .. " --sign " .. KEY2,
         }
         local after = tonumber((exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' reps post " .. P,
+            cmd = ENV_EXE .. " chain '#cli-revoke' reps post " .. D,
         }))
         assert(after < before, "dislike should drain: " .. before .. " -> " .. after)
         local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. P,
+            cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. D,
         }
         assert(code == 0, "exit code: " .. tostring(code))
-        assert(out == "coupled", "dislike should not hide: " .. out)
+        assert(out == "drained", "dislike should not hide: " .. out)
     end
+
+    -- An AUTHOR-revoked post: the author channel keeps forcing REVOKED,
+    -- so a community vote on it never flips `is_revoked` and is never
+    -- gated -- which lets the reps math below be tested for real.
+    local Q = exec {
+        cmd = ENV_EXE .. " chain '#cli-revoke' post inline 'authored' --sign " .. KEY1,
+    }
+    exec {
+        cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1 " .. Q .. " --sign " .. KEY1,
+    }
 
     do
         TEST "revoke-unrevoke-no-reps"
         -- an unrevoke costs the caster, but credits nobody
-        exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1 " .. P .. " --sign " .. KEY3,
-        }
         local post_1 = exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' reps post " .. P,
+            cmd = ENV_EXE .. " chain '#cli-revoke' reps post " .. Q,
         }
         local sign_1 = tonumber((exec {
             cmd = ENV_EXE .. " chain '#cli-revoke' reps author '" .. PUB3 .. "'",
         }))
         exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' unrevoke 1 " .. P .. " --sign " .. KEY3,
+            cmd = ENV_EXE .. " chain '#cli-revoke' unrevoke 1 " .. Q .. " --sign " .. KEY3,
         }
         local post_2 = exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' reps post " .. P,
+            cmd = ENV_EXE .. " chain '#cli-revoke' reps post " .. Q,
         }
         local sign_2 = tonumber((exec {
             cmd = ENV_EXE .. " chain '#cli-revoke' reps author '" .. PUB3 .. "'",
         }))
         assert(post_1 == post_2, "unrevoke must not credit: " .. post_1 .. " -> " .. post_2)
         assert(sign_2 < sign_1, "unrevoke must cost: " .. sign_1 .. " -> " .. sign_2)
-        local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. P,
-        }
-        assert(code == 0, "exit code: " .. tostring(code))
-        assert(out == "coupled", "unrevoke should restore: " .. out)
     end
 
     do
         TEST "revoke-self-like-keeps"
-        -- the author's own like feeds the community channel, so it
-        -- cannot lift their absolute self-revoke
+        -- the author's own like feeds the COMMUNITY channel, so it can
+        -- never lift their absolute self-revoke
         exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1 " .. P .. " --sign " .. KEY1,
-        }
-        exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' like 1 post " .. P .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain '#cli-revoke' like 1 post " .. Q .. " --sign " .. KEY1,
         }
         FAIL {
-            cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. P,
+            cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. Q,
             err = "ERROR : chain get : revoked post",
         }
-        exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' unrevoke 1 " .. P .. " --sign " .. KEY1,
+    end
+
+    do
+        TEST "revoke-author-unrevoke-no-copy"
+        -- only the author lifts their own channel -- and that lift WOULD
+        -- flip the post back, so it is gated, and the payload is gone
+        FAIL {
+            cmd = ENV_EXE .. " chain '#cli-revoke' unrevoke 1 " .. Q .. " --sign " .. KEY1,
+            err = "ERROR : chain unrevoke : blob unavailable",
         }
-        local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. P,
-        }
-        assert(code == 0, "exit code: " .. tostring(code))
-        assert(out == "coupled", "author unrevoke should restore: " .. out)
     end
 
     do
         TEST "reps-revoke"
-        -- author channel is back to 0, community is +1 (the two likes
-        -- and the unrevoke net against the two revokes)
+        -- Q: author -1 (the self-revoke; its unrevoke was refused),
+        -- others +2 (KEY3's unrevoke + KEY1's self-like)
         local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' reps revoke " .. P,
+            cmd = ENV_EXE .. " chain '#cli-revoke' reps revoke " .. Q,
         }
-        assert(code == 0,    "exit code: " .. tostring(code))
-        assert(out == "0 1", "channels: " .. out)
+        assert(code == 0,     "exit code: " .. tostring(code))
+        assert(out == "-1 2", "channels: " .. out)
     end
 
     do
@@ -260,7 +285,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-revoke' reps revokes",
         }
         assert(code == 0, "exit code: " .. tostring(code))
-        assert(out:find(P .. " 0 1", 1, true), "P not listed: " .. out)
+        assert(out:find(Q .. " -1 2", 1, true), "Q not listed: " .. out)
     end
 
     do

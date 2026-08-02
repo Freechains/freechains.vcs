@@ -51,6 +51,85 @@ function backs (hash)
     return ret
 end
 
+-- Prepare the merge of `hash` into HEAD, for `checkout` + `commit` to
+-- conclude. Returns the merged tree, or nil on a content conflict.
+--
+-- Not `git merge`: it insists on materialising every path it touches,
+-- and a post revoked before it ever reached us has no bytes to write
+-- -- no honest peer serves them -- so an ordinary sync would die on
+-- perfectly valid history. `merge-tree` works from trees and hashes
+-- alone, and an absent blob simply passes through by hash.
+--
+-- It touches neither index nor working tree, so its output is placed
+-- by hand: MERGE_HEAD here, for the second parent `commit` picks up,
+-- and the tree by the `checkout` the caller makes next.
+function merge_tree (hash)
+    local tree = exec { stderr=false, err=false,
+        cmd = "git -C " .. REPO .. " merge-tree --write-tree HEAD " .. hash,
+    }
+    if not tree then
+        return nil
+    end
+    local f = io.open(REPO .. ".git/MERGE_HEAD", "w")
+    f:write(hash .. "\n")
+    f:close()
+    return tree
+end
+
+-- Conclude a commit on HEAD (and on MERGE_HEAD too, if a merge is
+-- pending) via plumbing rather than porcelain `git commit`:
+-- `write-tree --missing-ok` tolerates an object missing elsewhere in
+-- the tree (a future revoked/removed payload), which plain `commit`'s
+-- internal `write-tree` call does not -- it fails the whole commit.
+-- `sign`, if given, is a signing key path; `err`, if given, is the
+-- ERROR message on signing failure (mirrors the `err=` each call site
+-- previously passed straight to `exec` for the `git commit` this
+-- replaces). Returns the new commit hash.
+function commit (msg, kind, sign, err)
+    local tree = exec { stderr=false,
+        cmd = "git -C " .. REPO .. " write-tree --missing-ok",
+    }
+
+    local merge_head = REPO .. ".git/MERGE_HEAD"
+    local mh_file = io.open(merge_head, "r")
+    local parents = "-p HEAD"
+    if mh_file then
+        local mh = mh_file:read("l")
+        mh_file:close()
+        parents = parents .. " -p " .. mh
+    end
+
+    local s1, s2 = "", ""
+    if sign then
+        s1 = " -c user.signingkey=" .. sign .. " -c gpg.format=ssh"
+        s2 = " -S"
+    end
+
+    local full_msg = exec { stderr=false,
+        cmd = "printf '%s\\n' '" .. msg .. "' | git -C " .. REPO ..
+              " interpret-trailers --trailer 'Freechains: " .. kind .. "'",
+    }
+
+    local hash = exec { stderr=false,
+        cmd = CMD.git .. "git -C " .. REPO .. s1 .. " commit-tree " .. tree
+              .. " " .. parents .. s2 .. " -m '" .. full_msg .. "'",
+        err = err,
+    }
+
+    exec {
+        cmd = "git -C " .. REPO .. " update-ref HEAD " .. hash,
+    }
+
+    if mh_file then
+        exec {
+            cmd = "rm -f " .. REPO .. ".git/MERGE_HEAD " ..
+                  REPO .. ".git/MERGE_MODE " .. REPO .. ".git/MERGE_MSG",
+        }
+    end
+
+    return hash
+end
+
 function write (G)
     local function f (V, file)
         local f = io.open(file, "w")
@@ -64,10 +143,149 @@ function write (G)
     f(G.now,     FC .. "state/now.lua")
 end
 
--- REVOKED when either the author's or the community's net revoke sum is negative.
-function is_revoked (p)
-    local r = p.revoke or {}
-    return ((r.author or 0) < 0) or ((r.others or 0) < 0)
+-- Posts whose revoke sums may have moved this run: CANDIDATES to
+-- re-check once everything has settled, never decisions taken now.
+-- Filled by a plain `REVOKES[hash] = true` wherever a revoke-axis vote
+-- is applied. All correctness lives in `revokes` below, which re-reads
+-- the COMMITTED state and decides there -- so over-filling this is
+-- harmless (a candidate that is not actually revoked is skipped) and
+-- under-filling is the only real bug.
+REVOKES = {}
+
+-- Physically drop the payload -- the loose blob AND the working-tree
+-- copy, then skip-worktree the path so neither resurrects it nor
+-- breaks a future checkout/reset/merge -- of every REVOKES candidate
+-- the COMMITTED state still says is revoked (260721-remove-blob.md,
+-- "Local removal").
+--
+-- Deferred to the end of a command on purpose: a sum that dips
+-- negative mid-replay and climbs back before the end must never
+-- trigger a deletion (finality window). Reads `state/posts.lua` off
+-- disk rather than taking a `G`, so it acts on what was actually
+-- persisted, not on an in-memory table a later abort might roll back.
+-- Re-entrant: a tree entry names its blob whether or not the object
+-- still exists, and os.remove on a missing file is a no-op.
+--
+-- BOTH channels -- `is_revoked`, the same predicate `get.lua` hides
+-- by. One rule, applied identically from every caller: if this node
+-- calls a post revoked, it drops the payload.
+--
+-- Community revocation stays REVERSIBLE (reps.md:287-312) without
+-- keeping the bytes locally. A post whose sum climbs back non-negative
+-- simply rejoins the set the by-hash step re-requests on the next
+-- sync, and returns like any other payload this node lacks. Local
+-- retention was never the restore mechanism.
+--
+-- Evaluating ONCE here, on the final committed sum, is also what keeps
+-- this order-independent: two peers replaying the same votes in any
+-- order reach the same sum, hence the same decision.
+--
+-- CAVEAT: the return path only works while SOMEONE still serves the
+-- bytes. Every honest peer drops on learning the revoke, so once they
+-- have all synced, none can serve it back and no unrevoke can be cast
+-- -- the gate refuses with "blob unavailable". Community revocation is
+-- therefore reversible only in the window before peers converge, and
+-- after that only by handing the bytes back in with `--file`. Once no
+-- copy is kept anywhere, a revoke is permanent: a decision, not a gap.
+function revokes ()
+    local posts = dofile(FC .. "state/posts.lua")
+    for hash in pairs(REVOKES) do
+        if is_revoked(posts[hash] or {}) then
+            -- a post commit adds exactly one file (get.lua asserts the same)
+            local file = assert((exec {
+                cmd = "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash,
+            }):match("(%S+)"), "bug found")
+
+            local blob = exec {
+                cmd = "git -C " .. REPO .. " rev-parse " .. hash .. ":" .. file,
+            }
+
+            os.remove(REPO .. ".git/objects/" .. blob:sub(1,2) .. "/" .. blob:sub(3))
+            os.remove(REPO .. file)
+            exec { err=false,
+                cmd = "git -C " .. REPO .. " update-index --skip-worktree " .. file,
+            }
+        end
+    end
+    REVOKES = {}
+end
+
+-- Step 2 of a sync. Step 1 pulls a FILTERED pack -- commits and trees
+-- only, so a peer holding a removed payload can still serve it -- and
+-- this pulls the payloads themselves, BY EXPLICIT HASH, from that same
+-- peer. It runs in sequence right after, not at read time: a sync is
+-- not finished until this has run, so a completed sync still leaves
+-- this node holding every live payload. Replication is unchanged;
+-- what changed is that it takes two round trips instead of one (three
+-- when the remote's own revoked set has to be read first, below).
+--
+-- Deliberately NOT git's promisor machinery (which `--filter` sets up
+-- behind our back, and which `sync.lua` strips): that binds one remote
+-- URL, while Freechains syncs whatever peer it was pointed at, and it
+-- would lazily re-fetch on any read -- including a read of something
+-- this node revoked on purpose.
+--
+-- A fetch REQUEST is all-or-nothing: one absent hash sinks the whole
+-- batch and its available siblings are NOT delivered. So: one
+-- optimistic batch (the fast path, a single round trip when nothing
+-- in the set is revoked), and only on failure a per-blob retry, where
+-- the available ones land and the absent ones fail individually.
+function payloads (url)
+    -- FETCH_HEAD as well as --all: this runs BEFORE the replay moves
+    -- any ref, so the commits just fetched are reachable only from
+    -- there, and their payloads are exactly what we came for.
+    local missing = missing_objects(REPO, "--all FETCH_HEAD")
+    if #missing == 0 then
+        return
+    end
+
+    -- Never ask for what WE already call revoked: no honest peer serves
+    -- it, and asking would sink the optimistic batch on every sync.
+    local ok_absent = revoked_blobs(REPO, "HEAD")
+
+    -- Nor for what the REMOTE revoked -- which is most of the point,
+    -- since the votes arriving right now are exactly the ones we have
+    -- not replayed yet, and the peer is right not to serve what they
+    -- condemn. Its `state/posts.lua` says so, but that is a blob too,
+    -- filtered out of step 1, so pull it first and ALONE: one small
+    -- extra round trip buys the whole batch below, which would
+    -- otherwise sink on the first such payload and degrade into one
+    -- round trip per object. Its hash is a tree lookup, no bytes
+    -- needed. A peer refusing THIS is caught by the check at the end.
+    do
+        local state = exec { stderr=false, err=false,
+            cmd = "git -C " .. REPO ..
+                  " rev-parse FETCH_HEAD:.freechains/state/posts.lua",
+        }
+        for _, h in ipairs(missing) do
+            if h == state then
+                fetch_objects(REPO, url, {state})
+                break
+            end
+        end
+        for b in pairs(revoked_blobs(REPO, "FETCH_HEAD")) do
+            ok_absent[b] = true
+        end
+    end
+
+    local want = {}
+    for _, h in ipairs(missing) do
+        if not ok_absent[h] then
+            want[#want+1] = h
+        end
+    end
+
+    fetch_objects(REPO, url, want)
+
+    -- Onboarding cannot half-succeed. Anything still absent that nobody
+    -- calls revoked means this peer could not serve content it should:
+    -- it is not honest, so fail before any ref moves and let another
+    -- peer be tried.
+    for _, h in ipairs(missing_objects(REPO, "--all FETCH_HEAD")) do
+        if not ok_absent[h] then
+            ERROR("chain sync : peer lacks payload : " .. h)
+        end
+    end
 end
 
 -- posts hashes in a stable order: (time, hash); consolidated posts
@@ -100,7 +318,7 @@ local function TIME (hash)
 end
 
 -- the peak RECORDED in a commit's tree (`state/now.lua`): the newest
--- time among all of its ancestors. Derived, never trusted: `commit` in
+-- time among all of its ancestors. Derived, never trusted: `replay` in
 -- sync.lua checks every stored value against its parents' before using
 -- it. Only `state` commits are current -- a post/like may just ADD
 -- files, so its tree still holds the previous state commit's value.

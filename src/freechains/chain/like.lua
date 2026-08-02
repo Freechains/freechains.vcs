@@ -55,11 +55,89 @@ if to_beg then
     G.posts[ARGS.id] = load(src)()[ARGS.id]
 end
 
--- commit the vote (content only, no state). The trailer + dir
--- distinguish a revoke-axis vote from a like/dislike:
+-- the trailer + dir distinguish a revoke-axis vote from a like/dislike:
 --   like/dislike -> .freechains/likes/   , 'Freechains: like'
 --   revoke/unrev -> .freechains/revokes/ , 'Freechains: revoke'
 local kind = (ARGS.revoke or ARGS.unrevoke) and "revoke" or "like"
+
+-- gated unrevoke: a vote that would flip a currently-REVOKED post
+-- back to ACCEPTED must not succeed unless the payload is still
+-- available -- otherwise it promises visibility nobody can deliver
+-- (260721-remove-blob.md, "Gated unrevoke"). Mirrors apply()'s own
+-- author-vs-others channel pick (common.lua) to predict the outcome
+-- without mutating G; a vote that doesn't actually restore (e.g. a
+-- self-like while the author channel alone still forces REVOKED) is
+-- never gated. Only bites once the payload is actually gone, i.e.
+-- after `revokes` (common.lua) dropped it.
+if ARGS.target == "post" and num>0 and G.posts[ARGS.id] and is_revoked(G.posts[ARGS.id]) then
+    local post = G.posts[ARGS.id]
+    local r = post.revoke or {}
+    local a, o = r.author or 0, r.others or 0
+    -- ARGS.sign is a private-key file PATH; post.author is a
+    -- "ssh-ed25519 <pubkey>" STRING (see ssh.pubkey) -- derive the
+    -- caster's own pubkey the same way chains.lua does before
+    -- comparing, same shape as apply()'s check.
+    local caster = ARGS.sign and ("ssh-ed25519 " .. (exec {
+        cmd = "ssh-keygen -y -f " .. ARGS.sign,
+    }):match("ssh%-ed25519 (%S+)"))
+    if kind=='revoke' and post.author and caster==post.author then
+        a = a + num
+    else
+        o = o + num
+    end
+    if not ((a<0) or (o<0)) then
+        local file = exec {
+            cmd = "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. ARGS.id,
+        } :match("(%S+)")
+        local avail = file and exec { err=false,
+            cmd = "git -C " .. REPO .. " cat-file -e " .. ARGS.id .. ":" .. file,
+        }
+        local what = ARGS.unrevoke and "unrevoke" or "like"
+
+        -- --file: re-seed the payload from an out-of-band copy. Safe to
+        -- accept from anywhere BECAUSE it is content-addressed -- only
+        -- the exact bytes the DAG already names can hash to the hash it
+        -- names, so a wrong or tampered file cannot pass. This is the
+        -- only way back once every honest peer has dropped a payload
+        -- and none is left to serve it.
+        if (not avail) and ARGS.file then
+            local abs = exec { stderr=false, err=false,
+                cmd = "realpath " .. ARGS.file,
+            }
+            if not abs then
+                ERROR("chain " .. what .. " : invalid path")
+            end
+            local want = exec {
+                cmd = "git -C " .. REPO .. " rev-parse " .. ARGS.id .. ":" .. file,
+            }
+            local got = exec { stderr=false, err=false,
+                cmd = "git -C " .. REPO .. " hash-object -- " .. abs,
+            }
+            if got ~= want then
+                ERROR("chain " .. what .. " : file does not match payload")
+            end
+            -- only now write it: a mismatched file never enters the store
+            exec {
+                cmd = "git -C " .. REPO .. " hash-object -w -- " .. abs,
+            }
+            -- and put the path back under normal management, so the
+            -- worktree matches the index again
+            exec { err=false,
+                cmd = "git -C " .. REPO .. " update-index --no-skip-worktree " .. file,
+            }
+            exec { err=false,
+                cmd = "git -C " .. REPO .. " checkout -- " .. file,
+            }
+            avail = true
+        end
+
+        if not avail then
+            ERROR("chain " .. what .. " : blob unavailable")
+        end
+    end
+end
+
+-- commit the vote (content only, no state)
 local hash
 do
     local payload = [[
@@ -76,16 +154,8 @@ do
     exec {
         cmd = "git -C " .. REPO .. " add " .. file,
     }
-    local s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=ssh"
     local msg = ARGS.why or "(empty message)"
-    exec { stderr=false,
-        cmd = CMD.git .. "git -C " .. REPO .. s1 .. " commit -S -m '" .. msg ..
-                  "' --trailer 'Freechains: " .. kind .. "'",
-        err = "chain " .. kind .. " : invalid sign key",
-    }
-    hash = exec {
-        cmd = "git -C " .. REPO .. " rev-parse HEAD",
-    }
+    hash = commit(msg, kind, ARGS.sign, "chain " .. kind .. " : invalid sign key")
 end
 
 -- apply
@@ -107,17 +177,20 @@ do
     G.order[#G.order+1] = hash
 end
 
+if ARGS.target == "post" then
+    REVOKES[ARGS.id] = true
+end
+
 -- commit state
 do
     write(G)
     exec {
         cmd = "git -C " .. REPO .. " add .freechains/state/",
     }
-    exec {
-        cmd = CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
-        .. " --trailer 'Freechains: state'",
-    }
+    commit("(empty message)", "state", nil, nil)
 end
+
+revokes()
 
 if to_beg then
     exec {

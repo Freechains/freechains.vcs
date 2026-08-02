@@ -326,6 +326,22 @@ Phase 1 hides the payload on read (metadata + blob stay);
 physical stripping / no-retransmit is Phase 2
 (`260721-remove-blob.md`).
 
+**Reversible on the SUMS, not on the BYTES.** Both channels stay
+commutative and order-independent, so a revoke can always be
+voted back: `unrevoke`, or a positive `like` on the community
+channel. What Phase 2 changes is whether the payload is still
+there to show afterwards -- every honest peer drops it on
+learning the revoke, so once they have converged nobody serves
+it back. Then the vote itself is refused (`blob unavailable`)
+unless the caster supplies the bytes with `--file`.
+
+So: a revoke is undoable while someone still holds a copy, in
+the network or out of band. **If nobody kept one, it is
+permanent** -- accepted, not a bug. The right-to-be-forgotten
+guarantee is worth more here than guaranteed reversibility, and
+neither was ever enforceable against a peer that keeps its
+copy anyway (see `260721-remove-blob.md`, NON-GOAL).
+
 ## Block States
 
 A post has three possible states:
@@ -350,6 +366,11 @@ A BLOCKED post can become ACCEPTED if the author
 later receives enough likes.
 A REVOKED post keeps its metadata but loses its
 payload.
+
+The REVOKED -> ACCEPTED edge is about the SUMS. The payload
+comes back only if some peer still serves it, or the caster
+supplies it with `--file`; otherwise the vote that would take
+that edge is refused outright. See the note above.
 
 ## Storage
 

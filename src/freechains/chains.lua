@@ -20,6 +20,30 @@ local function git_config (dir)
     exec {
         cmd = "git -C " .. dir .. " config receive.advertisePushOptions true",
     }
+    -- serve a filtered pack (step 1 of a sync) and answer a by-hash
+    -- want for a payload (step 2) -- see `payloads` in chain/common.lua
+    exec {
+        cmd = "git -C " .. dir .. " config uploadpack.allowFilter true",
+    }
+    exec {
+        cmd = "git -C " .. dir .. " config uploadpack.allowAnySHA1InWant true",
+    }
+    -- keep objects loose (rm-able) instead of auto-packed away
+    exec {
+        cmd = "git -C " .. dir .. " config gc.auto 0",
+    }
+    exec {
+        cmd = "git -C " .. dir .. " config gc.autoPackLimit 0",
+    }
+    exec {
+        cmd = "git -C " .. dir .. " config fetch.unpackLimit 2000000000",
+    }
+    exec {
+        cmd = "git -C " .. dir .. " config receive.unpackLimit 2000000000",
+    }
+    exec {
+        cmd = "git -C " .. dir .. " config transfer.unpackLimit 2000000000",
+    }
 end
 
 local function pioneers (dir)
@@ -155,11 +179,55 @@ if ARGS.add then
             err = "chains add : clone failed",
         }
         local tmp = DIR .. "/_tmp-" .. math.random(0, 9999999999) .. "/"
+
+        -- Onboard the same way a sync transfers: FILTERED, then the
+        -- payloads by hash. A peer that dropped a revoked payload
+        -- cannot serve an unfiltered clone -- `pack-objects` needs the
+        -- whole closure -- and even where the objects are copied
+        -- directly (local path), the checkout then dies trying to
+        -- materialise the blob that is gone. `--no-checkout` defers
+        -- that until we know which paths we can actually write.
+        local url = FILTERABLE(URL(ARGS.url, ARGS.alias))
         exec { stderr=false,
-            cmd = "git clone " .. URL(ARGS.url, ARGS.alias) .. " " .. tmp,
+            cmd = "git clone --filter=blob:none --no-checkout " .. url .. " " .. tmp,
             err = "chains add : clone failed",
         }
         git_config(tmp)
+
+        -- A clone puts the promisor on `origin` (a fetch keys it by
+        -- URL instead); drop it so nothing lazily re-fetches behind our
+        -- back -- including a payload this chain revoked on purpose.
+        exec { err=false,
+            cmd = "git -C " .. tmp .. " config --unset remote.origin.promisor",
+        }
+        exec { err=false,
+            cmd = "git -C " .. tmp .. " config --unset remote.origin.partialclonefilter",
+        }
+
+        -- Pull every object the peer will serve. There is no state file
+        -- to read yet -- it is a blob too, and was filtered out -- so we
+        -- cannot pre-exclude the revoked ones here: the optimistic batch
+        -- just fails and the per-object pass sorts it out.
+        fetch_objects(tmp, url, missing_objects(tmp, "--all"))
+
+        -- Onboarding cannot half-succeed. The state file has landed by
+        -- now (it is not revoked, so the peer served it), so we can ask
+        -- what it claims to have revoked -- those are the only objects
+        -- it is allowed not to have. Anything else still absent means
+        -- this peer cannot serve content it should: refuse it, and let
+        -- the user onboard from an honest one instead.
+        local ok_absent = revoked_blobs(tmp, "HEAD")
+        for _, h in ipairs(missing_objects(tmp, "--all")) do
+            if not ok_absent[h] then
+                exec { cmd = "rm -rf " .. tmp }
+                ERROR("chains add : clone failed : peer lacks payload : " .. h)
+            end
+        end
+
+        -- Now the checkout `--no-checkout` deferred -- HEAD is already
+        -- where it belongs, so only the working tree is missing.
+        checkout(tmp)
+
         exec {
             cmd = "cp " .. HERE .. "/hooks/pre-receive " .. tmp .. "/.git/hooks/pre-receive && chmod +x " .. tmp .. "/.git/hooks/pre-receive",
         }
