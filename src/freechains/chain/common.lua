@@ -51,6 +51,20 @@ function backs (hash)
     return ret
 end
 
+-- The four state files, all of them `serial` output and nothing else:
+--
+--   authors.lua   pubkey    -> { reps, time }
+--   posts.lua     action id -> { reps, author, time, maturity, revoke }
+--   order.lua     [ id, id, ... ]   consensus order
+--   now.lua       newest time among all ancestors (causal high-water;
+--                 a commit may sit at most `time.diff` below it, see
+--                 `apply`. Genesis has no real ancestor, so `chains add`
+--                 writes the chain creation time.)
+--
+-- The skel ships them EMPTY AND CANONICAL -- no comments, no examples.
+-- `state_diff` compares them byte-for-byte against `serial`, so a
+-- hand-written file anywhere in a tree is a false rejection on the
+-- first commit that inherits it.
 function write (G)
     local function f (V, file)
         local f = io.open(file, "w")
@@ -62,6 +76,43 @@ function write (G)
     f(G.posts,   FC .. "state/posts.lua")
     f(G.order,   FC .. "state/order.lua")
     f(G.now,     FC .. "state/now.lua")
+end
+
+-- The state a commit CARRIES vs the state a replay COMPUTED.
+-- `write` is the writer, this is its verifier: both go through
+-- `serial`, whose keys are sorted, so the bytes match exactly.
+-- Returns the name of the first file that differs, or nil.
+--
+-- Two of the four files are deliberately absent:
+--
+-- `now` is DAG-derived, not replay-accumulated: `write` is called with
+-- `PEAKS(...)` forced into `G.now` at every merge (sync.lua), so the
+-- accumulated value is not what lands in the tree. `commit` in sync.lua
+-- already checks it against the parents, which is stronger anyway.
+--
+-- `order` is BLOCKED on a separate bug: two honest peers can settle on
+-- different orders for the same posts. In tst/bug-climb-ancestor the
+-- nested-merge topology leaves A with [p1,p2,...] and D with [p2,p1,...]
+-- permanently -- the two entries that forked at genesis, swapped. That
+-- test only asserts D's order HOLDS every post, never the ordering, so
+-- it passes. Until consensus is actually deterministic here, comparing
+-- `order` is a false rejection, not a check.
+function state_diff (G, hash)
+    local T = {
+        { "authors", G.authors },
+        { "posts",   G.posts   },
+    }
+    for _, e in ipairs(T) do
+        local name, V = e[1], e[2]
+        local src = exec { trim=false,
+            cmd = "git -C " .. REPO .. " show " .. hash ..
+                ":.freechains/state/" .. name .. ".lua",
+        }
+        if src ~= serial(V) then
+            return name
+        end
+    end
+    return nil
 end
 
 -- REVOKED when either the author's or the community's net revoke sum is negative.

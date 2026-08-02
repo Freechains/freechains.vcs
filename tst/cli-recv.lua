@@ -342,10 +342,13 @@ do
         cmd = "git -C " .. REPO_B .. " rev-parse HEAD",
     }
 
+    -- caught during the replay by `state_diff` in commit(), which names
+    -- the offending file, rather than by the end-of-replay
+    -- `remote state mismatch` that used to be the only check here
     TEST "B recvs from A fails with state mismatch"
     FAIL {
         cmd = EXE_B .. " --now=10000 chain '#test' sync recv " .. REPO_A,
-        err = "ERROR : chain sync : remote state mismatch",
+        err = "ERROR : chain sync : invalid state : authors",
     }
 
     TEST "B's HEAD unchanged"
@@ -355,6 +358,13 @@ do
     assert(before == after,
         "B's HEAD changed: " .. before .. " vs " .. after
     )
+
+    -- drop the tamper: each step must hand the next a VALID A. The
+    -- state check runs per commit during the replay, so a forgery left
+    -- behind here is what the NEXT recv trips over, not its own.
+    exec {
+        cmd = "git -C " .. REPO_A .. " reset --hard HEAD~1",
+    }
 end
 
 -- 7. recv FF with create-mode violation

@@ -218,7 +218,7 @@ elseif ARGS.recv then
         -- detached head and discarded, so `main` never holds one
         local KINDS = { post=true, like=true, revoke=true, state=true }
 
-        local function commit (G, hash, beg)
+        local function commit (G, hash, beg, chk)
             local key, err = ssh.verify(REPO, hash)
 
             local out = exec {
@@ -231,6 +231,28 @@ elseif ARGS.recv then
 
             if (not key) and err=='forged' then
                 error("invalid " .. kind .. " : invalid signature", 0)
+            end
+
+            -- The state this commit CARRIES must be the state the replay
+            -- COMPUTED at this point. An action commit only ADDS its
+            -- payload, so its tree still holds the state BEFORE it; a
+            -- `state` commit holds the state after its parent action.
+            -- Both are "G as of now, before applying this one", so a
+            -- single check covers every kind.
+            --
+            -- Without it, `authors.lua` is never compared to anything on
+            -- the diverge path (the fast-forward path checks it once, at
+            -- the end), and a forged one rides into shared history to be
+            -- read back later as `G_oct`. See tst/bug-forged-state.lua.
+            --
+            -- begs are exempt: parked on refs/begs/ and merged in later,
+            -- their trees carry the state from CREATION time on another
+            -- tip, not from the merge point.
+            if chk and (not beg) then
+                local bad = state_diff(G, hash)
+                if bad then
+                    error("invalid state : " .. bad, 0)
+                end
             end
 
             -- create-mode check (post/like): only additions allowed
@@ -394,7 +416,27 @@ elseif ARGS.recv then
             end
             local climb, meet
 
-            climb = function (G, com, cur, beg)
+            -- `chk`: may this commit's carried state be compared against
+            -- the replay?
+            --
+            -- A commit's tree holds `replay(its own ancestors)`, but `G`
+            -- holds `replay(everything applied so far)`. The two agree
+            -- only OUTSIDE a `meet`: on the trunk, and at the merge
+            -- point itself once both sides are in (there
+            -- `G == ancestors(merge)` again).
+            --
+            -- Inside a `meet` they diverge, and not only for the second
+            -- side. A side can fork BELOW `oct` -- B's post hanging off
+            -- genesis while `oct` sits above it (tst/bug-climb-ancestor)
+            -- -- so its tree is relative to a baseline the replay never
+            -- had. Checking either side is a false rejection.
+            --
+            -- What that leaves unverified is side-branch commits. They
+            -- are not the ones read back as `G_oct`: `octopus` sits
+            -- BELOW every fork, so it lands on the trunk. Narrow
+            -- residual gap; closing it needs `replay(ancestors(h))` per
+            -- commit, which is infeasible without explicit ancestry.
+            climb = function (G, com, cur, beg, chk)
                 if cur==com or visited[cur] or ancestor(cur,com) then
                     return
                 else
@@ -402,31 +444,31 @@ elseif ARGS.recv then
                     assert(#ps <= 2, "bug: >2 parents")
                     local p1, p2 = ps[1], ps[2]
                     if p2 == nil then
-                        climb(G, com, p1, beg)
+                        climb(G, com, p1, beg, chk)
                     else
                         -- like positivity (n>0) is enforced in commit()
                         local is_beg_merge = (trailer(cur) == "like")
-                        meet(G, com, p1, p2, is_beg_merge)
+                        meet(G, com, p1, p2, is_beg_merge, chk)
                     end
                     visited[cur] = true
-                    commit(G, cur, beg)
+                    commit(G, cur, beg, chk)
                 end
             end
 
-            meet = function (G, com, left, right, right_is_beg)
+            meet = function (G, com, left, right, right_is_beg, chk)
                 local up = octopus(left, right)
-                climb(G, com, up, false)
+                climb(G, com, up, false, chk)
                 local w = consensus(G, left, right)
                 if w == left then
-                    climb(G, up, left,  false)
-                    climb(G, up, right, right_is_beg)
+                    climb(G, up, left,  false, false)
+                    climb(G, up, right, right_is_beg, false)
                 else
-                    climb(G, up, right, right_is_beg)
-                    climb(G, up, left,  false)
+                    climb(G, up, right, right_is_beg, false)
+                    climb(G, up, left,  false, false)
                 end
             end
 
-            local ok, err = pcall(climb, G_rem, oct, rem, false)
+            local ok, err = pcall(climb, G_rem, oct, rem, false, true)
             if not ok then
                 ERROR("chain sync : " .. err)
             end
@@ -519,7 +561,10 @@ elseif ARGS.recv then
                     }
                 end
 
-                ok, err = pcall(commit, G_fst, hash, nil)
+                -- the LOSER's commits, replayed onto the winner: their
+                -- trees hold the state of their own branch, without the
+                -- winner's actions, so `chk` stays off (see `climb`)
+                ok, err = pcall(commit, G_fst, hash, nil, false)
                 if not ok then
                     goto DONE
                 end
