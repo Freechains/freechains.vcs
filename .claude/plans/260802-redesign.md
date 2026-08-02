@@ -171,7 +171,7 @@ get right:
   after gc --prune=now:  could not get object info
   ```
 
-  `chains add --clone` (chains.lua:158) must pass an explicit
+  `chains add --clone` (chains.lua:159) must pass an explicit
   refspec. The same latent bug already exists for `refs/begs/*`.
 - **Fetch resurrects deletions.** Pulling `refs/payloads/*`
   re-anchors blobs that were deliberately dropped. Needs a
@@ -266,7 +266,7 @@ otherwise pass as a merge.
 
 One subtlety: this needs `--cc` semantics — absent from every
 parent. First-parent diffing would misclassify a merge, whose
-incoming action file *is* new relative to parent 1. get.lua:23
+incoming action file *is* new relative to parent 1. get.lua:24
 already carries an `assert(not files:match("\n%S"))` guarding
 exactly this behaviour, so it is load-bearing subtlety rather
 than new risk.
@@ -483,11 +483,37 @@ straight from a commit tree (sync.lua:363-374). Joining makes
 every commit a state commit, so the comparison becomes uniform
 and cheap. It should land with this, not after.
 
+**`destroy` needs three fixes.** chain/destroy.lua (the hard-fork
+escape hatch) is the one command whose correctness depends on
+commit *arithmetic*, so the join breaks it:
+
+- `beg~2` (destroy.lua:81) assumes "a beg is two commits (post +
+  state)". Joined, a beg is **one** commit, so it becomes
+  `beg~1`. The ref also renames to `refs/begs/beg-<id>`.
+- `trailer()` at destroy.lua:38 and :59 goes with the rest (§5) —
+  the kind check and the `~= 'state'` output filter both become
+  DB lookups, and the output prints IDs.
+- Destroying an action must also delete its
+  `refs/payloads/<id>`, or orphaned refs keep anchoring blobs for
+  actions that no longer exist. Same shape as the stale-beg
+  cleanup destroy.lua already does at :72-89.
+
+Its parent-walk (`hash^1`, destroy.lua:47-49) survives untouched
+and actually gets simpler: every commit carries state now, so
+"land on the parent" is unconditionally a valid tip rather than
+relying on it being a state commit, a merge, or genesis.
+
+Worth noting destroy.lua:6-7 states the dependency outright —
+*"Chain state lives in-tree, so the reset restores it along with
+the commits: nothing else to rebuild"*. That is independent
+support for keeping state committed rather than moving it to a
+local cache.
+
 **The signing key must be read before committing.**
 `ssh.pubkey` parses a signature out of an existing commit, so it
 cannot supply `sign` any more. `--sign` is a private key path
 (`--sign="$KEYS/alice"`) and the canonical pubkey form is the
-first two fields of the `.pub` file (guide.sh:86). There is no
+first two fields of the `.pub` file (guide.sh:115). There is no
 commit-then-`--amend` workaround: `sign` is inside the file, the
 file's hash is the ID, and the ID names the file.
 
@@ -534,15 +560,20 @@ updating — the bulk of the mechanical work.
    commit after merge (sync.lua:567-580) and the content-conflict
    path (sync.lua:506-515)
 7. `chains.lua`: explicit `refs/payloads/*` (and `refs/begs/*`)
-   refspec on `--clone` (chains.lua:158) — without it a cloned
+   refspec on `--clone` (chains.lua:159) — without it a cloned
    chain loses every payload at the first prune
 8. `get.lua` / `list.lua` / `reps.lua`: read the DB, delete
    `commit_file()`, `backs()`, `trailer()`, the `--is-ancestor`
    membership check, and the `why` trailer-stripping gsub
    (get.lua:54)
-9. `revoke`: delete `refs/payloads/<id>` once `is_revoked`, and
-   `gc` policy
-10. Tests: hashes -> IDs throughout
+9. `destroy.lua`: `beg~2` -> `beg~1`, `trailer()` -> DB, print
+   IDs, and drop `refs/payloads/<id>` for every destroyed action
+   (§9)
+10. `revoke`: delete `refs/payloads/<id>` once `is_revoked`, and
+    `gc` policy
+11. Tests: hashes -> IDs throughout; `tst/cli-destroy.lua` (401
+    lines) and `tst/cli-revoke.lua` are the newest and least
+    settled
 
 Steps 1-2 are self-contained and can land alone.
 
