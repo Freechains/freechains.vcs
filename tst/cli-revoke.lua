@@ -47,17 +47,18 @@ do
     end
 
     do
-        TEST "revoke-community-unrevoke-pending-by-hash-fetch"
+        TEST "revoke-community-unrevoke-no-copy"
         -- Community revocation IS reversible by design (reps.md:287-312)
         -- and stays so: `revokes` (common.lua) drops the payload on
-        -- either channel, and an unrevoked post is meant to return via
-        -- the by-hash step of the next sync -- local retention was never
-        -- the restore mechanism.
+        -- either channel, and an unrevoked post returns via the by-hash
+        -- step of the next sync -- local retention was never the
+        -- restore mechanism.
         --
-        -- That step is not built yet (260721-remove-blob.md, open items),
-        -- so right now there is no path back and the gate refuses.
-        -- WHEN THE BY-HASH FETCH LANDS this flips back to: the unrevoke
-        -- succeeds and `get payload` reads "revoke-me" again.
+        -- This is a SINGLE node, so there is no peer to fetch it back
+        -- from and no `--file` copy offered: the payload is gone for
+        -- good and the gate refuses rather than promise a restore
+        -- nobody can deliver. Not a missing feature -- the decision
+        -- that a revoke with no surviving copy is permanent.
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-revoke' unrevoke 1 " .. POST .. " --sign " .. KEY2,
             err = "ERROR : chain unrevoke : blob unavailable",
@@ -165,13 +166,12 @@ do
     }
 
     do
-        TEST "revoke-like-lift-pending-by-hash-fetch"
-        -- reps.md:278 -- a positive `like` also counts as an unrevoke.
-        -- Still the design, but unreachable for a COMMUNITY-revoked post
-        -- until the by-hash fetch lands: `revokes` dropped the payload,
-        -- so the gate refuses the like outright and the sum never moves.
-        -- WHEN THE BY-HASH FETCH LANDS this flips back to: the like
-        -- succeeds and `get payload` reads "coupled" again.
+        TEST "revoke-like-lift-no-copy"
+        -- reps.md:278 -- a positive `like` also counts as an unrevoke,
+        -- and is gated exactly like one. `revokes` dropped the payload
+        -- and this single node has no way to get it back, so the gate
+        -- refuses the like outright and the sum never moves. With a
+        -- peer still serving the bytes (or `--file`) it would succeed.
         exec {
             cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1 " .. P .. " --sign " .. KEY2,
         }
@@ -259,7 +259,7 @@ do
     end
 
     do
-        TEST "revoke-author-unrevoke-pending-by-hash-fetch"
+        TEST "revoke-author-unrevoke-no-copy"
         -- only the author lifts their own channel -- and that lift WOULD
         -- flip the post back, so it is gated, and the payload is gone
         FAIL {

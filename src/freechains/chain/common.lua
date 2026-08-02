@@ -183,9 +183,10 @@ REVOKES = {}
 -- CAVEAT: the return path only works while SOMEONE still serves the
 -- bytes. Every honest peer drops on learning the revoke, so once they
 -- have all synced, none can serve it back and no unrevoke can be cast
--- (the gate refuses: "blob unavailable"). Community revocation is
--- therefore reversible only in the window before peers converge --
--- see the plan's open items.
+-- -- the gate refuses with "blob unavailable". Community revocation is
+-- therefore reversible only in the window before peers converge, and
+-- after that only by handing the bytes back in with `--file`. Once no
+-- copy is kept anywhere, a revoke is permanent: a decision, not a gap.
 function revokes ()
     local posts = dofile(FC .. "state/posts.lua")
     for hash in pairs(REVOKES) do
