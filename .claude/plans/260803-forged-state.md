@@ -67,3 +67,58 @@
 - removing FF `write`+`diff` check
 - `order` comparison (blocked on order-consensus bug)
 - double sig/mode check in recursion (~2x replay, accepted)
+
+# Clash with redesign (260802-redesign.md)
+
+- redesign makes the FIX easier, the TEST obsolete as written
+- fix easier: verification collapses to one uniform rule
+    - join: every commit carries state -> one compare, no
+      3-shape dispatch
+    - action self-describes (`actions/<id>.lua`) -> no trailer
+      trust, no metadata probing, no like-on-beg splice
+    - standalone state commit dies by shape:
+      1 parent + no action file = invalid (redesign par.5)
+        - kills test scenarios 1 (tip) and 2 (interior) for free
+    - beg becomes ONE commit -> scenario 3 covered by same rule
+    - merges compare vs replay `G` (same as 2-parent rule here)
+- not free: forgery migrates INTO an action commit's `state/`
+    - recompute-and-compare still required
+    - redesign par.9: "should land with this, not after"
+- test cannot survive redesign mechanically:
+    - asserts trailer "state" -> trailers deleted
+    - forges standalone state commit -> shape gone
+    - beg anatomy `ref~1` / amend trick -> beg is 1 commit
+    - `.freechains/state/` paths -> layout renamed
+- durable parts of THIS plan under redesign:
+    - date pinning, `serial` byte-compare, skip `order`,
+      merge = replay-compare
+- throwaway parts: shape dispatch, beg inference, beg splice
+
+# Redesign: independent steps, tests green after each
+
+- substrate, no dependencies, any order:
+    - S1: pin `GIT_*_DATE` from `CMD.now` unconditionally
+    - S2: `sign` from `.pub` file BEFORE commit (not `ssh.pubkey`)
+    - S3: `apply` takes `T.parents`, not `T.hash`
+    - S4: explicit `refs/begs/*` refspec on `--clone` (latent bug)
+    - S5: `tmp/` -> `.git/`; delete `.gitignore`
+    - S6: `.freechains/state/` -> `state/`; `genesis.lua`,
+      `random` to root; update mode check, skel, test paths
+    - S7: THIS plan (forged-state check on current shapes)
+        - needs S1 only
+- coupled cluster, strict order, each still green:
+    - S8: mint ID (`hash-object` of action file); key
+      `posts`/`order` by ID; commit<->ID index; print IDs
+        - needs S2 + S3; flatten `likes/`/`revokes/` here
+        - bulk: tests hashes -> IDs
+    - S9: join commits: apply-before-commit, drop rollbacks,
+      `beg~2` -> `beg~1`, destroy fixes (needs S8)
+        - absorbs S7's dispatch into uniform per-commit compare
+    - S10: payload eviction: `refs/payloads/<id>`, refspecs,
+      clone, `--why` off post (needs S8)
+    - S11: delete trailers; structural classification (needs S9)
+    - S12: shrink `posts.lua` to `{maturity, reps, revoke}`
+      (needs S8)
+    - S13: revoke deletes payload ref; `gc` policy (needs S10)
+- decision: S7 now vs folded into S9
+    - recommended: S7 first; S8/S9 large, hole is live
