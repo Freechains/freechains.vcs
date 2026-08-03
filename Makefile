@@ -40,6 +40,7 @@ tests:
 	$(L) repl-remote-head.lua
 	$(L) repl-local-begs.lua
 	$(L) repl-remote-begs.lua
+	$(L) bug-now-skew.lua
 	@rm -Rf /tmp/freechains/
 
 test:
