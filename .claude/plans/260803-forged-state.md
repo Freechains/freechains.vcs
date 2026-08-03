@@ -102,6 +102,8 @@
     - S2: `sign` from `.pub` file BEFORE commit (not `ssh.pubkey`)
     - S3: `apply` takes `T.parents`, not `T.hash`
     - S4: explicit `refs/begs/*` refspec on `--clone` (latent bug)
+        - DONE: fetch after clone in chains.lua
+        - test: repl-local-begs, manual fetch removed
     - S5: `tmp/` -> `.git/`; delete `.gitignore`
     - S6: `.freechains/state/` -> `state/`; `genesis.lua`,
       `random` to root; update mode check, skel, test paths

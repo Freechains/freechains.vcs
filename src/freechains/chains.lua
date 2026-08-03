@@ -159,6 +159,12 @@ if ARGS.add then
             cmd = "git clone " .. URL(ARGS.url, ARGS.alias) .. " " .. tmp,
             err = "chains add : clone failed",
         }
+        -- a default clone copies only refs/heads/*: bring pending begs
+        exec { stderr=false,
+            cmd = "git -C " .. tmp .. " fetch " .. URL(ARGS.url, ARGS.alias) ..
+                " refs/begs/*:refs/begs/*",
+            err = "chains add : clone failed",
+        }
         git_config(tmp)
         exec {
             cmd = "cp " .. HERE .. "/hooks/pre-receive " .. tmp .. "/.git/hooks/pre-receive && chmod +x " .. tmp .. "/.git/hooks/pre-receive",
