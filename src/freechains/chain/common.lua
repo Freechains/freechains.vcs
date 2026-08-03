@@ -137,7 +137,7 @@ function apply (G, kind, time, T)
         -- depend on the order a replay applies commits in (consensus order
         -- is not chronological order).
         if mutate then
-            local up = PEAKS(parents(T.hash))
+            local up = PEAKS(T.parents)
             if time < up-C.time.diff then
                 return false, "too old"
             end

@@ -67,9 +67,10 @@ end
 -- apply with real hash
 do
     local T = {
-        hash = hash,
-        sign = pub,
-        beg  = ARGS.beg,
+        hash    = hash,
+        parents = parents(hash),
+        sign    = pub,
+        beg     = ARGS.beg,
     }
     local ok, err = apply(G, 'post', CMD.now, T)
     if not ok then

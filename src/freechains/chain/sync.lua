@@ -304,12 +304,13 @@ elseif ARGS.recv then
                     and t.post and (G.posts[t.post] and G.posts[t.post].maturity=="beg")
                 )
                 local ok, err = apply(G, kind, tonumber(time), {
-                    hash   = hash,
-                    sign   = key,
-                    n      = t.n,
-                    post   = t.post,
-                    author = t.author,
-                    beg    = to_beg,
+                    hash    = hash,
+                    parents = parents(hash),
+                    sign    = key,
+                    n       = t.n,
+                    post    = t.post,
+                    author  = t.author,
+                    beg     = to_beg,
                 })
                 if not ok then
                     error("invalid " .. kind .. " : " .. err, 0)
@@ -317,9 +318,10 @@ elseif ARGS.recv then
                 G.order[#G.order+1] = hash
             elseif kind == 'post' then
                 local ok, err = apply(G, 'post', tonumber(time), {
-                    hash = hash,
-                    sign = key,
-                    beg  = beg or (key == nil),
+                    hash    = hash,
+                    parents = parents(hash),
+                    sign    = key,
+                    beg     = beg or (key == nil),
                 })
                 if not ok then
                     error("invalid post : " .. err, 0)

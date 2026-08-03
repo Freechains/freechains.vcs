@@ -109,6 +109,8 @@
         - DONE: `ssh.pub()` + post.lua + like.lua
         - bad key now fails EARLY, same error message
     - S3: `apply` takes `T.parents`, not `T.hash`
+        - DONE: `PEAKS(T.parents)`; 4 call sites pass
+          `parents(hash)`; `T.hash` stays as state key until S8
     - S4: explicit `refs/begs/*` refspec on `--clone` (latent bug)
     - S5: `tmp/` -> `.git/`; delete `.gitignore`
     - S6: `.freechains/state/` -> `state/`; `genesis.lua`,

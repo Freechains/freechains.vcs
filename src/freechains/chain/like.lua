@@ -98,10 +98,11 @@ end
 do
     local T = {
         [ARGS.target] = ARGS.id,
-        hash = hash,
-        sign = pub,
-        n    = num,
-        beg  = to_beg,
+        hash    = hash,
+        parents = parents(hash),
+        sign    = pub,
+        n       = num,
+        beg     = to_beg,
     }
     local ok, err = apply(G, kind, CMD.now, T)
     if not ok then
