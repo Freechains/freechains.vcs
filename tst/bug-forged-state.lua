@@ -266,4 +266,143 @@ do
     end
 end
 
+-- Same forgery again, but reachable ONLY through a merge SIDE.
+--
+-- A beg is a real side branch: two commits parked on refs/begs/ until a
+-- positive `like` merges them into `main` as parent 2. Forge the beg's
+-- `state` commit and every check that walks the DAG in replay order
+-- misses it -- `meet` cannot compare either side of a merge against the
+-- replay, because a side's tree is relative to a baseline the replay
+-- never had. The tip stays honest too: `like -X ours` keeps our state
+-- files, so the invented reps never reach `main`'s state.
+--
+-- Ignored as a record, alive as an anchor: `octopus` sits BELOW every
+-- fork, so this is precisely the kind of commit a later sync loads as
+-- `G_oct`.
+--
+-- Context-free verification has nothing to miss here. The set is
+-- `rev-list <tip>`, which yields side branches like any other commit,
+-- and the link is checked against the commit's OWN parent.
+do
+    print("==> Test: forged state commit is refused on a merge side")
+
+    local ROOT_E = ROOT .. "/bug-forged-state/E/"
+    local ROOT_Z = ROOT .. "/bug-forged-state/Z/"
+    local EXE_E  = ENV .. " ../src/freechains.lua --root " .. ROOT_E
+    local EXE_Z  = ENV .. " ../src/freechains.lua --root " .. ROOT_Z
+    local REPO_E = ROOT_E .. "chains/#ms/"
+
+    exec {
+        cmd = "mkdir -p " .. ROOT_E,
+    }
+    exec {
+        cmd = "mkdir -p " .. ROOT_Z,
+    }
+
+    TEST "E creates chain + seeds s.txt"
+    exec {
+        cmd = EXE_E .. " --now=1000 chains add '#ms' init file " .. GEN_1,
+    }
+    exec {
+        cmd = EXE_E .. " --now=1020 chain '#ms' post inline 'seed\n' --file s.txt --sign " .. KEY1,
+    }
+
+    TEST "Z clones ms"
+    exec {
+        cmd = EXE_Z .. " chains add '#ms' clone " .. REPO_E,
+    }
+
+    -- E:  G ── seed ── S            refs/begs/beg-BEG -> BEG
+    --                  └── [beg] P ── [state] BEG
+    TEST "E creates a beg (K2 has no reps)"
+    local BEG = exec {
+        cmd = EXE_E .. " --now=1100 chain '#ms' post inline 'please\n' --file p.txt --beg --sign " .. KEY2,
+    }
+
+    -- amend, not append: the beg branch must stay exactly two commits,
+    -- because `chain like` reads the beg post at `ref~1`
+    TEST "E forges the beg's state commit, granting K1 the reps cap"
+    do
+        local ref = "refs/begs/beg-" .. BEG
+        exec {
+            cmd = "git -C " .. REPO_E .. " checkout -q --detach " .. ref,
+        }
+        local f = assert(io.open(REPO_E .. ".freechains/state/authors.lua", "w"))
+        f:write("return {\n    ['" .. PUB1 .. "'] = { reps=30000, time=1020 },\n}\n")
+        f:close()
+        exec {
+            cmd = "git -C " .. REPO_E .. " add .freechains/state/",
+        }
+        exec {
+            cmd = "GIT_AUTHOR_DATE='@1100 +0000' GIT_COMMITTER_DATE='@1100 +0000'" ..
+                " git -C " .. REPO_E .. " commit -q --amend --no-edit --no-gpg-sign",
+        }
+        exec {
+            cmd = "git -C " .. REPO_E .. " update-ref " .. ref .. " HEAD",
+        }
+        exec {
+            cmd = "git -C " .. REPO_E .. " checkout -q main",
+        }
+    end
+    local forged = exec {
+        cmd = "git -C " .. REPO_E .. " rev-parse refs/begs/beg-" .. BEG,
+    }
+
+    TEST "E likes the beg: the forgery merges into main as parent 2"
+    exec {
+        cmd = EXE_E .. " --now=1200 chain '#ms' like 1 post " .. BEG .. " --sign " .. KEY1,
+    }
+
+    TEST "the forgery is in main's history"
+    do
+        local ok = exec { stderr=false, err=false,
+            cmd = "git -C " .. REPO_E .. " merge-base --is-ancestor " ..
+                forged .. " main",
+        }
+        assert(ok, "forged commit should be an ancestor of main")
+        local out = exec {
+            cmd = "git -C " .. REPO_E .. " show " .. forged ..
+                ":.freechains/state/authors.lua",
+        }
+        assert(out:match("30000"), "forged commit should carry the forgery")
+    end
+
+    TEST "but only through a merge SIDE (not on the first-parent path)"
+    do
+        local out = exec {
+            cmd = "git -C " .. REPO_E .. " rev-list --first-parent main",
+        }
+        assert(not out:find(forged, 1, true), "should be off the first-parent path")
+    end
+
+    TEST "main's TIP is honest: `-X ours` kept our state files"
+    do
+        local tip = exec {
+            cmd = "git -C " .. REPO_E .. " show main:.freechains/state/authors.lua",
+        }
+        assert(not tip:match("30000"), "tip should not carry the forgery")
+    end
+
+    TEST "Z recvs E: the side-branch forgery must be refused"
+    do
+        local err = FAIL {
+            cmd = EXE_Z .. " --now=1250 chain '#ms' sync recv " .. REPO_E,
+        }
+        assert(
+            err:find("invalid state", 1, true),
+            "expected an invalid-state refusal, got: " .. tostring(err)
+        )
+    end
+
+    TEST "Z is untouched (1 entry: seed)"
+    do
+        local out = exec {
+            cmd = EXE_Z .. " chain '#ms' list order",
+        }
+        local n = 0
+        for _ in out:gmatch("[^\n]+") do n = n + 1 end
+        assert(n == 1, "expected 1 entry, got " .. n)
+    end
+end
+
 print("<== ALL PASSED")

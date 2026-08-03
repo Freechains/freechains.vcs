@@ -69,6 +69,10 @@ exec {
     err = "chain destroy : git reset failed",
 }
 
+-- the frontier has to come back with it, or it keeps pointing at a
+-- commit that is no longer on the branch -- and holds it alive
+frontier("HEAD")
+
 -- stale-beg cleanup: a beg is two commits (post + state) on top of the
 -- `main` it was created from. If that base is gone, the beg can no
 -- longer attach to `main`, so destroy it.

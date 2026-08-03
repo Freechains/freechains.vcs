@@ -218,11 +218,18 @@ ARGS = parser:parse()
 CMD = { now=os.time(), git="" }
 if ARGS.now then
     CMD.now = ARGS.now
-    CMD.git = (
-        "GIT_AUTHOR_DATE=$(date -u -d @" .. CMD.now .. " --iso-8601=seconds) " ..
-        "GIT_COMMITTER_DATE=$(date -u -d @" .. CMD.now .. " --iso-8601=seconds) "
-    )
 end
+
+-- A commit's own date IS its action's time. `apply` reads it back off
+-- the DAG (`PEAKS`), every replay takes it from `%at`, and so does
+-- every verifier -- while the state that gets written records
+-- `CMD.now`. Pin the two together, or a wall-clock second passing
+-- between `os.time()` and `git commit` leaves the state one second off
+-- its own commit, and nothing that re-derives it can agree.
+CMD.git = (
+    "GIT_AUTHOR_DATE=$(date -u -d @" .. CMD.now .. " --iso-8601=seconds) " ..
+    "GIT_COMMITTER_DATE=$(date -u -d @" .. CMD.now .. " --iso-8601=seconds) "
+)
 
 if ARGS.daemon then
     local port = ARGS.port or PORT

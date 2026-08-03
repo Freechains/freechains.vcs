@@ -203,8 +203,21 @@ it, because the combined result equals nothing anyone stored.
 So the pass is a hybrid: O(1) along linear stretches,
 replay-one-side at each merge. `consensus()` and `octopus()` stay
 in the picture for verification even though `climb`/`meet` do not.
-Measure this before committing to the design -- it is the only
-part whose cost is not obvious.
+
+**MEASURED.** `state_merge` re-derives from the boundary octopus
+below both parents, anchored at ITS committed state, so it is
+still context-free -- just not O(1). Suite timings, before/after:
+
+| test | before | after |
+|---|---|---|
+| `fork-100-posts` (long, linear) | 18.1s | 17.9s |
+| `bug-climb-ancestor` (nested merges) | 2.5s | 3.9s |
+| `consensus` | 4.2s | 6.9s |
+| `cli-list` (clone-heavy) | 4.6s | 8.8s |
+
+Linear history is free -- the frontier keeps it incremental.
+Merge- and clone-heavy paths run +60..90%. Acceptable; the
+fallback in §9 is not needed.
 
 ### `order` stays excluded
 
@@ -245,44 +258,81 @@ forges the trailer. Only ever an optimisation on top of this.
 
 ## 8. Steps
 
-1. **DONE** `state_link(hash)` in chain/common.lua: read
-   `state(parent)`, apply the one action, compare. Not yet wired
-   (step 3/5); `state_diff` still in place, to be removed then.
-   - helpers `tree_raw`, `tree_state`, `action` (all file-local)
-   - `beg` recovered from the parent's reps, not from context
+All DONE. Suite green: 37/37 from source.
+
+1. `state_link(hash)` in chain/common.lua: read `state(parent)`,
+   apply the one action, compare.
+   - helpers `tree_raw`, `tree_state`, `clone`, `state_same`,
+     `action` (all file-local)
    - beg-`like` merge: target entry injected from parent 2
    - `now`/`order` excluded, `authors`/`posts` compared
-2. Merge case: `state_merge(hash)` -- `consensus` over the two
-   parents, replay the loser side, compare.
-3. `verify(set)`: standalone pass over
-   `git rev-list <tip> --not refs/freechains/verified`; move the
-   context-free checks (§4) out of `commit()` into it.
-4. `refs/freechains/verified`: create, advance after each
-   successful sync, never push.
-5. `sync.lua`: run `verify` before replay; drop the `chk`
-   parameter, the side-branch exemption, the merge exemption
-   (`#parents(hash)==1`, §2) and the FF comparison at
-   sync.lua:485-493.
-6. `chains.lua`: run `verify` after `--clone` -- the base case.
-7. Tests: keep `tst/bug-forged-state.lua` (both cases); add an
-   interior forgery reached only through a merge SIDE, which the
-   branch version cannot catch and this one must.
+2. `state_merge(hash)`: replay from `octopus(p1,p2)`, anchored at
+   that commit's committed state. Cost measured, see §6.
+3. `check(hash)` (context-free) split out of `commit()`, which is
+   gone; `play(G,hash,beg)` keeps the order-dependent half.
+   `verify(tip)` walks `rev-list --reverse <tip> --not <frontier>`.
+   `ancestor`/`octopus`/`consensus`/`replay` moved to common.lua.
+4. `refs/freechains/verified`, advanced by `frontier(tip)` after
+   each sync, after a clone, and back again after `destroy`.
+5. `sync.lua`: `verify` runs on `rem` AND on every `refs/begs/*`
+   before anything reads a tree. `chk`, the side-branch exemption,
+   the merge exemption and the FF comparison are all gone.
+6. `chains.lua`: `verify` after `--clone`, the base case; the
+   clone is removed again if it fails.
+7. `tst/bug-forged-state.lua`: third case added -- a forged beg
+   `state` commit merged in by a positive `like`, so it is
+   reachable ONLY as parent 2 of a merge, with an honest tip. The
+   branch version accepts it; this one refuses it.
 
-Steps 1-3 are self-contained: the pass can land and run alongside
-the existing checks before anything is deleted.
+### Two bugs found on the way
+
+- **beg merges** (§2): `state_diff` false-rejected them, red on
+  the branch as committed.
+- **`CMD.now` vs the commit date.** `apply` recorded `CMD.now`
+  while the commit took a SECOND wall-clock reading, so state
+  could land one second off its own commit -- and every replay
+  reads `%at`, not `CMD.now`. Parent-relative verification made it
+  deterministic instead of a race. Fixed in `src/freechains.lua`:
+  the date is now always pinned to `CMD.now`, not only under
+  `--now`.
+
+### Ambiguity that had to be resolved
+
+A signed `post` is a beg or not, and nothing in the commit says
+which -- `chain post` rejects the wrong one by the author's reps,
+but the DAG keeps no record of the flag. `action` therefore
+returns BOTH readings and `state_link` lets the recorded state
+pick. A forger gains nothing: claiming the beg reading means
+recording a beg, which is worth no reputation until someone likes
+it.
+
+When neither reading explains the record, the error to report is
+the one that names the real fault: `posts` records WHAT the action
+did, so a reading that reproduces it is the reading the author
+meant, and its remaining mismatch is the complaint (a forged beg
+records the beg correctly and lies only in `authors`). When no
+reading gets that far, the plain reading's `apply` error is the
+diagnosis -- the same words the replay used, which is what
+`tst/err-post.lua` reads.
 
 ## 9. Open questions
 
-- **What does a merge link actually cost?** §6. If it is bad, the
-  fallback is to treat merge commits the "never trust" way --
-  recompute rather than verify -- which is a small hybrid, not a
-  redesign.
-- **Does the frontier survive `destroy`?** destroy.lua resets past
-  commits that stay verified; the ref must move back with it or it
-  will point at a commit no longer on the branch.
-- **Should a failed verification be fatal or an alarm?** Fatal for
-  the anchor path. For a peer that merely published a bad record
-  we already ignore, an alarm is more useful than a refusal.
-- **Does `now` stay a separate check?** It is context-free and
-  already implemented; folding it into `state_link` is tidier but
-  changes an error message tests assert on.
+- ~~**What does a merge link actually cost?**~~ Measured, §6.
+  +60..90% on merge- and clone-heavy paths, flat on linear
+  history. The "never trust" fallback is not needed.
+- ~~**Does the frontier survive `destroy`?**~~ No -- destroy.lua
+  now calls `frontier("HEAD")` after its reset, or the ref would
+  point at a commit off the branch and hold it alive.
+- ~~**Does `now` stay a separate check?**~~ Yes, but it moved
+  AFTER the link inside `check`. A state commit with wrong values
+  usually has a wrong `now` too, and of the two only the link can
+  name what went wrong -- it re-runs the action and reports its
+  `apply` error verbatim.
+- **Should a failed verification be fatal or an alarm?** Still
+  open. Fatal today, on every path. For a peer that merely
+  published a bad record we already ignore, an alarm would be more
+  useful than a refusal.
+- **`order` is still excluded**, §6. Own bug, own fix.
+- **Begs are re-verified every sync.** The frontier is reachability
+  from `main`, and a beg is not reachable until a `like` merges it.
+  Two commits each, so it is cheap, but it is not free.

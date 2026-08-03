@@ -64,7 +64,7 @@ end
 --                 writes the chain creation time.)
 --
 -- The skel ships them EMPTY AND CANONICAL -- no comments, no examples.
--- `state_diff` compares them byte-for-byte against `serial`, so a
+-- `state_same` compares them byte-for-byte against `serial`, so a
 -- hand-written file anywhere in a tree is a false rejection on the
 -- first commit that inherits it.
 function write (G)
@@ -78,43 +78,6 @@ function write (G)
     f(G.posts,   FC .. "state/posts.lua")
     f(G.order,   FC .. "state/order.lua")
     f(G.now,     FC .. "state/now.lua")
-end
-
--- The state a commit CARRIES vs the state a replay COMPUTED.
--- `write` is the writer, this is its verifier: both go through
--- `serial`, whose keys are sorted, so the bytes match exactly.
--- Returns the name of the first file that differs, or nil.
---
--- Two of the four files are deliberately absent:
---
--- `now` is DAG-derived, not replay-accumulated: `write` is called with
--- `PEAKS(...)` forced into `G.now` at every merge (sync.lua), so the
--- accumulated value is not what lands in the tree. `commit` in sync.lua
--- already checks it against the parents, which is stronger anyway.
---
--- `order` is BLOCKED on a separate bug: two honest peers can settle on
--- different orders for the same posts. In tst/bug-climb-ancestor the
--- nested-merge topology leaves A with [p1,p2,...] and D with [p2,p1,...]
--- permanently -- the two entries that forked at genesis, swapped. That
--- test only asserts D's order HOLDS every post, never the ordering, so
--- it passes. Until consensus is actually deterministic here, comparing
--- `order` is a false rejection, not a check.
-function state_diff (G, hash)
-    local T = {
-        { "authors", G.authors },
-        { "posts",   G.posts   },
-    }
-    for _, e in ipairs(T) do
-        local name, V = e[1], e[2]
-        local src = exec { trim=false,
-            cmd = "git -C " .. REPO .. " show " .. hash ..
-                ":.freechains/state/" .. name .. ".lua",
-        }
-        if src ~= serial(V) then
-            return name
-        end
-    end
-    return nil
 end
 
 -- a state file exactly as a commit's tree holds it: raw `serial`
@@ -135,22 +98,67 @@ local function tree_state (hash)
     return G
 end
 
--- The action `hash` performs, as `apply` arguments, decoded from the
--- commit alone plus the state it inherits -- never from a replay:
+-- `G` against what `hash` recorded, byte-for-byte: both sides are
+-- `serial` output, whose keys are sorted, so they match exactly.
 --
--- `beg` is not a free choice. A signed post validates as EXACTLY one
--- of beg / non-beg, decided by the author's reps in `pre`: `apply`
--- rejects a beg with reps>0 and a non-beg with reps<=0. So the flag
--- `chain post` passed is recoverable, and a forger who picks the
--- other one lands on a state that will not match.
+-- Two of the four files are deliberately absent:
+--
+--   `now`    DAG-derived, not replay-accumulated, and `check` compares
+--            it against `PEAKS(parents)`, which is stronger anyway
+--   `order`  blocked on a separate bug: two honest peers settle on
+--            DIFFERENT orders for the same posts. In
+--            tst/bug-climb-ancestor the nested-merge topology leaves A
+--            with [p1,p2,...] and D with [p2,p1,...] permanently --
+--            the two entries that forked at genesis, swapped. Until
+--            consensus is deterministic there, comparing `order` is a
+--            false rejection, not a check.
+local function state_same (G, hash)
+    for _, name in ipairs { "authors", "posts" } do
+        if serial(G[name]) ~= tree_raw(hash, name) then
+            return "invalid state : " .. name
+        end
+    end
+    return nil
+end
+
+-- A vote's metadata, which lives under .freechains/<kind>s/. The one
+-- reader: `check` validates it, `action` verifies with it and `play`
+-- replays from it, all off this.
+-- Returns the table, or nil plus a reason.
+local function vote (hash, kind)
+    local file = exec {
+        cmd = "git -C " .. REPO ..
+            " diff-tree --no-commit-id -r --name-only " .. hash ..
+            "^1 " .. hash .. " -- .freechains/" .. kind .. "s/",
+    }
+    file = file:match("(%S+)")
+    if not file then
+        return nil, "missing metadata file"
+    end
+    local f = load(exec {
+        cmd = "git -C " .. REPO .. " show " .. hash .. ":" .. file,
+    })
+    if not f then
+        return nil, "invalid lua metadata"
+    end
+    local ok, t = pcall(f)
+    if (not ok) or type(t)~='table' then
+        return nil, "invalid lua metadata"
+    end
+    return t
+end
+
+-- The action `hash` performs, as `apply` arguments, decoded from the
+-- commit alone plus the state it inherits -- never from a replay.
 --
 -- A beg-accepting `like` is told apart by the target's `maturity`,
 -- and it is a MERGE: `like -X ours` keeps OUR state files, so the beg
 -- entry lives only on parent 2. Injected here exactly as `chain like`
 -- does when it creates the commit.
 --
--- Returns { kind, time, T }, or nil plus a reason.
-local function action (pre, hash)
+-- Returns { kind, time, T }, or nil plus a reason. `S` is the `state`
+-- commit being verified: the only place the beg flag survives.
+local function action (pre, hash, S)
     local out = exec {
         cmd = "git -C " .. REPO ..
             " log -1 --format='%at %(trailers:key=Freechains,valueonly)' " .. hash,
@@ -160,32 +168,26 @@ local function action (pre, hash)
     local key = ssh.verify(REPO, hash)
 
     if kind == 'post' then
-        local reps = (pre.authors[key] and pre.authors[key].reps) or 0
+        -- Unsigned is always a beg. A SIGNED one is either, and the
+        -- commit does not say which -- `chain post` took the flag and
+        -- the DAG keeps no record of it. The STATE does: a beg writes
+        -- `maturity='beg'`, a plain post `00-12`. So read the flag back
+        -- off the record and verify against that one reading.
+        --
+        -- Not circular, and not a free choice: whichever the record
+        -- claims, the state that follows still has to match it, and the
+        -- beg claim is self-limiting -- a beg earns no reputation until
+        -- someone likes it.
+        local rec = load(tree_raw(S, "posts"))()[hash]
         return { kind=kind, time=time, T = {
             hash = hash,
             sign = key,
-            beg  = (key==nil) or (reps<=0),
+            beg  = (key==nil) or (rec~=nil and rec.maturity=='beg'),
         } }
     elseif kind=='like' or kind=='revoke' then
-        -- vote metadata lives under .freechains/<kind>s/
-        local file = exec {
-            cmd = "git -C " .. REPO ..
-                " diff-tree --no-commit-id -r --name-only " .. hash ..
-                "^1 " .. hash .. " -- .freechains/" .. kind .. "s/",
-        }
-        file = file:match("(%S+)")
-        if not file then
-            return nil, "missing metadata file"
-        end
-        local f = load(exec {
-            cmd = "git -C " .. REPO .. " show " .. hash .. ":" .. file,
-        })
-        if not f then
-            return nil, "invalid lua metadata"
-        end
-        local ok, t = pcall(f)
-        if (not ok) or type(t)~='table' then
-            return nil, "invalid lua metadata"
+        local t, err = vote(hash, kind)
+        if not t then
+            return nil, err
         end
 
         -- beg merge: the target entry lives on parent 2 only
@@ -220,21 +222,17 @@ end
 -- Both sides are read from TREES, so the check is context-free: it
 -- holds wherever S sits in the DAG, needs no accumulated `G`, no
 -- `oct`, no climb order, and its result is a fact about content-
--- addressed data that can be memoized forever. This is what
--- `state_diff` cannot do, being relative to a replay.
+-- addressed data that can be memoized forever. A replay-relative
+-- comparison can do none of that.
 -- See .claude/plans/260802-state-verify.md.
 --
--- Returns nil when the link holds, else a short reason.
+-- Returns nil when the link holds, else the error to raise.
 --
 -- Out of scope here:
 --
 --   0 parents   genesis: the trusted anchor of the induction
 --   2 parents   a merge: its state is `combine`, not `apply`, and
 --               costs a replay of one side (`state_merge`)
---   `now`       already checked against `PEAKS(parents)` in `commit`
---   `order`     blocked on a separate bug: two honest peers settle
---               on DIFFERENT orders for the same posts, so comparing
---               it is a false rejection, not a check
 --
 -- Action commits need no link of their own: they only ADD files, so
 -- the create-mode check already pins their state to their parent's.
@@ -252,23 +250,22 @@ function state_link (hash)
 
     -- a `state` parent means no action between the two: the state
     -- must then survive unchanged
-    if trailer(up) ~= 'state' then
-        local A, err = action(pre, up)
-        if not A then
-            return err
-        end
-        local ok, err = apply(pre, A.kind, A.time, A.T)
-        if not ok then
-            return "apply : " .. err
-        end
+    if trailer(up) == 'state' then
+        return state_same(pre, hash)
     end
 
-    for _, name in ipairs { "authors", "posts" } do
-        if serial(pre[name]) ~= tree_raw(hash, name) then
-            return name
-        end
+    local A, err = action(pre, up, hash)
+    if not A then
+        return "invalid state : " .. err
     end
-    return nil
+
+    local ok, err = apply(pre, A.kind, A.time, A.T)
+    if not ok then
+        -- the action is what is wrong, not the record of it: say so in
+        -- the words the replay would have used (tst/err-post.lua)
+        return "invalid " .. A.kind .. " : " .. err
+    end
+    return state_same(pre, hash)
 end
 
 -- REVOKED when either the author's or the community's net revoke sum is negative.
@@ -536,4 +533,339 @@ function apply (G, kind, time, T)
     end
 
     return true
+end
+
+---------------------------------------------------------------------------
+-- VERIFICATION
+--
+-- `commit()` in sync.lua used to fuse two different jobs. They are
+-- split here:
+--
+--   `check`  CONTEXT-FREE -- a fact about the commit alone, so it is
+--            true wherever the commit sits in the DAG, and true
+--            forever. Done once per commit ever, in `verify`.
+--   `play`   ORDER-DEPENDENT -- reps sufficiency, time monotonicity,
+--            target existence. Needs the accumulated `G`, so it stays
+--            in the replay.
+--
+-- See .claude/plans/260802-state-verify.md.
+---------------------------------------------------------------------------
+
+-- `merge` is deliberately absent: those commits are built on a
+-- detached head and discarded, so `main` never holds one
+KINDS = { post=true, like=true, revoke=true, state=true }
+
+-- everything reachable from here has been checked. Local and never
+-- pushed (`sync send` sends `main` and `refs/begs/*`, and the
+-- pre-receive hook rejects any other ref), so no peer can forge it.
+VERIFIED = "refs/freechains/verified"
+
+function ancestor (a, b)
+    return exec { err=false, stderr=false,
+        cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. a .. " " .. b
+    }
+end
+
+-- Boundary octopus:
+-- The common ancestor of every point where the region between `a` and
+-- `b` attaches to shared history.
+-- Sits BELOW every fork inside that region, so a replay starting here
+-- re-derives all of it, including merges nested deeper than the outer
+-- one.
+-- With a single fork it degenerates to the pairwise merge-base.
+function octopus (a, b)
+    local out = exec {
+        cmd = "git -C " .. REPO .. " rev-list --boundary " .. a .. "..." .. b
+    }
+    local boundary = {}
+    for line in out:gmatch("[^\n]+") do
+        local h = line:match("^%-(%x+)")
+        if h then
+            boundary[#boundary+1] = h
+        end
+    end
+    return exec {
+        cmd = "git -C " .. REPO .. " merge-base --octopus " .. table.concat(boundary, " ")
+    }
+end
+
+-- Consensus: prefix reps from G decide winner
+--  - traverse com..tip, collect signed keys
+--  - sum G.authors[key].reps for each side
+--  - higher sum wins, hash tiebreaker (smaller wins)
+--
+-- Two ancestors, two different questions:
+--   oct:  how much history must I RE-DERIVE
+--         deep: below every fork in the region
+--   base: what did each side CONTRIBUTE
+--         shallow: disjoint, no shared commits
+--
+-- `com` is the pairwise merge-base, computed HERE so no caller can
+-- pass the octopus `oct` instead: from a deeper point the two
+-- ranges overlap, and since reps are summed over the SET of
+-- authors, a commit both sides already hold hands its author's
+-- full reps to whichever side lacked them -- letting undisputed
+-- history decide a disputed merge.
+function consensus (G, a, b)
+    local com = (exec {
+        cmd = "git -C " .. REPO .. " merge-base " .. a .. " " .. b
+    }):match("%x+")
+    local function collect_keys (tip)
+        local keys = {}
+        local out = exec {
+            cmd = "git -C " .. REPO .. " log --reverse --format=%H " .. com .. ".." .. tip
+        }
+        for hash in out:gmatch("%x+") do
+            local key = ssh.pubkey(REPO, hash)
+            if key then
+                keys[key] = true
+            end
+        end
+        return keys
+    end
+    local function reps (keys)
+        local n = 0
+        for key in pairs(keys) do
+            local T = G.authors[key]
+            if T then
+                n = n + T.reps
+            end
+        end
+        return n
+    end
+    local sa, sb = reps(collect_keys(a)), reps(collect_keys(b))
+    if sa > sb then
+        return a, b
+    elseif sb > sa then
+        return b, a
+    elseif a < b then
+        return a, b
+    else
+        return b, a
+    end
+end
+
+-- The ORDER-DEPENDENT half of a commit: decode its action and apply
+-- it to the accumulated `G`. What can be decided from the commit
+-- alone is not here -- `check` did it, once, long before.
+function play (G, hash, beg)
+    local out = exec {
+        cmd = "git -C " .. REPO ..
+            " log -1 --format='%at %(trailers:key=Freechains,valueonly)' " .. hash,
+    }
+    local time, kind = out:match("(%S+)%s+(%S+)")
+    local key = ssh.verify(REPO, hash)
+
+    if kind=='like' or kind=='revoke' then
+        local t = assert(vote(hash, kind), "bug found : `check` passed it")
+        -- only a positive `like` accepts a beg
+        local to_beg = (
+            kind == 'like' and type(t.n)=='number' and t.n > 0
+            and t.post and (G.posts[t.post] and G.posts[t.post].maturity=="beg")
+        )
+        local ok, err = apply(G, kind, tonumber(time), {
+            hash   = hash,
+            sign   = key,
+            n      = t.n,
+            post   = t.post,
+            author = t.author,
+            beg    = to_beg,
+        })
+        if not ok then
+            error("invalid " .. kind .. " : " .. err, 0)
+        end
+        G.order[#G.order+1] = hash
+    elseif kind == 'post' then
+        local ok, err = apply(G, 'post', tonumber(time), {
+            hash = hash,
+            sign = key,
+            beg  = beg or (key == nil),
+        })
+        if not ok then
+            error("invalid post : " .. err, 0)
+        end
+        G.order[#G.order+1] = hash
+    else
+        assert(kind == 'state')
+    end
+end
+
+-- Replay every action in `com..tip` onto `G`, in consensus order.
+--
+-- visited: never re-applies a commit `G` already accounts for
+-- ancestor(cur,com): stops the climb from descending below its floor
+-- without these the inner meet underflows to a root
+function replay (G, com, tip)
+    local visited = {}
+    for _, h in ipairs(G.order) do
+        visited[h] = true
+    end
+
+    local climb, meet
+
+    climb = function (G, com, cur, beg)
+        if cur==com or visited[cur] or ancestor(cur,com) then
+            return
+        else
+            local ps = parents(cur)
+            assert(#ps <= 2, "bug: >2 parents")
+            local p1, p2 = ps[1], ps[2]
+            if p2 == nil then
+                climb(G, com, p1, beg)
+            else
+                -- like positivity (n>0) is enforced in `play`
+                local is_beg_merge = (trailer(cur) == "like")
+                meet(G, com, p1, p2, is_beg_merge)
+            end
+            visited[cur] = true
+            play(G, cur, beg)
+        end
+    end
+
+    meet = function (G, com, left, right, right_is_beg)
+        local up = octopus(left, right)
+        climb(G, com, up, false)
+        local w = consensus(G, left, right)
+        if w == left then
+            climb(G, up, left,  false)
+            climb(G, up, right, right_is_beg)
+        else
+            climb(G, up, right, right_is_beg)
+            climb(G, up, left,  false)
+        end
+    end
+
+    climb(G, com, tip, false)
+end
+
+-- A merge `state` commit M:
+--
+--     state(M) == combine( state(p1), state(p2) )
+--
+-- `combine` is not one `apply`: the two sides interleave by consensus
+-- order, so it re-derives the whole region. Anchored at the boundary
+-- octopus below both parents and at ITS committed state -- verified
+-- already, by induction -- so it is still context-free, just not O(1).
+--
+-- This is the shape §6 of the plan predicted, and the one part of the
+-- design whose cost is not obvious.
+function state_merge (hash)
+    local ps = parents(hash)
+    local up = octopus(ps[1], ps[2])
+    local G  = tree_state(up)
+    replay(G, up, hash)
+    return state_same(G, hash)
+end
+
+-- The CONTEXT-FREE half of a commit. Nothing here looks at a replay,
+-- so it holds wherever the commit sits and can be memoized forever.
+function check (hash)
+    local ps = parents(hash)
+    if #ps == 0 then
+        return              -- genesis: the trusted anchor
+    end
+
+    local kind = trailer(hash)
+    if not KINDS[kind] then
+        error("invalid commit : invalid kind", 0)
+    end
+
+    local key, err = ssh.verify(REPO, hash)
+    if (not key) and err=='forged' then
+        error("invalid " .. kind .. " : invalid signature", 0)
+    end
+
+    -- create-mode check (post/like): only additions allowed
+    -- state check: closed path set, A or M only (no D)
+    -- --cc handles merges and non-merges uniformly
+    local diff = exec {
+        cmd = "git -C " .. REPO ..
+            " diff-tree --cc --no-commit-id -r --name-status " .. hash
+    }
+    if kind == 'state' then
+        for status, path in diff:gmatch("(%a+)%s+(%S+)") do
+            local ok = (
+                (path == ".freechains/state/authors.lua") or
+                (path == ".freechains/state/posts.lua")   or
+                (path == ".freechains/state/order.lua")   or
+                (path == ".freechains/state/now.lua")
+            )
+            if not ok then
+                error("invalid state : " .. path, 0)
+            end
+            if status:match("[^AM]") then
+                error("invalid state : " .. path, 0)
+            end
+        end
+    else
+        for status, path in diff:gmatch("(%a+)%s+(%S+)") do
+            if status:match("[^A]") then
+                error (
+                    "invalid " .. kind ..
+                        " : mode violation : " .. status .. " " .. path
+                    , 0
+                )
+            end
+        end
+    end
+
+    if kind=='like' or kind=='revoke' then
+        if not key then
+            error("invalid " .. kind .. " : missing sign key", 0)
+        end
+        local t, err = vote(hash, kind)
+        if not t then
+            error("invalid " .. kind .. " : " .. err, 0)
+        end
+    end
+
+    if kind == 'state' then
+        -- The link comes FIRST. A `state` commit that records the wrong
+        -- values usually records the wrong `now` too, and of the two the
+        -- link is the one that can name what actually went wrong: it
+        -- re-runs the action and reports its `apply` error verbatim.
+        -- Check `now` second, for the state that is otherwise sound.
+        local bad
+        if #ps == 1 then
+            bad = state_link(hash)
+        else
+            bad = state_merge(hash)
+        end
+        if bad then
+            error(bad, 0)
+        end
+
+        -- `now` is derived, not trusted
+        if PEAK(hash) ~= PEAKS(ps) then
+            error("invalid state : now", 0)
+        end
+    end
+end
+
+-- The unverified set, as a set difference rather than a traversal:
+-- everything reachable from `tip` that the frontier does not already
+-- cover. Every element is independent, so the order is free --
+-- `--reverse` only makes the OLDEST forgery the one reported.
+function verify (tip)
+    local not_ = ""
+    local ok = exec { stderr=false, err=false,
+        cmd = "git -C " .. REPO .. " show-ref --verify --quiet " .. VERIFIED,
+    }
+    if ok then
+        not_ = " --not " .. VERIFIED
+    end
+    local out = exec {
+        cmd = "git -C " .. REPO .. " rev-list --reverse " .. tip .. not_,
+    }
+    for hash in out:gmatch("%x+") do
+        check(hash)
+    end
+end
+
+-- advance the frontier: reachability already expresses the whole
+-- verified set, so one ref is enough
+function frontier (tip)
+    exec {
+        cmd = "git -C " .. REPO .. " update-ref " .. VERIFIED .. " " .. tip,
+    }
 end

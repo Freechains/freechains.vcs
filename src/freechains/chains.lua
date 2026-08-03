@@ -179,6 +179,23 @@ if ARGS.add then
         exec {
             cmd = "ln -s '" .. hash .. "' " .. DIR .. "/" .. ARGS.alias,
         }
+
+        -- The base case of the induction, and the one hole nothing else
+        -- closes: a clone used to validate NOTHING, and every later sync
+        -- then trusted `oct` because "local history is correct". Here it
+        -- is O(history), exactly once -- afterwards the frontier makes it
+        -- incremental. `chain.common` needs the alias symlink above, so
+        -- it cannot be required at the top of the file.
+        require "freechains.chain.common"
+        local ok, err = pcall(verify, "HEAD")
+        if not ok then
+            exec {
+                cmd = "rm -rf '" .. dir .. "' " .. DIR .. "/" .. ARGS.alias,
+            }
+            ERROR("chains add : " .. err)
+        end
+        frontier("HEAD")
+
         print(hash)
     end
 elseif ARGS.rem then
