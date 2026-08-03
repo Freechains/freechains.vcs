@@ -8,6 +8,12 @@
     - forged reps feed replay and `consensus()` (merge control)
 - three escapes: diverge tip, interior, merge side (beg branch)
 
+# Status
+
+- fix DEFERRED: folds into redesign step S9 (see below)
+- sections Approach..Steps kept as spec for the check itself
+- landed so far: S1 (date pinning) + `tst/bug-now-skew.lua`
+
 # Approach
 
 - verify every `state` commit inside `commit()` (sync.lua)
@@ -100,13 +106,16 @@
     - S1: pin `GIT_*_DATE` from `CMD.now` unconditionally
         - DONE (freechains.lua); test: `tst/bug-now-skew.lua`
     - S2: `sign` from `.pub` file BEFORE commit (not `ssh.pubkey`)
+        - DONE: `ssh.pub()` + post.lua + like.lua
+        - bad key now fails EARLY, same error message
     - S3: `apply` takes `T.parents`, not `T.hash`
     - S4: explicit `refs/begs/*` refspec on `--clone` (latent bug)
     - S5: `tmp/` -> `.git/`; delete `.gitignore`
     - S6: `.freechains/state/` -> `state/`; `genesis.lua`,
       `random` to root; update mode check, skel, test paths
-    - S7: THIS plan (forged-state check on current shapes)
-        - needs S1 only
+        - consolidate authors/posts/order -> `state.lua`
+        - `now.lua` stays apart (PEAK hot path; full merge is
+          an open question in redesign par.11)
 - coupled cluster, strict order, each still green:
     - S8: mint ID (`hash-object` of action file); key
       `posts`/`order` by ID; commit<->ID index; print IDs
@@ -114,12 +123,17 @@
         - bulk: tests hashes -> IDs
     - S9: join commits: apply-before-commit, drop rollbacks,
       `beg~2` -> `beg~1`, destroy fixes (needs S8)
-        - absorbs S7's dispatch into uniform per-commit compare
+        - S7 lands HERE: uniform per-commit state compare
+        - done when rewritten `bug-forged-state` passes
     - S10: payload eviction: `refs/payloads/<id>`, refspecs,
       clone, `--why` off post (needs S8)
     - S11: delete trailers; structural classification (needs S9)
     - S12: shrink `posts.lua` to `{maturity, reps, revoke}`
       (needs S8)
     - S13: revoke deletes payload ref; `gc` policy (needs S10)
-- decision: S7 now vs folded into S9
-    - recommended: S7 first; S8/S9 large, hole is live
+- decision: S7 folded into S9 (settled)
+    - no deployment; attacker theoretical
+    - `bug-forged-state` not in default suite: red marker only
+    - avoids throwaway shape dispatch / beg splice / inference
+    - redesign par.9: comparison lands WITH the join
+- order: S2 + S3 next (enable S8), S4 bug fix, S5/S6 anytime

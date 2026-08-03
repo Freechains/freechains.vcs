@@ -60,6 +60,12 @@ end
 --   like/dislike -> .freechains/likes/   , 'Freechains: like'
 --   revoke/unrev -> .freechains/revokes/ , 'Freechains: revoke'
 local kind = (ARGS.revoke or ARGS.unrevoke) and "revoke" or "like"
+
+local pub = ssh.pub.key(ARGS.sign)
+if not pub then
+    ERROR("chain " .. kind .. " : invalid sign key")
+end
+
 local hash
 do
     local payload = [[
@@ -93,7 +99,7 @@ do
     local T = {
         [ARGS.target] = ARGS.id,
         hash = hash,
-        sign = ssh.pubkey(REPO, hash),
+        sign = pub,
         n    = num,
         beg  = to_beg,
     }

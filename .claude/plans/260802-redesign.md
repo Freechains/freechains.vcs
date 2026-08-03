@@ -400,13 +400,22 @@ structure:
 
 ```
 actions/              <id>.lua, one per action (sharded below)
-state/                authors, posts, order, now
+state/                state.lua (authors, posts, order) + now.lua
 genesis.lua           chain definition
 random                uniqueness seed
 .gitattributes        state/** merge=ours
 ```
 
 Five entries, self-describing: `ls` now says what the repo is.
+
+`authors`, `posts` and `order` consolidate into a single
+`state.lua` table: one read instead of three (`G_oct`,
+`tree_state`, every `dofile` site), atomic by construction, and
+one path in the mode check. `now.lua` stays separate: it is a few
+bytes, changes on every commit, and `PEAK` reads it per commit in
+the replay hot path (`PEAKS(parents)`) — folding it in would make
+every read pull the whole state blob. Whether it can be folded in
+anyway is an open question (§11).
 
 The split is the same one the whole design rests on — `actions/`
 immutable, `state/` derived and mutable — and it keeps the mode
@@ -472,6 +481,18 @@ sync.lua:243-275.
 **Filename collisions disappear.** post.lua:16-22 and :30-37
 error when a payload name is taken. With no payload in the tree
 there is no name and no collision.
+
+**Pruning becomes possible.** History flattening (prune.md,
+`checkout --orphan`) discards commits, and with them everything
+stored only there: signature, `%at`, trailer, parents. Today a
+flattened chain would keep `state/` totals but lose every
+action's author, time and DAG — unreplayable. With action files,
+the orphan tree alone carries the whole logical history
+(`sign`, `time`, `action`, `backs`, `blob` per action), so a
+pruned chain remains complete and navigable. One limit: the
+pruned prefix keeps the *record* but loses the *proof* — the
+signatures go with the commits, so trust in it rests on peers
+accepting the new root.
 
 **Closes an existing hole.** Replay never compares its recomputed
 state against what a commit carries. `commit()` (sync.lua:328-335)
@@ -593,3 +614,8 @@ Steps 1-2 are self-contained and can land alone.
 - **Size limits.** `constants.lua` has a commented-out
   `post.size`. With payloads out of the tree this becomes a
   transport policy rather than a tree concern.
+- **Full state merge.** Can `now.lua` fold into `state.lua` too
+  (§8), leaving one state file? Blocked on the `PEAK` hot path:
+  `PEAKS(parents)` runs per replay commit and today reads a
+  few-byte file; one file means reading the whole state blob each
+  time. Needs a measurement, or a `PEAK` cache keyed by commit.

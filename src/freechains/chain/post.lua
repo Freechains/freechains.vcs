@@ -4,6 +4,11 @@ if not (ARGS.sign or ARGS.beg) then
     ERROR("chain post : requires --sign or --beg")
 end
 
+local pub = ARGS.sign and ssh.pub.key(ARGS.sign)
+if ARGS.sign and not pub then
+    ERROR("chain post : invalid sign key")
+end
+
 -- commit post (content only, no state)
 local hash
 do
@@ -63,7 +68,7 @@ end
 do
     local T = {
         hash = hash,
-        sign = ARGS.sign and ssh.pubkey(REPO, hash),
+        sign = pub,
         beg  = ARGS.beg,
     }
     local ok, err = apply(G, 'post', CMD.now, T)
