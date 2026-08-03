@@ -79,7 +79,7 @@ end
 -- parse a state.lua source: DATA ONLY (empty env, no globals to
 -- attacker Lua), and it must yield a table
 function READ (src)
-    local T = assert(load(src, "state", "t", {}))()
+    local T = assert(load(src, nil, "t", {}))()
     assert(type(T) == 'table')
     return T
 end

@@ -284,7 +284,8 @@ elseif ARGS.recv then
                 local src = exec {
                     cmd = "git -C " .. REPO .. " show " .. hash .. ":" .. file
                 }
-                local f = load(src)
+                -- data only: no globals to attacker Lua (see READ)
+                local f = load(src, nil, "t", {})
                 if not f then
                     error("invalid " .. kind .. " : invalid lua metadata", 0)
                 end
