@@ -12,7 +12,7 @@
 
 - fix DEFERRED: folds into redesign step S9 (see below)
 - sections Approach..Steps kept as spec for the check itself
-- landed: S1-S5 (see step list); next: S6, then S8
+- landed: S1-S5 (see step list); next: S6b, then S8
 
 # Approach
 
@@ -117,11 +117,12 @@
     - S5: `tmp/` -> `.git/`; delete `.gitignore`
         - DONE: `.git/allowed_signers`; skel loses `tmp/`,
           `.gitignore`, `.gitkeep`; tests repointed
-    - S6: `.freechains/state/` -> `state/`; `genesis.lua`,
-      `random` to root; update mode check, skel, test paths
-        - consolidate authors/posts/order -> `state.lua`
+    - S6b: consolidate authors/posts/order ->
+      `.freechains/state/state.lua` (INSIDE the prefix)
         - `now.lua` stays apart (PEAK hot path; full merge is
           an open question in redesign par.11)
+        - touches: write, PEAK env, mode check, all loads,
+          skel, test path literals
 - coupled cluster, strict order, each still green:
     - S8: mint ID (`hash-object` of action file); key
       `posts`/`order` by ID; commit<->ID index; print IDs
@@ -137,6 +138,11 @@
     - S12: shrink `posts.lua` to `{maturity, reps, revoke}`
       (needs S8)
     - S13: revoke deletes payload ref; `gc` policy (needs S10)
+    - S6a: drop `.freechains/`: `state/`, `genesis.lua`,
+      `random` to root (needs S10)
+        - BLOCKED before S10: user posts live at root; the
+          prefix separates them (redesign par.8 relies on
+          "no user files left")
 - decision: S7 folded into S9 (settled)
     - no deployment; attacker theoretical
     - `bug-forged-state` not in default suite: red marker only
@@ -146,4 +152,4 @@
     - `main`: fixes + design-neutral cleanups (S1, S4, S5)
     - `260803-redesign`: substrate + cluster (S2, S3, S6, S8+)
     - criterion: useful even without the redesign -> `main`
-- progress: S1-S5 done; next S6, then S8
+- progress: S1-S5 done; next S6b, then S8; S6a waits for S10
