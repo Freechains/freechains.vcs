@@ -49,9 +49,9 @@ do
     end
 end
 
--- HOST B: clone chain + fetch begs + beg
+-- HOST B: clone chain (begs included) + beg
 do
-    print("==> Host B: clone chain + fetch begs")
+    print("==> Host B: clone chain (begs included)")
 
     do
         TEST "clone succeeds"
@@ -71,14 +71,7 @@ do
         assert(gen_a == gen_b, "genesis mismatch")
     end
 
-    do
-        TEST "fetch begs from A"
-        local _, code = exec {
-            cmd = "git -C " .. REPO_B .. " fetch " .. REPO_A .. " refs/begs/*:refs/begs/*",
-        }
-        assert(code == 0, "fetch begs failed")
-    end
-
+    -- no manual fetch: the clone itself must carry refs/begs/*
     do
         TEST "B has A's beg ref"
         local a = exec {

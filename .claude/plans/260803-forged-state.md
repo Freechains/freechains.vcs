@@ -112,6 +112,8 @@
         - DONE: `PEAKS(T.parents)`; 4 call sites pass
           `parents(hash)`; `T.hash` stays as state key until S8
     - S4: explicit `refs/begs/*` refspec on `--clone` (latent bug)
+        - DONE: fetch after clone in chains.lua
+        - test: repl-local-begs, manual fetch removed
     - S5: `tmp/` -> `.git/`; delete `.gitignore`
     - S6: `.freechains/state/` -> `state/`; `genesis.lua`,
       `random` to root; update mode check, skel, test paths
