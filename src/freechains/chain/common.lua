@@ -135,21 +135,11 @@ end
 -- sync.lua checks every stored value against its parents' before using
 -- it. Only `state` commits are current -- a post/like may just ADD
 -- files, so its tree still holds the previous state commit's value.
--- Memoized: the whole state file is read per call, and replay calls it
--- per commit. Only immutable 40-hex hashes are cached ("HEAD" moves).
-local peaks = {}
 function PEAK (hash)
-    if peaks[hash] then
-        return peaks[hash]
-    end
     local src = exec {
         cmd = "git -C " .. REPO .. " show " .. hash .. ":.freechains/state.lua",
     }
-    local now = READ(src).now
-    if #hash==40 and hash:match("^%x+$") then
-        peaks[hash] = now
-    end
-    return now
+    return READ(src).now
 end
 
 -- the peak COMPUTED over a set of commits: the peak each one recorded,

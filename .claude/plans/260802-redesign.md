@@ -412,9 +412,9 @@ All four state facets consolidate into a single `state.lua`
 table: one read everywhere (`G_oct`, `tree_state`, every `dofile`
 site), atomic by construction, one path in the mode check, and
 `write(G)`/load are symmetric. Transitional cost: `PEAK` reads
-the whole file per commit while it still reads trees — mitigated
-by an in-process memo (hash -> peak), and gone entirely when the
-peak moves into the DB folded over `backs` (§7).
+the whole file per commit while it still reads trees — accepted
+as is, and gone entirely when the peak moves into the DB folded
+over `backs` (§7).
 
 The split is the same one the whole design rests on — `actions/`
 immutable, `state/` derived and mutable — and it keeps the mode
@@ -617,4 +617,4 @@ Steps 1-2 are self-contained and can land alone.
   `now` survives the redesign: the peak moves into the DB folded
   over `backs` (§7), receive validation compares the whole state
   table, and startup reads the one worktree file. Until §7
-  lands, a `PEAK` memo (hash -> peak) covers the hot path.
+  lands, PEAK re-reads the file per call — accepted.

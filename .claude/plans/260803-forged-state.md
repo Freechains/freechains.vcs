@@ -124,9 +124,8 @@
           `.gitattributes`; init.lua `G = dofile(state.lua)`;
           tests repointed (forgeries mutate via serial)
         - `state/` dir disappears; mode check = one M path
-        - PEAK reads whole file transitionally: add in-process
-          memo (hash -> peak) to avoid O(n^2) replay
-        - permanent fix at par.7: peak folds over `backs` in DB
+        - PEAK reads whole file per call: accepted (small
+          chains); dies at par.7 (peak folds over `backs` in DB)
         - touches: write, PEAK, mode check, all loads, skel,
           `.gitattributes`, test path literals
 - coupled cluster, strict order, each still green:
