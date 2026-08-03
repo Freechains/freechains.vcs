@@ -12,7 +12,7 @@
 
 - fix DEFERRED: folds into redesign step S9 (see below)
 - sections Approach..Steps kept as spec for the check itself
-- landed so far: S1 (date pinning) + `tst/bug-now-skew.lua`
+- landed: S1-S5 (see step list); next: S6, then S8
 
 # Approach
 
@@ -115,6 +115,8 @@
         - DONE: fetch after clone in chains.lua
         - test: repl-local-begs, manual fetch removed
     - S5: `tmp/` -> `.git/`; delete `.gitignore`
+        - DONE: `.git/allowed_signers`; skel loses `tmp/`,
+          `.gitignore`, `.gitkeep`; tests repointed
     - S6: `.freechains/state/` -> `state/`; `genesis.lua`,
       `random` to root; update mode check, skel, test paths
         - consolidate authors/posts/order -> `state.lua`
@@ -140,4 +142,8 @@
     - `bug-forged-state` not in default suite: red marker only
     - avoids throwaway shape dispatch / beg splice / inference
     - redesign par.9: comparison lands WITH the join
-- order: S2 + S3 next (enable S8), S4 bug fix, S5/S6 anytime
+- branches:
+    - `main`: fixes + design-neutral cleanups (S1, S4, S5)
+    - `260803-redesign`: substrate + cluster (S2, S3, S6, S8+)
+    - criterion: useful even without the redesign -> `main`
+- progress: S1-S5 done; next S6, then S8
