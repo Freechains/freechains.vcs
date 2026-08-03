@@ -51,17 +51,48 @@ function backs (hash)
     return ret
 end
 
-function write (G)
-    local function f (V, file)
-        local f = io.open(file, "w")
-        f:write(serial(V))
-        f:close()
-    end
+-- .freechains/state.lua -- the whole derived state, one table.
+-- Always `serial` output (sorted keys), byte-comparable by verifiers:
+--
+--  return {
+--      authors = {                             -- one entry per signer
+--          ["ssh-ed25519 AAAA..."] = {
+--              reps = 13,                      -- current reputation
+--              time = 1785000000,              -- last consolidation
+--          },
+--      },
+--      posts = {                               -- one entry per post
+--          ["a1b2c3..."] = {                   -- commit hash
+--              author   = "ssh-ed25519 AAAA...",   -- nil: unsigned beg
+--              time     = 1785000000,          -- nil: consolidated
+--              maturity = "00-12",             -- beg|00-12|12-24|nil
+--              reps     = 0,                   -- received likes
+--              revoke   = { author=0, others=0 },  -- net revoke sums
+--          },
+--      },
+--      order = {                               -- consensus order
+--          "a1b2c3...",
+--      },
+--      now = 1785000000,   -- newest time among ancestors (high-water)
+--  }
 
-    f(G.authors, FC .. "state/authors.lua")
-    f(G.posts,   FC .. "state/posts.lua")
-    f(G.order,   FC .. "state/order.lua")
-    f(G.now,     FC .. "state/now.lua")
+-- parse a state.lua source: DATA ONLY (empty env, no globals to
+-- attacker Lua), and it must yield a table
+function READ (src)
+    local T = assert(load(src, "state", "t", {}))()
+    assert(type(T) == 'table')
+    return T
+end
+
+function WRITE (G)
+    local f = io.open(FC .. "state.lua", "w")
+    f:write(serial {
+        authors = G.authors,
+        posts   = G.posts,
+        order   = G.order,
+        now     = G.now,
+    })
+    f:close()
 end
 
 -- REVOKED when either the author's or the community's net revoke sum is negative.
@@ -99,16 +130,26 @@ local function TIME (hash)
     })))
 end
 
--- the peak RECORDED in a commit's tree (`state/now.lua`): the newest
+-- the peak RECORDED in a commit's tree (`state.lua` .now): the newest
 -- time among all of its ancestors. Derived, never trusted: `commit` in
 -- sync.lua checks every stored value against its parents' before using
 -- it. Only `state` commits are current -- a post/like may just ADD
 -- files, so its tree still holds the previous state commit's value.
+-- Memoized: the whole state file is read per call, and replay calls it
+-- per commit. Only immutable 40-hex hashes are cached ("HEAD" moves).
+local peaks = {}
 function PEAK (hash)
+    if peaks[hash] then
+        return peaks[hash]
+    end
     local src = exec {
-        cmd = "git -C " .. REPO .. " show " .. hash .. ":.freechains/state/now.lua",
+        cmd = "git -C " .. REPO .. " show " .. hash .. ":.freechains/state.lua",
     }
-    return load(src)()
+    local now = READ(src).now
+    if #hash==40 and hash:match("^%x+$") then
+        peaks[hash] = now
+    end
+    return now
 end
 
 -- the peak COMPUTED over a set of commits: the peak each one recorded,

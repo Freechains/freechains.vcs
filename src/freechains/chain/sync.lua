@@ -170,7 +170,7 @@ elseif ARGS.recv then
         -- `their`: the expected order this sync would leave behind
         -- must reproduce that prefix verbatim, or it is a hard fork.
         local function hardfork (their)
-            local our = dofile(FC .. "state/order.lua")
+            local our = dofile(FC .. "state.lua").order
             if #our == 0 then
                 return false
             end
@@ -242,13 +242,7 @@ elseif ARGS.recv then
             }
             if kind == 'state' then
                 for status, path in diff:gmatch("(%a+)%s+(%S+)") do
-                    local ok = (
-                        (path == ".freechains/state/authors.lua") or
-                        (path == ".freechains/state/posts.lua")   or
-                        (path == ".freechains/state/order.lua")   or
-                        (path == ".freechains/state/now.lua")
-                    )
-                    if not ok then
+                    if path ~= ".freechains/state.lua" then
                         error (
                             "invalid state : " .. path
                             , 0
@@ -348,10 +342,10 @@ elseif ARGS.recv then
             cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. loc .. " " .. rem
         }
         if ff then
-            local their = load(exec {
+            local their = READ(exec {
                 cmd = "git -C " .. REPO .. " show " .. rem ..
-                        ":.freechains/state/order.lua"
-            })()
+                        ":.freechains/state.lua"
+            }).order
             if hardfork(their) then
                 ERROR("chain sync : hard fork")
             end
@@ -362,18 +356,10 @@ elseif ARGS.recv then
         local oct, G_oct
         do
             oct = octopus(loc, rem)
-            local function F (path)
-                local src = exec {
-                    cmd = "git -C " .. REPO .. " show " .. oct .. ":" .. path
-                }
-                return load(src)()
-            end
-            G_oct = {
-                authors = F(".freechains/state/authors.lua"),
-                posts   = F(".freechains/state/posts.lua"),
-                order   = F(".freechains/state/order.lua"),
-                now     = F(".freechains/state/now.lua"),
-            }
+            G_oct = READ(exec {
+                cmd = "git -C " .. REPO .. " show " .. oct ..
+                        ":.freechains/state.lua"
+            })
         end
 
         -- 4: needs fst/winner - snd/loser (do now b/c 3 mutates G_oct)
@@ -442,9 +428,9 @@ elseif ARGS.recv then
             -- verify remote state: overwrite with G_rem, diff vs HEAD
             do
                 G_rem.now = PEAKS(parents("HEAD"))
-                write(G_rem)
+                WRITE(G_rem)
                 local same = exec { stderr=false, err=false,
-                    cmd = "git -C " .. REPO ..  " diff --quiet HEAD -- .freechains/state/"
+                    cmd = "git -C " .. REPO ..  " diff --quiet HEAD -- .freechains/state.lua"
                 }
                 if not same then
                     exec {
@@ -463,16 +449,11 @@ elseif ARGS.recv then
         do
             local O_snd
             if fst == loc then
-                G_fst = {
-                    authors = dofile(FC .. "state/authors.lua"),
-                    posts   = dofile(FC .. "state/posts.lua"),
-                    order   = dofile(FC .. "state/order.lua"),
-                    now     = dofile(FC .. "state/now.lua"),
-                }
+                G_fst = dofile(FC .. "state.lua")
                 O_snd = G_rem.order
             else
                 G_fst = G_rem
-                O_snd = dofile(FC .. "state/order.lua")
+                O_snd = dofile(FC .. "state.lua").order
             end
             O_snd[#O_snd+1] = snd
 
@@ -571,9 +552,9 @@ elseif ARGS.recv then
                     cmd = "git -C " .. REPO .. " merge --no-commit " .. merge
                 }
                 G_fst.now = PEAKS { "HEAD", "MERGE_HEAD" }
-                write(G_fst)
+                WRITE(G_fst)
                 exec {
-                    cmd = "git -C " .. REPO .. " add .freechains/state/"
+                    cmd = "git -C " .. REPO .. " add .freechains/state.lua"
                 }
                 exec {
                     cmd = CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"

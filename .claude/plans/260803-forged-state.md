@@ -119,6 +119,10 @@
           `.gitignore`, `.gitkeep`; tests repointed
     - S6b: FULL merge: authors/posts/order/now ->
       `.freechains/state.lua` (one file, one table, in prefix)
+        - DONE: write/PEAK(+memo)/mode-check/all loads; skel
+          state/ dir gone (state.lua generated at init);
+          `.gitattributes`; init.lua `G = dofile(state.lua)`;
+          tests repointed (forgeries mutate via serial)
         - `state/` dir disappears; mode check = one M path
         - PEAK reads whole file transitionally: add in-process
           memo (hash -> peak) to avoid O(n^2) replay

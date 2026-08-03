@@ -24,24 +24,14 @@ end
 
 local function pioneers (dir)
     local T = dofile(dir .. ".freechains/genesis.lua")
+    local A = {}
     if T.pioneers then
         local n = C.reps.max // #T.pioneers
-        local A = {}
         for _, key in ipairs(T.pioneers) do
             A[key] = { reps = n }
         end
-        local f = assert(io.open(
-            dir .. ".freechains/state/authors.lua", "w"
-        ), "bug found : chain add : init failed")
-        f:write(serial(A))
-        f:close()
-    else
-        local f = assert(io.open(
-            dir .. ".freechains/state/authors.lua", "w"
-        ), "bug found : chain add : init failed")
-        f:write("return {\n}\n")
-        f:close()
     end
+    return A
 end
 
 local DIR = ARGS.root .. "/chains/"
@@ -117,10 +107,18 @@ if ARGS.add then
         exec {
             cmd = "cp " .. ARGS.path .. " " .. tmp .. "/.freechains/genesis.lua",
         }
-        pioneers(tmp .. "/")
+        local ps = pioneers(tmp .. "/")
         do
-            local f = io.open(tmp .. "/.freechains/state/now.lua", "w")
-            f:write("return " .. CMD.now .. "\n")
+            local f = assert (
+                io.open(tmp .. "/.freechains/state.lua", "w"),
+                "bug found : chain add : init failed"
+            )
+            f:write(serial {
+                authors = ps,
+                posts   = {},
+                order   = {},
+                now     = CMD.now,
+            })
             f:close()
         end
         exec {

@@ -66,7 +66,7 @@ do
     assert(not content:match("beta"), "beta should be discarded: " .. content)
 
     TEST "A's posts.lua has only the winning post"
-    local posts = dofile(ROOT_A .. "/chains/#cons-a/.freechains/state/posts.lua")
+    local posts = dofile(ROOT_A .. "/chains/#cons-a/.freechains/state.lua").posts
     local n = 0
     for _ in pairs(posts) do n = n + 1 end
     assert(n == 2, "expected 2 posts (seed+alpha), got " .. n)
@@ -120,7 +120,7 @@ do
     assert(not content:match("alpha"), "alpha should be discarded: " .. content)
 
     TEST "A's posts.lua has only the winning post"
-    local posts = dofile(ROOT_A .. "/chains/#cons-b/.freechains/state/posts.lua")
+    local posts = dofile(ROOT_A .. "/chains/#cons-b/.freechains/state.lua").posts
     local n = 0
     for _ in pairs(posts) do n = n + 1 end
     assert(n == 2, "expected 2 posts (seed+beta), got " .. n)
@@ -193,7 +193,7 @@ do
     assert(voided == 2, "expected 2 voided, got " .. voided)
 
     TEST "A's posts.lua has 1 post (P1 survived)"
-    local posts = dofile(ROOT_A .. "/chains/#cons-c/.freechains/state/posts.lua")
+    local posts = dofile(ROOT_A .. "/chains/#cons-c/.freechains/state.lua").posts
     local n = 0
     for _ in pairs(posts) do n = n + 1 end
     assert(n == 1, "expected 1 post (P1), got " .. n)
@@ -310,8 +310,8 @@ do
 
     TEST "C's posts.lua should not contain P_c"
     local posts = dofile (
-        ROOT_C .. "/chains/#cons-d/.freechains/state/posts.lua"
-    )
+        ROOT_C .. "/chains/#cons-d/.freechains/state.lua"
+    ).posts
     assert (
         posts[P_c] == nil,
         "P_c should be voided by nested cascade"

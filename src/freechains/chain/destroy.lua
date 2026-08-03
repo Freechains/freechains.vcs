@@ -3,7 +3,7 @@ require "freechains.chain.common"
 -- Escape hatch for a hard fork: destroy `hash` and everything after it, so
 -- the settled remote branch can be received again.
 -- Local only: no signing, no network, no reps.
--- Chain state lives in-tree (`.freechains/state/`), so the reset
+-- Chain state lives in-tree (`.freechains/state.lua`), so the reset
 -- restores it along with the commits: nothing else to rebuild.
 
 local hash = exec { stderr=false, err=false,

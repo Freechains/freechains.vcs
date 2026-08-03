@@ -82,12 +82,14 @@ do
     -- A: ... -- alpha -- FORGED    (K1 hands itself the reputation cap)
     TEST "A hand-forges a state commit granting K1 the reps cap"
     do
-        local f = assert(io.open(REPO_A .. ".freechains/state/authors.lua", "w"))
-        f:write("return {\n    ['" .. PUB1 .. "'] = { reps=30000, time=1020 },\n}\n")
+        local S = dofile(REPO_A .. ".freechains/state.lua")
+        S.authors = { [PUB1] = { reps=30000, time=1020 } }
+        local f = assert(io.open(REPO_A .. ".freechains/state.lua", "w"))
+        f:write(serial(S))
         f:close()
     end
     exec {
-        cmd = "git -C " .. REPO_A .. " add .freechains/state/",
+        cmd = "git -C " .. REPO_A .. " add .freechains/state.lua",
     }
     exec {
         cmd = "GIT_AUTHOR_DATE='@1120 +0000' GIT_COMMITTER_DATE='@1120 +0000'" ..
@@ -103,7 +105,7 @@ do
                 " diff-tree --cc --no-commit-id -r --name-status HEAD",
         }
         assert(
-            out:match("^M%s+%.freechains/state/authors%.lua$"),
+            out:match("^M%s+%.freechains/state%.lua$"),
             "expected exactly one modified state file, got: " .. out
         )
     end
@@ -193,12 +195,14 @@ do
 
     TEST "C hand-forges an INTERIOR state commit"
     do
-        local f = assert(io.open(REPO_C .. ".freechains/state/authors.lua", "w"))
-        f:write("return {\n    ['" .. PUB1 .. "'] = { reps=30000, time=1020 },\n}\n")
+        local S = dofile(REPO_C .. ".freechains/state.lua")
+        S.authors = { [PUB1] = { reps=30000, time=1020 } }
+        local f = assert(io.open(REPO_C .. ".freechains/state.lua", "w"))
+        f:write(serial(S))
         f:close()
     end
     exec {
-        cmd = "git -C " .. REPO_C .. " add .freechains/state/",
+        cmd = "git -C " .. REPO_C .. " add .freechains/state.lua",
     }
     exec {
         cmd = "GIT_AUTHOR_DATE='@1120 +0000' GIT_COMMITTER_DATE='@1120 +0000'" ..
@@ -214,7 +218,7 @@ do
     TEST "C caps it with an honestly-computed state commit"
     exec {
         cmd = "git -C " .. REPO_C .. " checkout " .. forged ..
-            "~1 -- .freechains/state/authors.lua",
+            "~1 -- .freechains/state.lua",
     }
     exec {
         cmd = "GIT_AUTHOR_DATE='@1140 +0000' GIT_COMMITTER_DATE='@1140 +0000'" ..
@@ -225,11 +229,11 @@ do
     TEST "the branch TIP is honest (a tip-only check would pass)"
     do
         local tip = exec {
-            cmd = "git -C " .. REPO_C .. " show HEAD:.freechains/state/authors.lua",
+            cmd = "git -C " .. REPO_C .. " show HEAD:.freechains/state.lua",
         }
         local good = exec {
             cmd = "git -C " .. REPO_C .. " show " .. forged ..
-                "~1:.freechains/state/authors.lua",
+                "~1:.freechains/state.lua",
         }
         assert(tip == good, "tip should carry the honest state")
         assert(not tip:match("30000"), "tip should not carry the forgery")
@@ -239,7 +243,7 @@ do
     do
         local out = exec {
             cmd = "git -C " .. REPO_C .. " show " .. forged ..
-                ":.freechains/state/authors.lua",
+                ":.freechains/state.lua",
         }
         assert(out:match("30000"), "interior commit should carry the forgery")
     end
@@ -327,11 +331,13 @@ do
         exec {
             cmd = "git -C " .. REPO_E .. " checkout -q --detach " .. ref,
         }
-        local f = assert(io.open(REPO_E .. ".freechains/state/authors.lua", "w"))
-        f:write("return {\n    ['" .. PUB1 .. "'] = { reps=30000, time=1020 },\n}\n")
+        local S = dofile(REPO_E .. ".freechains/state.lua")
+        S.authors = { [PUB1] = { reps=30000, time=1020 } }
+        local f = assert(io.open(REPO_E .. ".freechains/state.lua", "w"))
+        f:write(serial(S))
         f:close()
         exec {
-            cmd = "git -C " .. REPO_E .. " add .freechains/state/",
+            cmd = "git -C " .. REPO_E .. " add .freechains/state.lua",
         }
         exec {
             cmd = "GIT_AUTHOR_DATE='@1100 +0000' GIT_COMMITTER_DATE='@1100 +0000'" ..
@@ -362,7 +368,7 @@ do
         assert(ok, "forged commit should be an ancestor of main")
         local out = exec {
             cmd = "git -C " .. REPO_E .. " show " .. forged ..
-                ":.freechains/state/authors.lua",
+                ":.freechains/state.lua",
         }
         assert(out:match("30000"), "forged commit should carry the forgery")
     end
@@ -378,7 +384,7 @@ do
     TEST "main's TIP is honest: `-X ours` kept our state files"
     do
         local tip = exec {
-            cmd = "git -C " .. REPO_E .. " show main:.freechains/state/authors.lua",
+            cmd = "git -C " .. REPO_E .. " show main:.freechains/state.lua",
         }
         assert(not tip:match("30000"), "tip should not carry the forgery")
     end

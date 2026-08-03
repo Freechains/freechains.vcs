@@ -84,9 +84,9 @@ end
 
 -- commit state
 do
-    write(G)
+    WRITE(G)
     exec {
-        cmd = "git -C " .. REPO .. " add .freechains/state/",
+        cmd = "git -C " .. REPO .. " add .freechains/state.lua",
     }
     exec {
         cmd = CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"

@@ -176,7 +176,7 @@ do
         assert(all:match("second from B"), "B's post missing")
 
         TEST "A's posts.lua has both entries"
-        local posts = dofile(REPO_A .. ".freechains/state/posts.lua")
+        local posts = dofile(REPO_A .. ".freechains/state.lua").posts
         assert(posts[A], "A's should be in posts.lua")
         assert(posts[B], "B's should be in posts.lua")
     end
@@ -200,16 +200,16 @@ do
         assert(all:match("second from B"), "B's post missing in B")
 
         TEST "A and B have same authors.lua"
-        local aa = dofile(REPO_A .. ".freechains/state/authors.lua")
-        local ab = dofile(REPO_B .. ".freechains/state/authors.lua")
+        local aa = dofile(REPO_A .. ".freechains/state.lua").authors
+        local ab = dofile(REPO_B .. ".freechains/state.lua").authors
         for k, v in pairs(aa) do
             assert(ab[k], "author missing in B: " .. k)
             assert(ab[k].reps == v.reps, "reps mismatch for " .. k)
         end
 
         TEST "A and B have same posts.lua"
-        local pa = dofile(REPO_A .. ".freechains/state/posts.lua")
-        local pb = dofile(REPO_B .. ".freechains/state/posts.lua")
+        local pa = dofile(REPO_A .. ".freechains/state.lua").posts
+        local pb = dofile(REPO_B .. ".freechains/state.lua").posts
         for k, v in pairs(pa) do
             assert(pb[k], "post missing in B: " .. k)
             assert(pb[k].maturity == v.maturity, "maturity mismatch for " .. k)
@@ -236,7 +236,7 @@ do
 
     local A
     do
-        local posts = dofile(REPO_A .. ".freechains/state/posts.lua")
+        local posts = dofile(REPO_A .. ".freechains/state.lua").posts
         for k in pairs(posts) do
             A = k
             break
@@ -327,11 +327,15 @@ do
     print("==> Step 6: recv FF tampered state")
 
     TEST "A writes tampered state commit"
-    local f = io.open(REPO_A .. ".freechains/state/authors.lua", "w")
-    f:write("return {}\n")
-    f:close()
+    do
+        local S = dofile(REPO_A .. ".freechains/state.lua")
+        S.authors = {}
+        local f = io.open(REPO_A .. ".freechains/state.lua", "w")
+        f:write(serial(S))
+        f:close()
+    end
     exec {
-        cmd = "git -C " .. REPO_A .. " add .freechains/state/authors.lua",
+        cmd = "git -C " .. REPO_A .. " add .freechains/state.lua",
     }
     exec {
         cmd = "git -C " .. REPO_A .. " commit -m '(empty message)'" .. " --no-edit --trailer 'Freechains: state'",

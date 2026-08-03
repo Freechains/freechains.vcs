@@ -285,7 +285,7 @@ do
         assert(all:match("second from B"), "B's post missing")
 
         TEST "A's posts.lua has both entries"
-        local posts = dofile(REPO_A .. ".freechains/state/posts.lua")
+        local posts = dofile(REPO_A .. ".freechains/state.lua").posts
         assert(posts[A], "A's should be in posts.lua")
         assert(posts[B], "B's should be in posts.lua")
     end
@@ -309,16 +309,16 @@ do
         assert(all:match("second from B"), "B's post missing in B")
 
         TEST "A and B have same authors.lua"
-        local aa = dofile(REPO_A .. ".freechains/state/authors.lua")
-        local ab = dofile(REPO_B .. ".freechains/state/authors.lua")
+        local aa = dofile(REPO_A .. ".freechains/state.lua").authors
+        local ab = dofile(REPO_B .. ".freechains/state.lua").authors
         for k, v in pairs(aa) do
             assert(ab[k], "author missing in B: " .. k)
             assert(ab[k].reps == v.reps, "reps mismatch for " .. k)
         end
 
         TEST "A and B have same posts.lua"
-        local pa = dofile(REPO_A .. ".freechains/state/posts.lua")
-        local pb = dofile(REPO_B .. ".freechains/state/posts.lua")
+        local pa = dofile(REPO_A .. ".freechains/state.lua").posts
+        local pb = dofile(REPO_B .. ".freechains/state.lua").posts
         for k, v in pairs(pa) do
             assert(pb[k], "post missing in B: " .. k)
             assert(pb[k].maturity == v.maturity, "maturity mismatch for " .. k)
@@ -345,7 +345,7 @@ do
 
     local A
     do
-        local posts = dofile(REPO_A .. ".freechains/state/posts.lua")
+        local posts = dofile(REPO_A .. ".freechains/state.lua").posts
         for k in pairs(posts) do
             A = k
             break
