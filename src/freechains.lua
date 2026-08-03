@@ -215,14 +215,15 @@ end
 
 ARGS = parser:parse()
 
-CMD = { now=os.time(), git="" }
-if ARGS.now then
-    CMD.now = ARGS.now
-    CMD.git = (
-        "GIT_AUTHOR_DATE=$(date -u -d @" .. CMD.now .. " --iso-8601=seconds) " ..
-        "GIT_COMMITTER_DATE=$(date -u -d @" .. CMD.now .. " --iso-8601=seconds) "
-    )
-end
+local now  = ARGS.now or os.time()
+local date = "date -u -d @" .. now .. " --iso-8601=seconds"
+CMD = {
+    now = now,
+    git = (
+        "GIT_AUTHOR_DATE=$(" .. date .. ") " ..
+        "GIT_COMMITTER_DATE=$(" .. date .. ") "
+    ),
+}
 
 if ARGS.daemon then
     local port = ARGS.port or PORT

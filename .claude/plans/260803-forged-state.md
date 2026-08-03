@@ -98,6 +98,7 @@
 
 - substrate, no dependencies, any order:
     - S1: pin `GIT_*_DATE` from `CMD.now` unconditionally
+        - DONE (freechains.lua); test: `tst/bug-now-skew.lua`
     - S2: `sign` from `.pub` file BEFORE commit (not `ssh.pubkey`)
     - S3: `apply` takes `T.parents`, not `T.hash`
     - S4: explicit `refs/begs/*` refspec on `--clone` (latent bug)
