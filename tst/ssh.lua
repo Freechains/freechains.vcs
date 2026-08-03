@@ -21,7 +21,7 @@ local function reset_repo ()
         cmd = "rm -rf " .. DIR,
     }
     exec {
-        cmd = "mkdir -p " .. DIR .. "/.freechains/tmp",
+        cmd = "mkdir -p " .. DIR,
     }
     exec {
         cmd = "git -C " .. DIR .. " init -q",
