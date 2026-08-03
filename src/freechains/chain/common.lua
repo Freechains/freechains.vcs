@@ -1,4 +1,6 @@
 C    = require "freechains.constants"
+local ssh = require "freechains.chain.ssh"
+
 REPO = ARGS.root .. "/chains/" .. ARGS.alias .. "/"
 FC   = REPO .. ".freechains/"
 
@@ -109,6 +111,160 @@ function state_diff (G, hash)
                 ":.freechains/state/" .. name .. ".lua",
         }
         if src ~= serial(V) then
+            return name
+        end
+    end
+    return nil
+end
+
+-- a state file exactly as a commit's tree holds it: raw `serial`
+-- bytes, so writer and verifier can compare byte-for-byte
+local function tree_raw (hash, name)
+    return exec { trim=false,
+        cmd = "git -C " .. REPO .. " show " .. hash ..
+            ":.freechains/state/" .. name .. ".lua",
+    }
+end
+
+-- the whole state a commit CARRIES, shaped as an `apply` argument
+local function tree_state (hash)
+    local G = {}
+    for _, name in ipairs { "authors", "posts", "order", "now" } do
+        G[name] = load(tree_raw(hash, name))()
+    end
+    return G
+end
+
+-- The action `hash` performs, as `apply` arguments, decoded from the
+-- commit alone plus the state it inherits -- never from a replay:
+--
+-- `beg` is not a free choice. A signed post validates as EXACTLY one
+-- of beg / non-beg, decided by the author's reps in `pre`: `apply`
+-- rejects a beg with reps>0 and a non-beg with reps<=0. So the flag
+-- `chain post` passed is recoverable, and a forger who picks the
+-- other one lands on a state that will not match.
+--
+-- A beg-accepting `like` is told apart by the target's `maturity`,
+-- and it is a MERGE: `like -X ours` keeps OUR state files, so the beg
+-- entry lives only on parent 2. Injected here exactly as `chain like`
+-- does when it creates the commit.
+--
+-- Returns { kind, time, T }, or nil plus a reason.
+local function action (pre, hash)
+    local out = exec {
+        cmd = "git -C " .. REPO ..
+            " log -1 --format='%at %(trailers:key=Freechains,valueonly)' " .. hash,
+    }
+    local time, kind = out:match("(%S+)%s+(%S+)")
+    time = tonumber(time)
+    local key = ssh.verify(REPO, hash)
+
+    if kind == 'post' then
+        local reps = (pre.authors[key] and pre.authors[key].reps) or 0
+        return { kind=kind, time=time, T = {
+            hash = hash,
+            sign = key,
+            beg  = (key==nil) or (reps<=0),
+        } }
+    elseif kind=='like' or kind=='revoke' then
+        -- vote metadata lives under .freechains/<kind>s/
+        local file = exec {
+            cmd = "git -C " .. REPO ..
+                " diff-tree --no-commit-id -r --name-only " .. hash ..
+                "^1 " .. hash .. " -- .freechains/" .. kind .. "s/",
+        }
+        file = file:match("(%S+)")
+        if not file then
+            return nil, "missing metadata file"
+        end
+        local f = load(exec {
+            cmd = "git -C " .. REPO .. " show " .. hash .. ":" .. file,
+        })
+        if not f then
+            return nil, "invalid lua metadata"
+        end
+        local ok, t = pcall(f)
+        if (not ok) or type(t)~='table' then
+            return nil, "invalid lua metadata"
+        end
+
+        -- beg merge: the target entry lives on parent 2 only
+        local ps = parents(hash)
+        if ps[2] and t.post then
+            local P = load(tree_raw(ps[2], "posts"))()
+            pre.posts[t.post] = pre.posts[t.post] or P[t.post]
+        end
+
+        local to_beg = (
+            kind=='like' and math.type(t.n)=='integer' and t.n>0 and
+            t.post and pre.posts[t.post] and
+            pre.posts[t.post].maturity=="beg"
+        )
+        return { kind=kind, time=time, T = {
+            hash   = hash,
+            sign   = key,
+            n      = t.n,
+            post   = t.post,
+            author = t.author,
+            beg    = to_beg,
+        } }
+    else
+        return nil, "invalid kind"
+    end
+end
+
+-- Parent-relative verification of a `state` commit S:
+--
+--     state(S) == apply( state(parent(S)), action(parent(S)) )
+--
+-- Both sides are read from TREES, so the check is context-free: it
+-- holds wherever S sits in the DAG, needs no accumulated `G`, no
+-- `oct`, no climb order, and its result is a fact about content-
+-- addressed data that can be memoized forever. This is what
+-- `state_diff` cannot do, being relative to a replay.
+-- See .claude/plans/260802-state-verify.md.
+--
+-- Returns nil when the link holds, else a short reason.
+--
+-- Out of scope here:
+--
+--   0 parents   genesis: the trusted anchor of the induction
+--   2 parents   a merge: its state is `combine`, not `apply`, and
+--               costs a replay of one side (`state_merge`)
+--   `now`       already checked against `PEAKS(parents)` in `commit`
+--   `order`     blocked on a separate bug: two honest peers settle
+--               on DIFFERENT orders for the same posts, so comparing
+--               it is a false rejection, not a check
+--
+-- Action commits need no link of their own: they only ADD files, so
+-- the create-mode check already pins their state to their parent's.
+function state_link (hash)
+    assert(trailer(hash) == 'state', "bug found : not a state commit")
+
+    local ps = parents(hash)
+    if #ps == 0 then
+        return nil          -- genesis
+    end
+    assert(#ps == 1, "bug found : merge : see state_merge")
+
+    local up  = ps[1]
+    local pre = tree_state(up)
+
+    -- a `state` parent means no action between the two: the state
+    -- must then survive unchanged
+    if trailer(up) ~= 'state' then
+        local A, err = action(pre, up)
+        if not A then
+            return err
+        end
+        local ok, err = apply(pre, A.kind, A.time, A.T)
+        if not ok then
+            return "apply : " .. err
+        end
+    end
+
+    for _, name in ipairs { "authors", "posts" } do
+        if serial(pre[name]) ~= tree_raw(hash, name) then
             return name
         end
     end

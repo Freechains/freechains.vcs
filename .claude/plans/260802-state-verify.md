@@ -87,9 +87,21 @@ two exclusions:
   baseline the replay never had. Hence the `chk` flag threaded
   through `climb`/`meet`, off for both sides of every `meet`.
 - **`order` cannot be checked.** See §6.
+- **merge commits cannot be checked.** Found by `tst/sync.lua`
+  step 8, red on the branch as committed. The only merge on `main`
+  is a beg-accepting `like`, built by `merge -X ours`, and that
+  option decides only CONFLICTING hunks: our side changed no state
+  since the fork (step 5) => git takes THEIRS; both changed
+  (step 8) => OURS. So the tree holds the beg side's state or our
+  own depending on timing, and neither is the replay's. Same
+  shape, opposite outcome. Exempted by `#parents(hash)==1`.
 
 The intricacy is not incidental: it is what replay-relative
 comparison costs.
+
+Parent-relative needs none of the three. The beg merge verifies
+as `apply(state(M) + beg entry from parent 2, like)`, which is
+exactly what `chain like` computed when it built the commit.
 
 ## 3. The design: parent-relative
 
@@ -233,9 +245,13 @@ forges the trailer. Only ever an optimisation on top of this.
 
 ## 8. Steps
 
-1. `state_link(hash)` in chain/common.lua: read `state(parent)`,
-   apply the one action, compare. Replaces `state_diff`, which is
-   replay-relative.
+1. **DONE** `state_link(hash)` in chain/common.lua: read
+   `state(parent)`, apply the one action, compare. Not yet wired
+   (step 3/5); `state_diff` still in place, to be removed then.
+   - helpers `tree_raw`, `tree_state`, `action` (all file-local)
+   - `beg` recovered from the parent's reps, not from context
+   - beg-`like` merge: target entry injected from parent 2
+   - `now`/`order` excluded, `authors`/`posts` compared
 2. Merge case: `state_merge(hash)` -- `consensus` over the two
    parents, replay the loser side, compare.
 3. `verify(set)`: standalone pass over
@@ -244,7 +260,8 @@ forges the trailer. Only ever an optimisation on top of this.
 4. `refs/freechains/verified`: create, advance after each
    successful sync, never push.
 5. `sync.lua`: run `verify` before replay; drop the `chk`
-   parameter, the side-branch exemption and the FF comparison at
+   parameter, the side-branch exemption, the merge exemption
+   (`#parents(hash)==1`, §2) and the FF comparison at
    sync.lua:485-493.
 6. `chains.lua`: run `verify` after `--clone` -- the base case.
 7. Tests: keep `tst/bug-forged-state.lua` (both cases); add an

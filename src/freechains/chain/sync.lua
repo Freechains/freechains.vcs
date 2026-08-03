@@ -248,7 +248,18 @@ elseif ARGS.recv then
             -- begs are exempt: parked on refs/begs/ and merged in later,
             -- their trees carry the state from CREATION time on another
             -- tip, not from the merge point.
-            if chk and (not beg) then
+            --
+            -- MERGES are exempt too. The only one that reaches `main` is
+            -- a beg-accepting `like`, built with `merge -X ours`, and
+            -- that option only decides CONFLICTING hunks: if our side
+            -- changed no state since the fork git takes THEIRS, else
+            -- OURS. So the tree holds the beg side's state or our own
+            -- depending on timing, and neither is the replay's -- see
+            -- tst/sync.lua steps 5 and 8, same shape, opposite outcome.
+            -- Nothing reads those files: the next `state` commit
+            -- overwrites them. The parent-relative check does not need
+            -- the exemption (260802-state-verify.md).
+            if chk and (not beg) and #parents(hash)==1 then
                 local bad = state_diff(G, hash)
                 if bad then
                     error("invalid state : " .. bad, 0)
