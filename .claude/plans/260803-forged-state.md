@@ -117,12 +117,14 @@
     - S5: `tmp/` -> `.git/`; delete `.gitignore`
         - DONE: `.git/allowed_signers`; skel loses `tmp/`,
           `.gitignore`, `.gitkeep`; tests repointed
-    - S6b: consolidate authors/posts/order ->
-      `.freechains/state/state.lua` (INSIDE the prefix)
-        - `now.lua` stays apart (PEAK hot path; full merge is
-          an open question in redesign par.11)
-        - touches: write, PEAK env, mode check, all loads,
-          skel, test path literals
+    - S6b: FULL merge: authors/posts/order/now ->
+      `.freechains/state.lua` (one file, one table, in prefix)
+        - `state/` dir disappears; mode check = one M path
+        - PEAK reads whole file transitionally: add in-process
+          memo (hash -> peak) to avoid O(n^2) replay
+        - permanent fix at par.7: peak folds over `backs` in DB
+        - touches: write, PEAK, mode check, all loads, skel,
+          `.gitattributes`, test path literals
 - coupled cluster, strict order, each still green:
     - S8: mint ID (`hash-object` of action file); key
       `posts`/`order` by ID; commit<->ID index; print IDs

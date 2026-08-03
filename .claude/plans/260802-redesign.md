@@ -400,22 +400,21 @@ structure:
 
 ```
 actions/              <id>.lua, one per action (sharded below)
-state/                state.lua (authors, posts, order) + now.lua
+state.lua             authors, posts, order, now — one table
 genesis.lua           chain definition
 random                uniqueness seed
-.gitattributes        state/** merge=ours
+.gitattributes        state.lua merge=ours
 ```
 
 Five entries, self-describing: `ls` now says what the repo is.
 
-`authors`, `posts` and `order` consolidate into a single
-`state.lua` table: one read instead of three (`G_oct`,
-`tree_state`, every `dofile` site), atomic by construction, and
-one path in the mode check. `now.lua` stays separate: it is a few
-bytes, changes on every commit, and `PEAK` reads it per commit in
-the replay hot path (`PEAKS(parents)`) — folding it in would make
-every read pull the whole state blob. Whether it can be folded in
-anyway is an open question (§11).
+All four state facets consolidate into a single `state.lua`
+table: one read everywhere (`G_oct`, `tree_state`, every `dofile`
+site), atomic by construction, one path in the mode check, and
+`write(G)`/load are symmetric. Transitional cost: `PEAK` reads
+the whole file per commit while it still reads trees — mitigated
+by an in-process memo (hash -> peak), and gone entirely when the
+peak moves into the DB folded over `backs` (§7).
 
 The split is the same one the whole design rests on — `actions/`
 immutable, `state/` derived and mutable — and it keeps the mode
@@ -614,8 +613,8 @@ Steps 1-2 are self-contained and can land alone.
 - **Size limits.** `constants.lua` has a commented-out
   `post.size`. With payloads out of the tree this becomes a
   transport policy rather than a tree concern.
-- **Full state merge.** Can `now.lua` fold into `state.lua` too
-  (§8), leaving one state file? Blocked on the `PEAK` hot path:
-  `PEAKS(parents)` runs per replay commit and today reads a
-  few-byte file; one file means reading the whole state blob each
-  time. Needs a measurement, or a `PEAK` cache keyed by commit.
+- **Full state merge — RESOLVED: yes (§8).** No solo read of
+  `now` survives the redesign: the peak moves into the DB folded
+  over `backs` (§7), receive validation compares the whole state
+  table, and startup reads the one worktree file. Until §7
+  lands, a `PEAK` memo (hash -> peak) covers the hot path.
