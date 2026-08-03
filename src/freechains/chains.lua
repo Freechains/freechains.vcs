@@ -124,7 +124,7 @@ if ARGS.add then
             f:close()
         end
         exec {
-            cmd = "git -C " .. tmp .. " add .freechains/ .gitattributes .gitignore",
+            cmd = "git -C " .. tmp .. " add .freechains/ .gitattributes",
         }
         exec {
             cmd = CMD.git .. "git -C " .. tmp .. " commit -m '(empty message)'"

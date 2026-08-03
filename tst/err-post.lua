@@ -131,7 +131,7 @@ do
     }
     local forged = raw:gsub("%(empty message%)", "(tampered)")
     assert(forged ~= raw, "substitution must change something")
-    local tmpf = REPO_A3 .. ".freechains/tmp/forged-commit"
+    local tmpf = REPO_A3 .. ".git/forged-commit"
     local fh = io.open(tmpf, "w")
     fh:write(forged)
     fh:close()
