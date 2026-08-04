@@ -49,10 +49,11 @@ if to_beg then
     G.order[#G.order+1] = exec {
         cmd = "git -C " .. REPO .. " rev-parse " .. ref .. "~1",   -- beg post
     }
+    local bid = assert(COMMIT_ACTION(ARGS.id), "bug found : no action id")
     local src = exec {
         cmd = "git -C " .. REPO .. " show " .. ref .. ":.freechains/state.lua",
     }
-    G.posts[ARGS.id] = READ(src).posts[ARGS.id]
+    G.posts[bid] = READ(src).posts[bid]
 end
 
 -- commit the vote (content only, no state). The trailer + dir
@@ -66,7 +67,12 @@ if not pub then
     ERROR("chain " .. kind .. " : invalid sign key")
 end
 
-local hash
+local tid = ARGS.id
+if ARGS.target == 'post' then
+    tid = COMMIT_ACTION(ARGS.id) or ARGS.id
+end
+
+local hash, aid
 do
     local payload = [[
         return {
@@ -82,14 +88,13 @@ do
     exec {
         cmd = "git -C " .. REPO .. " add " .. file,
     }
-    ACTION {
+    aid = ACTION {
         action = kind,
         backs  = to_beg and BACKS { "HEAD", ref } or BACKS { "HEAD" },
         sign   = pub,
         time   = CMD.now,
         n      = num,
-        [ARGS.target] = (ARGS.target == 'post')
-            and COMMIT_ACTION(ARGS.id) or ARGS.id,
+        [ARGS.target] = tid,
     }
     local s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=ssh"
     local msg = ARGS.why or "(empty message)"
@@ -106,7 +111,8 @@ end
 -- apply
 do
     local T = {
-        [ARGS.target] = ARGS.id,
+        [ARGS.target] = tid,
+        id      = aid,
         hash    = hash,
         parents = parents(hash),
         sign    = pub,

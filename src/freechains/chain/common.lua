@@ -64,6 +64,17 @@ function COMMIT_ACTION (hash)
     return out:match("actions/(%x+)%.lua")
 end
 
+function ACTION_COMMIT (id)
+    local out = exec { err=false, stderr=false,
+        cmd = "git -C " .. REPO .. " log -1 --format=%H --diff-filter=A" ..
+            " -- .freechains/actions/" .. id .. ".lua",
+    }
+    return out or nil
+end
+
+function POST (hash)
+    return G.posts[COMMIT_ACTION(hash) or hash]
+end
 function BACKS (tips)
     local T = {}
     for _, tip in ipairs(tips) do
@@ -108,7 +119,7 @@ end
 --          },
 --      },
 --      posts = {                               -- one entry per post
---          ["a1b2c3..."] = {                   -- commit hash
+--          ["a1b2c3..."] = {                   -- action ID
 --              author   = "ssh-ed25519 AAAA...",   -- nil: unsigned beg
 --              time     = 1785000000,          -- nil: consolidated
 --              maturity = "00-12",             -- beg|00-12|12-24|nil
@@ -117,8 +128,7 @@ end
 --          },
 --      },
 --      order = {                               -- consensus order
---          "a1b2c3...",
---      },
+--          "a1b2c3...",                        -- commit hash
 --      now = 1785000000,   -- newest time among ancestors (high-water)
 --  }
 

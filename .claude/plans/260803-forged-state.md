@@ -140,6 +140,14 @@
               shard at S6a
             - nothing reads the files yet
         - S8.2: key state by ID, print IDs, CLI takes IDs
+            - S8.2a DONE: `G.posts` keyed by action ID
+                - `apply` takes `T.id`; `T.post` is an ID
+                - CLI edges map: `POST(hash)`,
+                  `ACTION_COMMIT(id)` (both TODO-marked)
+                - `G.order` stays commits until S8.3
+                  (replay merges/rev-list/hardfork need them)
+            - S8.2b: CLI surface + tests speak IDs;
+              vote metadata dies; skel dies
         - S8.3: commit<->ID index (replaces `ACTION` lookups)
         - S8.4: receive validation (id/sign/time/backs)
         - S8.5: tests hashes -> IDs (with S8.2)

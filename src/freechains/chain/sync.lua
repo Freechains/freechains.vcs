@@ -293,17 +293,19 @@ elseif ARGS.recv then
                 if (not ok) or type(t)~='table' then
                     error("invalid " .. kind .. " : invalid lua metadata", 0)
                 end
+                local tid = t.post and (COMMIT_ACTION(t.post) or t.post)
                 -- only a positive `like` accepts a beg
                 local to_beg = (
                     kind == 'like' and t.n > 0
-                    and t.post and (G.posts[t.post] and G.posts[t.post].maturity=="beg")
+                    and tid and (G.posts[tid] and G.posts[tid].maturity=="beg")
                 )
                 local ok, err = apply(G, kind, tonumber(time), {
+                    id      = COMMIT_ACTION(hash),
                     hash    = hash,
                     parents = parents(hash),
                     sign    = key,
                     n       = t.n,
-                    post    = t.post,
+                    post    = tid,
                     author  = t.author,
                     beg     = to_beg,
                 })
@@ -313,6 +315,7 @@ elseif ARGS.recv then
                 G.order[#G.order+1] = hash
             elseif kind == 'post' then
                 local ok, err = apply(G, 'post', tonumber(time), {
+                    id      = COMMIT_ACTION(hash),
                     hash    = hash,
                     parents = parents(hash),
                     sign    = key,

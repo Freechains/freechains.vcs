@@ -32,7 +32,8 @@ if ARGS.payload then
         ERROR("chain get : unknown post")
     end
 
-    if G.posts[ARGS.hash] and is_revoked(G.posts[ARGS.hash]) then
+    local p = POST(ARGS.hash)
+    if p and is_revoked(p) then
         ERROR("chain get : revoked post")
     end
 

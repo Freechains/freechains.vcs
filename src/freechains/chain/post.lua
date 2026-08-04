@@ -10,7 +10,7 @@ if ARGS.sign and not pub then
 end
 
 -- commit post (content only, no state)
-local hash
+local hash, id
 do
     local file
     if ARGS.inline then
@@ -48,7 +48,7 @@ do
     exec {
         cmd = "git -C " .. REPO .. " add " .. file,
     }
-    ACTION {
+    id = ACTION {
         action = 'post',
         backs  = BACKS { "HEAD" },
         sign   = pub,
@@ -73,6 +73,7 @@ end
 -- apply with real hash
 do
     local T = {
+        id      = id,
         hash    = hash,
         parents = parents(hash),
         sign    = pub,

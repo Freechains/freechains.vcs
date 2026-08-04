@@ -52,7 +52,7 @@ do
     do
         TEST "beg-not-in-main-posts"
         local posts = dofile(DIR1 .. ".freechains/state.lua").posts
-        assert(not posts[BEG], "beg should not be in main posts.lua")
+        assert(not posts[AID(DIR1, BEG)], "beg should not be in main posts.lua")
     end
 
     -- only a positive `like` accepts a beg; other votes cannot act on
@@ -218,8 +218,9 @@ do
     do
         TEST "like-beg-unblocks"
         local posts = dofile(DIR4 .. ".freechains/state.lua").posts
-        assert(posts[BEG], "post entry not found: " .. BEG)
-        assert(posts[BEG].maturity ~= "beg", "maturity should no longer be beg")
+        local bid = AID(DIR4, BEG)
+        assert(posts[bid], "post entry not found: " .. BEG)
+        assert(posts[bid].maturity ~= "beg", "maturity should no longer be beg")
     end
 
     do
