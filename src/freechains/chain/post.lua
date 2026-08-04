@@ -48,6 +48,12 @@ do
     exec {
         cmd = "git -C " .. REPO .. " add " .. file,
     }
+    ACTION {
+        action = 'post',
+        backs  = BACKS { "HEAD" },
+        sign   = pub,
+        time   = CMD.now,
+    }
     local s1, s2 = "", ""
     if ARGS.sign then
         s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=ssh"

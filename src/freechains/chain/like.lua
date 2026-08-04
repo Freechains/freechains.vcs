@@ -82,6 +82,15 @@ do
     exec {
         cmd = "git -C " .. REPO .. " add " .. file,
     }
+    ACTION {
+        action = kind,
+        backs  = to_beg and BACKS { "HEAD", ref } or BACKS { "HEAD" },
+        sign   = pub,
+        time   = CMD.now,
+        n      = num,
+        [ARGS.target] = (ARGS.target == 'post')
+            and COMMIT_ACTION(ARGS.id) or ARGS.id,
+    }
     local s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=ssh"
     local msg = ARGS.why or "(empty message)"
     exec { stderr=false,

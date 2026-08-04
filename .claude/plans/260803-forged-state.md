@@ -133,6 +133,16 @@
       `posts`/`order` by ID; commit<->ID index; print IDs
         - needs S2 + S3; flatten `likes/`/`revokes/` here
         - bulk: tests hashes -> IDs
+        - S8.1 DONE: `MINT`/`IDS`/`ACTION` (common.lua);
+          post/like write `.freechains/actions/<id>.lua`
+          in the action commit; get.lua excludes it
+            - flat, unsharded (empty-dir vs `diff -r`);
+              shard at S6a
+            - nothing reads the files yet
+        - S8.2: key state by ID, print IDs, CLI takes IDs
+        - S8.3: commit<->ID index (replaces `ACTION` lookups)
+        - S8.4: receive validation (id/sign/time/backs)
+        - S8.5: tests hashes -> IDs (with S8.2)
     - S9: join commits: apply-before-commit, drop rollbacks,
       `beg~2` -> `beg~1`, destroy fixes (needs S8)
         - S7 lands HERE: uniform per-commit state compare

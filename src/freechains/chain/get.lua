@@ -16,10 +16,12 @@ local kind = trailer(ARGS.hash)
 -- --cc reduces to the file(s) present in this commit but absent
 -- from every parent — handles both regular commits and merges
 -- (without --cc, diff-tree emits nothing for merge commits).
+-- The action file the commit also adds is excluded.
 local function commit_file ()
     local files = exec {
         cmd = "git -C " .. REPO ..
-        " diff-tree --cc --no-commit-id -r --name-only " .. ARGS.hash,
+        " diff-tree --cc --no-commit-id -r --name-only " .. ARGS.hash ..
+        " -- . ':(exclude).freechains/actions'",
     }
     assert(not files:match("\n%S"), "bug found")
     return files:match("^(%S+)")
