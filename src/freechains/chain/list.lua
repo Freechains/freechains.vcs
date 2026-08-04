@@ -9,8 +9,9 @@ if ARGS.begs then
 
 elseif ARGS.order then
     -- consensus order; revoked posts wrapped in ~hash~
-    for _, hash in ipairs(G.order) do
-        local p = POST(hash)
+    for _, id in ipairs(G.order) do
+        local p = G.posts[id]
+        local hash = ACTION_COMMIT(id) or id
         if p and is_revoked(p) then
             print("~" .. hash .. "~")
         else
@@ -20,10 +21,10 @@ elseif ARGS.order then
 
 elseif ARGS.revokes then
     -- revoked posts only, in consensus order (bare hashes)
-    for _, hash in ipairs(G.order) do
-        local p = POST(hash)
+    for _, id in ipairs(G.order) do
+        local p = G.posts[id]
         if p and is_revoked(p) then
-            print(hash)
+            print(ACTION_COMMIT(id) or id)
         end
     end
 
@@ -36,7 +37,10 @@ elseif ARGS.dag then
     local SPAN  = 4
 
     -- G.order is already post/like only
-    local V = G.order
+    local V = {}
+    for _, id in ipairs(G.order) do
+        V[#V+1] = ACTION_COMMIT(id) or id
+    end
     if #V == 0 then
         return
     end

@@ -176,7 +176,11 @@ elseif ARGS.recv then
             end
 
             local low = math.max(1, #our-C.fork.posts+1)
-            local hs = table.concat(our, " ", low, #our)
+            local cs = {}
+            for i=low, #our do
+                cs[i] = assert(ACTION_COMMIT(our[i]), "bug found")
+            end
+            local hs = table.concat(cs, " ", low, #our)
 
             -- ask git for exactly `fork.posts` entries with `--no-walk`
             local ts = {}
@@ -194,9 +198,9 @@ elseif ARGS.recv then
             end
 
             -- walk from the tip until first entry older than `fork.time`
-            local new = assert(ts[our[#our]])
+            local new = assert(ts[cs[#our]])
             for i=#our, low, -1 do
-                if (new-assert(ts[our[i]])) >= C.fork.time then
+                if (new-assert(ts[cs[i]])) >= C.fork.time then
                     set = i
                     break
                 end
@@ -218,6 +222,10 @@ elseif ARGS.recv then
         -- detached head and discarded, so `main` never holds one
         local KINDS = { post=true, like=true, revoke=true, state=true }
 
+        local ORD = {}
+        local function ORD_COMMIT (id)
+            return ORD[id] or ACTION_COMMIT(id)
+        end
         local function commit (G, hash, beg)
             local key, err = ssh.verify(REPO, hash)
 
@@ -299,8 +307,9 @@ elseif ARGS.recv then
                     kind == 'like' and t.n > 0
                     and tid and (G.posts[tid] and G.posts[tid].maturity=="beg")
                 )
+                local id = COMMIT_ACTION(hash)
                 local ok, err = apply(G, kind, tonumber(time), {
-                    id      = COMMIT_ACTION(hash),
+                    id      = id,
                     hash    = hash,
                     parents = parents(hash),
                     sign    = key,
@@ -312,10 +321,13 @@ elseif ARGS.recv then
                 if not ok then
                     error("invalid " .. kind .. " : " .. err, 0)
                 end
-                G.order[#G.order+1] = hash
+                assert(id, "bug found : no action id")
+                ORD[id] = hash
+                G.order[#G.order+1] = id
             elseif kind == 'post' then
+                local id = COMMIT_ACTION(hash)
                 local ok, err = apply(G, 'post', tonumber(time), {
-                    id      = COMMIT_ACTION(hash),
+                    id      = id,
                     hash    = hash,
                     parents = parents(hash),
                     sign    = key,
@@ -324,7 +336,8 @@ elseif ARGS.recv then
                 if not ok then
                     error("invalid post : " .. err, 0)
                 end
-                G.order[#G.order+1] = hash
+                ORD[id] = hash
+                G.order[#G.order+1] = id
             else
                 assert(kind == 'state')
                 -- need to check now, since it is derived, not trusted
@@ -376,8 +389,8 @@ elseif ARGS.recv then
             -- ancestor(cur,com): stops climb from descending below its floor
             -- without these the inner meet underflows to a root
             local visited = {}
-            for _, h in ipairs(G_rem.order) do
-                visited[h] = true
+            for _, i in ipairs(G_rem.order) do
+                visited[assert(ACTION_COMMIT(i), "bug found")] = true
             end
             local function ancestor (a, b)
                 return exec { err=false, stderr=false,
@@ -451,13 +464,20 @@ elseif ARGS.recv then
         -- final state: consensus + replay loser
         local G_fst, merge
         do
-            local O_snd
-            if fst == loc then
-                G_fst = dofile(FC .. "state.lua")
-                O_snd = G_rem.order
-            else
-                G_fst = G_rem
-                O_snd = dofile(FC .. "state.lua").order
+            local O_snd = {}
+            do
+                local ids
+                if fst == loc then
+                    G_fst = dofile(FC .. "state.lua")
+                    ids = G_rem.order
+                else
+                    G_fst = G_rem
+                    ids = dofile(FC .. "state.lua").order
+                end
+                -- order holds IDs; the loser replay walks COMMITS
+                for _, i in ipairs(ids) do
+                    O_snd[#O_snd+1] = assert(ORD_COMMIT(i), "bug found")
+                end
             end
             O_snd[#O_snd+1] = snd
 

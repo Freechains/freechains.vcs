@@ -148,7 +148,13 @@
                   (replay merges/rev-list/hardfork need them)
             - S8.2b: CLI surface + tests speak IDs;
               vote metadata dies; skel dies
-        - S8.3: commit<->ID index (replaces `ACTION` lookups)
+        - S8.3 DONE: `G.order` holds action IDs
+            - replay maps at the edges: `ORD` (id->commit for
+              just-applied), `ACTION_COMMIT` fallback
+            - hardfork window, `visited`, `O_snd` map id->commit
+            - list prints via `ACTION_COMMIT` until S8.2b
+            - one-pass index deferred: per-hash lookups suffice
+              until `trailer` dies (S11)
         - S8.4: receive validation (id/sign/time/backs)
         - S8.5: tests hashes -> IDs (with S8.2)
     - S9: join commits: apply-before-commit, drop rollbacks,

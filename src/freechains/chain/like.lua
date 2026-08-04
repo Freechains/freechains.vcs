@@ -46,10 +46,8 @@ if to_beg then
     exec {
         cmd = "git -C " .. REPO .. " merge -X ours --no-ff --no-commit --no-edit " .. ref,
     }
-    G.order[#G.order+1] = exec {
-        cmd = "git -C " .. REPO .. " rev-parse " .. ref .. "~1",   -- beg post
-    }
     local bid = assert(COMMIT_ACTION(ARGS.id), "bug found : no action id")
+    G.order[#G.order+1] = bid
     local src = exec {
         cmd = "git -C " .. REPO .. " show " .. ref .. ":.freechains/state.lua",
     }
@@ -126,7 +124,7 @@ do
         }
         ERROR("chain " .. kind .. " : " .. err)
     end
-    G.order[#G.order+1] = hash
+    G.order[#G.order+1] = aid
 end
 
 -- commit state

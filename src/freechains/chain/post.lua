@@ -86,7 +86,7 @@ do
         }
         ERROR("chain post : " .. err)
     end
-    G.order[#G.order+1] = hash
+    G.order[#G.order+1] = id
 end
 
 -- commit state

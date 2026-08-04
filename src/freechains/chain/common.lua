@@ -66,10 +66,11 @@ end
 
 function ACTION_COMMIT (id)
     local out = exec { err=false, stderr=false,
-        cmd = "git -C " .. REPO .. " log -1 --format=%H --diff-filter=A" ..
+        cmd = "git -C " .. REPO ..
+            " log -1 --cc --name-only --format=%H --diff-filter=A" ..
             " -- .freechains/actions/" .. id .. ".lua",
     }
-    return out or nil
+    return out and out:match("^(%x+)") or nil
 end
 
 function POST (hash)
@@ -128,7 +129,8 @@ end
 --          },
 --      },
 --      order = {                               -- consensus order
---          "a1b2c3...",                        -- commit hash
+--          "a1b2c3...",                        -- action ID
+--      },
 --      now = 1785000000,   -- newest time among ancestors (high-water)
 --  }
 
