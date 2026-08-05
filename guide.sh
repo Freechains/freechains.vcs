@@ -14,8 +14,8 @@ FC () {
     LUA_PATH="src/?.lua;src/?/init.lua;;" lua5.4 src/freechains.lua "$@"
 }
 
-# same as FC, but also keeps the printed hash in $HASH, for the commands
-# that take a post hash later on (votes, revokes, destroy)
+# same as FC, but also keeps the printed post id in $HASH, for the
+# commands that take one later on (votes, revokes, destroy)
 FCH () {
     local out
     out=$(LUA_PATH="src/?.lua;src/?/init.lua;;" lua5.4 src/freechains.lua "$@")
@@ -242,10 +242,8 @@ echo "-- hub X order (day 1 ... day 7):"
 FC --root="$X" chain '#chat' list order
 
 # Alice comes back and posts on her own branch, which the hub has not seen
-FC --root="$A" --now=$((FORK+7*DAY+100)) chain '#chat' post inline $'Alice takes over\n' --sign="$KEYS/alice"
-
-# the post she just made, one below HEAD (the state commit that follows it)
-REJECTED=$(git -C "$A/chains/#chat" rev-parse HEAD^1)
+FCH --root="$A" --now=$((FORK+7*DAY+100)) chain '#chat' post inline $'Alice takes over\n' --sign="$KEYS/alice"
+REJECTED=$HASH
 
 # A sends to X: the hub is entrenched and REFUSES to merge Alice's fork
 echo "-- expected failure (the hub is entrenched):"
