@@ -282,16 +282,14 @@ elseif ARGS.recv then
                     error("invalid " .. kind .. " : missing sign key", 0)
                 end
 
-                -- vote metadata lives under .freechains/<kind>s/
-                local file = exec {
-                    cmd = "git -C " .. REPO .. " diff-tree --no-commit-id -r --name-only " .. hash .. "^1 " .. hash .. " -- .freechains/" .. kind .. "s/"
-                }
-                file = file:match("(%S+)")
-                if not file then
+                -- vote data lives in the commit's own action file
+                local id = COMMIT_ACTION(hash)
+                if not id then
                     error("invalid " .. kind .. " : missing metadata file", 0)
                 end
                 local src = exec {
-                    cmd = "git -C " .. REPO .. " show " .. hash .. ":" .. file
+                    cmd = "git -C " .. REPO .. " show " .. hash ..
+                        ":.freechains/actions/" .. id .. ".lua"
                 }
                 -- data only: no globals to attacker Lua (see READ)
                 local f = load(src, nil, "t", {})
@@ -308,7 +306,6 @@ elseif ARGS.recv then
                     kind == 'like' and t.n > 0
                     and tid and (G.posts[tid] and G.posts[tid].maturity=="beg")
                 )
-                local id = COMMIT_ACTION(hash)
                 local ok, err = apply(G, kind, tonumber(time), {
                     id      = id,
                     hash    = hash,
@@ -322,7 +319,6 @@ elseif ARGS.recv then
                 if not ok then
                     error("invalid " .. kind .. " : " .. err, 0)
                 end
-                assert(id, "bug found : no action id")
                 ORD[id] = hash
                 G.order[#G.order+1] = id
             elseif kind == 'post' then

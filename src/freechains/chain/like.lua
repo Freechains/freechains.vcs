@@ -55,10 +55,8 @@ if to_beg then
     G.posts[bid] = READ(src).posts[bid]
 end
 
--- commit the vote (content only, no state). The trailer + dir
--- distinguish a revoke-axis vote from a like/dislike:
---   like/dislike -> .freechains/likes/   , 'Freechains: like'
---   revoke/unrev -> .freechains/revokes/ , 'Freechains: revoke'
+-- commit the vote: its action file only, no state. The trailer
+-- distinguishes a revoke-axis vote from a like/dislike.
 local kind = (ARGS.revoke or ARGS.unrevoke) and "revoke" or "like"
 
 local pub = ssh.pub.key(ARGS.sign)
@@ -70,20 +68,6 @@ local tid = ARGS.id
 
 local hash, aid
 do
-    local payload = [[
-        return {
-            ]] .. ARGS.target .. [[ = "]] .. ARGS.id .. [[",
-            n      = ]] .. num .. [[,
-        }
-    ]]
-    local rand = math.random(0, 9999999999)
-    local file = ".freechains/" .. kind .. "s/" .. kind .. "-" .. CMD.now .. "-" .. rand .. ".lua"
-    local f = io.open(REPO .. file, "w")
-    f:write(payload)
-    f:close()
-    exec {
-        cmd = "git -C " .. REPO .. " add " .. file,
-    }
     aid = ACTION {
         action = kind,
         backs  = to_beg and BACKS { "HEAD", ref } or BACKS { "HEAD" },

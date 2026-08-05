@@ -96,9 +96,15 @@ if ARGS.add then
         exec {
             cmd = "cp " .. HERE .. "/hooks/pre-receive " .. tmp .. "/.git/hooks/pre-receive && chmod +x " .. tmp .. "/.git/hooks/pre-receive",
         }
+        -- the chain layout is generated, not shipped: no skel
         exec {
-            cmd = "cp -r " .. HERE .. "/skel/. " .. tmp .. "/",
+            cmd = "mkdir -p " .. tmp .. "/.freechains/",
         }
+        do
+            local f = io.open(tmp .. "/.gitattributes", "w")
+            f:write(".freechains/state.lua merge=ours\n")
+            f:close()
+        end
         do
             local f = io.open(tmp .. "/.freechains/random", "w")
             f:write(tostring(rand) .. "\n")

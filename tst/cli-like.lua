@@ -62,15 +62,13 @@ do
     end
 
     do
-        TEST "like-payload-file"
-        local file = exec {
-            cmd = "git -C " .. DIR .. " diff-tree --no-commit-id --name-only -r " .. CID(LIKE, true, DIR) .. " -- .freechains/likes/",
-        }
-        assert(file ~= "", "like payload file missing")
+        TEST "like-action-file"
         local out = exec {
-            cmd = "git -C " .. DIR .. " show " .. CID(LIKE, true, DIR) .. ":" .. file,
+            cmd = "git -C " .. DIR .. " show " .. CID(LIKE, true, DIR) ..
+                ":.freechains/actions/" .. LIKE .. ".lua",
         }
         local tbl = load(out)()
+        assert(tbl.action == "like", "action: " .. tostring(tbl.action))
         assert(tbl.post == POST, "post: " .. tostring(tbl.post))
         assert(tbl.author == nil, "author should be unset")
         assert(tbl.n == 1000, "n: " .. tostring(tbl.n))

@@ -45,13 +45,13 @@ end
 do
     TEST "A crafts unsigned like via raw git"
     exec {
-        cmd = "mkdir -p " .. REPO_A .. ".freechains/likes/",
+        cmd = "mkdir -p " .. REPO_A .. ".freechains/actions/",
     }
-    local f = io.open(REPO_A .. ".freechains/likes/like-forged.lua", "w")
+    local f = io.open(REPO_A .. ".freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua", "w")
     f:write('return { post="'..POST..'", n=1000 }\n')
     f:close()
     exec {
-        cmd = "git -C " .. REPO_A .. " add .freechains/likes/like-forged.lua",
+        cmd = "git -C " .. REPO_A .. " add .freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua",
     }
     exec {
         cmd = "git -C " .. REPO_A .. " commit -m 'x' --trailer 'Freechains: like'",
@@ -124,13 +124,13 @@ do
 
     TEST "A crafts like with invalid lua metadata"
     exec {
-        cmd = "mkdir -p " .. REPO_A3 .. ".freechains/likes/",
+        cmd = "mkdir -p " .. REPO_A3 .. ".freechains/actions/",
     }
-    local f = io.open(REPO_A3 .. ".freechains/likes/like-err.lua", "w")
+    local f = io.open(REPO_A3 .. ".freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua", "w")
     f:write("not valid lua !!!\n")
     f:close()
     exec {
-        cmd = ENV .. " git -C " .. REPO_A3 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " add .freechains/likes/like-err.lua",
+        cmd = ENV .. " git -C " .. REPO_A3 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " add .freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua",
     }
     exec {
         cmd = ENV .. " git -C " .. REPO_A3 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " commit -S -m 'x' --trailer 'Freechains: like'",
@@ -168,13 +168,13 @@ do
 
     TEST "A crafts like with invalid lua metadata"
     exec {
-        cmd = "mkdir -p " .. REPO_A4 .. ".freechains/likes/",
+        cmd = "mkdir -p " .. REPO_A4 .. ".freechains/actions/",
     }
-    local f = io.open(REPO_A4 .. ".freechains/likes/like-err.lua", "w")
+    local f = io.open(REPO_A4 .. ".freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua", "w")
     f:write("return 10\n")
     f:close()
     exec {
-        cmd = ENV .. " git -C " .. REPO_A4 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " add .freechains/likes/like-err.lua",
+        cmd = ENV .. " git -C " .. REPO_A4 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " add .freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua",
     }
     exec {
         cmd = ENV .. " git -C " .. REPO_A4 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " commit -S -m 'x' --trailer 'Freechains: like'",
@@ -212,13 +212,13 @@ do
 
     TEST "A crafts like with bad target type"
     exec {
-        cmd = "mkdir -p " .. REPO_A5 .. ".freechains/likes/",
+        cmd = "mkdir -p " .. REPO_A5 .. ".freechains/actions/",
     }
-    local f = io.open(REPO_A5 .. ".freechains/likes/like-err.lua", "w")
+    local f = io.open(REPO_A5 .. ".freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua", "w")
     f:write('return { xxx="'..post..'", n=1000 }\n')
     f:close()
     exec {
-        cmd = ENV .. " git -C " .. REPO_A5 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " add .freechains/likes/like-err.lua",
+        cmd = ENV .. " git -C " .. REPO_A5 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " add .freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua",
     }
     exec {
         cmd = ENV .. " git -C " .. REPO_A5 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " commit -S -m 'x' --trailer 'Freechains: like'",
@@ -256,13 +256,13 @@ do
 
     TEST "A crafts like targeting nonexistent post"
     exec {
-        cmd = "mkdir -p " .. REPO_A6 .. ".freechains/likes/",
+        cmd = "mkdir -p " .. REPO_A6 .. ".freechains/actions/",
     }
-    local f = io.open(REPO_A6 .. ".freechains/likes/like-err.lua", "w")
+    local f = io.open(REPO_A6 .. ".freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua", "w")
     f:write('return { post="0000000000000000000000000000000000000000", n=1000 }\n')
     f:close()
     exec {
-        cmd = ENV .. " git -C " .. REPO_A6 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " add .freechains/likes/like-err.lua",
+        cmd = ENV .. " git -C " .. REPO_A6 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " add .freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua",
     }
     exec {
         cmd = ENV .. " git -C " .. REPO_A6 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " commit -S -m 'x' --trailer 'Freechains: like'",
@@ -300,13 +300,13 @@ do
 
     TEST "A crafts like signed by non-pioneer (0 reps)"
     exec {
-        cmd = "mkdir -p " .. REPO_A7 .. ".freechains/likes/",
+        cmd = "mkdir -p " .. REPO_A7 .. ".freechains/actions/",
     }
-    local f = io.open(REPO_A7 .. ".freechains/likes/like-err.lua", "w")
+    local f = io.open(REPO_A7 .. ".freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua", "w")
     f:write('return { post="'..post..'", n=1000 }\n')
     f:close()
     exec {
-        cmd = ENV .. " git -C " .. REPO_A7 .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh" .. " add .freechains/likes/like-err.lua",
+        cmd = ENV .. " git -C " .. REPO_A7 .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh" .. " add .freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua",
     }
     exec {
         cmd = ENV .. " git -C " .. REPO_A7 .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh" .. " commit -S -m 'x' --trailer 'Freechains: like'",
@@ -344,13 +344,13 @@ do
 
     TEST "A crafts like with old timestamp"
     exec {
-        cmd = "mkdir -p " .. REPO_A8 .. ".freechains/likes/",
+        cmd = "mkdir -p " .. REPO_A8 .. ".freechains/actions/",
     }
-    local f = io.open(REPO_A8 .. ".freechains/likes/like-err.lua", "w")
+    local f = io.open(REPO_A8 .. ".freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua", "w")
     f:write('return { post="'..post..'", n=1000 }\n')
     f:close()
     exec {
-        cmd = ENV .. " git -C " .. REPO_A8 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " add .freechains/likes/like-err.lua",
+        cmd = ENV .. " git -C " .. REPO_A8 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " add .freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua",
     }
     exec {
         cmd = ENV .. " git -C " .. REPO_A8 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " commit -S --date='1970-01-01T00:00:01+0000' -m 'x' --trailer 'Freechains: like'",
@@ -388,13 +388,13 @@ do
 
     TEST "A crafts like with fractional number"
     exec {
-        cmd = "mkdir -p " .. REPO_A9 .. ".freechains/likes/",
+        cmd = "mkdir -p " .. REPO_A9 .. ".freechains/actions/",
     }
-    local f = io.open(REPO_A9 .. ".freechains/likes/like-err.lua", "w")
+    local f = io.open(REPO_A9 .. ".freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua", "w")
     f:write('return { post="'..post..'", n=0.5 }\n')
     f:close()
     exec {
-        cmd = ENV .. " git -C " .. REPO_A9 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " add .freechains/likes/like-err.lua",
+        cmd = ENV .. " git -C " .. REPO_A9 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " add .freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua",
     }
     exec {
         cmd = ENV .. " git -C " .. REPO_A9 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " commit -S -m 'x' --trailer 'Freechains: like'",
@@ -432,13 +432,13 @@ do
 
     TEST "A crafts like with zero number"
     exec {
-        cmd = "mkdir -p " .. REPO_A10 .. ".freechains/likes/",
+        cmd = "mkdir -p " .. REPO_A10 .. ".freechains/actions/",
     }
-    local f = io.open(REPO_A10 .. ".freechains/likes/like-err.lua", "w")
+    local f = io.open(REPO_A10 .. ".freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua", "w")
     f:write('return { post="'..post..'", n=0 }\n')
     f:close()
     exec {
-        cmd = ENV .. " git -C " .. REPO_A10 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " add .freechains/likes/like-err.lua",
+        cmd = ENV .. " git -C " .. REPO_A10 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " add .freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua",
     }
     exec {
         cmd = ENV .. " git -C " .. REPO_A10 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " commit -S -m 'x' --trailer 'Freechains: like'",

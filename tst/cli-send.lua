@@ -141,13 +141,13 @@ do
 
     TEST "X crafts malicious like signed by non-pioneer (0 reps)"
     exec {
-        cmd = "mkdir -p " .. REPO_X .. ".freechains/likes/",
+        cmd = "mkdir -p " .. REPO_X .. ".freechains/actions/",
     }
-    local f = io.open(REPO_X .. ".freechains/likes/like-err.lua", "w")
+    local f = io.open(REPO_X .. ".freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua", "w")
     f:write('return { author="'..PUB1..'", n=1000 }\n')
     f:close()
     exec {
-        cmd = ENV .. " git -C " .. REPO_X .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh" .. " add .freechains/likes/like-err.lua",
+        cmd = ENV .. " git -C " .. REPO_X .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh" .. " add .freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua",
     }
     exec {
         cmd = ENV .. " git -C " .. REPO_X .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh" .. " commit -S -m 'x' --trailer 'Freechains: like'",
