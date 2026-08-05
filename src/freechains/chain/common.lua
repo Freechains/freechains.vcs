@@ -66,9 +66,6 @@ end
 
 -- (id -> commit lives in freechains/common.lua as `CID`)
 
-function POST (hash)
-    return G.posts[COMMIT_ACTION(hash) or hash]
-end
 function BACKS (tips)
     local T = {}
     for _, tip in ipairs(tips) do
@@ -312,7 +309,7 @@ function apply (G, kind, time, T)
             end
 
             -- mutation
-            G.posts[T.hash] = {
+            G.posts[assert(T.aid, "bug found : no action id")] = {
                 author   = T.sign,
                 time     = time,
                 maturity = (T.beg and 'beg') or (T.sign and '00-12') or 'beg',

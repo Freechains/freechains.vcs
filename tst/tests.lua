@@ -70,15 +70,6 @@ function REPS (exe, chain, pub)
     }))
 end
 
-function AID (dir, hash)
-    local out = exec { err=false, stderr=false,
-        cmd = "git -C " .. dir ..
-            " diff-tree --cc --no-commit-id -r --name-only " .. hash ..
-            " -- .freechains/actions/",
-    }
-    return out and out:match("actions/(%x+)%.lua") or nil
-end
-
 -- id -> commit: `CID` comes from freechains/common.lua; tests
 -- pass `all=true` (begs live off-main) and the repo dir
 

@@ -301,18 +301,17 @@ elseif ARGS.recv then
                 if (not ok) or type(t)~='table' then
                     error("invalid " .. kind .. " : invalid lua metadata", 0)
                 end
-                local tid = t.post
                 -- only a positive `like` accepts a beg
                 local to_beg = (
                     kind == 'like' and t.n > 0
-                    and tid and (G.posts[tid] and G.posts[tid].maturity=="beg")
+                    and t.post and (G.posts[t.post] and G.posts[t.post].maturity=="beg")
                 )
                 local ok, err = apply(G, kind, tonumber(time), {
                     aid     = aid,
                     parents = parents(cid),
                     sign    = key,
                     n       = t.n,
-                    post    = tid,
+                    post    = t.post,
                     author  = t.author,
                     beg     = to_beg,
                 })
