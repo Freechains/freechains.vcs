@@ -79,7 +79,6 @@ end
 do
     local T = {
         aid     = aid,
-        cid     = cid,
         parents = parents(cid),
         sign    = pub,
         beg     = ARGS.beg,

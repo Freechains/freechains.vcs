@@ -91,7 +91,6 @@ do
     local T = {
         [ARGS.target] = ARGS.aid,
         aid     = aid,
-        cid     = cid,
         parents = parents(cid),
         sign    = pub,
         n       = num,

@@ -309,7 +309,6 @@ elseif ARGS.recv then
                 )
                 local ok, err = apply(G, kind, tonumber(time), {
                     aid     = aid,
-                    cid     = cid,
                     parents = parents(cid),
                     sign    = key,
                     n       = t.n,
@@ -326,7 +325,6 @@ elseif ARGS.recv then
                 local aid = COMMIT_ACTION(cid)
                 local ok, err = apply(G, 'post', tonumber(time), {
                     aid     = aid,
-                    cid     = cid,
                     parents = parents(cid),
                     sign    = key,
                     beg     = beg or (key == nil),
