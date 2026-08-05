@@ -555,47 +555,102 @@ updating — the bulk of the mechanical work.
 
 ## 10. Steps
 
-1. `db.lua`: build the action file, `git hash-object` for the ID,
-   load/cache the DB, build the commit <-> ID index from tree
-   diffs (§5) — this replaces `trailer()` and must run before
-   replay
-2. `apply`: `T.hash` -> `T.parents`; key on `T.id`; peak folded
-   over `backs`; duplicate-ID check as a net
-3. Layout (§8): `.freechains/{likes,revokes}/` -> `actions/`,
-   `.freechains/state/` -> `state/`, `genesis.lua` and `random`
-   to the root, `tmp/` into `.git/`; delete `.gitignore` and all
-   three `.gitkeep`s; skel ships no `actions/` at all; update
-   every path in chains.lua and common.lua
-4. `post.lua` / `like.lua`: payload blob anchored under a temp
-   ref then renamed to `refs/payloads/<id>`, build file, derive
-   ID, apply, write file + state, one signed commit; drop the
-   `reset --hard` rollbacks and the filename-collision checks;
-   pubkey from the `.pub` file; `post` loses `--why`
-5. `sync.lua` `commit()`: merged mode check, the parent-count
-   classification, and the four validations — ID vs blob hash,
-   `backs` vs git ancestry, `sign` vs signature, `time` vs
-   `%at` — plus the state comparison
-6. `sync.lua`: `refs/payloads/*` in both refspecs; post-fetch
-   deletion of revoked payload refs; drop the trailing state
-   commit after merge (sync.lua:567-580) and the content-conflict
-   path (sync.lua:506-515)
-7. `chains.lua`: explicit `refs/payloads/*` (and `refs/begs/*`)
-   refspec on `--clone` (chains.lua:159) — without it a cloned
-   chain loses every payload at the first prune
-8. `get.lua` / `list.lua` / `reps.lua`: read the DB, delete
-   `commit_file()`, `backs()`, `trailer()`, the `--is-ancestor`
-   membership check, and the `why` trailer-stripping gsub
-   (get.lua:54)
-9. `destroy.lua`: `beg~2` -> `beg~1`, `trailer()` -> DB, print
-   IDs, and drop `refs/payloads/<id>` for every destroyed action
-   (§9)
-10. `revoke`: delete `refs/payloads/<id>` once `is_revoked`, and
-    `gc` policy
-11. Tests: hashes -> IDs throughout; `tst/cli-destroy.lua` (401
-    lines) and `tst/cli-revoke.lua` are the newest and least
-    settled
+Fine-grained ladder (replaces the original coarse list); tests
+green after each step. Progress is tracked here.
 
-Steps 1-2 are self-contained and can land alone.
+- substrate, no dependencies, any order:
+    - S1: pin `GIT_*_DATE` from `CMD.now` unconditionally
+        - DONE (freechains.lua); test: `tst/bug-now-skew.lua`
+    - S2: `sign` from `.pub` file BEFORE commit (not `ssh.pubkey`)
+        - DONE: `ssh.pub.key` + post.lua + like.lua
+        - bad key now fails EARLY, same error message
+    - S3: `apply` takes `T.parents`, not `T.hash`
+        - DONE: `PEAKS(T.parents)`; 4 call sites pass
+          `parents(hash)`; `T.hash` stays as state key until S8
+    - S4: explicit `refs/begs/*` refspec on `--clone` (latent bug)
+        - DONE: fetch after clone in chains.lua
+        - test: repl-local-begs, manual fetch removed
+    - S5: `tmp/` -> `.git/`; delete `.gitignore`
+        - DONE: `.git/allowed_signers`; skel loses `tmp/`,
+          `.gitignore`, `.gitkeep`; tests repointed
+    - S6b: FULL merge: authors/posts/order/now ->
+      `.freechains/state.lua` (one file, one table, in prefix)
+        - DONE: READ/WRITE, PEAK, mode check, all loads, skel,
+          `.gitattributes`, test literals; state.lua generated
+          at init (pioneers + now)
+        - PEAK reads whole file per call: accepted (small
+          chains); dies at par.7 (peak folds over `backs` in DB)
+- coupled cluster, strict order, each still green:
+    - S8: mint ID (`hash-object` of action file); key
+      `posts`/`order` by ID; print IDs
+        - S8.1 DONE: `ACTION`/`BACKS`/`COMMIT_ACTION`
+          (common.lua); post/like write
+          `.freechains/actions/<id>.lua` in the action commit;
+          get.lua excludes it
+            - flat, unsharded (empty-dir vs `diff -r`);
+              shard at S6a
+        - S8.2a DONE: `G.posts` keyed by action ID
+            - `apply` takes `T.id`; `T.post` is an ID
+        - S8.3 DONE: `G.order` holds action IDs
+            - id -> commit only at git boundaries: `ORD` map,
+              `ACTION_COMMIT` fallback (hardfork window,
+              `visited`, `O_snd`)
+            - one-pass index deferred to S11
+        - S8.2b DONE: CLI speaks IDs, suite green
+            - post/like print ids; `refs/begs/beg-<id>`;
+              like/get/reps/destroy take ids; list/dag print
+              ids; dag `backs` from action files; get metadata
+              from action file (`id` field)
+            - post action gains `blob` (content = identity;
+              fixes same-author/same-second collision)
+            - tests: captures ARE ids; `CID(dir,id)` where git
+              is poked directly; dag annotation sorted
+        - S8.2c DONE: vote metadata dies; skel dies
+            - like commit = its action file only; replay
+              reads vote data from the action file
+            - chains add generates `.gitattributes` +
+              `random`; `cp -r skel` gone; skel deleted
+            - tests: crafted votes forge action files
+            - CAVEAT: send-path tests run the INSTALLED
+              freechains (pre-receive hook uses PATH) --
+              `make install` after recv-path changes
+        - S8.4: receive validation (id/sign/time/backs, par.6)
+            - duplicate-ID net: identical action via two
+              commits must dedup deliberately (skip
+              re-apply), not overwrite/double-append
+    - S9: join commits: apply-before-commit, drop rollbacks,
+      `beg~2` -> `beg~1`, destroy fixes (needs S8)
+        - the forged-state fix (260803-forged-state.md) lands
+          HERE: uniform per-commit state compare
+        - done when rewritten `bug-forged-state` passes
+    - S10: payload eviction: `refs/payloads/<id>`, refspecs,
+      clone, `--why` off post (needs S8)
+        - `blob` identity half landed early at S8.2b
+    - S11: delete trailers; structural classification;
+      one-pass commit<->ID index (subsumes `ORD`,
+      `COMMIT_ACTION`, `ACTION_COMMIT`) (needs S9)
+        - better id<->commit story for tests too: today
+          `AID`/`CID` (tests) duplicate the src pair with
+          divergent defaults (`--all`, dir param); want ONE
+          parameterized solution both sides use
+    - S12: shrink `posts` entries to `{maturity, reps, revoke}`
+      (needs S8)
+    - S13: revoke deletes payload ref; `gc` policy (needs S10)
+    - S14: naming pass: `aid` (action ID, not `id`), `cid`
+      (commit ID, not `hash`) in vars, CLI args, docs
+        - matches tests.lua `AID`/`CID`; after cluster settles
+    - S6a: drop `.freechains/`: `actions/`, `state.lua`,
+      `genesis.lua`, `random` to root; shard `actions/ab/`
+      (needs S10)
+        - BLOCKED before S10: user posts live at root; the
+          prefix separates them (par.8 relies on "no user
+          files left")
+- branches:
+    - `main`: fixes + design-neutral cleanups (S1, S4, S5)
+    - `260803-redesign`: substrate + cluster (S2, S3, S6b, S8+)
+    - criterion: useful even without the redesign -> `main`
+- progress: substrate done; S8.1/S8.2a/S8.2b/S8.2c/S8.3 done;
+  next S8.4 (receive validation)
 
 ## 11. Open questions
 
