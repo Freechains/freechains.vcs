@@ -53,6 +53,11 @@ do
         backs  = BACKS { "HEAD" },
         sign   = pub,
         time   = CMD.now,
+        -- content is part of the identity: without it, same
+        -- author + time + backs would collide (dedup, par.4)
+        blob   = exec {
+            cmd = "git -C " .. REPO .. " hash-object " .. file,
+        },
     }
     local s1, s2 = "", ""
     if ARGS.sign then
@@ -103,11 +108,11 @@ end
 
 if ARGS.beg then
     exec {
-        cmd = "git -C " .. REPO .. " update-ref refs/begs/beg-" .. hash .. " HEAD",
+        cmd = "git -C " .. REPO .. " update-ref refs/begs/beg-" .. id .. " HEAD",
     }
     exec {
         cmd = "git -C " .. REPO .. " reset --hard HEAD~2",
     }
 end
 
-print(hash)
+print(id)

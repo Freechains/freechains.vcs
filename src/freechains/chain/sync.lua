@@ -176,9 +176,10 @@ elseif ARGS.recv then
             end
 
             local low = math.max(1, #our-C.fork.posts+1)
+            -- order holds action IDs; timestamps live in commits
             local cs = {}
             for i=low, #our do
-                cs[i] = assert(ACTION_COMMIT(our[i]), "bug found")
+                cs[i] = assert(CID(our[i]), "bug found")
             end
             local hs = table.concat(cs, " ", low, #our)
 
@@ -224,7 +225,7 @@ elseif ARGS.recv then
 
         local ORD = {}
         local function ORD_COMMIT (id)
-            return ORD[id] or ACTION_COMMIT(id)
+            return ORD[id] or CID(id)
         end
         local function commit (G, hash, beg)
             local key, err = ssh.verify(REPO, hash)
@@ -301,7 +302,7 @@ elseif ARGS.recv then
                 if (not ok) or type(t)~='table' then
                     error("invalid " .. kind .. " : invalid lua metadata", 0)
                 end
-                local tid = t.post and (COMMIT_ACTION(t.post) or t.post)
+                local tid = t.post
                 -- only a positive `like` accepts a beg
                 local to_beg = (
                     kind == 'like' and t.n > 0
@@ -390,7 +391,7 @@ elseif ARGS.recv then
             -- without these the inner meet underflows to a root
             local visited = {}
             for _, i in ipairs(G_rem.order) do
-                visited[assert(ACTION_COMMIT(i), "bug found")] = true
+                visited[assert(CID(i), "bug found")] = true
             end
             local function ancestor (a, b)
                 return exec { err=false, stderr=false,
@@ -558,7 +559,7 @@ elseif ARGS.recv then
             }
             for hash in out:gmatch("%x+") do
                 if trailer(hash) ~= 'state' then
-                    print("voided : " .. hash)
+                    print("voided : " .. assert(COMMIT_ACTION(hash)))
                 end
             end
         end

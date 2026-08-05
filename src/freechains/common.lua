@@ -71,6 +71,25 @@ function serial (t)
     return "return " .. val(t) .. "\n"
 end
 
+-- the commit that ADDED action `id`, or nil.
+-- Scope is `dir`'s HEAD history by default, so nil MEANS "not in
+-- my history" (the membership check destroy/get rely on).
+-- `all` widens to every ref (tests inspect begs off-main).
+-- `dir` defaults to the running command's REPO.
+-- --cc: a like-on-beg is a MERGE, and without it `log -- path`
+-- never attributes the add to a merge commit.
+-- TODO : change : S11 : src callers move to the commit<->ID
+-- index; tests keep this
+function CID (id, all, dir)
+    local out = exec { err=false, stderr=false,
+        cmd = "git -C " .. (dir or REPO) ..
+            " log " .. (all and "--all " or "") ..
+            "-1 --cc --name-only --format=%H --diff-filter=A" ..
+            " -- .freechains/actions/" .. id .. ".lua",
+    }
+    return out and out:match("^(%x+)") or nil
+end
+
 function URL (raw, alias)
     if not raw:find("#") then
         local sep = (raw:sub(-1) == "/") and "" or "/"

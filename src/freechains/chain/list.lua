@@ -8,23 +8,22 @@ if ARGS.begs then
     end
 
 elseif ARGS.order then
-    -- consensus order; revoked posts wrapped in ~hash~
+    -- consensus order; revoked posts wrapped in ~id~
     for _, id in ipairs(G.order) do
         local p = G.posts[id]
-        local hash = ACTION_COMMIT(id) or id
         if p and is_revoked(p) then
-            print("~" .. hash .. "~")
+            print("~" .. id .. "~")
         else
-            print(hash)
+            print(id)
         end
     end
 
 elseif ARGS.revokes then
-    -- revoked posts only, in consensus order (bare hashes)
+    -- revoked posts only, in consensus order (bare ids)
     for _, id in ipairs(G.order) do
         local p = G.posts[id]
         if p and is_revoked(p) then
-            print(ACTION_COMMIT(id) or id)
+            print(id)
         end
     end
 
@@ -37,19 +36,16 @@ elseif ARGS.dag then
     local SPAN  = 4
 
     -- G.order is already post/like only
-    local V = {}
-    for _, id in ipairs(G.order) do
-        V[#V+1] = ACTION_COMMIT(id) or id
-    end
+    local V = G.order
     if #V == 0 then
         return
     end
 
-    -- ups[h]: the nodes drawn above h, via backs() (walks state/merge
-    -- commits transparently)
+    -- ups[id]: the nodes drawn above id, straight from the action
+    -- file's own `backs` -- no git walk at all
     local ups = {}
-    for _, h in ipairs(V) do
-        ups[h] = backs(h)
+    for _, id in ipairs(V) do
+        ups[id] = dofile(FC .. "actions/" .. id .. ".lua").backs
     end
 
     -- group V into rows: consecutive nodes sharing one single up.
@@ -170,7 +166,7 @@ elseif ARGS.dag then
         for _, h in ipairs(cur) do
             -- revoked posts render as ~short~
             local lbl = h:sub(1, SHORT)
-            local p = POST(h)
+            local p = G.posts[h]
             if p and is_revoked(p) then
                 lbl = "~" .. lbl .. "~"
             end

@@ -357,6 +357,9 @@ do
     assert(lines[8] == LIKE, "expected LIKE at 8")
 
     TEST "B dag: LIKE has immediate parent (|) + distant parents annotated"
+    -- action-file `backs` are sorted, so the annotation is too
+    local a1, a2 = fst, snd
+    if a2 < a1 then a1, a2 = a2, a1 end
     assert(
         exec {
             cmd = EXE_B .. " chain '#test' list dag",
@@ -376,7 +379,7 @@ do
                     |
                  %s
            (^%s ^%s)
-]], P1:sub(1,7), P2:sub(1,7), L1:sub(1,7), P3:sub(1,7), fst:sub(1,7), snd:sub(1,7), BEG:sub(1,7), LIKE:sub(1,7), fst:sub(1,7), snd:sub(1,7))
+]], P1:sub(1,7), P2:sub(1,7), L1:sub(1,7), P3:sub(1,7), fst:sub(1,7), snd:sub(1,7), BEG:sub(1,7), LIKE:sub(1,7), a1:sub(1,7), a2:sub(1,7))
     )
 end
 

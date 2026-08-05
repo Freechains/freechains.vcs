@@ -79,6 +79,9 @@ function AID (dir, hash)
     return out and out:match("actions/(%x+)%.lua") or nil
 end
 
+-- id -> commit: `CID` comes from freechains/common.lua; tests
+-- pass `all=true` (begs live off-main) and the repo dir
+
 -- the `Freechains` trailer of a commit: post, like, revoke or state
 function TRAILER (dir, hash)
     return (exec {

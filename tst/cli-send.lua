@@ -286,8 +286,8 @@ do
 
         TEST "A's posts.lua has both entries"
         local posts = dofile(REPO_A .. ".freechains/state.lua").posts
-        assert(posts[AID(REPO_A, A)], "A's should be in posts.lua")
-        assert(posts[AID(REPO_A, B)], "B's should be in posts.lua")
+        assert(posts[A], "A's should be in posts.lua")
+        assert(posts[B], "B's should be in posts.lua")
     end
     --                             ┌── [post] P5 ── [state] S5
     -- A:  genesis ── ... ── S4 ── [merge] (amend w/ state)

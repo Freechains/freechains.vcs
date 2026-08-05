@@ -52,7 +52,7 @@ do
     do
         TEST "beg-not-in-main-posts"
         local posts = dofile(DIR1 .. ".freechains/state.lua").posts
-        assert(not posts[AID(DIR1, BEG)], "beg should not be in main posts.lua")
+        assert(not posts[BEG], "beg should not be in main posts.lua")
     end
 
     -- only a positive `like` accepts a beg; other votes cannot act on
@@ -148,10 +148,10 @@ do
     do
         TEST "beg-different-parents"
         local parent1 = exec {
-            cmd = "git -C " .. DIR3 .. " log -1 --format=%P " .. BEG1,
+            cmd = "git -C " .. DIR3 .. " log -1 --format=%P " .. CID(BEG1, true, DIR3),
         }
         local parent2 = exec {
-            cmd = "git -C " .. DIR3 .. " log -1 --format=%P " .. BEG2,
+            cmd = "git -C " .. DIR3 .. " log -1 --format=%P " .. CID(BEG2, true, DIR3),
         }
         assert(parent1 == HEAD1, "beg1 parent: " .. parent1 .. " expected: " .. HEAD1)
         assert(parent2 == HEAD2, "beg2 parent: " .. parent2 .. " expected: " .. HEAD2)
@@ -206,11 +206,11 @@ do
         local beg = exec {
             cmd = "git -C " .. DIR4 .. " rev-parse " .. like .. "^2~1",
         }
-        assert(beg == BEG, "beg: " .. beg .. " expected: " .. BEG)
+        assert(beg == CID(BEG, true, DIR4), "beg: " .. beg .. " expected: " .. BEG)
 
         TEST "like-beg-ancestor-is-beg"
         local _, code = exec { err=false,
-            cmd = "git -C " .. DIR4 .. " merge-base --is-ancestor " .. BEG .. " HEAD",
+            cmd = "git -C " .. DIR4 .. " merge-base --is-ancestor " .. CID(BEG, true, DIR4) .. " HEAD",
         }
         assert(code == 0, "beg should be ancestor of HEAD")
     end
@@ -218,7 +218,7 @@ do
     do
         TEST "like-beg-unblocks"
         local posts = dofile(DIR4 .. ".freechains/state.lua").posts
-        local bid = AID(DIR4, BEG)
+        local bid = BEG
         assert(posts[bid], "post entry not found: " .. BEG)
         assert(posts[bid].maturity ~= "beg", "maturity should no longer be beg")
     end
@@ -326,7 +326,7 @@ do
 
     do
         TEST "merge-preserves-beg-sig"
-        local key = ssh.verify(DIR5, BEG)
+        local key = ssh.verify(DIR5, CID(BEG, true, DIR5))
         assert(key, "beg commit signature should be intact")
     end
 
@@ -365,7 +365,7 @@ do
     do
         TEST "merge-has-two-parents"
         local parents = exec {
-            cmd = "git -C " .. DIR6 .. " log -1 --format=%P " .. LIKE,
+            cmd = "git -C " .. DIR6 .. " log -1 --format=%P " .. CID(LIKE, true, DIR6),
         }
         local count = 0
         for _ in parents:gmatch("%x+") do count = count + 1 end
@@ -375,7 +375,7 @@ do
     do
         TEST "merge-ancestor-includes-beg"
         local _, code = exec { err=false,
-            cmd = "git -C " .. DIR6 .. " merge-base --is-ancestor " .. BEG .. " " .. LIKE,
+            cmd = "git -C " .. DIR6 .. " merge-base --is-ancestor " .. CID(BEG, true, DIR6) .. " " .. CID(LIKE, true, DIR6),
         }
         assert(code == 0, "beg should be ancestor of like")
     end

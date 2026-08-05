@@ -146,8 +146,17 @@
                   `ACTION_COMMIT(id)` (both TODO-marked)
                 - `G.order` stays commits until S8.3
                   (replay merges/rev-list/hardfork need them)
-            - S8.2b: CLI surface + tests speak IDs;
-              vote metadata dies; skel dies
+            - S8.2b DONE: CLI speaks IDs, suite green
+                - post/like print ids; `refs/begs/beg-<id>`;
+                  like/get/reps/destroy take ids; list/dag
+                  print ids; dag `backs` from action files;
+                  get metadata from action file (`id` field)
+                - post action gains `blob` (content = identity;
+                  fixes same-author/same-second collision)
+                - tests: captures ARE ids; `CID(dir,id)` maps
+                  where git is poked directly; dag annotation
+                  sorted
+            - S8.2c: vote metadata dies; skel dies
         - S8.3 DONE: `G.order` holds action IDs
             - replay maps at the edges: `ORD` (id->commit for
               just-applied), `ACTION_COMMIT` fallback
@@ -156,6 +165,9 @@
             - one-pass index deferred: per-hash lookups suffice
               until `trailer` dies (S11)
         - S8.4: receive validation (id/sign/time/backs)
+            - duplicate-ID net: identical action via two
+              commits must dedup deliberately (skip
+              re-apply), not overwrite/double-append
         - S8.5: tests hashes -> IDs (with S8.2)
     - S9: join commits: apply-before-commit, drop rollbacks,
       `beg~2` -> `beg~1`, destroy fixes (needs S8)

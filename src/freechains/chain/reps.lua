@@ -16,13 +16,13 @@ if ARGS.target == "post" then
     if not ARGS.key then
         ERROR("chain reps : post requires a hash")
     end
-    local e = POST(ARGS.key)
+    local e = G.posts[ARGS.key]
     local v = (e and e.reps) or 0
     print(ext(v))
 elseif ARGS.target == "posts" then
     local T = {}
     for k, v in pairs(G.posts) do
-        T[#T+1] = { k=ACTION_COMMIT(k) or k, v=v.reps }
+        T[#T+1] = { k=k, v=v.reps }
     end
     table.sort(T, function (a, b) return a.v > b.v end)
     for _, e in ipairs(T) do
@@ -34,7 +34,7 @@ elseif ARGS.target == "revoke" then
     if not ARGS.key then
         ERROR("chain reps : revoke requires a hash")
     end
-    local e = POST(ARGS.key)
+    local e = G.posts[ARGS.key]
     local r = (e and e.revoke) or { author=0, others=0 }
     print(ext(r.author) .. " " .. ext(r.others))
 elseif ARGS.target == "revokes" then
@@ -42,7 +42,7 @@ elseif ARGS.target == "revokes" then
     local T = {}
     for k, v in pairs(G.posts) do
         local r = v.revoke or { author=0, others=0 }
-        T[#T+1] = { k=ACTION_COMMIT(k) or k, a=r.author, o=r.others }
+        T[#T+1] = { k=k, a=r.author, o=r.others }
     end
     table.sort(T, function (x, y)
         if x.o ~= y.o then

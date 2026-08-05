@@ -64,11 +64,11 @@ do
     do
         TEST "like-payload-file"
         local file = exec {
-            cmd = "git -C " .. DIR .. " diff-tree --no-commit-id --name-only -r " .. LIKE .. " -- .freechains/likes/",
+            cmd = "git -C " .. DIR .. " diff-tree --no-commit-id --name-only -r " .. CID(LIKE, true, DIR) .. " -- .freechains/likes/",
         }
         assert(file ~= "", "like payload file missing")
         local out = exec {
-            cmd = "git -C " .. DIR .. " show " .. LIKE .. ":" .. file,
+            cmd = "git -C " .. DIR .. " show " .. CID(LIKE, true, DIR) .. ":" .. file,
         }
         local tbl = load(out)()
         assert(tbl.post == POST, "post: " .. tostring(tbl.post))
@@ -88,7 +88,7 @@ do
     do
         TEST "like-ancestor-is-post"
         local _, code = exec { err=false,
-            cmd = "git -C " .. DIR .. " merge-base --is-ancestor " .. POST .. " HEAD",
+            cmd = "git -C " .. DIR .. " merge-base --is-ancestor " .. CID(POST, true, DIR) .. " HEAD",
         }
         assert(code == 0, "post should be ancestor of HEAD")
     end

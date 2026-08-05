@@ -138,7 +138,7 @@ do
         local parent = exec {
             cmd = "git -C " .. DIR1 .. " rev-parse HEAD^1",
         }
-        assert(parent == p1, "HEAD^1 should be p1: " .. parent)
+        assert(parent == CID(p1, true, DIR1), "HEAD^1 should be p1: " .. parent)
     end
 
     -- state files revert with the tree: the destroyed posts never happened

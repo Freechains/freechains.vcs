@@ -64,14 +64,7 @@ function COMMIT_ACTION (hash)
     return out:match("actions/(%x+)%.lua")
 end
 
-function ACTION_COMMIT (id)
-    local out = exec { err=false, stderr=false,
-        cmd = "git -C " .. REPO ..
-            " log -1 --cc --name-only --format=%H --diff-filter=A" ..
-            " -- .freechains/actions/" .. id .. ".lua",
-    }
-    return out and out:match("^(%x+)") or nil
-end
+-- (id -> commit lives in freechains/common.lua as `CID`)
 
 function POST (hash)
     return G.posts[COMMIT_ACTION(hash) or hash]

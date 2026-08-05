@@ -1,16 +1,13 @@
 require "freechains.chain.common"
 local ssh = require "freechains.chain.ssh"
 
-do
-    local _, code = exec { stderr=false, err=false,
-        cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. ARGS.hash .. " HEAD",
-    }
-    if code ~= 0 then
-        ERROR("chain get : unknown post")
-    end
+-- ARGS.hash is an action ID; git ops below need its commit
+local commit = CID(ARGS.hash)
+if not commit then
+    ERROR("chain get : unknown post")
 end
 
-local kind = trailer(ARGS.hash)
+local kind = trailer(commit)
 
 -- the single tracked file in this commit (post payload or like Lua).
 -- --cc reduces to the file(s) present in this commit but absent
@@ -20,7 +17,7 @@ local kind = trailer(ARGS.hash)
 local function commit_file ()
     local files = exec {
         cmd = "git -C " .. REPO ..
-        " diff-tree --cc --no-commit-id -r --name-only " .. ARGS.hash ..
+        " diff-tree --cc --no-commit-id -r --name-only " .. commit ..
         " -- . ':(exclude).freechains/actions'",
     }
     assert(not files:match("\n%S"), "bug found")
@@ -32,14 +29,14 @@ if ARGS.payload then
         ERROR("chain get : unknown post")
     end
 
-    local p = POST(ARGS.hash)
+    local p = G.posts[ARGS.hash]
     if p and is_revoked(p) then
         ERROR("chain get : revoked post")
     end
 
     local file = commit_file()
     local out = exec { trim=false,
-        cmd = "git -C " .. REPO .. " show " .. ARGS.hash .. ":" .. file,
+        cmd = "git -C " .. REPO .. " show " .. commit .. ":" .. file,
     }
     io.write(out)
 
@@ -50,34 +47,30 @@ elseif ARGS.metadata then
 
     local file = commit_file()
 
-    local time = tonumber((exec {
-        cmd = "git -C " .. REPO .. " log -1 --format=%at " .. ARGS.hash,
-    }))
+    -- the action file self-describes: time, sign, backs, vote data
+    local A = dofile(FC .. "actions/" .. ARGS.hash .. ".lua")
 
     -- why: full commit message minus Freechains: trailer
     local why = exec {
-        cmd = "git -C " .. REPO .. " log -1 --format=%B " .. ARGS.hash,
+        cmd = "git -C " .. REPO .. " log -1 --format=%B " .. commit,
     } :gsub("\n*Freechains:%s*%S+%s*$", "")
-
-    -- post/like ancestors via `backs` in common.lua (walks through
-    -- state/merge commits)
-    local backs = backs(ARGS.hash)
 
     -- value keyed by kind: post -> filename; like/revoke -> vote table
     local val = file
     if kind=='like' or kind=='revoke' then
-        local f = exec {
-            cmd = "git -C " .. REPO .. " show " .. ARGS.hash .. ":" .. file,
+        val = {
+            post   = A.post,
+            author = A.author,
+            n      = A.n,
         }
-        val = assert(assert(load(f))())
     end
 
     local T = {
-        hash  = ARGS.hash,
-        time  = time,
-        sign  = ssh.pub.commit(REPO, ARGS.hash) or false,
+        id    = ARGS.hash,
+        time  = A.time,
+        sign  = A.sign or false,
         why   = why,
-        backs = backs,
+        backs = A.backs,
         --
         [kind] = val,
     }

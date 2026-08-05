@@ -313,7 +313,7 @@ do
         ROOT_C .. "/chains/#cons-d/.freechains/state.lua"
     ).posts
     assert (
-        posts[AID(ROOT_C .. "/chains/#cons-d/", P_c)] == nil,
+        posts[P_c] == nil,
         "P_c should be voided by nested cascade"
     )
 

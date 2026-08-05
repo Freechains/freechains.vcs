@@ -32,8 +32,9 @@ local to_beg = (
 -- beg: validate parent, merge into main, load beg entry
 local ref = "refs/begs/beg-" .. ARGS.id
 if to_beg then
+    -- the beg branch is post + state: ref~2 is the base it grew from
     local up = exec {
-        cmd = "git -C " .. REPO .. " log -1 --format=%P " .. ARGS.id,
+        cmd = "git -C " .. REPO .. " rev-parse " .. ref .. "~2",
     }
     local _,ok = exec { err=false,
         cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. up .. " HEAD",
@@ -46,7 +47,7 @@ if to_beg then
     exec {
         cmd = "git -C " .. REPO .. " merge -X ours --no-ff --no-commit --no-edit " .. ref,
     }
-    local bid = assert(COMMIT_ACTION(ARGS.id), "bug found : no action id")
+    local bid = ARGS.id
     G.order[#G.order+1] = bid
     local src = exec {
         cmd = "git -C " .. REPO .. " show " .. ref .. ":.freechains/state.lua",
@@ -66,9 +67,6 @@ if not pub then
 end
 
 local tid = ARGS.id
-if ARGS.target == 'post' then
-    tid = COMMIT_ACTION(ARGS.id) or ARGS.id
-end
 
 local hash, aid
 do
@@ -145,4 +143,4 @@ if to_beg then
     }
 end
 
-print(hash)
+print(aid)

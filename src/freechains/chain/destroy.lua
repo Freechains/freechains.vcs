@@ -6,17 +6,11 @@ require "freechains.chain.common"
 -- Chain state lives in-tree (`.freechains/state.lua`), so the reset
 -- restores it along with the commits: nothing else to rebuild.
 
-local hash = exec { stderr=false, err=false,
-    cmd = "git -C " .. REPO .. " rev-parse --verify " .. ARGS.hash .. "^{commit}",
-}
-if not hash then
-    ERROR("chain destroy : invalid hash")
-end
 
 -- a beg is a post outside `main`, alone on its own ref: nothing follows
 -- it, so destroying it is just deleting the ref
 do
-    local ref = "refs/begs/beg-" .. hash
+    local ref = "refs/begs/beg-" .. id
     local ok = exec { stderr=false, err=false,
         cmd = "git -C " .. REPO .. " show-ref --verify --quiet " .. ref,
     }
@@ -24,22 +18,16 @@ do
         exec {
             cmd = "git -C " .. REPO .. " update-ref -d " .. ref,
         }
-        print(hash)
+        print(id)
         os.exit(0)
     end
 end
 
--- `hash` must be part of our history, and must be a post/like/revoke:
--- the `state` commits in between are plumbing, never printed by `list`
-do
-    local ok = exec { stderr=false, err=false,
-        cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. hash .. " HEAD",
-    }
-    local kind = trailer(hash)
-    local is_post = (kind=='post' or kind=='like' or kind=='revoke')
-    if (not ok) or (not is_post) then
-        ERROR("chain destroy : invalid hash")
-    end
+-- the id must name an action in our history: its commit anchors the
+-- reset below
+local hash = CID(id)
+if not hash then
+    ERROR("chain destroy : invalid hash")
 end
 
 -- a post is always committed on top of a valid tip: a `state` commit, a
@@ -57,7 +45,7 @@ do
     }
     for h in out:gmatch("%x+") do
         if trailer(h) ~= 'state' then
-            print(h)
+            print(assert(COMMIT_ACTION(h)))
         end
     end
 end
