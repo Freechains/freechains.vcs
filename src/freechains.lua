@@ -174,10 +174,10 @@ do
     cmd.chain.get._ = cmd.chain._:command("get")
     do
         cmd.chain.get.metadata._ = cmd.chain.get._:command("metadata")
-        cmd.chain.get.metadata._:argument("hash")
+        cmd.chain.get.metadata._:argument("id"):target("aid")
 
         cmd.chain.get.payload._ = cmd.chain.get._:command("payload")
-        cmd.chain.get.payload._:argument("hash")
+        cmd.chain.get.payload._:argument("id"):target("aid")
     end
 
     -- cmd.chain.like / dislike : target is a post OR an author
@@ -185,7 +185,7 @@ do
         cmd.chain[c]._ = cmd.chain._:command(c)
         cmd.chain[c]._:argument("number"):convert(positive)
         cmd.chain[c]._:argument("target")
-        cmd.chain[c]._:argument("id")
+        cmd.chain[c]._:argument("id"):target("aid")
         cmd.chain[c]._:option("--sign"):args("?"):count(1):action(sign)
         cmd.chain[c]._:option("--why")
     end
@@ -194,14 +194,14 @@ do
     for _,c in ipairs { "revoke", "unrevoke" } do
         cmd.chain[c]._ = cmd.chain._:command(c)
         cmd.chain[c]._:argument("number"):convert(positive)
-        cmd.chain[c]._:argument("id")
+        cmd.chain[c]._:argument("id"):target("aid")
         cmd.chain[c]._:option("--sign"):args("?"):count(1):action(sign)
         cmd.chain[c]._:option("--why")
     end
 
     -- cmd.chain.destroy : local only (no sign, no network)
     cmd.chain.destroy._ = cmd.chain._:command("destroy")
-    cmd.chain.destroy._:argument("hash")
+    cmd.chain.destroy._:argument("id"):target("aid")
 
     -- cmd.chain.sync
     cmd.chain.sync._ = cmd.chain._:command("sync")

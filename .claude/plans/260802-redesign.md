@@ -643,9 +643,16 @@ green after each step. Progress is tracked here.
     - S12: shrink `posts` entries to `{maturity, reps, revoke}`
       (needs S8)
     - S13: revoke deletes payload ref; `gc` policy (needs S10)
-    - S14: naming pass: `aid` (action ID, not `id`), `cid`
-      (commit ID, not `hash`) in vars, CLI args, docs
-        - matches tests.lua `AID`/`CID`; after cluster settles
+    - S14 DONE (pulled before S9): naming pass `aid`/`cid`
+        - CLI args: `hash`/`id` -> `aid` (get/like/destroy);
+          get output field `id` -> `aid`; destroy error
+          "invalid aid"
+        - vars: `id`->`aid`, `hash`/`commit`->`cid` across
+          chain/*.lua; apply takes `T.aid`/`T.cid`; git
+          helpers' params -> `cid`
+        - kept: `bid`/`tid` (aid-flavored locals), `ARGS.key`
+          (reps: aid OR pubkey), tests' `AID`/`CID` helpers
+        - design docs (.md) keep conceptual "id" prose
     - S6a: drop `.freechains/`: `actions/`, `state.lua`,
       `genesis.lua`, `random` to root; shard `actions/ab/`
       (needs S10)
@@ -656,7 +663,7 @@ green after each step. Progress is tracked here.
     - `main`: fixes + design-neutral cleanups (S1, S4, S5)
     - `260803-redesign`: substrate + cluster (S2, S3, S6b, S8+)
     - criterion: useful even without the redesign -> `main`
-- progress: substrate + S8 done (S8.4 folded into S11);
+- progress: substrate + S8 + S14 done (S8.4 folded into S11);
   next: S9 (join), the centerpiece
 
 ## 11. Open questions

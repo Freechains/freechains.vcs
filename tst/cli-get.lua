@@ -104,7 +104,7 @@ do
         }
         assert(code == 0, "exit code: " .. tostring(code))
         local T = load(out, "metadata", "t", {})()
-        assert(T.id == POST, "hash: " .. tostring(T.id))
+        assert(T.aid == POST, "hash: " .. tostring(T.aid))
         assert(math.type(T.time) == "integer", "time: " .. tostring(T.time))
         assert(type(T.post) == "string", "post type: " .. type(T.post))
         assert(T.post:match("^post%-%d+%-%d+%.txt$"), "post filename: " .. tostring(T.post))
@@ -122,7 +122,7 @@ do
         }
         assert(code == 0, "exit code: " .. tostring(code))
         local T = load(out, "metadata", "t", {})()
-        assert(T.id == LIKE, "hash: " .. tostring(T.id))
+        assert(T.aid == LIKE, "hash: " .. tostring(T.aid))
         assert(type(T.like) == "table", "like type: " .. type(T.like))
         assert(T.like.post == POST, "like.post: " .. tostring(T.like.post))
         assert(T.like.author == nil, "like.author should be unset")
@@ -138,7 +138,7 @@ do
         }
         assert(code == 0, "exit code: " .. tostring(code))
         local T = load(out, "metadata", "t", {})()
-        assert(T.id == REVOKE, "hash: " .. tostring(T.id))
+        assert(T.aid == REVOKE, "hash: " .. tostring(T.aid))
         assert(T.like == nil, "revoke has no like key: " .. tostring(T.like))
         assert(type(T.revoke) == "table", "revoke type: " .. type(T.revoke))
         assert(T.revoke.post == RPOST, "revoke.post: " .. tostring(T.revoke.post))

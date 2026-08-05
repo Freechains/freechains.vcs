@@ -3,27 +3,27 @@ if ARGS.begs then
     local out = exec {
         cmd = "git -C " .. REPO .. " for-each-ref refs/begs/ --format='%(refname)'",
     }
-    for h in out:gmatch("refs/begs/beg%-(%x+)") do
-        print(h)
+    for aid in out:gmatch("refs/begs/beg%-(%x+)") do
+        print(aid)
     end
 
 elseif ARGS.order then
-    -- consensus order; revoked posts wrapped in ~id~
-    for _, id in ipairs(G.order) do
-        local p = G.posts[id]
+    -- consensus order; revoked posts wrapped in ~aid~
+    for _, aid in ipairs(G.order) do
+        local p = G.posts[aid]
         if p and is_revoked(p) then
-            print("~" .. id .. "~")
+            print("~" .. aid .. "~")
         else
-            print(id)
+            print(aid)
         end
     end
 
 elseif ARGS.revokes then
     -- revoked posts only, in consensus order (bare ids)
-    for _, id in ipairs(G.order) do
-        local p = G.posts[id]
+    for _, aid in ipairs(G.order) do
+        local p = G.posts[aid]
         if p and is_revoked(p) then
-            print(id)
+            print(aid)
         end
     end
 
@@ -41,15 +41,15 @@ elseif ARGS.dag then
         return
     end
 
-    -- ups[id]: the nodes drawn above id, straight from the action
+    -- ups[aid]: the nodes drawn above aid, straight from the action
     -- file's own `backs` -- no git walk at all
     local ups = {}
-    for _, id in ipairs(V) do
-        ups[id] = dofile(FC .. "actions/" .. id .. ".lua").backs
+    for _, aid in ipairs(V) do
+        ups[aid] = dofile(FC .. "actions/" .. aid .. ".lua").backs
     end
 
     -- group V into rows: consecutive nodes sharing one single up.
-    -- groupOf[h] = row index, used to distinguish immediate vs distant ups.
+    -- groupOf[aid] = row index, used to distinguish immediate vs distant ups.
     local groups, groupOf = {}, {}
     do
         -- siblings share one single up -- and two CONTENT ROOTS (a
@@ -74,8 +74,8 @@ elseif ARGS.dag then
         end
         groups[#groups+1] = cur
         for g, grp in ipairs(groups) do
-            for _, h in ipairs(grp) do
-                groupOf[h] = g
+            for _, aid in ipairs(grp) do
+                groupOf[aid] = g
             end
         end
     end
@@ -99,8 +99,8 @@ elseif ARGS.dag then
             uc = (n > 0) and (sum // n) or MID
         end
         local n = #group
-        for i, h in ipairs(group) do
-            col[h] = uc + (2*(i-1) - (n-1)) * SPAN
+        for i, aid in ipairs(group) do
+            col[aid] = uc + (2*(i-1) - (n-1)) * SPAN
         end
     end
 
@@ -143,14 +143,14 @@ elseif ARGS.dag then
                 local u1 = ups[cur[1]][1]
                 if u1 and col[u1] then
                     local uc = col[u1]
-                    for _, h in ipairs(cur) do
-                        set_at(t, (uc + col[h]) // 2, glyph(uc, col[h]))
+                    for _, aid in ipairs(cur) do
+                        set_at(t, (uc + col[aid]) // 2, glyph(uc, col[aid]))
                     end
                 end
             else
                 -- linear / join: a glyph per IMMEDIATE up
-                local h, hc = cur[1], col[cur[1]]
-                for _, u in ipairs(ups[h]) do
+                local aid, hc = cur[1], col[cur[1]]
+                for _, u in ipairs(ups[aid]) do
                     if groupOf[u] == g - 1 then
                         set_at(t, (col[u] + hc) // 2, glyph(col[u], hc))
                     end
@@ -163,27 +163,27 @@ elseif ARGS.dag then
             end
         end
         local t = blank()
-        for _, h in ipairs(cur) do
+        for _, aid in ipairs(cur) do
             -- revoked posts render as ~short~
-            local lbl = h:sub(1, SHORT)
-            local p = G.posts[h]
+            local lbl = aid:sub(1, SHORT)
+            local p = G.posts[aid]
             if p and is_revoked(p) then
                 lbl = "~" .. lbl .. "~"
             end
-            set_at(t, col[h], lbl)
+            set_at(t, col[aid], lbl)
         end
         emit(t)
         if #cur == 1 then
-            local h = cur[1]
+            local aid = cur[1]
             local distant = {}
-            for _, u in ipairs(ups[h]) do
+            for _, u in ipairs(ups[aid]) do
                 if groupOf[u] ~= g - 1 then
                     distant[#distant+1] = "^" .. u:sub(1, SHORT)
                 end
             end
             if #distant > 0 then
                 local s = "(" .. table.concat(distant, " ") .. ")"
-                local lead = math.max(0, col[h] - (#s // 2))
+                local lead = math.max(0, col[aid] - (#s // 2))
                 print(string.rep(" ", lead) .. s)
             end
         end

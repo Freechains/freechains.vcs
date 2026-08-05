@@ -2,19 +2,19 @@ C    = require "freechains.constants"
 REPO = ARGS.root .. "/chains/" .. ARGS.alias .. "/"
 FC   = REPO .. ".freechains/"
 
-function trailer (hash)
+function trailer (cid)
     local out = exec {
         cmd = "git -C " .. REPO ..
-            " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash,
+            " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. cid,
     }
     return out:match "(%S+)"
 end
 
--- the git parents of `hash`: one step back in the DAG, no time
+-- the git parents of `cid`: one step back in the DAG, no time
 -- involved. Returns an array (empty for a root).
-function parents (hash)
+function parents (cid)
     local out = exec {
-        cmd = "git -C " .. REPO .. " rev-list --parents -1 " .. hash,
+        cmd = "git -C " .. REPO .. " rev-list --parents -1 " .. cid,
         -- $ git rev-list --parents -1 a1b2c3...
         -- a1b2c3... d4e5f6... 7890ab...  # merge: 2 parents
     }
@@ -26,10 +26,10 @@ function parents (hash)
     return ps
 end
 
--- post/like/revoke ancestors of `hash`: `parents` recursed through
+-- post/like/revoke ancestors of `cid`: `parents` recursed through
 -- `state` (and `merge`) commits, which are plumbing the protocol does
 -- not expose. Returns an array of hashes (dedup'd).
-function backs (hash)
+function backs (cid)
     local ret = {}
     local see = {}
     local function rec (h)
@@ -47,15 +47,15 @@ function backs (hash)
             end
         end
     end
-    rec(hash)
+    rec(cid)
     return ret
 end
 
 -- Flat, unsharded: sharding waits for the S6a layout move.
-function COMMIT_ACTION (hash)
+function COMMIT_ACTION (cid)
     local out = exec { err=false, stderr=false,
         cmd = "git -C " .. REPO ..
-            " diff-tree --cc --no-commit-id -r --name-only " .. hash ..
+            " diff-tree --cc --no-commit-id -r --name-only " .. cid ..
             " -- .freechains/actions/",
     }
     if not out then
@@ -152,8 +152,8 @@ function is_revoked (p)
     return ((r.author or 0) < 0) or ((r.others or 0) < 0)
 end
 
--- posts hashes in a stable order: (time, hash); consolidated posts
--- (time == nil) sort last, then lexicographically by hash. Makes the
+-- posts aids in a stable order: (time, aid); consolidated posts
+-- (time == nil) sort last, then lexicographically by aid. Makes the
 -- discount/consolidation scans deterministic across OS processes.
 local function ordered (posts)
     local hs = {}
@@ -175,9 +175,9 @@ end
 -- a commit's OWN author date, which says nothing about its ancestors:
 -- a post carries the state file of the commit BEFORE it, so its own
 -- stamp lives nowhere else.
-local function TIME (hash)
+local function TIME (cid)
     return assert(tonumber((exec {
-        cmd = "git -C " .. REPO .. " log -1 --format=%at " .. hash,
+        cmd = "git -C " .. REPO .. " log -1 --format=%at " .. cid,
     })))
 end
 
@@ -186,9 +186,9 @@ end
 -- sync.lua checks every stored value against its parents' before using
 -- it. Only `state` commits are current -- a post/like may just ADD
 -- files, so its tree still holds the previous state commit's value.
-function PEAK (hash)
+function PEAK (cid)
     local src = exec {
-        cmd = "git -C " .. REPO .. " show " .. hash .. ":.freechains/state.lua",
+        cmd = "git -C " .. REPO .. " show " .. cid .. ":.freechains/state.lua",
     }
     return READ(src).now
 end
@@ -228,8 +228,8 @@ function apply (G, kind, time, T)
         -- discount scan (maybe signed at same G.now)
         local sign = (mutate and T.sign) or nil
         if time>G.now or sign then
-            for _, hash in ipairs(ordered(G.posts)) do
-                local entry = G.posts[hash]
+            for _, aid in ipairs(ordered(G.posts)) do
+                local entry = G.posts[aid]
                 if entry.maturity == "00-12" then
                     local subs = {}
                     for h2, other in pairs(G.posts) do
@@ -266,8 +266,8 @@ function apply (G, kind, time, T)
 
         -- consolidation scan
         if time > G.now then
-            for _, hash in ipairs(ordered(G.posts)) do
-                local entry = G.posts[hash]
+            for _, aid in ipairs(ordered(G.posts)) do
+                local entry = G.posts[aid]
                 if entry.maturity == "12-24" then
                     if time >= entry.time+C.time.full then
                         if entry.author then

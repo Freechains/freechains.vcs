@@ -181,7 +181,7 @@ do
         }
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-destroy-1' destroy " .. head,
-            err = "ERROR : chain destroy : invalid hash",
+            err = "ERROR : chain destroy : invalid id",
         }
     end
 end
@@ -203,7 +203,7 @@ do
         TEST "unknown hash rejects"
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-destroy-2' destroy nohash",
-            err = "ERROR : chain destroy : invalid hash",
+            err = "ERROR : chain destroy : invalid id",
         }
     end
 
@@ -212,7 +212,7 @@ do
         TEST "genesis rejects"
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-destroy-2' destroy " .. gen,
-            err = "ERROR : chain destroy : invalid hash",
+            err = "ERROR : chain destroy : invalid id",
         }
     end
 
@@ -231,7 +231,7 @@ do
         }
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-destroy-2' destroy " .. ref,
-            err = "ERROR : chain destroy : invalid hash",
+            err = "ERROR : chain destroy : invalid id",
         }
     end
 

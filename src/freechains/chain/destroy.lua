@@ -1,16 +1,15 @@
 require "freechains.chain.common"
 
--- Escape hatch for a hard fork: destroy `hash` and everything after it, so
+-- Escape hatch for a hard fork: destroy `aid` and everything after it, so
 -- the settled remote branch can be received again.
 -- Local only: no signing, no network, no reps.
 -- Chain state lives in-tree (`.freechains/state.lua`), so the reset
 -- restores it along with the commits: nothing else to rebuild.
 
-
 -- a beg is a post outside `main`, alone on its own ref: nothing follows
 -- it, so destroying it is just deleting the ref
 do
-    local ref = "refs/begs/beg-" .. id
+    local ref = "refs/begs/beg-" .. ARGS.aid
     local ok = exec { stderr=false, err=false,
         cmd = "git -C " .. REPO .. " show-ref --verify --quiet " .. ref,
     }
@@ -18,25 +17,25 @@ do
         exec {
             cmd = "git -C " .. REPO .. " update-ref -d " .. ref,
         }
-        print(id)
+        print(ARGS.aid)
         os.exit(0)
     end
 end
 
--- the id must name an action in our history: its commit anchors the
+-- the aid must name an action in our history: its commit anchors the
 -- reset below
-local hash = CID(id)
-if not hash then
-    ERROR("chain destroy : invalid hash")
+local cid = CID(ARGS.aid)
+if not cid then
+    ERROR("chain destroy : invalid id")
 end
 
 -- a post is always committed on top of a valid tip: a `state` commit, a
 -- merge, or the genesis. So its parent is where we land, no search
 local tip = exec {
-    cmd = "git -C " .. REPO .. " rev-parse " .. hash .. "^1",
+    cmd = "git -C " .. REPO .. " rev-parse " .. cid .. "^1",
 }
 
--- report what is about to be destroyed: one hash per line, like `list`
+-- report what is about to be destroyed: one aid per line, like `list`
 do
     local out = exec {
         cmd = "git -C " .. REPO .. " " ..

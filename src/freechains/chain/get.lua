@@ -1,13 +1,13 @@
 require "freechains.chain.common"
 local ssh = require "freechains.chain.ssh"
 
--- ARGS.hash is an action ID; git ops below need its commit
-local commit = CID(ARGS.hash)
-if not commit then
+-- ARGS.aid is an action ID; git ops below need its commit
+local cid = CID(ARGS.aid)
+if not cid then
     ERROR("chain get : unknown post")
 end
 
-local kind = trailer(commit)
+local kind = trailer(cid)
 
 -- the single tracked file in this commit (post payload or like Lua).
 -- --cc reduces to the file(s) present in this commit but absent
@@ -17,7 +17,7 @@ local kind = trailer(commit)
 local function commit_file ()
     local files = exec {
         cmd = "git -C " .. REPO ..
-        " diff-tree --cc --no-commit-id -r --name-only " .. commit ..
+        " diff-tree --cc --no-commit-id -r --name-only " .. cid ..
         " -- . ':(exclude).freechains/actions'",
     }
     assert(not files:match("\n%S"), "bug found")
@@ -29,14 +29,14 @@ if ARGS.payload then
         ERROR("chain get : unknown post")
     end
 
-    local p = G.posts[ARGS.hash]
+    local p = G.posts[ARGS.aid]
     if p and is_revoked(p) then
         ERROR("chain get : revoked post")
     end
 
     local file = commit_file()
     local out = exec { trim=false,
-        cmd = "git -C " .. REPO .. " show " .. commit .. ":" .. file,
+        cmd = "git -C " .. REPO .. " show " .. cid .. ":" .. file,
     }
     io.write(out)
 
@@ -48,11 +48,11 @@ elseif ARGS.metadata then
     local file = commit_file()
 
     -- the action file self-describes: time, sign, backs, vote data
-    local A = dofile(FC .. "actions/" .. ARGS.hash .. ".lua")
+    local A = dofile(FC .. "actions/" .. ARGS.aid .. ".lua")
 
     -- why: full commit message minus Freechains: trailer
     local why = exec {
-        cmd = "git -C " .. REPO .. " log -1 --format=%B " .. commit,
+        cmd = "git -C " .. REPO .. " log -1 --format=%B " .. cid,
     } :gsub("\n*Freechains:%s*%S+%s*$", "")
 
     -- value keyed by kind: post -> filename; like/revoke -> vote table
@@ -66,7 +66,7 @@ elseif ARGS.metadata then
     end
 
     local T = {
-        id    = ARGS.hash,
+        aid   = ARGS.aid,
         time  = A.time,
         sign  = A.sign or false,
         why   = why,

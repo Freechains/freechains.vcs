@@ -10,7 +10,7 @@ if ARGS.sign and not pub then
 end
 
 -- commit post (content only, no state)
-local hash, id
+local cid, aid
 do
     local file
     if ARGS.inline then
@@ -48,7 +48,7 @@ do
     exec {
         cmd = "git -C " .. REPO .. " add " .. file,
     }
-    id = ACTION {
+    aid = ACTION {
         action = 'post',
         backs  = BACKS { "HEAD" },
         sign   = pub,
@@ -70,17 +70,17 @@ do
         .. "' --trailer 'Freechains: post'",
         err = "chain post : invalid sign key",
     }
-    hash = exec {
+    cid = exec {
         cmd = "git -C " .. REPO .. " rev-parse HEAD",
     }
 end
 
--- apply with real hash
+-- apply with real cid
 do
     local T = {
-        id      = id,
-        hash    = hash,
-        parents = parents(hash),
+        aid     = aid,
+        cid     = cid,
+        parents = parents(cid),
         sign    = pub,
         beg     = ARGS.beg,
     }
@@ -91,7 +91,7 @@ do
         }
         ERROR("chain post : " .. err)
     end
-    G.order[#G.order+1] = id
+    G.order[#G.order+1] = aid
 end
 
 -- commit state
@@ -108,11 +108,11 @@ end
 
 if ARGS.beg then
     exec {
-        cmd = "git -C " .. REPO .. " update-ref refs/begs/beg-" .. id .. " HEAD",
+        cmd = "git -C " .. REPO .. " update-ref refs/begs/beg-" .. aid .. " HEAD",
     }
     exec {
         cmd = "git -C " .. REPO .. " reset --hard HEAD~2",
     }
 end
 
-print(id)
+print(aid)

@@ -101,7 +101,7 @@ elseif ARGS.recv then
         -- Consensus: prefix reps from G decide winner
         --  - traverse com..tip, collect signed keys
         --  - sum G.authors[key].reps for each side
-        --  - higher sum wins, hash tiebreaker (smaller wins)
+        --  - higher sum wins, cid tiebreaker (smaller wins)
         --
         -- Two ancestors, two different questions:
         --   oct:  how much history must I RE-DERIVE
@@ -134,8 +134,8 @@ elseif ARGS.recv then
                 local out = exec {
                     cmd = "git -C " .. REPO .. " log --reverse --format=%H " .. com .. ".." .. tip
                 }
-                for hash in out:gmatch("%x+") do
-                    local key = ssh.pub.commit(REPO, hash)
+                for cid in out:gmatch("%x+") do
+                    local key = ssh.pub.commit(REPO, cid)
                     if key then
                         keys[key] = true
                     end
@@ -224,14 +224,15 @@ elseif ARGS.recv then
         local KINDS = { post=true, like=true, revoke=true, state=true }
 
         local ORD = {}
-        local function ORD_COMMIT (id)
-            return ORD[id] or CID(id)
+        local function ORD_COMMIT (aid)
+            return ORD[aid] or CID(aid)
         end
-        local function commit (G, hash, beg)
-            local key, err = ssh.verify(REPO, hash)
+
+        local function commit (G, cid, beg)
+            local key, err = ssh.verify(REPO, cid)
 
             local out = exec {
-                cmd = "git -C " .. REPO .. " log -1 --format='%at %(trailers:key=Freechains,valueonly)' " .. hash
+                cmd = "git -C " .. REPO .. " log -1 --format='%at %(trailers:key=Freechains,valueonly)' " .. cid
             }
             local time,kind = out:match("(%S+)%s+(%S+)")
             if not KINDS[kind] then
@@ -247,7 +248,7 @@ elseif ARGS.recv then
             -- --cc handles merges and non-merges uniformly
             local diff = exec {
                 cmd = "git -C " .. REPO ..
-                    " diff-tree --cc --no-commit-id -r --name-status " .. hash
+                    " diff-tree --cc --no-commit-id -r --name-status " .. cid
             }
             if kind == 'state' then
                 for status, path in diff:gmatch("(%a+)%s+(%S+)") do
@@ -283,13 +284,13 @@ elseif ARGS.recv then
                 end
 
                 -- vote data lives in the commit's own action file
-                local id = COMMIT_ACTION(hash)
-                if not id then
+                local aid = COMMIT_ACTION(cid)
+                if not aid then
                     error("invalid " .. kind .. " : missing metadata file", 0)
                 end
                 local src = exec {
-                    cmd = "git -C " .. REPO .. " show " .. hash ..
-                        ":.freechains/actions/" .. id .. ".lua"
+                    cmd = "git -C " .. REPO .. " show " .. cid ..
+                        ":.freechains/actions/" .. aid .. ".lua"
                 }
                 -- data only: no globals to attacker Lua (see READ)
                 local f = load(src, nil, "t", {})
@@ -307,9 +308,9 @@ elseif ARGS.recv then
                     and tid and (G.posts[tid] and G.posts[tid].maturity=="beg")
                 )
                 local ok, err = apply(G, kind, tonumber(time), {
-                    id      = id,
-                    hash    = hash,
-                    parents = parents(hash),
+                    aid     = aid,
+                    cid     = cid,
+                    parents = parents(cid),
                     sign    = key,
                     n       = t.n,
                     post    = tid,
@@ -319,27 +320,27 @@ elseif ARGS.recv then
                 if not ok then
                     error("invalid " .. kind .. " : " .. err, 0)
                 end
-                ORD[id] = hash
-                G.order[#G.order+1] = id
+                ORD[aid] = cid
+                G.order[#G.order+1] = aid
             elseif kind == 'post' then
-                local id = COMMIT_ACTION(hash)
+                local aid = COMMIT_ACTION(cid)
                 local ok, err = apply(G, 'post', tonumber(time), {
-                    id      = id,
-                    hash    = hash,
-                    parents = parents(hash),
+                    aid     = aid,
+                    cid     = cid,
+                    parents = parents(cid),
                     sign    = key,
                     beg     = beg or (key == nil),
                 })
                 if not ok then
                     error("invalid post : " .. err, 0)
                 end
-                ORD[id] = hash
-                G.order[#G.order+1] = id
+                ORD[aid] = cid
+                G.order[#G.order+1] = aid
             else
                 assert(kind == 'state')
                 -- need to check now, since it is derived, not trusted
-                local mx = PEAKS(parents(hash))
-                if PEAK(hash) ~= mx then
+                local mx = PEAKS(parents(cid))
+                if PEAK(cid) ~= mx then
                     error("invalid state : now", 0)
                 end
             end
@@ -503,12 +504,12 @@ elseif ARGS.recv then
             local ok  = true
             local err = nil
 
-            for _, hash in ipairs(O_snd) do
-                local kind = trailer(hash)
+            for _, cid in ipairs(O_snd) do
+                local kind = trailer(cid)
 
                 if kind~='state' then
                     ok = exec { stderr=false, err=false,
-                        cmd = "git -C " .. REPO .. " merge --no-commit " .. hash
+                        cmd = "git -C " .. REPO .. " merge --no-commit " .. cid
                     }
                     if not ok then
                         exec { stderr=false, err=false,
@@ -523,12 +524,12 @@ elseif ARGS.recv then
                     }
                 end
 
-                ok, err = pcall(commit, G_fst, hash, nil)
+                ok, err = pcall(commit, G_fst, cid, nil)
                 if not ok then
                     goto DONE
                 end
 
-                merge = hash
+                merge = cid
             end
 
             ::DONE::
@@ -553,9 +554,9 @@ elseif ARGS.recv then
                     "log --reverse --no-merges --format='%H' " ..
                     (from .. ".." .. loc)
             }
-            for hash in out:gmatch("%x+") do
-                if trailer(hash) ~= 'state' then
-                    print("voided : " .. assert(COMMIT_ACTION(hash)))
+            for cid in out:gmatch("%x+") do
+                if trailer(cid) ~= 'state' then
+                    print("voided : " .. assert(COMMIT_ACTION(cid)))
                 end
             end
         end

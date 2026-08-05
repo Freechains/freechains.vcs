@@ -6,7 +6,7 @@ if ARGS.revoke or ARGS.unrevoke then
     ARGS.target = "post"
 end
 
-ARGS.id = ARGS.id:match("^%s*(.-)%s*$")
+ARGS.aid = ARGS.aid:match("^%s*(.-)%s*$")
 
 -- num: dislike and revoke remove reps; like and unrevoke add reps
 local num = ARGS.number * C.reps.unit
@@ -15,7 +15,7 @@ if ARGS.dislike or ARGS.revoke then
 end
 
 if ARGS.target == "author" then
-    if #ARGS.id~=80 or (not ARGS.id:match("^ssh%-ed25519 %S+$")) then
+    if #ARGS.aid~=80 or (not ARGS.aid:match("^ssh%-ed25519 %S+$")) then
         ERROR("chain like : invalid author key")
     end
 end
@@ -25,12 +25,12 @@ end
 local to_beg = (
     ARGS.like and (ARGS.target == "post") and
         exec { err=false,
-            cmd = "git -C " .. REPO .. " rev-parse --verify refs/begs/beg-" .. ARGS.id,
+            cmd = "git -C " .. REPO .. " rev-parse --verify refs/begs/beg-" .. ARGS.aid,
         } and true
 )
 
 -- beg: validate parent, merge into main, load beg entry
-local ref = "refs/begs/beg-" .. ARGS.id
+local ref = "refs/begs/beg-" .. ARGS.aid
 if to_beg then
     -- the beg branch is post + state: ref~2 is the base it grew from
     local up = exec {
@@ -47,12 +47,11 @@ if to_beg then
     exec {
         cmd = "git -C " .. REPO .. " merge -X ours --no-ff --no-commit --no-edit " .. ref,
     }
-    local bid = ARGS.id
-    G.order[#G.order+1] = bid
+    G.order[#G.order+1] = ARGS.aid
     local src = exec {
         cmd = "git -C " .. REPO .. " show " .. ref .. ":.freechains/state.lua",
     }
-    G.posts[bid] = READ(src).posts[bid]
+    G.posts[ARGS.aid] = READ(src).posts[ARGS.aid]
 end
 
 -- commit the vote: its action file only, no state. The trailer
@@ -64,9 +63,7 @@ if not pub then
     ERROR("chain " .. kind .. " : invalid sign key")
 end
 
-local tid = ARGS.id
-
-local hash, aid
+local cid, aid
 do
     aid = ACTION {
         action = kind,
@@ -74,7 +71,8 @@ do
         sign   = pub,
         time   = CMD.now,
         n      = num,
-        [ARGS.target] = tid,
+        -- action ID for posts; pubkey as is for authors
+        [ARGS.target] = ARGS.aid,
     }
     local s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=ssh"
     local msg = ARGS.why or "(empty message)"
@@ -83,7 +81,7 @@ do
                   "' --trailer 'Freechains: " .. kind .. "'",
         err = "chain " .. kind .. " : invalid sign key",
     }
-    hash = exec {
+    cid = exec {
         cmd = "git -C " .. REPO .. " rev-parse HEAD",
     }
 end
@@ -91,10 +89,10 @@ end
 -- apply
 do
     local T = {
-        [ARGS.target] = tid,
-        id      = aid,
-        hash    = hash,
-        parents = parents(hash),
+        [ARGS.target] = ARGS.aid,
+        aid     = aid,
+        cid     = cid,
+        parents = parents(cid),
         sign    = pub,
         n       = num,
         beg     = to_beg,
