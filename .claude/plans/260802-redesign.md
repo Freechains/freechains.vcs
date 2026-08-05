@@ -614,10 +614,17 @@ green after each step. Progress is tracked here.
             - CAVEAT: send-path tests run the INSTALLED
               freechains (pre-receive hook uses PATH) --
               `make install` after recv-path changes
-        - S8.4: receive validation (id/sign/time/backs, par.6)
-            - duplicate-ID net: identical action via two
-              commits must dedup deliberately (skip
+        - S8.4 POSTPONED -> lands with S11: receive validation
+          (id/sign/time/backs, par.6)
+            - rationale: replay still trusts only commit-derived
+              facts (sig, %at, parents); file fields are
+              display/vote-content -- validation belongs at the
+              step that starts TRUSTING them (S11), where the
+              index also makes the backs compare cheap
+            - includes the duplicate-ID net: identical action
+              via two commits must dedup deliberately (skip
               re-apply), not overwrite/double-append
+            - and id integrity: filename == blob sha (ls-tree)
     - S9: join commits: apply-before-commit, drop rollbacks,
       `beg~2` -> `beg~1`, destroy fixes (needs S8)
         - the forged-state fix (260803-forged-state.md) lands
@@ -649,8 +656,8 @@ green after each step. Progress is tracked here.
     - `main`: fixes + design-neutral cleanups (S1, S4, S5)
     - `260803-redesign`: substrate + cluster (S2, S3, S6b, S8+)
     - criterion: useful even without the redesign -> `main`
-- progress: substrate done; S8.1/S8.2a/S8.2b/S8.2c/S8.3 done;
-  next S8.4 (receive validation)
+- progress: substrate + S8 done (S8.4 folded into S11);
+  next: S9 (join), the centerpiece
 
 ## 11. Open questions
 
