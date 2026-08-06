@@ -176,6 +176,7 @@ elseif ARGS.recv then
             end
 
             local low = math.max(1, #our-C.fork.posts+1)
+            -- TODO : remove : S11 : db[aid].time, no commits, no git
             -- order holds action IDs; timestamps live in commits
             local cs = {}
             for i=low, #our do
@@ -220,6 +221,7 @@ elseif ARGS.recv then
         end
 
         -- `merge` is deliberately absent: those commits are built on a
+        -- TODO : remove : S11b : one-pass commit<->ID index over the
         -- fetched range subsumes ORD + AID + CID
         -- aid -> commit for entries this replay applied; falls back to
         -- history for entries below the octopus (always reachable)
@@ -520,6 +522,7 @@ elseif ARGS.recv then
                     if keep[h] then
                         -- consume: a joined action tip appears both as
                         -- its order entry and as `snd` -- merge it once
+                        keep[h] = nil   -- TODO : redesign : review
                         filtered[#filtered+1] = h
                     end
                 end
