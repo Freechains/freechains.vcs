@@ -633,6 +633,9 @@ green after each step. Progress is tracked here.
         - S9.0 DONE: replay tolerance -- mode check accepts
           joined action commits (A|M on state.lua); PEAKS
           already shape-agnostic
+        - S9.0b DONE: cleanups -- exact-status closed-set
+          mode check (dispatch by A/AA/M/MM, refuse rest);
+          COMMIT_ACTION asserts internally
         - S9.1: post joins (+ beg one-commit, BACKS
           tip-inclusion, destroy ~1s, post-anatomy tests)
         - S9.2: votes join (like-on-beg merge carries
@@ -674,8 +677,8 @@ green after each step. Progress is tracked here.
     - `main`: fixes + design-neutral cleanups (S1, S4, S5)
     - `260803-redesign`: substrate + cluster (S2, S3, S6b, S8+)
     - criterion: useful even without the redesign -> `main`
-- progress: substrate + S8 + S14 done (S8.4 folded into S11);
-  next: S9 (join), the centerpiece
+- progress: substrate + S8 + S14 + S9.0/S9.0b done (S8.4
+  folded into S11); next: S9.1 (post joins), the centerpiece
 
 ## 11. Open questions
 
