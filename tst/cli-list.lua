@@ -339,7 +339,7 @@ do
     } == "")
 
     -- KEY2 begs (BEG lives on refs/begs/, off-main); KEY1's like merges it back:
-    --   git:  ... M ─────────────── LIKE ── S      (LIKE: a like-trailer merge)
+    --   git:  ... M ─────────────── LIKE ── S      (LIKE: a beg-merge like)
     --             \               /
     --              BEG ── Sbeg ──/
     --   dag:  ... fst│snd ── (M filtered) ── BEG ── LIKE

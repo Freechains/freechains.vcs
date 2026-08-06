@@ -220,10 +220,7 @@ elseif ARGS.recv then
         end
 
         -- `merge` is deliberately absent: those commits are built on a
-        -- detached head and discarded, so `main` never holds one
-        local KINDS = { post=true, like=true, revoke=true, state=true }
-
-        -- fetched range subsumes ORD + COMMIT_ACTION + ACTION_COMMIT
+        -- fetched range subsumes ORD + AID + CID
         -- aid -> commit for entries this replay applied; falls back to
         -- history for entries below the octopus (always reachable)
         local ORD = {}

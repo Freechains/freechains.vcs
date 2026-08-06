@@ -73,10 +73,12 @@ end
 -- id -> commit: `CID` comes from freechains/common.lua; tests
 -- pass `all=true` (begs live off-main) and the repo dir
 
--- the `Freechains` trailer of a commit: post, like, revoke or state
-function TRAILER (dir, hash)
+-- the aid a commit adds, or nil: the structural action test
+-- (mirrors AID in chain/common.lua, with an explicit dir)
+function AID_OF (dir, hash)
     return (exec {
         cmd = "git -C " .. dir ..
-            " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash,
-    }):match("%S+")
+            " diff-tree --cc --no-commit-id -r --name-only " .. hash ..
+            " -- .freechains/actions/",
+    }):match("actions/(%x+)%.lua")
 end

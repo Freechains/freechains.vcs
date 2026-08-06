@@ -20,7 +20,8 @@ if ARGS.target == "author" then
     end
 end
 
--- the trailer distinguishes a revoke-axis vote from a like/dislike
+-- the action file's `action` distinguishes a revoke-axis vote
+-- from a like/dislike
 local kind = (ARGS.revoke or ARGS.unrevoke) and "revoke" or "like"
 
 local pub = ssh.pub.key(ARGS.sign)
@@ -107,8 +108,7 @@ do
     local s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=ssh"
     local msg = ARGS.why or "(empty message)"
     exec { stderr=false,
-        cmd = CMD.git .. "git -C " .. REPO .. s1 .. " commit -S -m '" .. msg ..
-                  "' --trailer 'Freechains: " .. kind .. "'",
+        cmd = CMD.git .. "git -C " .. REPO .. s1 .. " commit -S -m '" .. msg .. "'",
         err = "chain " .. kind .. " : invalid sign key",
     }
 end

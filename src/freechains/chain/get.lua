@@ -7,7 +7,8 @@ if not cid then
     ERROR("chain get : unknown post")
 end
 
-local kind = trailer(cid)
+-- the action file self-describes; CID guarantees it is tracked
+local A = dofile(FC .. "actions/" .. ARGS.aid .. ".lua")
 
 -- the single tracked file in this commit (post payload or like Lua).
 -- --cc reduces to the file(s) present in this commit but absent
@@ -25,7 +26,7 @@ local function commit_file ()
 end
 
 if ARGS.payload then
-    if kind ~= "post" then
+    if A.action ~= "post" then
         ERROR("chain get : unknown post")
     end
 
@@ -41,24 +42,21 @@ if ARGS.payload then
     io.write(out)
 
 elseif ARGS.metadata then
-    if kind~='post' and kind~='like' and kind~='revoke' then
+    if A.action~='post' and A.action~='like' and A.action~='revoke' then
         ERROR("chain get : unknown post")
     end
 
     local file = commit_file()
 
-    -- the action file self-describes: time, sign, backs, vote data
-    local A = dofile(FC .. "actions/" .. ARGS.aid .. ".lua")
-
-    -- why: full commit message minus Freechains: trailer
+    -- why: the commit message (no trailers left in it)
     local why = exec {
         cmd = "git -C " .. REPO .. " log -1 --format=%B " .. cid,
-    } :gsub("\n*Freechains:%s*%S+%s*$", "")
+    } :gsub("%s+$", "")
 
     -- `val`/`T` only preserve the pre-redesign output shape
     -- value keyed by kind: post -> filename; like/revoke -> vote table
     local val = file
-    if kind=='like' or kind=='revoke' then
+    if A.action=='like' or A.action=='revoke' then
         val = {
             post   = A.post,
             author = A.author,
@@ -73,7 +71,7 @@ elseif ARGS.metadata then
         why   = why,
         backs = A.backs,
         --
-        [kind] = val,
+        [A.action] = val,
     }
     io.write(serial(T))
 end

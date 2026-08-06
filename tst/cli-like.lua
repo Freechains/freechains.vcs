@@ -18,13 +18,10 @@ do
     }
     assert(#POST == 40, "target hash: " .. POST)
 
-    print("==> freechains: post trailer")
+    print("==> freechains: post action file")
     do
-        TEST "post-has-trailer"
-        local out = exec {
-            cmd = "git -C " .. DIR .. " cat-file commit HEAD",
-        }
-        assert(out:match("Freechains: post"), "missing freechains: post trailer")
+        TEST "post-commit-carries-action-file"
+        assert(AID_OF(DIR, "HEAD") == POST, "action file missing in commit")
     end
 end
 
@@ -54,11 +51,8 @@ do
     end
 
     do
-        TEST "like-has-trailer"
-        local out = exec {
-            cmd = "git -C " .. DIR .. " cat-file commit HEAD",
-        }
-        assert(out:match("Freechains: like"), "missing freechains: like trailer")
+        TEST "like-commit-carries-action-file"
+        assert(AID_OF(DIR, "HEAD") == LIKE, "action file missing in commit")
     end
 
     do
@@ -111,11 +105,8 @@ do
     end
 
     do
-        TEST "dislike-payload"
-        local out = exec {
-            cmd = "git -C " .. DIR .. " cat-file commit HEAD",
-        }
-        assert(out:match("Freechains: like"), "missing freechains: like trailer")
+        TEST "dislike-commit-carries-action-file"
+        assert(AID_OF(DIR, "HEAD"), "action file missing in commit")
     end
 
     do

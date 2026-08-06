@@ -131,8 +131,7 @@ if ARGS.add then
             cmd = "git -C " .. tmp .. " add .freechains/ .gitattributes",
         }
         exec {
-            cmd = CMD.git .. "git -C " .. tmp .. " commit -m '(empty message)'"
-            .. " --trailer 'Freechains: state'",
+            cmd = CMD.git .. "git -C " .. tmp .. " commit -m '(empty message)'",
         }
 
         local hash = "#" .. exec {

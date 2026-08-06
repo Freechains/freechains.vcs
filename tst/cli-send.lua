@@ -144,7 +144,7 @@ do
         cmd = "mkdir -p " .. REPO_X .. ".freechains/actions/",
     }
     local f = io.open(REPO_X .. ".freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua", "w")
-    f:write('return { author="'..PUB1..'", n=1000 }\n')
+    f:write('return { action="like", author="'..PUB1..'", n=1000 }\n')
     f:close()
     exec {
         cmd = ENV .. " git -C " .. REPO_X .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh" .. " add .freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua",

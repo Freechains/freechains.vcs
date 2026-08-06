@@ -43,10 +43,9 @@ do
             "log --reverse --no-merges --format='%H' " ..
             (tip .. "..HEAD"),
     }
+    -- --no-merges: every remaining commit is an action
     for h in out:gmatch("%x+") do
-        if trailer(h) ~= 'state' then
-            print(COMMIT_ACTION(h))
-        end
+        print(assert(AID(h)))
     end
 end
 

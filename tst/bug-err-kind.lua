@@ -1,26 +1,13 @@
 #!/usr/bin/env lua5.4
 
--- A commit whose `Freechains:` trailer git cannot parse leaves `kind`
--- nil in `commit` (sync.lua), and every branch below then uses it
--- blindly. The receiver dies with a raw Lua error instead of the
--- project's `ERROR : <command> : <detail>` format.
+-- Trailers are gone (S11a): the tree classifies. A commit that adds a
+-- payload but NO action file cannot be an action, and with one parent
+-- it cannot be a merge either -- refused by shape, with the project's
+-- `ERROR : <command> : <detail>` format, never a raw Lua traceback.
 --
--- Two reachable crash sites, one root cause:
---
---   sync.lua  assert(kind == 'state')          <- this test
---             error("invalid "..kind.." : ...") <- also needs a forged sign
---
--- The forgery is a legitimate git commit with the trailer written as the
--- SUBJECT line instead of its own paragraph. Freechains itself writes
--- `(empty message)` as the subject and the trailer after a blank line;
--- with the trailer as the subject, `%(trailers:key=Freechains)` returns
--- nothing at all:
---
---   real   : "(empty message)\n\nFreechains: post\n"   -> kind = "post"
---   forged : "Freechains: post\n"                      -> kind = nil
---
--- The sync is refused either way, so this is not a hole -- but the
--- message must name the problem instead of leaking a traceback.
+-- The forged commit here claims to be a post via its MESSAGE alone
+-- ("Freechains: post" as the subject); classification never reads the
+-- message, so the claim is inert and the shape decides.
 
 require "tests"
 
@@ -40,7 +27,7 @@ exec {
 }
 
 do
-    print("==> Test: unparseable commit kind is refused cleanly")
+    print("==> Test: action-less commit is refused by shape")
 
     -- A: G -- seed[K1] -- like[K2]
     TEST "A creates chain + seeds seed.txt"
@@ -66,7 +53,7 @@ do
     }
 
     -- A: ... -- p -- FORGED    (trailer as the subject line)
-    TEST "A hand-forges a commit whose trailer git cannot parse"
+    TEST "A hand-forges a payload-only commit (message claims post)"
     exec {
         cmd = "echo junk > " .. REPO_A .. "junk.txt",
     }
@@ -78,7 +65,7 @@ do
             " git -C " .. REPO_A .. " commit -q -m 'Freechains: post' --no-gpg-sign",
     }
 
-    TEST "git really does not see a trailer there"
+    TEST "the message-only claim is inert"
     do
         local out = exec {
             cmd = "git -C " .. REPO_A ..
@@ -87,12 +74,11 @@ do
         assert(out == "", "expected no trailer, got: " .. out)
     end
 
-    -- only additions, so the mode check passes and `kind` reaches the
-    -- branches that use it
+    -- payload-only, 1 parent: not an action, not a merge
     TEST "X recvs A: must name the problem, not leak a traceback"
     FAIL {
         cmd = EXE_X .. " --now=1200 chain '#ek' sync recv " .. REPO_A,
-        err = "ERROR : chain sync : invalid commit : invalid kind",
+        err = "ERROR : chain sync : invalid commit : expects one action file",
     }
 
     TEST "X is untouched (2 entries: seed + like)"

@@ -2,14 +2,6 @@ C    = require "freechains.constants"
 REPO = ARGS.root .. "/chains/" .. ARGS.alias .. "/"
 FC   = REPO .. ".freechains/"
 
-function trailer (cid)
-    local out = exec {
-        cmd = "git -C " .. REPO ..
-            " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. cid,
-    }
-    return out:match "(%S+)"
-end
-
 -- the git parents of `cid`: one step back in the DAG, no time
 -- involved. Returns an array (empty for a root).
 function parents (cid)
@@ -26,24 +18,23 @@ function parents (cid)
     return ps
 end
 
--- post/like/revoke ancestors of `cid`: `parents` recursed through
--- `state` (and `merge`) commits, which are plumbing the protocol does
--- not expose. Returns an array of hashes (dedup'd).
+-- action ancestors of `cid`: `parents` recursed through merges,
+-- which are plumbing the protocol does not expose. Returns an
+-- array of hashes (dedup'd).
 function backs (cid)
     local ret = {}
     local see = {}
     local function rec (h)
         for _, p in ipairs(parents(h)) do
-            local k = trailer(p)
-            if k=='post' or k=='like' or k=='revoke' then
+            if AID(p) then
                 if not see[p] then
                     see[p] = true
                     ret[#ret+1] = p
                 end
-            elseif k=='state' or k=='merge' then
-                rec(p)
+            elseif #parents(p) ~= 1 then
+                rec(p)      -- merge (>=2 parents) or genesis (0: stops)
             else
-                error("bug found : invalid trailer")
+                error("bug found : action-less 1-parent commit")
             end
         end
     end
@@ -51,17 +42,19 @@ function backs (cid)
     return ret
 end
 
--- the action ID a commit ADDED (.freechains/actions/<id>.lua).
--- Callers only ever pass action commits, whose file the mode
--- check guarantees: not finding one is a bug, asserted here.
+-- the aid a commit ADDED (.freechains/actions/<aid>.lua), or nil:
+-- THE structural action test. No trailers -- the tree classifies
+-- (par.5): action = one action file; merge = none, >=2 parents;
+-- genesis = none, 0 parents; invalid = none, 1 parent.
 -- Flat, unsharded: sharding waits for the S6a layout move.
-function COMMIT_ACTION (cid)
+-- TODO : remove : S11b : commit<->ID index replaces this lookup
+function AID (cid)
     local out = exec {
         cmd = "git -C " .. REPO ..
             " diff-tree --cc --no-commit-id -r --name-only " .. cid ..
             " -- .freechains/actions/",
     }
-    return assert(out:match("actions/(%x+)%.lua"))
+    return out:match("actions/(%x+)%.lua")
 end
 
 -- (id -> commit lives in freechains/common.lua as `CID`)
@@ -72,12 +65,12 @@ end
 function BACKS (tips)
     local T = {}
     for _, tip in ipairs(tips) do
-        local k = trailer(tip)
-        if k=='post' or k=='like' or k=='revoke' then
-            T[#T+1] = COMMIT_ACTION(tip)
+        local aid = AID(tip)
+        if aid then
+            T[#T+1] = aid
         else
             for _, h in ipairs(backs(tip)) do
-                T[#T+1] = COMMIT_ACTION(h)
+                T[#T+1] = assert(AID(h))
             end
         end
     end
@@ -232,12 +225,11 @@ end
 
 -- the `now` an honest commit must record. A joined action commit
 -- (S9) writes max(state before, own stamp), where "state before"
--- is its first parent's tree (a merge keeps 'ours'). A state or
--- merge commit folds its parents (PEAKS), as before. Writer and
--- verifier share the formula.
+-- is its first parent's tree (a merge keeps 'ours'). A merge
+-- folds its parents (PEAKS), as before. Writer and verifier
+-- share the formula.
 function NOW (cid)
-    local k = trailer(cid)
-    if k=='post' or k=='like' or k=='revoke' then
+    if AID(cid) then
         local ps = parents(cid)
         return math.max(TIME(cid), PEAK(ps[1]))
     end

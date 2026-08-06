@@ -132,7 +132,7 @@ do
         local head = exec {
             cmd = "git -C " .. DIR1 .. " rev-parse HEAD",
         }
-        assert(TRAILER(DIR1, head) == 'post', "HEAD is not a post commit")
+        assert(AID_OF(DIR1, head) == p1, "HEAD is not p1's commit")
         assert(head == CID(p1, true, DIR1), "HEAD should be p1: " .. head)
     end
 

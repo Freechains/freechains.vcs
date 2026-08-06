@@ -346,12 +346,12 @@ do
         cmd = "git -C " .. REPO_B .. " rev-parse HEAD",
     }
 
-    -- S9.3: the 1-parent pure state shape itself is refused,
-    -- before any state compare
+    -- S9.3/S11a: the 1-parent action-less shape itself is
+    -- refused, before any state compare
     TEST "B recvs from A fails: pure state commit refused"
     FAIL {
         cmd = EXE_B .. " --now=10000 chain '#test' sync recv " .. REPO_A,
-        err = "ERROR : chain sync : invalid state : not a merge",
+        err = "ERROR : chain sync : invalid commit : expects one action file",
     }
 
     TEST "B's HEAD unchanged"
@@ -401,7 +401,7 @@ do
     local err = FAIL {
         cmd = EXE_B .. " --now=11000 chain '#test' sync recv " .. REPO_A,
     }
-    assert(err and err:match("invalid post : mode violation"), "should fail with create-mode violation: " .. tostring(err))
+    assert(err and err:match("invalid commit : mode violation"), "should fail with create-mode violation: " .. tostring(err))
 
     TEST "B's HEAD unchanged"
     local after = exec {
@@ -444,7 +444,7 @@ do
     local err = FAIL {
         cmd = EXE_B .. " --now=12000 chain '#test' sync recv " .. REPO_A,
     }
-    assert(err and err:match("invalid state"), "should fail with forbidden path: " .. tostring(err))
+    assert(err and err:match("invalid commit"), "should fail with forbidden path: " .. tostring(err))
 
     TEST "B's HEAD unchanged"
     local after = exec {

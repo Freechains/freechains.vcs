@@ -666,9 +666,14 @@ green after each step. Progress is tracked here.
     - S10: payload eviction: `refs/payloads/<id>`, refspecs,
       clone, `--why` off post (needs S8)
         - `blob` identity half landed early at S8.2b
-    - S11: delete trailers; structural classification;
-      one-pass commit<->ID index (subsumes `ORD`,
-      `COMMIT_ACTION`, `ACTION_COMMIT`) (needs S9)
+    - S11a: delete trailers; structural classification
+      (pulled BEFORE S9.4: commit() already pays the
+      diff-tree; kind = action file's `action`; merge =
+      2p no action; MM state.lua = state merge vs
+      plumbing; 1p no action = invalid) (needs S9.3)
+    - S11b: one-pass commit<->ID index (subsumes `ORD`,
+      `COMMIT_ACTION`, `ACTION_COMMIT`) -- optimization,
+      batches S11a's per-commit diffs (needs S11a)
         - better id<->commit story for tests too: today
           `AID`/`CID` (tests) duplicate the src pair with
           divergent defaults (`--all`, dir param); want ONE
@@ -697,7 +702,8 @@ green after each step. Progress is tracked here.
     - `260803-redesign`: substrate + cluster (S2, S3, S6b, S8+)
     - criterion: useful even without the redesign -> `main`
 - progress: substrate + S8 + S14 + S9.0-S9.3 done (S8.4
-  folded into S11); next: S9.4 (per-commit state compare)
+  folded into S11b); order: S11a -> S9.4 -> S10 -> S11b;
+  next: S11a (trailers die)
 
 ## 11. Open questions
 

@@ -45,12 +45,12 @@ do
         }
         assert(committer == "-", "committer: " .. committer)
 
-        TEST "state trailer"
+        TEST "no trailer"
         local trailer = exec {
             cmd = "git -C " .. DIR .. " log -1 --format='%(trailers:key=Freechains,valueonly)' HEAD",
         }
         trailer = trailer:match("(%S+)") or ""
-        assert(trailer == "state", "trailer: " .. trailer)
+        assert(trailer == "", "trailer: " .. trailer)
 
         TEST "no parent"
         local parent = exec {

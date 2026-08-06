@@ -192,7 +192,7 @@ do
         cmd = "mkdir -p " .. REPO_X .. ".freechains/actions/",
     }
     local f = io.open(REPO_X .. ".freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua", "w")
-    f:write('return { post="'..P1..'", n=1 }\n')
+    f:write('return { action="like", post="'..P1..'", n=1 }\n')
     f:close()
     local now = 7000
     local date = "GIT_AUTHOR_DATE=$(date -u -d @" .. now .. " --iso-8601=seconds) "

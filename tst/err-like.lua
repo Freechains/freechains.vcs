@@ -48,7 +48,7 @@ do
         cmd = "mkdir -p " .. REPO_A .. ".freechains/actions/",
     }
     local f = io.open(REPO_A .. ".freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua", "w")
-    f:write('return { post="'..POST..'", n=1000 }\n')
+    f:write('return { action="like", post="'..POST..'", n=1000 }\n')
     f:close()
     exec {
         cmd = "git -C " .. REPO_A .. " add .freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua",
@@ -98,7 +98,7 @@ do
     TEST "B rejects like without payload on sync"
     FAIL {
         cmd = EXE_B .. " chain '#err-payload' sync recv " .. REPO_A2,
-        err = "ERROR : chain sync : invalid like : expects one action file",
+        err = "ERROR : chain sync : invalid commit : expects one action file",
     }
 end
 
@@ -142,7 +142,7 @@ do
     TEST "B rejects like with bad lua on sync"
     FAIL {
         cmd = EXE_B .. " chain '#err-lua' sync recv " .. REPO_A3,
-        err = "ERROR : chain sync : invalid like : invalid lua metadata",
+        err = "ERROR : chain sync : invalid commit : invalid lua metadata",
     }
 end
 
@@ -186,7 +186,7 @@ do
     TEST "B rejects like with bad lua on sync"
     FAIL {
         cmd = EXE_B .. " chain '#err-table' sync recv " .. REPO_A4,
-        err = "ERROR : chain sync : invalid like : invalid lua metadata",
+        err = "ERROR : chain sync : invalid commit : invalid lua metadata",
     }
 end
 
@@ -215,7 +215,7 @@ do
         cmd = "mkdir -p " .. REPO_A5 .. ".freechains/actions/",
     }
     local f = io.open(REPO_A5 .. ".freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua", "w")
-    f:write('return { xxx="'..post..'", n=1000 }\n')
+    f:write('return { action="like", xxx="'..post..'", n=1000 }\n')
     f:close()
     exec {
         cmd = ENV .. " git -C " .. REPO_A5 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " add .freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua",
@@ -259,7 +259,7 @@ do
         cmd = "mkdir -p " .. REPO_A6 .. ".freechains/actions/",
     }
     local f = io.open(REPO_A6 .. ".freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua", "w")
-    f:write('return { post="0000000000000000000000000000000000000000", n=1000 }\n')
+    f:write('return { action="like", post="0000000000000000000000000000000000000000", n=1000 }\n')
     f:close()
     exec {
         cmd = ENV .. " git -C " .. REPO_A6 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " add .freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua",
@@ -303,7 +303,7 @@ do
         cmd = "mkdir -p " .. REPO_A7 .. ".freechains/actions/",
     }
     local f = io.open(REPO_A7 .. ".freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua", "w")
-    f:write('return { post="'..post..'", n=1000 }\n')
+    f:write('return { action="like", post="'..post..'", n=1000 }\n')
     f:close()
     exec {
         cmd = ENV .. " git -C " .. REPO_A7 .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh" .. " add .freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua",
@@ -347,7 +347,7 @@ do
         cmd = "mkdir -p " .. REPO_A8 .. ".freechains/actions/",
     }
     local f = io.open(REPO_A8 .. ".freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua", "w")
-    f:write('return { post="'..post..'", n=1000 }\n')
+    f:write('return { action="like", post="'..post..'", n=1000 }\n')
     f:close()
     exec {
         cmd = ENV .. " git -C " .. REPO_A8 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " add .freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua",
@@ -391,7 +391,7 @@ do
         cmd = "mkdir -p " .. REPO_A9 .. ".freechains/actions/",
     }
     local f = io.open(REPO_A9 .. ".freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua", "w")
-    f:write('return { post="'..post..'", n=0.5 }\n')
+    f:write('return { action="like", post="'..post..'", n=0.5 }\n')
     f:close()
     exec {
         cmd = ENV .. " git -C " .. REPO_A9 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " add .freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua",
@@ -435,7 +435,7 @@ do
         cmd = "mkdir -p " .. REPO_A10 .. ".freechains/actions/",
     }
     local f = io.open(REPO_A10 .. ".freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua", "w")
-    f:write('return { post="'..post..'", n=0 }\n')
+    f:write('return { action="like", post="'..post..'", n=0 }\n')
     f:close()
     exec {
         cmd = ENV .. " git -C " .. REPO_A10 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " add .freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua",
