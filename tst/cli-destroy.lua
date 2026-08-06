@@ -4,10 +4,9 @@
 -- escape from a hard fork: abandon the diverging branch, receive the
 -- settled one, repost on top of it.
 --
--- A post is ONE joined commit carrying payload + action + state; a like
--- is still two (action + `state`, until S9.2). An action is always
--- committed on top of a valid tip, so `destroy` lands on the PARENT of
--- its commit, and only a post/like/revoke may be named.
+-- Every action is ONE joined commit carrying its files + state. It is
+-- always committed on top of a valid tip, so `destroy` lands on the
+-- PARENT of its commit, and only a post/like/revoke may be named.
 --
 -- 1. Drop posts
 --

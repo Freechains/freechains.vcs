@@ -201,7 +201,7 @@ do
 
         TEST "like-beg-structure: BEG-LIKE"
         local like = exec {
-            cmd = "git -C " .. DIR4 .. " rev-parse HEAD~1",
+            cmd = "git -C " .. DIR4 .. " rev-parse HEAD",
         }
         local beg = exec {
             cmd = "git -C " .. DIR4 .. " rev-parse " .. like .. "^2",
@@ -310,7 +310,7 @@ do
     }
 
     local MERGE = exec {
-        cmd = "git -C " .. DIR5 .. " rev-parse HEAD~1",
+        cmd = "git -C " .. DIR5 .. " rev-parse HEAD",
     }
 
     do

@@ -517,6 +517,8 @@ elseif ARGS.recv then
                 local filtered = {}
                 for _, h in ipairs(O_snd) do
                     if keep[h] then
+                        -- consume: a joined action tip appears both as
+                        -- its order entry and as `snd` -- merge it once
                         filtered[#filtered+1] = h
                     end
                 end

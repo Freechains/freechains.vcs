@@ -20,6 +20,14 @@ if ARGS.target == "author" then
     end
 end
 
+-- the trailer distinguishes a revoke-axis vote from a like/dislike
+local kind = (ARGS.revoke or ARGS.unrevoke) and "revoke" or "like"
+
+local pub = ssh.pub.key(ARGS.sign)
+if not pub then
+    ERROR("chain " .. kind .. " : invalid sign key")
+end
+
 -- detect if a positive `like` targets a beg on refs/begs/
 -- (only `like` accepts begs; dislike/revoke/unrevoke do not)
 local to_beg = (
@@ -29,7 +37,7 @@ local to_beg = (
         } and true
 )
 
--- beg: validate parent, merge into main, load beg entry
+-- beg: validate parent, load beg entry (the merge waits for `apply`)
 local ref = "refs/begs/beg-" .. ARGS.aid
 if to_beg then
     -- the beg branch is one joined commit: ref~1 is its base
@@ -44,9 +52,6 @@ if to_beg then
         --exec("git -C " .. REPO .. " update-ref -d " .. ref)
         --ERROR("chain like : invalid target : beg post does not exist")
     end
-    exec {
-        cmd = "git -C " .. REPO .. " merge -X ours --no-ff --no-commit --no-edit " .. ref,
-    }
     G.order[#G.order+1] = ARGS.aid
     local src = exec {
         cmd = "git -C " .. REPO .. " show " .. ref .. ":.freechains/state.lua",
@@ -54,25 +59,50 @@ if to_beg then
     G.posts[ARGS.aid] = READ(src).posts[ARGS.aid]
 end
 
--- commit the vote: its action file only, no state. The trailer
--- distinguishes a revoke-axis vote from a like/dislike.
-local kind = (ARGS.revoke or ARGS.unrevoke) and "revoke" or "like"
+local aid = ACTION.pre {
+    action = kind,
+    backs  = to_beg and BACKS { "HEAD", ref } or BACKS { "HEAD" },
+    sign   = pub,
+    time   = CMD.now,
+    n      = num,
+    -- action ID for posts; pubkey as is for authors
+    [ARGS.target] = ARGS.aid,
+}
 
-local pub = ssh.pub.key(ARGS.sign)
-if not pub then
-    ERROR("chain " .. kind .. " : invalid sign key")
+-- apply BEFORE the commit: failure leaves the repo untouched
+do
+    local head = (exec {
+        cmd = "git -C " .. REPO .. " rev-parse HEAD",
+    })
+    local T = {
+        [ARGS.target] = ARGS.aid,
+        aid     = aid,
+        -- TODO : remove : par.7 : peak folds over T.backs, no git
+        parents = to_beg and { head, (exec {
+            cmd = "git -C " .. REPO .. " rev-parse " .. ref,
+        }) } or { head },
+        sign    = pub,
+        n       = num,
+        beg     = to_beg,
+    }
+    local ok, err = apply(G, kind, CMD.now, T)
+    if not ok then
+        ERROR("chain " .. kind .. " : " .. err)
+    end
+    G.order[#G.order+1] = aid
 end
 
-local cid, aid
+-- one commit: (beg merge +) action file + state
 do
-    aid = ACTION.all {
-        action = kind,
-        backs  = to_beg and BACKS { "HEAD", ref } or BACKS { "HEAD" },
-        sign   = pub,
-        time   = CMD.now,
-        n      = num,
-        -- action ID for posts; pubkey as is for authors
-        [ARGS.target] = ARGS.aid,
+    if to_beg then
+        exec {
+            cmd = "git -C " .. REPO .. " merge -X ours --no-ff --no-commit --no-edit " .. ref,
+        }
+    end
+    ACTION.pos(aid)
+    WRITE(G)
+    exec {
+        cmd = "git -C " .. REPO .. " add .freechains/state.lua",
     }
     local s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=ssh"
     local msg = ARGS.why or "(empty message)"
@@ -80,41 +110,6 @@ do
         cmd = CMD.git .. "git -C " .. REPO .. s1 .. " commit -S -m '" .. msg ..
                   "' --trailer 'Freechains: " .. kind .. "'",
         err = "chain " .. kind .. " : invalid sign key",
-    }
-    cid = exec {
-        cmd = "git -C " .. REPO .. " rev-parse HEAD",
-    }
-end
-
--- apply
-do
-    local T = {
-        [ARGS.target] = ARGS.aid,
-        aid     = aid,
-        parents = parents(cid),
-        sign    = pub,
-        n       = num,
-        beg     = to_beg,
-    }
-    local ok, err = apply(G, kind, CMD.now, T)
-    if not ok then
-        exec {
-            cmd = "git -C " .. REPO .. " reset --hard HEAD~1",
-        }
-        ERROR("chain " .. kind .. " : " .. err)
-    end
-    G.order[#G.order+1] = aid
-end
-
--- commit state
-do
-    WRITE(G)
-    exec {
-        cmd = "git -C " .. REPO .. " add .freechains/state.lua",
-    }
-    exec {
-        cmd = CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
-        .. " --trailer 'Freechains: state'",
     }
 end
 

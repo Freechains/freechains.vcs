@@ -475,10 +475,6 @@ do
     exec {
         cmd = EXE_A .. " chain '#err-forge-like' like 1 author '" .. PUB1 .. "' --sign " .. KEY1,
     }
-    -- Strip state commit
-    exec {
-        cmd = "git -C " .. REPO_A11 .. " reset --hard HEAD~1",
-    }
     -- Tamper: change commit message, gpgsig header stays intact
     local raw = exec {
         cmd = "git -C " .. REPO_A11 .. " cat-file commit HEAD",
@@ -496,11 +492,6 @@ do
     exec {
         cmd = "git -C " .. REPO_A11 .. " reset --hard " .. new_hash,
     }
-    -- State commit on top
-    exec {
-        cmd = "git -C " .. REPO_A11 .. " commit -m 'x' --trailer 'Freechains: state' --allow-empty",
-    }
-
     TEST "B rejects forged like signature on sync"
     FAIL {
         cmd = EXE_B .. " chain '#err-forge-like' sync recv " .. REPO_A11,

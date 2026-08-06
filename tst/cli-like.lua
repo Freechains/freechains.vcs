@@ -56,7 +56,7 @@ do
     do
         TEST "like-has-trailer"
         local out = exec {
-            cmd = "git -C " .. DIR .. " cat-file commit HEAD~1",
+            cmd = "git -C " .. DIR .. " cat-file commit HEAD",
         }
         assert(out:match("Freechains: like"), "missing freechains: like trailer")
     end
@@ -77,7 +77,7 @@ do
     do
         TEST "like-is-signed"
         local hash = exec {
-            cmd = "git -C " .. DIR .. " rev-parse HEAD~1",
+            cmd = "git -C " .. DIR .. " rev-parse HEAD",
         }
         local key = ssh.verify(DIR, hash)
         assert(key == PUB2, "verify failed: " .. tostring(key))
@@ -113,7 +113,7 @@ do
     do
         TEST "dislike-payload"
         local out = exec {
-            cmd = "git -C " .. DIR .. " cat-file commit HEAD~1",
+            cmd = "git -C " .. DIR .. " cat-file commit HEAD",
         }
         assert(out:match("Freechains: like"), "missing freechains: like trailer")
     end
@@ -128,7 +128,7 @@ do
         }
         assert(code == 0, "exit code: " .. tostring(code))
         local msg = exec {
-            cmd = "git -C " .. DIR .. " log -1 --format=%s HEAD~1",
+            cmd = "git -C " .. DIR .. " log -1 --format=%s HEAD",
         }
         assert(msg:match("spam content"), "reason not recorded")
     end

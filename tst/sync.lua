@@ -56,15 +56,15 @@ do
     P1 = exec {
         cmd = EXE_A .. " --now=2000 chain '#test' post inline 'p1' --sign " .. KEY1,
     }
-    -- A:  G ── [post] P1 ── [state] S1
+    -- A:  G ── [post] P1
     -- B:  G
 
     TEST "B recvs from A"
     exec {
         cmd = EXE_B .. " chain '#test' sync recv " .. REPO_A,
     }
-    -- A:  G ── P1 ── S1
-    -- B:  G ── P1 ── S1
+    -- A:  G ── P1
+    -- B:  G ── P1
 
     TEST "heads equal"
     assert(head(REPO_A) == head(REPO_B))
@@ -78,15 +78,15 @@ do
     exec {
         cmd = EXE_A .. " --now=3000 chain '#test' post inline 'p2' --sign " .. KEY1,
     }
-    -- A:  G ── P1 ── S1 ── [post] P2 ── [state] S2
-    -- B:  G ── P1 ── S1
+    -- A:  G ── P1 ── [post] P2
+    -- B:  G ── P1
 
     TEST "A sends to B"
     exec {
         cmd = EXE_A .. " chain '#test' sync send " .. REPO_B,
     }
-    -- A:  G ── P1 ── S1 ── P2 ── S2
-    -- B:  G ── P1 ── S1 ── P2 ── S2
+    -- A:  G ── P1 ── P2
+    -- B:  G ── P1 ── P2
 
     TEST "heads equal"
     assert(head(REPO_A) == head(REPO_B))
@@ -102,17 +102,17 @@ do
     }
     assert(#BEG_K2 == 40)
     assert(begs(REPO_A):match("beg%-" .. BEG_K2))
-    -- A:  G ── P1 ── S1 ── P2 ── S2        refs/begs/beg-BEG -> BEG
+    -- A:  G ── P1 ── P2        refs/begs/beg-BEG -> BEG
     --                           └── [beg] BEG
-    -- B:  G ── P1 ── S1 ── P2 ── S2
+    -- B:  G ── P1 ── P2
 
     TEST "B recvs from A"
     exec {
         cmd = EXE_B .. " chain '#test' sync recv " .. REPO_A,
     }
-    -- A:  G ── P1 ── S1 ── P2 ── S2        refs/begs/beg-BEG -> BEG
+    -- A:  G ── P1 ── P2        refs/begs/beg-BEG -> BEG
     --                           └── [beg] BEG
-    -- B:  G ── P1 ── S1 ── P2 ── S2        refs/begs/beg-BEG -> BEG
+    -- B:  G ── P1 ── P2        refs/begs/beg-BEG -> BEG
     --                           └── [beg] BEG
 
     TEST "B has the beg ref"
@@ -128,20 +128,20 @@ do
         cmd = EXE_A .. " --now=5000 chain '#test' post inline 'help' --beg --sign " .. KEY3,
     }
     assert(#BEG_K3 == 40)
-    -- A:  G ── P1 ── S1 ── P2 ── S2        refs/begs/{BEG1, BEG2}
+    -- A:  G ── P1 ── P2        refs/begs/{BEG1, BEG2}
     --                           ├── BEG1
     --                           └── BEG2
-    -- B:  G ── P1 ── S1 ── P2 ── S2        refs/begs/BEG1
+    -- B:  G ── P1 ── P2        refs/begs/BEG1
     --                           └── BEG1
 
     TEST "A sends to B"
     exec {
         cmd = EXE_A .. " chain '#test' sync send " .. REPO_B,
     }
-    -- A:  G ── P1 ── S1 ── P2 ── S2        refs/begs/{BEG1, BEG2}
+    -- A:  G ── P1 ── P2        refs/begs/{BEG1, BEG2}
     --                           ├── BEG1
     --                           └── BEG2
-    -- B:  G ── P1 ── S1 ── P2 ── S2        refs/begs/{BEG1, BEG2}
+    -- B:  G ── P1 ── P2        refs/begs/{BEG1, BEG2}
     --                           ├── BEG1
     --                           └── BEG2
 
@@ -159,9 +159,9 @@ do
         cmd = EXE_A .. " --now=6000 chain '#test' like 1 post " .. beg .. " --sign " .. KEY1,
     }
     assert(not begs(REPO_A):match(beg), "A's beg ref should be pruned")
-    -- A:  G ── P1 ── S1 ── P2 ── S2 ── [like] L ── [state] S      refs/begs/{BEG2}
+    -- A:  G ── P1 ── P2 ── [like] L      refs/begs/{BEG2}
     --                           └── BEG2
-    -- B:  G ── P1 ── S1 ── P2 ── S2                                refs/begs/{BEG1, BEG2}
+    -- B:  G ── P1 ── P2                                refs/begs/{BEG1, BEG2}
     --                           ├── BEG1
     --                           └── BEG2
 
@@ -169,9 +169,9 @@ do
     exec {
         cmd = EXE_B .. " chain '#test' sync recv " .. REPO_A,
     }
-    -- A:  G ── P1 ── S1 ── P2 ── S2 ── L ── S      refs/begs/{BEG2}
+    -- A:  G ── P1 ── P2 ── L ── S      refs/begs/{BEG2}
     --                           └── BEG2
-    -- B:  G ── P1 ── S1 ── P2 ── S2 ── L ── S      refs/begs/{BEG2}
+    -- B:  G ── P1 ── P2 ── L ── S      refs/begs/{BEG2}
     --                           └── BEG2
 
     TEST "B's beg ref also pruned"
@@ -226,7 +226,7 @@ do
         cmd = EXE_A .. " --now=8000 chain '#test' like 1 post " .. BEG_K3 .. " --sign " .. KEY1,
     }
     assert(not begs(REPO_A):match(BEG_K3), "A's beg ref should be pruned")
-    -- A:  ... ── L_K2 ── S ── [like] L_K3 ── [state] S      refs/begs/{}
+    -- A:  ... ── L_K2 ── [like] L_K3      refs/begs/{}
     -- B:  ... ── L_K2 ── S                                  refs/begs/{BEG_K3}
     --                              └── BEG_K3
 
@@ -234,8 +234,8 @@ do
     exec {
         cmd = EXE_A .. " chain '#test' sync send " .. REPO_B,
     }
-    -- A:  ... ── L_K2 ── S ── L_K3 ── S      refs/begs/{}
-    -- B:  ... ── L_K2 ── S ── L_K3 ── S      refs/begs/{}
+    -- A:  ... ── L_K2 ── L_K3 ── S      refs/begs/{}
+    -- B:  ... ── L_K2 ── L_K3 ── S      refs/begs/{}
 
     TEST "B's beg ref also pruned"
     assert(not begs(REPO_B):match(BEG_K3), "B's beg ref should be pruned")

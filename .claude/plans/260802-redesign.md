@@ -649,8 +649,12 @@ green after each step. Progress is tracked here.
           counts -1 per post; beg-merge ^2~1 -> ^2; err-post
           forge drops strip-state step; likes still 2 commits
           (probes kept until S9.2)
-        - S9.2: votes join (like-on-beg merge carries
-          action + state)
+        - S9.2 DONE: votes join (one commit: action + state;
+          beg merge carries both, MM on state.lua); like.lua
+          mirrors post.lua: ACTION.pre -> apply -> merge/pos/
+          WRITE -> one commit; rollback + state commit gone;
+          tests: like probes HEAD~1 -> HEAD, err-like forge
+          drops strip-state, sync/cli diagrams joined
         - S9.3: tighten: 1-parent pure state commits invalid
           (kills forged scenarios 1+2 by shape); uniform check
         - S9.4: per-commit state compare; bug-forged-state
@@ -688,8 +692,8 @@ green after each step. Progress is tracked here.
     - `main`: fixes + design-neutral cleanups (S1, S4, S5)
     - `260803-redesign`: substrate + cluster (S2, S3, S6b, S8+)
     - criterion: useful even without the redesign -> `main`
-- progress: substrate + S8 + S14 + S9.0/S9.0b/S9.1 done (S8.4
-  folded into S11); next: S9.2 (votes join)
+- progress: substrate + S8 + S14 + S9.0-S9.2 done (S8.4
+  folded into S11); next: S9.3 (1-parent pure state invalid)
 
 ## 11. Open questions
 
