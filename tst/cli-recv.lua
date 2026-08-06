@@ -346,10 +346,12 @@ do
         cmd = "git -C " .. REPO_B .. " rev-parse HEAD",
     }
 
-    TEST "B recvs from A fails with state mismatch"
+    -- S9.3: the 1-parent pure state shape itself is refused,
+    -- before any state compare
+    TEST "B recvs from A fails: pure state commit refused"
     FAIL {
         cmd = EXE_B .. " --now=10000 chain '#test' sync recv " .. REPO_A,
-        err = "ERROR : chain sync : remote state mismatch",
+        err = "ERROR : chain sync : invalid state : not a merge",
     }
 
     TEST "B's HEAD unchanged"
@@ -364,6 +366,16 @@ end
 -- 7. recv FF with create-mode violation
 do
     print("==> Step 7: recv FF create-mode violation")
+
+    TEST "A resets to last good state (B's HEAD)"
+    do
+        local b_head = exec {
+            cmd = "git -C " .. REPO_B .. " rev-parse HEAD",
+        }
+        exec {
+            cmd = "git -C " .. REPO_A .. " reset --hard " .. b_head,
+        }
+    end
 
     TEST "A overwrites tracked post via raw git"
     local file = exec {

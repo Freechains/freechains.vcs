@@ -254,11 +254,15 @@ elseif ARGS.recv then
                     " diff-tree --cc --no-commit-id -r --name-status " .. cid
             }
             if kind == 'state' then
-                -- commit carries state.lua, one uniform mode check
+                -- every action carries its state (S9.1/S9.2), so a pure
+                -- state commit is legal ONLY as the sync merge: 1-parent
+                -- ones exist solely in forgeries -- rejected by shape
+                if #parents(cid) < 2 then
+                    error("invalid state : not a merge", 0)
+                end
                 for status, path in diff:gmatch("(%a+)%s+(%S+)") do
                     local bad = true
                     if status=="M" or status=="MM" then
-                        -- 1-parent state commit / 2-parent sync merge
                         bad = (path ~= ".freechains/state.lua")
                     end
                     if bad then

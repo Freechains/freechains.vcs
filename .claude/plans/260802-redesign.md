@@ -655,8 +655,12 @@ green after each step. Progress is tracked here.
           WRITE -> one commit; rollback + state commit gone;
           tests: like probes HEAD~1 -> HEAD, err-like forge
           drops strip-state, sync/cli diagrams joined
-        - S9.3: tighten: 1-parent pure state commits invalid
-          (kills forged scenarios 1+2 by shape); uniform check
+        - S9.3 DONE: 1-parent pure state commits invalid
+          ("invalid state : not a merge"); kills forged
+          scenarios 1+2 by shape; cli-recv step 6 expects the
+          shape error, step 7 resets to good state first;
+          crafted trailing state commits in err-* stay (their
+          action errors fire first, shape never reached)
         - S9.4: per-commit state compare; bug-forged-state
           rewritten, green
     - S10: payload eviction: `refs/payloads/<id>`, refspecs,
@@ -692,8 +696,8 @@ green after each step. Progress is tracked here.
     - `main`: fixes + design-neutral cleanups (S1, S4, S5)
     - `260803-redesign`: substrate + cluster (S2, S3, S6b, S8+)
     - criterion: useful even without the redesign -> `main`
-- progress: substrate + S8 + S14 + S9.0-S9.2 done (S8.4
-  folded into S11); next: S9.3 (1-parent pure state invalid)
+- progress: substrate + S8 + S14 + S9.0-S9.3 done (S8.4
+  folded into S11); next: S9.4 (per-commit state compare)
 
 ## 11. Open questions
 
