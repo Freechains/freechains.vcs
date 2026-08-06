@@ -223,6 +223,9 @@ elseif ARGS.recv then
         -- detached head and discarded, so `main` never holds one
         local KINDS = { post=true, like=true, revoke=true, state=true }
 
+        -- fetched range subsumes ORD + COMMIT_ACTION + ACTION_COMMIT
+        -- aid -> commit for entries this replay applied; falls back to
+        -- history for entries below the octopus (always reachable)
         local ORD = {}
         local function ORD_COMMIT (aid)
             return ORD[aid] or CID(aid)
@@ -251,6 +254,7 @@ elseif ARGS.recv then
                     " diff-tree --cc --no-commit-id -r --name-status " .. cid
             }
             if kind == 'state' then
+                -- commit carries state.lua, one uniform mode check
                 for status, path in diff:gmatch("(%a+)%s+(%S+)") do
                     local bad = true
                     if status=="M" or status=="MM" then
@@ -270,6 +274,7 @@ elseif ARGS.recv then
                 --   A <payload outside .freechains/>  posts only
                 --                                     (in-tree until S10)
                 --   A|M .freechains/state.lua         joined commits (S9)
+                -- fold into one uniform mode check
                 -- --cc combines per-parent letters: "AA" on merges
                 local acts = 0
                 for status, path in diff:gmatch("(%a+)%s+(%S+)") do
@@ -463,7 +468,7 @@ elseif ARGS.recv then
             }
             -- verify remote state: overwrite with G_rem, diff vs HEAD
             do
-                G_rem.now = PEAKS(parents("HEAD"))
+                G_rem.now = NOW("HEAD")
                 WRITE(G_rem)
                 local same = exec { stderr=false, err=false,
                     cmd = "git -C " .. REPO ..  " diff --quiet HEAD -- .freechains/state.lua"

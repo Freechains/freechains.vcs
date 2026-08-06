@@ -4,10 +4,10 @@
 -- escape from a hard fork: abandon the diverging branch, receive the
 -- settled one, repost on top of it.
 --
--- Every post/like is TWO commits: the content one (whose hash the CLI
--- prints) and the `state` one that follows it, holding the state files.
--- A post is always committed on top of a valid tip, so `destroy` lands on
--- the PARENT of `hash`, and only a post/like/revoke may be named.
+-- A post is ONE joined commit carrying payload + action + state; a like
+-- is still two (action + `state`, until S9.2). An action is always
+-- committed on top of a valid tip, so `destroy` lands on the PARENT of
+-- its commit, and only a post/like/revoke may be named.
 --
 -- 1. Drop posts
 --
@@ -127,18 +127,14 @@ do
     end
 
     -- `destroy` names the first post to remove, so it lands on its parent,
-    -- which is the `state` commit accounting for p1
+    -- which is p1's own joined commit
     do
-        TEST "HEAD lands on the state commit of p1"
+        TEST "HEAD lands on the commit of p1"
         local head = exec {
             cmd = "git -C " .. DIR1 .. " rev-parse HEAD",
         }
-        assert(TRAILER(DIR1, head) == 'state', "HEAD is not a state commit")
-        assert(head ~= p1, "HEAD should be past p1")
-        local parent = exec {
-            cmd = "git -C " .. DIR1 .. " rev-parse HEAD^1",
-        }
-        assert(parent == CID(p1, true, DIR1), "HEAD^1 should be p1: " .. parent)
+        assert(TRAILER(DIR1, head) == 'post', "HEAD is not a post commit")
+        assert(head == CID(p1, true, DIR1), "HEAD should be p1: " .. head)
     end
 
     -- state files revert with the tree: the destroyed posts never happened
@@ -173,9 +169,9 @@ do
         assert(O[1] == p1, "p1 should be the only entry")
     end
 
-    -- `state` commits are plumbing: they are not part of the protocol
+    -- commits are plumbing: destroy names actions, never commit hashes
     do
-        TEST "state commit rejects"
+        TEST "commit hash rejects"
         local head = exec {
             cmd = "git -C " .. DIR1 .. " rev-parse HEAD",
         }
@@ -223,7 +219,7 @@ do
         cmd = ENV_EXE .. " chain '#cli-destroy-2' post inline 'b0\n' --file b0.txt --beg --sign " .. KEY2,
     }
 
-    -- the ref points to the beg's `state` commit, which no ref names
+    -- the ref points to the beg's commit: a cid, never a valid aid
     do
         TEST "hash outside main rejects"
         local ref = exec {

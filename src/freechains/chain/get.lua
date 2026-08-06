@@ -13,12 +13,12 @@ local kind = trailer(cid)
 -- --cc reduces to the file(s) present in this commit but absent
 -- from every parent — handles both regular commits and merges
 -- (without --cc, diff-tree emits nothing for merge commits).
--- The action file the commit also adds is excluded.
+-- The action file and state the commit also carries are excluded.
 local function commit_file ()
     local files = exec {
         cmd = "git -C " .. REPO ..
         " diff-tree --cc --no-commit-id -r --name-only " .. cid ..
-        " -- . ':(exclude).freechains/actions'",
+        " -- . ':(exclude).freechains'",
     }
     assert(not files:match("\n%S"), "bug found")
     return files:match("^(%S+)")
@@ -55,6 +55,7 @@ elseif ARGS.metadata then
         cmd = "git -C " .. REPO .. " log -1 --format=%B " .. cid,
     } :gsub("\n*Freechains:%s*%S+%s*$", "")
 
+    -- `val`/`T` only preserve the pre-redesign output shape
     -- value keyed by kind: post -> filename; like/revoke -> vote table
     local val = file
     if kind=='like' or kind=='revoke' then

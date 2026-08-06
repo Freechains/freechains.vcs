@@ -32,9 +32,9 @@ local to_beg = (
 -- beg: validate parent, merge into main, load beg entry
 local ref = "refs/begs/beg-" .. ARGS.aid
 if to_beg then
-    -- the beg branch is post + state: ref~2 is the base it grew from
+    -- the beg branch is one joined commit: ref~1 is its base
     local up = exec {
-        cmd = "git -C " .. REPO .. " rev-parse " .. ref .. "~2",
+        cmd = "git -C " .. REPO .. " rev-parse " .. ref .. "~1",
     }
     local _,ok = exec { err=false,
         cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. up .. " HEAD",
@@ -65,7 +65,7 @@ end
 
 local cid, aid
 do
-    aid = ACTION {
+    aid = ACTION.all {
         action = kind,
         backs  = to_beg and BACKS { "HEAD", ref } or BACKS { "HEAD" },
         sign   = pub,

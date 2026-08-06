@@ -636,8 +636,19 @@ green after each step. Progress is tracked here.
         - S9.0b DONE: cleanups -- exact-status closed-set
           mode check (dispatch by A/AA/M/MM, refuse rest);
           COMMIT_ACTION asserts internally
-        - S9.1: post joins (+ beg one-commit, BACKS
-          tip-inclusion, destroy ~1s, post-anatomy tests)
+        - S9.1 DONE: post joins (one commit: payload + action
+          + state); apply BEFORE commit (ACTION.pre/.pos
+          bracket it: nothing enters tree on failure, rollback
+          gone); beg is one commit (post HEAD~1, like ref~1,
+          destroy beg~1); BACKS includes action-commit tips;
+          NOW(cid) shared writer/verifier `now` formula (FF
+          state compare; joined tip folds own stamp over
+          first-parent PEAK, never parent TIME); get
+          commit_file excludes .freechains entirely
+        - S9.1 tests: anatomy probes HEAD~1 -> HEAD; repl
+          counts -1 per post; beg-merge ^2~1 -> ^2; err-post
+          forge drops strip-state step; likes still 2 commits
+          (probes kept until S9.2)
         - S9.2: votes join (like-on-beg merge carries
           action + state)
         - S9.3: tighten: 1-parent pure state commits invalid
@@ -677,8 +688,8 @@ green after each step. Progress is tracked here.
     - `main`: fixes + design-neutral cleanups (S1, S4, S5)
     - `260803-redesign`: substrate + cluster (S2, S3, S6b, S8+)
     - criterion: useful even without the redesign -> `main`
-- progress: substrate + S8 + S14 + S9.0/S9.0b done (S8.4
-  folded into S11); next: S9.1 (post joins), the centerpiece
+- progress: substrate + S8 + S14 + S9.0/S9.0b/S9.1 done (S8.4
+  folded into S11); next: S9.2 (votes join)
 
 ## 11. Open questions
 

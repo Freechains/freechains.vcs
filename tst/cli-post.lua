@@ -130,7 +130,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-post' post inline 'some text' --sign " .. KEY1 .. " --why 'reason for posting'",
         }
         local msg = exec {
-            cmd = "git -C " .. DIR .. " log -1 --format=%s HEAD~1",
+            cmd = "git -C " .. DIR .. " log -1 --format=%s HEAD",
         }
         assert(msg == "reason for posting", "commit message: " .. msg)
     end
@@ -145,7 +145,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-post' post file " .. tmp .. " --sign " .. KEY1 .. " --why 'file reason'",
         }
         local msg = exec {
-            cmd = "git -C " .. DIR .. " log -1 --format=%s HEAD~1",
+            cmd = "git -C " .. DIR .. " log -1 --format=%s HEAD",
         }
         assert(msg == "file reason", "commit message: " .. msg)
     end
@@ -156,7 +156,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-post' post inline 'no reason' --sign " .. KEY1,
         }
         local msg = exec {
-            cmd = "git -C " .. DIR .. " log -1 --format=%s HEAD~1",
+            cmd = "git -C " .. DIR .. " log -1 --format=%s HEAD",
         }
         assert(msg == "(empty message)", "commit message should be empty: " .. msg)
     end

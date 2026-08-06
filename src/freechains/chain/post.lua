@@ -9,55 +9,82 @@ if ARGS.sign and not pub then
     ERROR("chain post : invalid sign key")
 end
 
--- commit post (content only, no state)
-local cid, aid
+-- payload: name + blob hash only; enters the tree after `apply`
+local file, blob
 do
-    local file
     if ARGS.inline then
-        local text = ARGS.text
         local rand = math.random(0, 9999999999)
         file = ARGS.file or "post-" .. CMD.now .. "-" .. rand .. ".txt"
-        local path = REPO .. "/" .. file
-        do
-            local f = io.open(path, "r")
-            if f then
-                f:close()
-                ERROR("chain post : file already exists")
-            end
-        end
-        do
-            local f = io.open(path, "w")
-            f:write(text)
-            f:close()
-        end
     else
         assert(ARGS.file)
-        file = ARGS.path:match("[^/]+$")
-        do
-            local f = io.open(REPO .. "/" .. file, "r")
-            if f then
-                f:close()
-                ERROR("chain post : file already exists")
-            end
+        file = ARGS.path:match("[^/]+$")    -- /tmp/hello.txt -> hello.txt
+    end
+    do
+        local f = io.open(REPO .. file, "r")
+        if f then
+            f:close()
+            ERROR("chain post : file already exists")
         end
-        exec { stderr=false,
-            cmd = "cp " .. ARGS.path .. " " .. REPO .. "/",
+    end
+    if ARGS.inline then
+        local f = io.open(REPO .. ".git/payload", "w")
+        f:write(ARGS.text)
+        f:close()
+        blob = exec {
+            cmd = "git -C " .. REPO .. " hash-object .git/payload",
+        }
+    else
+        -- no -C: ARGS.path is relative to the CALLER's cwd
+        blob = exec { stderr=false,
+            cmd = "git hash-object " .. ARGS.path,
             err = "chain post : invalid path",
+        }
+    end
+end
+
+local aid = ACTION.pre {
+    action = 'post',
+    backs  = BACKS { "HEAD" },
+    sign   = pub,
+    time   = CMD.now,
+    -- content is part of the identity: without it, same
+    -- author + time + backs would collide (dedup, par.4)
+    blob   = blob,
+}
+
+-- apply BEFORE the commit: failure leaves the repo untouched
+do
+    local T = {
+        aid     = aid,
+        parents = { (exec {
+            cmd = "git -C " .. REPO .. " rev-parse HEAD",
+        }) },
+        sign    = pub,
+        beg     = ARGS.beg,
+    }
+    local ok, err = apply(G, 'post', CMD.now, T)
+    if not ok then
+        ERROR("chain post : " .. err)
+    end
+    G.order[#G.order+1] = aid
+end
+
+-- one commit: payload + action file + state
+do
+    if ARGS.inline then
+        os.rename(REPO .. ".git/payload", REPO .. file)
+    else
+        exec {
+            cmd = "cp " .. ARGS.path .. " " .. REPO,
         }
     end
     exec {
         cmd = "git -C " .. REPO .. " add " .. file,
     }
-    aid = ACTION {
-        action = 'post',
-        backs  = BACKS { "HEAD" },
-        sign   = pub,
-        time   = CMD.now,
-        -- content is part of the identity: without it, same
-        -- author + time + backs would collide (dedup, par.4)
-        blob   = exec {
-            cmd = "git -C " .. REPO .. " hash-object " .. file,
-        },
+    ACTION.pos(aid)
+    WRITE(G)
+    exec {
+        cmd = "git -C " .. REPO .. " add .freechains/state.lua",
     }
     local s1, s2 = "", ""
     if ARGS.sign then
@@ -70,39 +97,6 @@ do
         .. "' --trailer 'Freechains: post'",
         err = "chain post : invalid sign key",
     }
-    cid = exec {
-        cmd = "git -C " .. REPO .. " rev-parse HEAD",
-    }
-end
-
--- apply with real cid
-do
-    local T = {
-        aid     = aid,
-        parents = parents(cid),
-        sign    = pub,
-        beg     = ARGS.beg,
-    }
-    local ok, err = apply(G, 'post', CMD.now, T)
-    if not ok then
-        exec {
-            cmd = "git -C " .. REPO .. " reset --hard HEAD~1",
-        }
-        ERROR("chain post : " .. err)
-    end
-    G.order[#G.order+1] = aid
-end
-
--- commit state
-do
-    WRITE(G)
-    exec {
-        cmd = "git -C " .. REPO .. " add .freechains/state.lua",
-    }
-    exec {
-        cmd = CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
-        .. " --trailer 'Freechains: state'",
-    }
 end
 
 if ARGS.beg then
@@ -110,7 +104,7 @@ if ARGS.beg then
         cmd = "git -C " .. REPO .. " update-ref refs/begs/beg-" .. aid .. " HEAD",
     }
     exec {
-        cmd = "git -C " .. REPO .. " reset --hard HEAD~2",
+        cmd = "git -C " .. REPO .. " reset --hard HEAD~1",
     }
 end
 

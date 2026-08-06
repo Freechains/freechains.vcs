@@ -51,6 +51,9 @@ function backs (cid)
     return ret
 end
 
+-- the action ID a commit ADDED (.freechains/actions/<id>.lua).
+-- Callers only ever pass action commits, whose file the mode
+-- check guarantees: not finding one is a bug, asserted here.
 -- Flat, unsharded: sharding waits for the S6a layout move.
 function COMMIT_ACTION (cid)
     local out = exec {
@@ -63,38 +66,62 @@ end
 
 -- (id -> commit lives in freechains/common.lua as `CID`)
 
+-- the action IDs backing a new action built on top of `tips`
+-- (commit hashes): action ancestors via `backs`, as sorted IDs.
+-- A tip that IS an action commit (joined, S9) backs itself.
 function BACKS (tips)
     local T = {}
     for _, tip in ipairs(tips) do
-        for _, h in ipairs(backs(tip)) do
-            T[#T+1] = COMMIT_ACTION(h)
+        local k = trailer(tip)
+        if k=='post' or k=='like' or k=='revoke' then
+            T[#T+1] = COMMIT_ACTION(tip)
+        else
+            for _, h in ipairs(backs(tip)) do
+                T[#T+1] = COMMIT_ACTION(h)
+            end
         end
     end
     table.sort(T)
     return T
 end
 
--- write + stage the action file of the commit-to-be; the filename
--- IS the content's own blob hash (the action ID). `backs` inside
--- `T` must already hold action IDs.
-function ACTION (T)
-    local tmp = REPO .. ".git/action.lua"
-    local f = io.open(tmp, "w")
-    f:write(serial(T))
-    f:close()
-    local id = exec {
-        cmd = "git -C " .. REPO .. " hash-object " .. tmp,
-    }
-    local file = ".freechains/actions/" .. id .. ".lua"
-    exec {
-        cmd = "mkdir -p " .. REPO .. ".freechains/actions/",
-    }
-    os.rename(tmp, REPO .. file)
-    exec {
-        cmd = "git -C " .. REPO .. " add " .. file,
-    }
-    return id
-end
+-- (blob DONE early at S8.2b for posts: identity needs content;
+--  S10 keeps only the ref-anchoring/eviction part)
+-- pre/pos bracket `apply`: `pre` builds the action file in
+-- `.git/` scratch and returns its aid (the content's own blob
+-- hash; `backs` inside `T` must already hold aids); `pos` runs
+-- only after `apply` succeeds, so a failure leaves the repo
+-- untouched.
+ACTION = {
+    -- pre + pos in one step, for callers with no `apply` in between
+    all = function (T)
+        return ACTION.pos(ACTION.pre(T))
+    end,
+
+    pre = function (T)
+        local tmp = REPO .. ".git/action.lua"
+        local f = io.open(tmp, "w")
+        f:write(serial(T))
+        f:close()
+        return exec {
+            cmd = "git -C " .. REPO .. " hash-object " .. tmp,
+        }
+    end,
+
+    -- move the scratch action file into the tree and stage it;
+    -- the filename IS the aid returned by `pre`
+    pos = function (aid)
+        local file = ".freechains/actions/" .. aid .. ".lua"
+        exec {
+            cmd = "mkdir -p " .. REPO .. ".freechains/actions/",
+        }
+        os.rename(REPO .. ".git/action.lua", REPO .. file)
+        exec {
+            cmd = "git -C " .. REPO .. " add " .. file,
+        }
+        return aid
+    end,
+}
 
 -- .freechains/state.lua -- the whole derived state, one table.
 -- Always `serial` output (sorted keys), byte-comparable by verifiers:
@@ -201,6 +228,20 @@ function PEAKS (hs)
         mx = math.max(mx or t, t)
     end
     return assert(mx)
+end
+
+-- the `now` an honest commit must record. A joined action commit
+-- (S9) writes max(state before, own stamp), where "state before"
+-- is its first parent's tree (a merge keeps 'ours'). A state or
+-- merge commit folds its parents (PEAKS), as before. Writer and
+-- verifier share the formula.
+function NOW (cid)
+    local k = trailer(cid)
+    if k=='post' or k=='like' or k=='revoke' then
+        local ps = parents(cid)
+        return math.max(TIME(cid), PEAK(ps[1]))
+    end
+    return PEAKS(parents(cid))
 end
 
 function apply (G, kind, time, T)

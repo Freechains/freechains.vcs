@@ -172,7 +172,7 @@ do
         cmd = EXE_A .. " --now=2000 chain '#test' post inline 'post from A' --sign " .. KEY1,
     }
     assert(#out == 40, "hash: " .. out)
-    -- A:  [state] genesis ── [post] P1 ── [state] S1
+    -- A:  [state] genesis ── [post] P1
     -- B:  [state] genesis
 
     TEST "A sends to B"
@@ -190,8 +190,8 @@ do
     assert (A == B,
         "heads should be equal: " .. A .. " vs " .. B
     )
-    -- A:  [state] genesis ── [post] P1 ── [state] S1
-    -- B:  [state] genesis ── [post] P1 ── [state] S1
+    -- A:  [state] genesis ── [post] P1
+    -- B:  [state] genesis ── [post] P1
 end
 
 -- 4. send bidirectional
@@ -210,8 +210,8 @@ do
             cmd = EXE_A .. " --now=4500 chain '#test' sync send " .. REPO_B,
         }
     end
-    -- A:  genesis ── P1 ── S1 ── P2 ── S2 ── [post] P3 ── [state] S3
-    -- B:  genesis ── P1 ── S1 ── P2 ── S2 ── [post] P3 ── [state] S3
+    -- A:  genesis ── P1 ── P2 ── [post] P3
+    -- B:  genesis ── P1 ── P2 ── [post] P3
 
     do
         TEST "B posts"
@@ -225,8 +225,8 @@ do
             cmd = EXE_B .. " --now=5500 chain '#test' sync send " .. REPO_A,
         }
     end
-    -- A:  genesis ── ... ── S3 ── [post] P4 ── [state] S4
-    -- B:  genesis ── ... ── S3 ── [post] P4 ── [state] S4
+    -- A:  genesis ── ... ── P3 ── [post] P4
+    -- B:  genesis ── ... ── P3 ── [post] P4
 
     do
         TEST "A and B are equal"
@@ -235,8 +235,8 @@ do
         }
         assert(ok == 0, "A and B should not differ")
     end
-    -- A:  genesis ── ... ── S3 ── [post] P4 ── [state] S4
-    -- B:  genesis ── ... ── S3 ── [post] P4 ── [state] S4
+    -- A:  genesis ── ... ── P3 ── [post] P4
+    -- B:  genesis ── ... ── P3 ── [post] P4
 end
 
 -- 5. recv divergent + consensus
@@ -259,8 +259,8 @@ do
         }
         assert(#B == 40, "hash: " .. B)
     end
-    -- A:  genesis ── ... ── S4 ── [post] P5 ── [state] S5
-    -- B:  genesis ── ... ── S4 ── [post] P6 ── [state] S6
+    -- A:  genesis ── ... ── P4 ── [post] P5
+    -- B:  genesis ── ... ── P4 ── [post] P6
 
     -- A <-- B
     do
@@ -289,10 +289,10 @@ do
         assert(posts[A], "A's should be in posts.lua")
         assert(posts[B], "B's should be in posts.lua")
     end
-    --                             ┌── [post] P5 ── [state] S5
-    -- A:  genesis ── ... ── S4 ── [merge] (amend w/ state)
-    --                             └── [post] P6 ── [state] S6
-    -- B:  genesis ── ... ── S4 ── [post] P6 ── [state] S6
+    --                             ┌── [post] P5
+    -- A:  genesis ── ... ── P4 ── [merge] (amend w/ state)
+    --                             └── [post] P6
+    -- B:  genesis ── ... ── P4 ── [post] P6
 
     -- B <-- A
     do
@@ -333,9 +333,9 @@ do
         }
         assert(ok == 0, "A and B should not differ")
     end
-    --                             ┌── [post] P5 ── [state] S5
-    -- A:  genesis ── ... ── S4 ── [merge] (amend w/ state)
-    --                             └── [post] P6 ── [state] S6
+    --                             ┌── [post] P5
+    -- A:  genesis ── ... ── P4 ── [merge] (amend w/ state)
+    --                             └── [post] P6
     -- B:  same as A (FF recv)
 end
 

@@ -75,7 +75,7 @@ do
         local count = exec {
             cmd = "git -C " .. REPO_B .. " rev-list --count HEAD",
         }
-        assert(count == "3", "count: " .. count)
+        assert(count == "2", "count: " .. count)
     end
 
     do
@@ -92,7 +92,7 @@ do
         local count = exec {
             cmd = "git -C " .. REPO_B .. " rev-list --count HEAD",
         }
-        assert(count == "5", "count: " .. count)
+        assert(count == "3", "count: " .. count)
     end
 end
 
@@ -128,7 +128,7 @@ do
         local count = exec {
             cmd = "git -C " .. REPO_A .. " rev-list --count HEAD",
         }
-        assert(count == "5", "count: " .. count)
+        assert(count == "3", "count: " .. count)
     end
 
     do
@@ -193,7 +193,7 @@ do
         local count = exec {
             cmd = "git -C " .. REPO_A .. " rev-list --count HEAD",
         }
-        assert(count == "10", "count: " .. count)
+        assert(count == "6", "count: " .. count)
     end
 
     do
@@ -222,7 +222,7 @@ do
         local count = exec {
             cmd = "git -C " .. REPO_B .. " rev-list --count HEAD",
         }
-        assert(count == "10", "count: " .. count)
+        assert(count == "6", "count: " .. count)
     end
 
     do

@@ -22,7 +22,7 @@ do
     do
         TEST "post-has-trailer"
         local out = exec {
-            cmd = "git -C " .. DIR .. " cat-file commit HEAD~1",
+            cmd = "git -C " .. DIR .. " cat-file commit HEAD",
         }
         assert(out:match("Freechains: post"), "missing freechains: post trailer")
     end

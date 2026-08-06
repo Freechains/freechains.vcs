@@ -137,10 +137,6 @@ do
     exec {
         cmd = EXE_A .. " chain '#err-forge' post inline 'original content' --sign " .. KEY1,
     }
-    -- Strip state commit
-    exec {
-        cmd = "git -C " .. REPO_A3 .. " reset --hard HEAD~1",
-    }
     -- Tamper: change commit message, gpgsig header stays intact
     local raw = exec {
         cmd = "git -C " .. REPO_A3 .. " cat-file commit HEAD",
@@ -157,10 +153,6 @@ do
     os.remove(tmpf)
     exec {
         cmd = "git -C " .. REPO_A3 .. " reset --hard " .. new_hash,
-    }
-    -- State commit on top
-    exec {
-        cmd = "git -C " .. REPO_A3 .. " commit -m 'x' --trailer 'Freechains: state' --allow-empty",
     }
 
     TEST "B rejects forged signature on sync"

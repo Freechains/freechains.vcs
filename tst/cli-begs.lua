@@ -199,12 +199,12 @@ do
         }
         assert(head ~= HEAD, "HEAD should advance after merge")
 
-        TEST "like-beg-structure: BEG-S-LIKE"
+        TEST "like-beg-structure: BEG-LIKE"
         local like = exec {
             cmd = "git -C " .. DIR4 .. " rev-parse HEAD~1",
         }
         local beg = exec {
-            cmd = "git -C " .. DIR4 .. " rev-parse " .. like .. "^2~1",
+            cmd = "git -C " .. DIR4 .. " rev-parse " .. like .. "^2",
         }
         assert(beg == CID(BEG, true, DIR4), "beg: " .. beg .. " expected: " .. BEG)
 

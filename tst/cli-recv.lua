@@ -44,8 +44,8 @@ do
             cmd = EXE_B .. " chains add '#test' clone " .. REPO_A,
         }
     end
-    -- A:  [state] genesis ── [post] P1 ── [state] S1
-    -- B:  [state] genesis ── [post] P1 ── [state] S1
+    -- A:  [state] genesis ── [post] P1
+    -- B:  [state] genesis ── [post] P1
 
     do
         TEST "A posts again"
@@ -56,13 +56,13 @@ do
 
         TEST "pubkey matches pioneer key"
         local hash = exec {
-            cmd = "git -C " .. REPO_A .. " rev-parse HEAD~1",
+            cmd = "git -C " .. REPO_A .. " rev-parse HEAD",
         }
         local pk = ssh.verify(REPO_A, hash)
         assert(pk == PUB1, "pubkey mismatch: [" .. tostring(pk) .. "] vs [" .. PUB1 .. "]")
     end
-    -- A:  [state] genesis ── [post] P1 ── [state] S1 ── [post] P2 ── [state] S2
-    -- B:  [state] genesis ── [post] P1 ── [state] S1
+    -- A:  [state] genesis ── [post] P1 ── [post] P2
+    -- B:  [state] genesis ── [post] P1
 
     do
         TEST "B recvs from A"
@@ -81,8 +81,8 @@ do
             "heads should be equal: " .. A .. " vs " .. B
         )
     end
-    -- A:  [state] genesis ── [post] P1 ── [state] S1 ── [post] P2 ── [state] S2
-    -- B:  [state] genesis ── [post] P1 ── [state] S1 ── [post] P2 ── [state] S2
+    -- A:  [state] genesis ── [post] P1 ── [post] P2
+    -- B:  [state] genesis ── [post] P1 ── [post] P2
 end
 
 -- 2. recv bidirectional
@@ -101,8 +101,8 @@ do
             cmd = EXE_B .. " --now=4500 chain '#test' sync recv " .. REPO_A,
         }
     end
-    -- A:  genesis ── P1 ── S1 ── P2 ── S2 ── [post] P3 ── [state] S3
-    -- B:  genesis ── P1 ── S1 ── P2 ── S2 ── [post] P3 ── [state] S3
+    -- A:  genesis ── P1 ── P2 ── [post] P3
+    -- B:  genesis ── P1 ── P2 ── [post] P3
 
     do
         TEST "B posts"
@@ -116,8 +116,8 @@ do
             cmd = EXE_A .. " --now=5500 chain '#test' sync recv " .. REPO_B,
         }
     end
-    -- A:  genesis ── ... ── S3 ── [post] P4 ── [state] S4
-    -- B:  genesis ── ... ── S3 ── [post] P4 ── [state] S4
+    -- A:  genesis ── ... ── P3 ── [post] P4
+    -- B:  genesis ── ... ── P3 ── [post] P4
 
     do
         TEST "A and B are equal"
@@ -126,8 +126,8 @@ do
         }
         assert(ok == 0, "A and B should not differ")
     end
-    -- A:  genesis ── ... ── S3 ── [post] P4 ── [state] S4
-    -- B:  genesis ── ... ── S3 ── [post] P4 ── [state] S4
+    -- A:  genesis ── ... ── P3 ── [post] P4
+    -- B:  genesis ── ... ── P3 ── [post] P4
 end
 
 -- 3. recv divergent + consensus
@@ -150,8 +150,8 @@ do
         }
         assert(#B == 40, "hash: " .. B)
     end
-    -- A:  genesis ── ... ── S4 ── [post] P5 ── [state] S5
-    -- B:  genesis ── ... ── S4 ── [post] P6 ── [state] S6
+    -- A:  genesis ── ... ── P4 ── [post] P5
+    -- B:  genesis ── ... ── P4 ── [post] P6
 
     -- A <-- B
     do
@@ -180,10 +180,10 @@ do
         assert(posts[A], "A's should be in posts.lua")
         assert(posts[B], "B's should be in posts.lua")
     end
-    --                             ┌── [post] P5 ── [state] S5
-    -- A:  genesis ── ... ── S4 ── [merge] (amend w/ state)
-    --                             └── [post] P6 ── [state] S6
-    -- B:  genesis ── ... ── S4 ── [post] P6 ── [state] S6
+    --                             ┌── [post] P5
+    -- A:  genesis ── ... ── P4 ── [merge] (amend w/ state)
+    --                             └── [post] P6
+    -- B:  genesis ── ... ── P4 ── [post] P6
 
     -- B <-- A
     do
@@ -224,9 +224,9 @@ do
         }
         assert(ok == 0, "A and B should not differ")
     end
-    --                             ┌── [post] P5 ── [state] S5
-    -- A:  genesis ── ... ── S4 ── [merge] (amend w/ state)
-    --                             └── [post] P6 ── [state] S6
+    --                             ┌── [post] P5
+    -- A:  genesis ── ... ── P4 ── [merge] (amend w/ state)
+    --                             └── [post] P6
     -- B:  same as A (FF recv)
 end
 

@@ -29,8 +29,9 @@ if not cid then
     ERROR("chain destroy : invalid id")
 end
 
--- a post is always committed on top of a valid tip: a `state` commit, a
--- merge, or the genesis. So its parent is where we land, no search
+-- an action is always committed on top of a valid tip: a joined
+-- action commit, a `state` commit, a merge, or the genesis. So its
+-- parent is where we land, no search
 local tip = exec {
     cmd = "git -C " .. REPO .. " rev-parse " .. cid .. "^1",
 }
@@ -56,7 +57,7 @@ exec {
     err = "chain destroy : git reset failed",
 }
 
--- stale-beg cleanup: a beg is two commits (post + state) on top of the
+-- stale-beg cleanup: a beg is one joined commit on top of the
 -- `main` it was created from. If that base is gone, the beg can no
 -- longer attach to `main`, so destroy it.
 do
@@ -65,7 +66,7 @@ do
     }
     for refname, beg in out:gmatch("(%S+)%s+(%S+)") do
         local ok = exec { stderr=false, err=false,
-            cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. beg .. "~2 HEAD",
+            cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. beg .. "~1 HEAD",
         }
         if not ok then
             exec {

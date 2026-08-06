@@ -58,8 +58,8 @@ do
         cmd = EXE_A .. " --now=3000 chain '#test' post inline 'world' --sign " .. KEY1,
     }
 
-    -- git:  genesis ── P1 ── S1 ── P2 ── S2   (S* = per-post state commits)
-    -- dag:  P1 │ P2                            (state commits filtered out)
+    -- git:  genesis ── P1 ── P2   (joined commits: action + state)
+    -- dag:  P1 │ P2
 
     TEST "order has P1, P2"
     assert(exec {
