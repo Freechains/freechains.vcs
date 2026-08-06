@@ -243,22 +243,21 @@ elseif ARGS.recv then
                 error("invalid " .. kind .. " : invalid signature", 0)
             end
 
-            -- create-mode check (post/like): only additions allowed
-            -- state check: closed path set, A or M only (no D)
-            -- --cc handles merges and non-merges uniformly
+            -- mode check: only the honest status/path pairs pass
+            -- (closed sets below); --cc handles merges and
+            -- non-merges uniformly
             local diff = exec {
                 cmd = "git -C " .. REPO ..
                     " diff-tree --cc --no-commit-id -r --name-status " .. cid
             }
             if kind == 'state' then
                 for status, path in diff:gmatch("(%a+)%s+(%S+)") do
-                    if path ~= ".freechains/state.lua" then
-                        error (
-                            "invalid state : " .. path
-                            , 0
-                        )
+                    local bad = true
+                    if status=="M" or status=="MM" then
+                        -- 1-parent state commit / 2-parent sync merge
+                        bad = (path ~= ".freechains/state.lua")
                     end
-                    if status:match("[^AM]") then
+                    if bad then
                         error (
                             "invalid state : " .. path
                             , 0
@@ -266,15 +265,43 @@ elseif ARGS.recv then
                     end
                 end
             else
+                -- an action commit writes a CLOSED set of paths:
+                --   A .freechains/actions/<hex>.lua   exactly one
+                --   A <payload outside .freechains/>  posts only
+                --                                     (in-tree until S10)
+                --   A|M .freechains/state.lua         joined commits (S9)
+                -- --cc combines per-parent letters: "AA" on merges
+                local acts = 0
                 for status, path in diff:gmatch("(%a+)%s+(%S+)") do
-                    if status:match("[^A]") then
+                    local bad = true
+                    if status=="A" or status=="AA" then
+                        -- A: one addition: the action file, or a post's
+                        -- payload (in-tree until S10)
+                        -- AA: added vs both parents: only a beg-merge
+                        -- like's own action file
+                        if path:match("^%.freechains/actions/%x+%.lua$") then
+                            acts = acts + 1
+                            bad = false
+                        elseif status == "A" then
+                            bad = not (
+                                kind == 'post' and
+                                not path:match("^%.freechains/")
+                            )
+                        end
+                    elseif status=="M" or status=="MM" then
+                        -- a joined commit carries its state
+                        bad = (path ~= ".freechains/state.lua")
+                    end
+                    if bad then
                         error (
-                            "invalid " .. kind ..
-                                " : mode violation : " ..
+                            "invalid " .. kind ..  " : mode violation : " ..
                                 status .. " " .. path
                             , 0
                         )
                     end
+                end
+                if acts ~= 1 then
+                    error("invalid " .. kind .. " : expects one action file", 0)
                 end
             end
 
@@ -283,11 +310,8 @@ elseif ARGS.recv then
                     error("invalid " .. kind .. " : missing sign key", 0)
                 end
 
-                -- vote data lives in the commit's own action file
-                local aid = COMMIT_ACTION(cid)
-                if not aid then
-                    error("invalid " .. kind .. " : missing metadata file", 0)
-                end
+                -- vote data lives in the commit's own action file,
+                local aid = assert(COMMIT_ACTION(cid))
                 local src = exec {
                     cmd = "git -C " .. REPO .. " show " .. cid ..
                         ":.freechains/actions/" .. aid .. ".lua"
@@ -321,7 +345,7 @@ elseif ARGS.recv then
                 ORD[aid] = cid
                 G.order[#G.order+1] = aid
             elseif kind == 'post' then
-                local aid = COMMIT_ACTION(cid)
+                local aid = assert(COMMIT_ACTION(cid))
                 local ok, err = apply(G, 'post', tonumber(time), {
                     aid     = aid,
                     parents = parents(cid),

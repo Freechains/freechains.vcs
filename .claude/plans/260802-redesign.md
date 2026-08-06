@@ -630,6 +630,17 @@ green after each step. Progress is tracked here.
         - the forged-state fix (260803-forged-state.md) lands
           HERE: uniform per-commit state compare
         - done when rewritten `bug-forged-state` passes
+        - S9.0 DONE: replay tolerance -- mode check accepts
+          joined action commits (A|M on state.lua); PEAKS
+          already shape-agnostic
+        - S9.1: post joins (+ beg one-commit, BACKS
+          tip-inclusion, destroy ~1s, post-anatomy tests)
+        - S9.2: votes join (like-on-beg merge carries
+          action + state)
+        - S9.3: tighten: 1-parent pure state commits invalid
+          (kills forged scenarios 1+2 by shape); uniform check
+        - S9.4: per-commit state compare; bug-forged-state
+          rewritten, green
     - S10: payload eviction: `refs/payloads/<id>`, refspecs,
       clone, `--why` off post (needs S8)
         - `blob` identity half landed early at S8.2b

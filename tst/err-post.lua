@@ -39,8 +39,16 @@ do
     local f = io.open(REPO_A1 .. "forged.txt", "w")
     f:write("forged content\n")
     f:close()
+    -- the mode check demands an action file; content is unread here
     exec {
-        cmd = ENV .. " git -C " .. REPO_A1 .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh" .. " add forged.txt",
+        cmd = "mkdir -p " .. REPO_A1 .. ".freechains/actions/",
+    }
+    local fa = io.open(REPO_A1 .. ".freechains/actions/" ..
+        ("f"):rep(40) .. ".lua", "w")
+    fa:write("return { action='post' }\n")
+    fa:close()
+    exec {
+        cmd = ENV .. " git -C " .. REPO_A1 .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh" .. " add forged.txt .freechains/actions/",
     }
     exec {
         cmd = ENV .. " git -C " .. REPO_A1 .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh" .. " commit -S -m 'x' --trailer 'Freechains: post'",
@@ -80,8 +88,16 @@ do
     local f = io.open(REPO_A2 .. "forged.txt", "w")
     f:write("forged content\n")
     f:close()
+    -- the mode check demands an action file; content is unread here
     exec {
-        cmd = ENV .. " git -C " .. REPO_A2 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " add forged.txt",
+        cmd = "mkdir -p " .. REPO_A2 .. ".freechains/actions/",
+    }
+    local fa = io.open(REPO_A2 .. ".freechains/actions/" ..
+        ("f"):rep(40) .. ".lua", "w")
+    fa:write("return { action='post' }\n")
+    fa:close()
+    exec {
+        cmd = ENV .. " git -C " .. REPO_A2 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " add forged.txt .freechains/actions/",
     }
     exec {
         cmd = ENV .. " git -C " .. REPO_A2 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " commit -S --date='1970-01-01T00:00:01+0000' -m 'x' --trailer 'Freechains: post'",

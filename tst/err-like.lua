@@ -98,7 +98,7 @@ do
     TEST "B rejects like without payload on sync"
     FAIL {
         cmd = EXE_B .. " chain '#err-payload' sync recv " .. REPO_A2,
-        err = "ERROR : chain sync : invalid like : missing metadata file",
+        err = "ERROR : chain sync : invalid like : expects one action file",
     }
 end
 
