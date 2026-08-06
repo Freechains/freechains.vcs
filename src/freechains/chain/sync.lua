@@ -231,112 +231,122 @@ elseif ARGS.recv then
         local function commit (G, cid, beg)
             local key, err = ssh.verify(REPO, cid)
 
-            local out = exec {
-                cmd = "git -C " .. REPO .. " log -1 --format='%at %(trailers:key=Freechains,valueonly)' " .. cid
-            }
-            local time,kind = out:match("(%S+)%s+(%S+)")
-            if not KINDS[kind] then
-                error("invalid commit : invalid kind", 0)
-            end
+            local time = tonumber((exec {
+                cmd = "git -C " .. REPO .. " log -1 --format=%at " .. cid
+            }))
 
-            if (not key) and err=='forged' then
-                error("invalid " .. kind .. " : invalid signature", 0)
-            end
-
-            -- mode check: only the honest status/path pairs pass
-            -- (closed sets below); --cc handles merges and
-            -- non-merges uniformly
-            local diff = exec {
-                cmd = "git -C " .. REPO ..
-                    " diff-tree --cc --no-commit-id -r --name-status " .. cid
-            }
-            if kind == 'state' then
-                -- every action carries its state (S9.1/S9.2), so a pure
-                -- state commit is legal ONLY as the sync merge: 1-parent
-                -- ones exist solely in forgeries -- rejected by shape
-                if #parents(cid) < 2 then
-                    error("invalid state : not a merge", 0)
-                end
-                for status, path in diff:gmatch("(%a+)%s+(%S+)") do
-                    local bad = true
-                    if status=="M" or status=="MM" then
-                        bad = (path ~= ".freechains/state.lua")
-                    end
-                    if bad then
-                        error (
-                            "invalid state : " .. path
-                            , 0
-                        )
-                    end
-                end
-            else
-                -- an action commit writes a CLOSED set of paths:
-                --   A .freechains/actions/<hex>.lua   exactly one
-                --   A <payload outside .freechains/>  posts only
-                --                                     (in-tree until S10)
-                --   A|M .freechains/state.lua         joined commits (S9)
-                -- fold into one uniform mode check
-                -- --cc combines per-parent letters: "AA" on merges
+            -- one diff CLASSIFIES and MODE-CHECKS (par.5): the tree
+            -- determines everything, no trailer to trust. Closed sets:
+            --   A|AA .freechains/actions/<hex>.lua  exactly one (action;
+            --        AA: added vs both parents -- beg-merge like)
+            --   A    <payload outside .freechains/> posts only
+            --                                       (in-tree until S10)
+            --   M|MM .freechains/state.lua          joined action, or
+            --                                       sync state merge
+            local aid, pays, stat
+            do
+                local diff = exec {
+                    cmd = "git -C " .. REPO ..
+                        " diff-tree --cc --no-commit-id -r --name-status " .. cid
+                }
                 local acts = 0
+                pays = 0
                 for status, path in diff:gmatch("(%a+)%s+(%S+)") do
                     local bad = true
-                    if status=="A" or status=="AA" then
-                        -- A: one addition: the action file, or a post's
-                        -- payload (in-tree until S10)
-                        -- AA: added vs both parents: only a beg-merge
-                        -- like's own action file
-                        if path:match("^%.freechains/actions/%x+%.lua$") then
-                            acts = acts + 1
-                            bad = false
-                        elseif status == "A" then
-                            bad = not (
-                                kind == 'post' and
-                                not path:match("^%.freechains/")
-                            )
-                        end
+                    if (status=="A" or status=="AA") and
+                       path:match("^%.freechains/actions/%x+%.lua$") then
+                        acts = acts + 1
+                        aid = path:match("actions/(%x+)%.lua")
+                        bad = false
+                    elseif status=="A" and not path:match("^%.freechains/") then
+                        pays = pays + 1
+                        bad = false
                     elseif status=="M" or status=="MM" then
-                        -- a joined commit carries its state
                         bad = (path ~= ".freechains/state.lua")
+                        stat = not bad
                     end
                     if bad then
                         error (
-                            "invalid " .. kind ..  " : mode violation : " ..
+                            "invalid commit : mode violation : " ..
                                 status .. " " .. path
                             , 0
                         )
                     end
                 end
-                if acts ~= 1 then
-                    error("invalid " .. kind .. " : expects one action file", 0)
+                if acts > 1 then
+                    error("invalid commit : multiple action files", 0)
                 end
             end
 
-            if kind=='like' or kind=='revoke' then
-                if not key then
-                    error("invalid " .. kind .. " : missing sign key", 0)
+            if not aid then
+                -- no action file: only a merge is honest (S9.3/S11a);
+                -- payloads only ride action commits
+                if #parents(cid) < 2 then
+                    error("invalid commit : expects one action file", 0)
                 end
+                if pays > 0 then
+                    error("invalid merge : mode violation : payload", 0)
+                end
+                if stat then
+                    -- sync state merge: `now` is derived, not trusted
+                    local mx = PEAKS(parents(cid))
+                    if PEAK(cid) ~= mx then
+                        error("invalid state : now", 0)
+                    end
+                end
+                -- else: plumbing merge ('ours' tree): records nothing
+                return
+            end
 
-                -- vote data lives in the commit's own action file,
-                local aid = COMMIT_ACTION(cid)
+            -- action commit: its own file self-describes the kind
+            -- data only: no globals to attacker Lua (see READ)
+            local t
+            do
                 local src = exec {
                     cmd = "git -C " .. REPO .. " show " .. cid ..
                         ":.freechains/actions/" .. aid .. ".lua"
                 }
-                -- data only: no globals to attacker Lua (see READ)
                 local f = load(src, nil, "t", {})
-                if not f then
-                    error("invalid " .. kind .. " : invalid lua metadata", 0)
+                local ok
+                if f then
+                    ok, t = pcall(f)
                 end
-                local ok, t = pcall(f)
-                if (not ok) or type(t)~='table' then
-                    error("invalid " .. kind .. " : invalid lua metadata", 0)
+                if (not f) or (not ok) or type(t)~='table' then
+                    error("invalid commit : invalid lua metadata", 0)
+                end
+            end
+            local kind = t.action
+            if kind~='post' and kind~='like' and kind~='revoke' then
+                error("invalid commit : invalid action", 0)
+            end
+
+            if (not key) and err=='forged' then
+                error("invalid " .. kind .. " : invalid signature", 0)
+            end
+            if pays > 0 and kind ~= 'post' then
+                error("invalid " .. kind .. " : mode violation : payload", 0)
+            end
+
+            if kind == 'post' then
+                local ok, err = apply(G, 'post', time, {
+                    aid     = aid,
+                    parents = parents(cid),
+                    sign    = key,
+                    beg     = beg or (key == nil),
+                })
+                if not ok then
+                    error("invalid post : " .. err, 0)
+                end
+            else
+                if not key then
+                    error("invalid " .. kind .. " : missing sign key", 0)
                 end
                 -- only a positive `like` accepts a beg
                 local to_beg = (
                     kind == 'like' and t.n > 0
                     and t.post and (G.posts[t.post] and G.posts[t.post].maturity=="beg")
                 )
-                local ok, err = apply(G, kind, tonumber(time), {
+                local ok, err = apply(G, kind, time, {
                     aid     = aid,
                     parents = parents(cid),
                     sign    = key,
@@ -348,29 +358,9 @@ elseif ARGS.recv then
                 if not ok then
                     error("invalid " .. kind .. " : " .. err, 0)
                 end
-                ORD[aid] = cid
-                G.order[#G.order+1] = aid
-            elseif kind == 'post' then
-                local aid = COMMIT_ACTION(cid)
-                local ok, err = apply(G, 'post', tonumber(time), {
-                    aid     = aid,
-                    parents = parents(cid),
-                    sign    = key,
-                    beg     = beg or (key == nil),
-                })
-                if not ok then
-                    error("invalid post : " .. err, 0)
-                end
-                ORD[aid] = cid
-                G.order[#G.order+1] = aid
-            else
-                assert(kind == 'state')
-                -- need to check now, since it is derived, not trusted
-                local mx = PEAKS(parents(cid))
-                if PEAK(cid) ~= mx then
-                    error("invalid state : now", 0)
-                end
             end
+            ORD[aid] = cid
+            G.order[#G.order+1] = aid
         end
 
         ---------------------------------------------------------------------------
@@ -435,7 +425,9 @@ elseif ARGS.recv then
                         climb(G, com, p1, beg)
                     else
                         -- like positivity (n>0) is enforced in commit()
-                        local is_beg_merge = (trailer(cur) == "like")
+                        -- only a beg-merge like is 2-parent WITH an
+                        -- action file
+                        local is_beg_merge = (AID(cur) ~= nil)
                         meet(G, com, p1, p2, is_beg_merge)
                     end
                     visited[cur] = true
@@ -534,9 +526,8 @@ elseif ARGS.recv then
             local err = nil
 
             for _, cid in ipairs(O_snd) do
-                local kind = trailer(cid)
-
-                if kind~='state' then
+                -- merge action commits; a merge tip re-derives itself
+                if AID(cid) then
                     ok = exec { stderr=false, err=false,
                         cmd = "git -C " .. REPO .. " merge --no-commit " .. cid
                     }
@@ -549,7 +540,6 @@ elseif ARGS.recv then
                     end
                     exec { stderr=false,
                         cmd = "git -C " .. REPO .. " commit -m 'x'"
-                        .. " --trailer 'Freechains: merge'"
                     }
                 end
 
@@ -583,10 +573,9 @@ elseif ARGS.recv then
                     "log --reverse --no-merges --format='%H' " ..
                     (from .. ".." .. loc)
             }
+            -- --no-merges: every remaining commit is an action
             for cid in out:gmatch("%x+") do
-                if trailer(cid) ~= 'state' then
-                    print("voided : " .. COMMIT_ACTION(cid))
-                end
+                print("voided : " .. assert(AID(cid)))
             end
         end
 
@@ -609,7 +598,7 @@ elseif ARGS.recv then
                 }
                 exec {
                     cmd = CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
-                    .. " --no-edit --trailer 'Freechains: state'"
+                    .. " --no-edit"
                 }
             end
         end
