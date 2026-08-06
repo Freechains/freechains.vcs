@@ -44,7 +44,7 @@ do
     }
     for h in out:gmatch("%x+") do
         if trailer(h) ~= 'state' then
-            print(assert(COMMIT_ACTION(h)))
+            print(COMMIT_ACTION(h))
         end
     end
 end

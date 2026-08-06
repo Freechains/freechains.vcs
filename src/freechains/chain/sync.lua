@@ -311,7 +311,7 @@ elseif ARGS.recv then
                 end
 
                 -- vote data lives in the commit's own action file,
-                local aid = assert(COMMIT_ACTION(cid))
+                local aid = COMMIT_ACTION(cid)
                 local src = exec {
                     cmd = "git -C " .. REPO .. " show " .. cid ..
                         ":.freechains/actions/" .. aid .. ".lua"
@@ -345,7 +345,7 @@ elseif ARGS.recv then
                 ORD[aid] = cid
                 G.order[#G.order+1] = aid
             elseif kind == 'post' then
-                local aid = assert(COMMIT_ACTION(cid))
+                local aid = COMMIT_ACTION(cid)
                 local ok, err = apply(G, 'post', tonumber(time), {
                     aid     = aid,
                     parents = parents(cid),
@@ -577,7 +577,7 @@ elseif ARGS.recv then
             }
             for cid in out:gmatch("%x+") do
                 if trailer(cid) ~= 'state' then
-                    print("voided : " .. assert(COMMIT_ACTION(cid)))
+                    print("voided : " .. COMMIT_ACTION(cid))
                 end
             end
         end

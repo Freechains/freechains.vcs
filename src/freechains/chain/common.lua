@@ -53,15 +53,12 @@ end
 
 -- Flat, unsharded: sharding waits for the S6a layout move.
 function COMMIT_ACTION (cid)
-    local out = exec { err=false, stderr=false,
+    local out = exec {
         cmd = "git -C " .. REPO ..
             " diff-tree --cc --no-commit-id -r --name-only " .. cid ..
             " -- .freechains/actions/",
     }
-    if not out then
-        return nil
-    end
-    return out:match("actions/(%x+)%.lua")
+    return assert(out:match("actions/(%x+)%.lua"))
 end
 
 -- (id -> commit lives in freechains/common.lua as `CID`)
@@ -70,7 +67,7 @@ function BACKS (tips)
     local T = {}
     for _, tip in ipairs(tips) do
         for _, h in ipairs(backs(tip)) do
-            T[#T+1] = assert(COMMIT_ACTION(h), "bug found : no action file")
+            T[#T+1] = COMMIT_ACTION(h)
         end
     end
     table.sort(T)
