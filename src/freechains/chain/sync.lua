@@ -330,7 +330,7 @@ elseif ARGS.recv then
             if kind == 'post' then
                 local ok, err = apply(G, 'post', time, {
                     aid     = aid,
-                    -- TODO : remove : par.7 : peak folds over T.backs
+                    -- TODO : remove : S16 : peak folds over T.backs
                     parents = parents(cid),
                     sign    = key,
                     beg     = beg or (key == nil),
@@ -349,7 +349,7 @@ elseif ARGS.recv then
                 )
                 local ok, err = apply(G, kind, time, {
                     aid     = aid,
-                    -- TODO : remove : par.7 : peak folds over T.backs
+                    -- TODO : remove : S16 : peak folds over T.backs
                     parents = parents(cid),
                     sign    = key,
                     n       = t.n,

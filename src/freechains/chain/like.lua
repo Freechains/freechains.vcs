@@ -83,7 +83,7 @@ do
     local T = {
         [ARGS.target] = ARGS.aid,
         aid     = aid,
-        -- TODO : remove : par.7 : peak folds over T.backs, no git
+        -- TODO : remove : S16 : peak folds over T.backs, no git
         parents = to_beg and { head, (exec {
             cmd = "git -C " .. REPO .. " rev-parse " .. ref,
         }) } or { head },

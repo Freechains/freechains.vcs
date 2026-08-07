@@ -384,7 +384,7 @@ single revocation breaks replay for everyone. Check
 by asking for the one path this commit added and `assert`s there
 is exactly one. The action file names the blob outright.
 
-### The piece that must also move
+### The piece that must also move (step S16)
 
 `PEAKS(parents(h))` drives the time-monotonicity check in
 `apply`, and `PEAK` reads `state/now.lua` out of a commit tree
@@ -592,7 +592,7 @@ green after each step. Progress is tracked here.
           `.gitattributes`, test literals; state.lua generated
           at init (pioneers + now)
         - PEAK reads whole file per call: accepted (small
-          chains); dies at par.7 (peak folds over `backs` in DB)
+          chains); dies at S16 (peak folds over `backs` in DB)
 - coupled cluster, strict order, each still green:
     - S8: mint ID (`hash-object` of action file); key
       `posts`/`order` by ID; print IDs
@@ -799,9 +799,23 @@ green after each step. Progress is tracked here.
               pure points; also why only the ff path ever
               byte-compared (uniform S9.4 would false-positive
               on loser-side interiors)
-            - prerequisite: par.7 FIRST -- kills PEAK, the only
+            - prerequisite: S16 FIRST -- kills PEAK, the only
               frequent interior reader; snapshots keep only
               rare consumers (G_oct, destroy, startup)
+    - S16: peak folds over `backs` in the DB (par 7's "piece
+      that must also move", now a step; pulled BEFORE S15)
+        - per-action `peak` memoized in `posts` entries:
+          peak(a) = max(a.time, peaks of a.backs); permanent
+          field (a new action may back a consolidated one)
+        - `apply` takes `T.backs`, computes `up` with no git;
+          PEAK/PEAKS/TIME/NOW die (NOW's one caller is the ff
+          compare, gone at S15 anyway)
+        - kills the frequent interior state reader -> S15
+          snapshots keep only rare consumers (G_oct, destroy,
+          startup)
+        - CAVEAT: action-DAG fold drops merge-commit %at from
+          `now` (today TIME(parent) counts merges) -- semantic
+          change, tests must confirm
     - S6a: drop `.freechains/`: `actions/`, `genesis.lua`,
       `random` to root; shard `actions/ab/`
       (needs S10, S15)
@@ -814,9 +828,9 @@ green after each step. Progress is tracked here.
     - criterion: useful even without the redesign -> `main`
 - progress: substrate + S8 + S14 + S9.0-S9.3 + S11a done;
   S9.4 won't-do (superseded by S15);
-  order: par.7 -> S15 (+S8.4) -> S10 -> S6a;
-  par.7 pulled BEFORE S15 (kills PEAK, the frequent interior
-  state reader); CAVEAT par.7: fold over the action DAG drops
+  order: S16 -> S15 (+S8.4) -> S10 -> S6a;
+  S16 pulled BEFORE S15 (kills PEAK, the frequent interior
+  state reader); CAVEAT S16: fold over the action DAG drops
   merge-commit %at from `now` (TIME(p) of merges counts
   today) -- semantic change, tests must confirm;
   S11b+S11c DONE (suite green): chain/db.lua module,
@@ -828,7 +842,7 @@ green after each step. Progress is tracked here.
   `is-ancestor` membership; src CID -> tst CID(dir, id);
   rockspec: + chain.db, + chain.destroy (was MISSING:
   installed `chain destroy` could never load);
-  next: par.7 (peak folds over `backs` in the DB)
+  next: S16 (peak folds over `backs` in the DB)
 
 ## 11. Open questions
 

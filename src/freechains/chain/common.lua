@@ -19,7 +19,7 @@ function parents (cid)
     return ps
 end
 
--- TODO : change : par.7/S8.4 : write-path caller (BACKS) moves
+-- TODO : change : S16/S8.4 : write-path caller (BACKS) moves
 -- to the DB frontier; the recursion itself STAYS as the receive
 -- validator (par.6 two-DAG check: recompute true ancestors from
 -- git, reject a file whose `backs` lie)
@@ -48,7 +48,7 @@ function backs (cid)
 end
 
 -- TODO : remove : S11b : commit<->ID index replaces this lookup
--- TODO : change : par.7 : backs come from the DB, not git walks
+-- TODO : change : S16 : backs come from the DB, not git walks
 -- the action IDs backing a new action built on top of `tips`
 -- (resolved to hashes for the index): action ancestors via
 -- `backs`, as sorted IDs.
@@ -191,7 +191,7 @@ local function TIME (cid)
     })))
 end
 
--- TODO : remove : par.7 : peak folds over `backs` in the DB
+-- TODO : remove : S16 : peak folds over `backs` in the DB
 -- the peak RECORDED in a commit's tree (`state.lua` .now): the newest
 -- time among all of its ancestors. Derived, never trusted: `commit` in
 -- sync.lua checks every stored value against its parents' before using
@@ -244,7 +244,7 @@ function apply (G, kind, time, T)
         -- depend on the order a replay applies commits in (consensus order
         -- is not chronological order).
         if mutate then
-            -- TODO : change : par.7 : T.backs (action IDs), not commits
+            -- TODO : change : S16 : T.backs (action IDs), not commits
             local up = PEAKS(T.parents)
             if time < up-C.time.diff then
                 return false, "too old"

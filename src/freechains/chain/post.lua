@@ -58,7 +58,7 @@ local aid = ACTION.pre {
 do
     local T = {
         aid     = aid,
-        -- TODO : remove : par.7 : peak folds over T.backs, no git
+        -- TODO : remove : S16 : peak folds over T.backs, no git
         parents = { (exec {
             cmd = "git -C " .. REPO .. " rev-parse HEAD",
         }) },
