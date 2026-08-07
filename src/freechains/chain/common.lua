@@ -262,14 +262,10 @@ function apply (G, kind, time, T)
             -- an empty backs
             up = assert(G.gen, "bug found : no gen")
             for _, b in ipairs(T.backs) do
-                -- TODO : remove : S15 : state catch-up replay
-                -- heals raw-git merged repos; fallback dies
-                -- a raw `git merge` keeps OUR state (merge=ours),
-                -- so the other side's peaks are missing: read the
-                -- back's own committed `now` -- its peak. Never
-                -- cached into G: the value may disagree with a
-                -- native fold (merge stamps) and G is compared
-                local p = G.peaks[b] or PEAK(assert(DB.cid(b)))
+                -- TODO : DONE : S15.0 : catch-up replay heals
+                -- raw-git merged repos; the tree-peak fallback
+                -- is gone. (assert would leak into math.max)
+                local p = assert(G.peaks[b], "bug found : no peak")
                 up = math.max(up, p)
             end
             if time < up-C.time.diff then

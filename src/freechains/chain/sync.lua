@@ -1,5 +1,6 @@
 require "freechains.chain.common"
-local ssh = require "freechains.chain.ssh"
+local ssh    = require "freechains.chain.ssh"
+local replay = require "freechains.chain.replay"
 
 if ARGS.send then
     local url = exec {
@@ -75,102 +76,14 @@ elseif ARGS.recv then
         ---------------------------------------------------------------------------
         ---------------------------------------------------------------------------
 
-        -- Boundary octopus:
-        -- The common ancestor of every point where the region between `a` and
-        -- `b` attaches to shared history.
-        -- Sits BELOW every fork inside that region, so a replay starting here
-        -- re-derives all of it, including merges nested deeper than the outer
-        -- one.
-        -- With a single fork it degenerates to the pairwise merge-base.
-        local function octopus (a, b)
-            local out = exec {
-                cmd = "git -C " .. REPO .. " rev-list --boundary " .. a .. "..." .. b
-            }
-            local boundary = {}
-            for line in out:gmatch("[^\n]+") do
-                local h = line:match("^%-(%x+)")
-                if h then
-                    boundary[#boundary+1] = h
-                end
-            end
-            return exec {
-                cmd = "git -C " .. REPO .. " merge-base --octopus " .. table.concat(boundary, " ")
-            }
-        end
-
-        -- Consensus: prefix reps from G decide winner
-        --  - traverse com..tip, collect signed keys
-        --  - sum G.authors[key].reps for each side
-        --  - higher sum wins, cid tiebreaker (smaller wins)
-        --
-        -- Two ancestors, two different questions:
-        --   oct:  how much history must I RE-DERIVE
-        --         deep: below every fork in the region
-        --   base: what did each side CONTRIBUTE
-        --         shallow: disjoint, no shared commits
-        --
-        -- `com` is the pairwise merge-base, computed HERE so no caller can
-        -- pass the octopus `oct` instead: from a deeper point the two
-        -- ranges overlap, and since reps are summed over the SET of
-        -- authors, a commit both sides already hold hands its author's
-        -- full reps to whichever side lacked them -- letting undisputed
-        -- history decide a disputed merge.
-        local function consensus (G, a, b)
-            local com = (exec {
-                cmd = "git -C " .. REPO .. " merge-base " .. a .. " " .. b
-            }):match("%x+")
-            local function collect_keys (tip)
-                --[[
-                    com..tip = commits reachable from tip but not from com:
-                                everything tip added since com
-                      com
-                      /  \
-                    c1    d1    com..a = {c1, c2}    <- what A contributed
-                     |     |    com..b = {d1, d2}    <- what B contributed
-                    c2    d2
-                    (a)   (b)
-                ]]
-                local keys = {}
-                local out = exec {
-                    cmd = "git -C " .. REPO .. " log --reverse --format=%H " .. com .. ".." .. tip
-                }
-                for cid in out:gmatch("%x+") do
-                    local key = ssh.pub.commit(REPO, cid)
-                    if key then
-                        keys[key] = true
-                    end
-                end
-                return keys
-            end
-            local function reps (keys)
-                local n = 0
-                for key in pairs(keys) do
-                    local T = G.authors[key]
-                    if T then
-                        n = n + T.reps
-                    end
-                end
-                return n
-            end
-            local sa, sb = reps(collect_keys(a)), reps(collect_keys(b))
-            if sa > sb then
-                return a, b
-            elseif sb > sa then
-                return b, a
-            elseif a < b then
-                return a, b
-            else
-                return b, a
-            end
-        end
-
         -- Hard fork protects my ORDER.
         -- Walking my order back from the tip, everything older than fork.time
         -- (or fork.posts entries back) is SETTLED.
         -- `their`: the expected order this sync would leave behind
         -- must reproduce that prefix verbatim, or it is a hard fork.
         local function hardfork (their)
-            local our = dofile(FC .. "state.lua").order
+            -- S15.0: healed view, not the worktree file
+            local our = replay.state().order
             if #our == 0 then
                 return false
             end
@@ -223,156 +136,6 @@ elseif ARGS.recv then
         -- TODO : DONE : S11b : one-pass commit<->ID index over the
         -- fetched range subsumes ORD + AID + CID (DB.cid below)
 
-        -- TODO : review : commit flow
-
-        local function commit (G, cid, beg)
-            local key, err = ssh.verify(REPO, cid)
-
-            local time = tonumber((exec {
-                cmd = "git -C " .. REPO .. " log -1 --format=%at " .. cid
-            }))
-
-            -- one diff CLASSIFIES and MODE-CHECKS (par.5): the tree
-            -- determines everything, no trailer to trust. Closed sets:
-            --   A|AA .freechains/actions/<hex>.lua  exactly one (action;
-            --        AA: added vs both parents -- beg-merge like)
-            --   A    <payload outside .freechains/> posts only
-            --                                       (in-tree until S10)
-            --   M|MM .freechains/state.lua          joined action, or
-            --                                       sync state merge
-            -- TODO : change : S10 : payloads leave the tree
-            local aid, pays, stat
-            do
-                local diff = exec {
-                    cmd = "git -C " .. REPO ..
-                        " diff-tree --cc --no-commit-id -r --name-status " .. cid
-                }
-                local acts = 0
-                pays = 0
-                for status, path in diff:gmatch("(%a+)%s+(%S+)") do
-                    local bad = true
-                    if (status=="A" or status=="AA") and
-                       path:match("^%.freechains/actions/%x+%.lua$") then
-                        acts = acts + 1
-                        aid = path:match("actions/(%x+)%.lua")
-                        bad = false
-                    elseif status=="A" and not path:match("^%.freechains/") then
-                        pays = pays + 1
-                        bad = false
-                    elseif status=="M" or status=="MM" then
-                        bad = (path ~= ".freechains/state.lua")
-                        stat = not bad
-                    end
-                    if bad then
-                        error (
-                            "invalid commit : mode violation : " ..
-                                status .. " " .. path
-                            , 0
-                        )
-                    end
-                end
-                if acts > 1 then
-                    error("invalid commit : multiple action files", 0)
-                end
-            end
-
-            if not aid then
-                -- no action file: only a merge is honest (S9.3/S11a);
-                -- payloads only ride action commits
-                if #parents(cid) < 2 then
-                    error("invalid commit : expects one action file", 0)
-                end
-                if pays > 0 then
-                    error("invalid merge : mode violation : payload", 0)
-                end
-                if stat then
-                    -- sync state merge: `now` is derived, not trusted
-                    -- TODO : remove : S15 : state leaves the tree; branch dies
-                    local mx = PEAKS(parents(cid))
-                    if PEAK(cid) ~= mx then
-                        error("invalid state : now", 0)
-                    end
-                end
-                -- else: plumbing merge ('ours' tree): records nothing
-                return
-            end
-
-            -- action commit: its own file self-describes the kind
-            -- TODO : change : S8.4 : action data via db[aid]
-            -- data only: no globals to attacker Lua (see READ)
-            local t
-            do
-                local src = exec {
-                    cmd = "git -C " .. REPO .. " show " .. cid ..
-                        ":.freechains/actions/" .. aid .. ".lua"
-                }
-                local f = load(src, nil, "t", {})
-                local ok
-                if f then
-                    ok, t = pcall(f)
-                end
-                if (not f) or (not ok) or type(t)~='table' then
-                    error("invalid commit : invalid lua metadata", 0)
-                end
-            end
-            local kind = t.action
-            if kind~='post' and kind~='like' and kind~='revoke' then
-                error("invalid commit : invalid action", 0)
-            end
-
-            if (not key) and err=='forged' then
-                error("invalid " .. kind .. " : invalid signature", 0)
-            end
-            if pays > 0 and kind ~= 'post' then
-                error("invalid " .. kind .. " : mode violation : payload", 0)
-            end
-
-            -- TODO : DONE : S16 : peak folds over T.backs, no
-            -- PEAKS(parents) -- but backs are GIT-derived here:
-            -- the file's `backs` stays untrusted until S8.4
-            -- compares it against exactly this
-
-            -- TODO : redesign : review
-            local bs = {}
-            for _, h in ipairs(backs(cid)) do
-                bs[#bs+1] = assert(DB.aid(h), "bug found")
-            end
-
-            if kind == 'post' then
-                local ok, err = apply(G, 'post', time, {
-                    aid     = aid,
-                    backs   = bs,
-                    sign    = key,
-                    beg     = beg or (key == nil),
-                })
-                if not ok then
-                    error("invalid post : " .. err, 0)
-                end
-            else
-                if not key then
-                    error("invalid " .. kind .. " : missing sign key", 0)
-                end
-                -- only a positive `like` accepts a beg
-                local to_beg = (
-                    kind == 'like' and t.n > 0
-                    and t.post and (G.posts[t.post] and G.posts[t.post].maturity=="beg")
-                )
-                local ok, err = apply(G, kind, time, {
-                    aid     = aid,
-                    backs   = bs,
-                    sign    = key,
-                    n       = t.n,
-                    post    = t.post,
-                    author  = t.author,
-                    beg     = to_beg,
-                })
-                if not ok then
-                    error("invalid " .. kind .. " : " .. err, 0)
-                end
-            end
-            G.order[#G.order+1] = aid
-        end
-
         ---------------------------------------------------------------------------
         ---------------------------------------------------------------------------
 
@@ -403,7 +166,7 @@ elseif ARGS.recv then
 
         local oct, G_oct
         do
-            oct = octopus(loc, rem)
+            oct = replay.octopus(loc, rem)
             -- S15.1c: the replay base is MY OWN past derivation
             -- (.git/states/), not a transmitted claim; the tree
             -- copy is the fallback for pre-snapshot octs, and
@@ -423,67 +186,12 @@ elseif ARGS.recv then
         end
 
         -- 4: needs fst/winner - snd/loser (do now b/c 3 mutates G_oct)
-        local fst, snd = consensus(G_oct, loc, rem)
+        local fst, snd = replay.consensus(G_oct, loc, rem)
 
         -- 3,4: need remote validation: replay remote branch from G_oct
         local G_rem = G_oct -- (G_oct no longer required)
         do
-            -- visited: never re-applies a shared commit
-            -- ancestor(cur,com): stops climb from descending below its floor
-            -- without these the inner meet underflows to a root
-            local visited = {}
-            for _, i in ipairs(G_rem.order) do
-                visited[assert(DB.cid(i), "bug found")] = true
-            end
-            local function ancestor (a, b)
-                return exec { err=false, stderr=false,
-                    cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. a .. " " .. b
-                }
-            end
-            local climb, meet
-
-            -- S15.1b: `pure` = everything applied so far is an
-            -- ancestor of `cur`, so G IS the state as of `cur`
-            -- (writer semantics) and may be snapshotted. False
-            -- on loser-side climbs: the winner is already in G.
-            climb = function (G, com, cur, beg, pure)
-                if cur==com or visited[cur] or ancestor(cur,com) then
-                    return
-                else
-                    local ps = parents(cur)
-                    assert(#ps <= 2, "bug: >2 parents")
-                    local p1, p2 = ps[1], ps[2]
-                    if p2 == nil then
-                        climb(G, com, p1, beg, pure)
-                    else
-                        -- like positivity (n>0) is enforced in commit()
-                        -- only a beg-merge like is 2-parent WITH an
-                        -- action file
-                        local is_beg_merge = (DB.aid(cur) ~= nil)
-                        meet(G, com, p1, p2, is_beg_merge, pure)
-                    end
-                    visited[cur] = true
-                    commit(G, cur, beg)
-                    if pure then
-                        DB.snap(cur, G)
-                    end
-                end
-            end
-
-            meet = function (G, com, left, right, right_is_beg, pure)
-                local up = octopus(left, right)
-                climb(G, com, up, false, pure)
-                local w = consensus(G, left, right)
-                if w == left then
-                    climb(G, up, left,  false, pure)
-                    climb(G, up, right, right_is_beg, false)
-                else
-                    climb(G, up, right, right_is_beg, pure)
-                    climb(G, up, left,  false, false)
-                end
-            end
-
-            local ok, err = pcall(climb, G_rem, oct, rem, false, true)
+            local ok, err = pcall(replay.region, G_rem, oct, rem)
             if not ok then
                 ERROR("chain sync : " .. err)
             end
@@ -525,11 +233,11 @@ elseif ARGS.recv then
             do
                 local ids
                 if fst == loc then
-                    G_fst = dofile(FC .. "state.lua")
+                    G_fst = replay.state()
                     ids = G_rem.order
                 else
                     G_fst = G_rem
-                    ids = dofile(FC .. "state.lua").order
+                    ids = replay.state().order
                 end
                 -- order holds IDs; the loser replay walks COMMITS
                 for _, i in ipairs(ids) do
@@ -584,7 +292,7 @@ elseif ARGS.recv then
                     }
                 end
 
-                ok, err = pcall(commit, G_fst, cid, nil)
+                ok, err = pcall(replay.commit, G_fst, cid, nil)
                 if not ok then
                     goto DONE
                 end

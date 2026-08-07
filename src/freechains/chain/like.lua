@@ -76,7 +76,7 @@ if to_beg then
     }
     local up = assert(G.gen, "bug found : no gen")
     for _, b in ipairs(A.backs) do
-        local p = G.peaks[b] or PEAK(assert(DB.cid(b)))
+        local p = assert(G.peaks[b], "bug found : no peak")
         up = math.max(up, p)
     end
     G.peaks[ARGS.aid] = math.max(A.time, up)

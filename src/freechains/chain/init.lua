@@ -13,7 +13,9 @@ if ARGS.sync then
 elseif ARGS.destroy then
     require "freechains.chain.destroy"
 else
-    G = dofile(FC .. "state.lua")
+    -- S15.0: healed state (snapshot at HEAD, replaying any
+    -- region made behind our back), not the worktree file
+    G = require("freechains.chain.replay").state()
 
     if ARGS.list then
         require "freechains.chain.list"

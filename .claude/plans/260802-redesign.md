@@ -853,11 +853,21 @@ green after each step. Progress is tracked here.
               reads the back's committed `now` (never cached
               into G: may disagree with a native fold); dies
               at S15 with state catch-up
-    - S15.0 (new requirement, found via raw-git repl): state
-      must SELF-HEAL like the index -- on load, if HEAD is not
-      covered, replay the delta from the last covered ancestor
-      (subsumes raw-git interop, crash between commit and
-      WRITE, and kills the S16 fallback)
+    - S15.0 DONE (suite green): state SELF-HEALS like the index
+        - S15.0a: replay machinery extracted to chain/replay.lua
+          (octopus/consensus/commit/region incl `pure` snaps);
+          sync.lua 635 -> 380 lines; rockspec + chain.replay
+        - S15.0b: `replay.state()` = snapshot at HEAD, else:
+          action/genesis commit -> its tree state (writer's own
+          current fold; transitional, dies at S15.2) -> snap;
+          merge behind our back -> recurse state_at(octopus of
+          parents) + region replay
+        - init.lua startup G, sync's hardfork/G_fst/ids all use
+          the healed view; worktree dofile reads gone
+        - S16 tree-peak fallbacks (apply + like fold) removed:
+          asserts restored -- healing makes them unreachable
+        - raw-git merged repos now heal FULLY (other side's
+          posts/order/peaks enter state at next command)
     - S6a: drop `.freechains/`: `actions/`, `genesis.lua`,
       `random` to root; shard `actions/ab/`
       (needs S10, S15)
@@ -884,8 +894,9 @@ green after each step. Progress is tracked here.
   `is-ancestor` membership; src CID -> tst CID(dir, id);
   rockspec: + chain.db, + chain.destroy (was MISSING:
   installed `chain destroy` could never load);
-  next: S15.0 (state catch-up replay: self-heal like the
-  index; prerequisite for S15.2's startup-from-snapshot)
+  next: S15.2 (evict state from the tree: `merge=ours`,
+  `.gitattributes`, M/MM checks, ff compare + fail-fast, clone
+  bootstrap replay; the big behavioral step)
 
 ## 11. Open questions
 
