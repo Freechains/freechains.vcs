@@ -3,9 +3,18 @@
 # Next steps (run on other machine)
 
 - decide: verify remote state vs local-only state (see Q4/Q5)
-- copy failing test `tst/bug-forged-state.lua` (already on main)
-- run `cd tst && lua5.4 bug-forged-state.lua`
-    - confirm which scenarios fail on main
+- [x] test `tst/bug-forged-state.lua` on main
+    - confirmed red: scenario 1 (diverge) fails first
+- [x] scenario 4 added: clone accepts forged history
+    - to reach it: `do` -> `if false then` on scenarios 1-3
+- red/green map on main (all 4 holes proven):
+    - 1 diverge tip: RED (accepted, bug)
+    - 2 interior: RED after date fix (confirmed on run)
+        - was GREEN by accident: forged `%at=1120` tripped the
+          NEXT commit's `now` check (`PEAKS = max(%at, now)`)
+        - stealthy forger pins dates to `now` (@1100): passes
+    - 3 merge side: RED (accepted, bug)
+    - 4 clone: RED (accepted, bug)
 - create `src/chain/consensus.lua` skeleton
     - move: `ancestor`, `octopus`, `consensus`, `replay`
     - from scratch, no code from other branches

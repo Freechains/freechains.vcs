@@ -200,8 +200,12 @@ do
     exec {
         cmd = "git -C " .. REPO_C .. " add .freechains/state/",
     }
+    -- dates pinned to @1100, same as `now.lua`: a stealthy forger
+    -- matches them, or `PEAKS = max(%at, now)` trips the NEXT commit's
+    -- `now` check on the forged `%at` (accidental catch, not a check
+    -- on the forged values)
     exec {
-        cmd = "GIT_AUTHOR_DATE='@1120 +0000' GIT_COMMITTER_DATE='@1120 +0000'" ..
+        cmd = "GIT_AUTHOR_DATE='@1100 +0000' GIT_COMMITTER_DATE='@1100 +0000'" ..
             " git -C " .. REPO_C .. " commit -q -m '(empty message)'" ..
             " --trailer 'Freechains: state' --no-gpg-sign",
     }
@@ -403,6 +407,73 @@ do
         for _ in out:gmatch("[^\n]+") do n = n + 1 end
         assert(n == 1, "expected 1 entry, got " .. n)
     end
+end
+
+-- Same forgery, but delivered by CLONE. `chains add clone` validates
+-- nothing at all: the whole history is accepted verbatim, so the
+-- invented reputation is the victim's state from the very first read.
+-- No diverge, no merge, no sync -- just a copy. This is the base case:
+-- every later sync is incremental on top of what clone accepted.
+do
+    print("==> Test: forged state commit is refused on clone")
+
+    local ROOT_F = ROOT .. "/bug-forged-state/F/"
+    local ROOT_W = ROOT .. "/bug-forged-state/W/"
+    local EXE_F  = ENV .. " ../src/freechains.lua --root " .. ROOT_F
+    local EXE_W  = ENV .. " ../src/freechains.lua --root " .. ROOT_W
+    local REPO_F = ROOT_F .. "chains/#fc/"
+
+    exec {
+        cmd = "mkdir -p " .. ROOT_F,
+    }
+    exec {
+        cmd = "mkdir -p " .. ROOT_W,
+    }
+
+    TEST "F creates chain + seeds s.txt"
+    exec {
+        cmd = EXE_F .. " --now=1000 chains add '#fc' init file " .. GEN_2,
+    }
+    exec {
+        cmd = EXE_F .. " --now=1020 chain '#fc' post inline 'seed\n' --file s.txt --sign " .. KEY1,
+    }
+
+    TEST "F hand-forges a state commit granting K1 the reps cap"
+    do
+        local f = assert(io.open(REPO_F .. ".freechains/state/authors.lua", "w"))
+        f:write("return {\n    ['" .. PUB1 .. "'] = { reps=30000, time=1020 },\n}\n")
+        f:close()
+    end
+    exec {
+        cmd = "git -C " .. REPO_F .. " add .freechains/state/",
+    }
+    exec {
+        cmd = "GIT_AUTHOR_DATE='@1040 +0000' GIT_COMMITTER_DATE='@1040 +0000'" ..
+            " git -C " .. REPO_F .. " commit -q -m '(empty message)'" ..
+            " --trailer 'Freechains: state' --no-gpg-sign",
+    }
+
+    TEST "the forged reps are NOT what a replay computes"
+    do
+        local n = REPS(EXE_F, "#fc", PUB1)
+        assert(n == 30, "expected the forged cap (30), got " .. tostring(n))
+    end
+
+    TEST "W clones F: the forged history must be refused"
+    do
+        local err = FAIL {
+            cmd = EXE_W .. " chains add '#fc' clone " .. REPO_F,
+        }
+        assert(
+            err:find("invalid state", 1, true),
+            "expected an invalid-state refusal, got: " .. tostring(err)
+        )
+    end
+
+    TEST "W keeps no chain behind (clone rolled back)"
+    exec {
+        cmd = "test ! -d " .. ROOT_W .. "chains/#fc",
+    }
 end
 
 print("<== ALL PASSED")
