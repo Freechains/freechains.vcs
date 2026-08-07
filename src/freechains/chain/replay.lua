@@ -192,15 +192,61 @@ function M.commit (G, cid, beg)
         error("invalid " .. kind .. " : mode violation : payload", 0)
     end
 
+    -- TODO : DONE : S8.4 : the file's self-descriptions are
+    -- TRUSTED by replay (par.2) -- so each is validated against
+    -- the commit exactly once, here, at receive (par.6):
+    do
+        -- id integrity: the filename IS the blob's own hash
+        local sha = (exec {
+            cmd = "git -C " .. REPO .. " ls-tree " .. cid ..
+                " -- .freechains/actions/" .. aid .. ".lua",
+        }):match("blob (%x+)")
+        if sha ~= aid then
+            error("invalid " .. kind .. " : id mismatch", 0)
+        end
+        -- sign: otherwise Alice's file could replay under
+        -- another committer's signature
+        if t.sign ~= key then
+            error("invalid " .. kind .. " : sign mismatch", 0)
+        end
+        if t.time ~= time then
+            error("invalid " .. kind .. " : time mismatch", 0)
+        end
+    end
+
+    -- duplicate net (par.4): the same action reaching us through
+    -- two commits is ONE action -- skip re-apply deliberately
+    -- (every applied action has a peak)
+    if G.peaks[aid] then
+        return
+    end
+
     -- TODO : DONE : S16 : peak folds over T.backs, no
-    -- PEAKS(parents) -- but backs are GIT-derived here:
-    -- the file's `backs` stays untrusted until S8.4
-    -- compares it against exactly this
+    -- PEAKS(parents) -- backs are GIT-derived here
 
     -- TODO : redesign : review
     local bs = {}
     for _, h in ipairs(backs(cid)) do
         bs[#bs+1] = assert(DB.aid(h), "bug found")
+    end
+    table.sort(bs)
+
+    -- S8.4: `backs` is the file's claim of its DAG position --
+    -- reject if it disagrees with git's truth (par.6, the
+    -- two-DAG check); BACKS writes sorted, so order is exact
+    do
+        local same = (type(t.backs) == 'table') and (#bs == #t.backs)
+        if same then
+            for i = 1, #bs do
+                if bs[i] ~= t.backs[i] then
+                    same = false
+                    break
+                end
+            end
+        end
+        if not same then
+            error("invalid " .. kind .. " : backs mismatch", 0)
+        end
     end
 
     if kind == 'post' then

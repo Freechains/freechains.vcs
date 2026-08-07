@@ -188,23 +188,13 @@ do
     }
 
     TEST "X crafts a raw like signed by KEY3 (0 reps) targeting P1"
-    exec {
-        cmd = "mkdir -p " .. REPO_X .. ".freechains/actions/",
-    }
-    local f = io.open(REPO_X .. ".freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua", "w")
-    f:write('return { action="like", post="'..P1..'", n=1 }\n')
-    f:close()
-    local now = 7000
-    local date = "GIT_AUTHOR_DATE=$(date -u -d @" .. now .. " --iso-8601=seconds) "
-        .. "GIT_COMMITTER_DATE=$(date -u -d @" .. now .. " --iso-8601=seconds) "
-    exec {
-        cmd = ENV .. " git -C " .. REPO_X .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh" .. " add .freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua",
-    }
-    exec {
-        cmd = date .. ENV .. " git -C " .. REPO_X .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh" .. " commit -S -m 'bad' --trailer 'Freechains: like'",
-    }
-    exec {
-        cmd = date .. "git -C " .. REPO_X .. " commit -m 'x' --trailer 'Freechains: state' --allow-empty",
+    -- S8.4: self-consistent forgery, so the reps check fires
+    FORGE {
+        dir  = REPO_X,
+        key  = KEY3,
+        pub  = PUB3,
+        time = 7000,
+        A    = { action = 'like', post = P1, n = 1 },
     }
 
     TEST "X sends to B: rejected"

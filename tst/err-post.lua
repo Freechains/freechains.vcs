@@ -36,22 +36,15 @@ do
     }
 
     TEST "A crafts post signed by non-pioneer (0 reps)"
-    local f = io.open(REPO_A1 .. "forged.txt", "w")
-    f:write("forged content\n")
-    f:close()
-    -- the mode check demands an action file; content is unread here
-    exec {
-        cmd = "mkdir -p " .. REPO_A1 .. ".freechains/actions/",
-    }
-    local fa = io.open(REPO_A1 .. ".freechains/actions/" ..
-        ("f"):rep(40) .. ".lua", "w")
-    fa:write("return { action='post' }\n")
-    fa:close()
-    exec {
-        cmd = ENV .. " git -C " .. REPO_A1 .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh" .. " add forged.txt .freechains/actions/",
-    }
-    exec {
-        cmd = ENV .. " git -C " .. REPO_A1 .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh" .. " commit -S -m 'x' --trailer 'Freechains: post'",
+    -- S8.4: the forgery must be self-consistent to reach the
+    -- reps check
+    FORGE {
+        dir  = REPO_A1,
+        key  = KEY3,
+        pub  = PUB3,
+        file = "forged.txt",
+        text = "forged content\n",
+        A    = { action = 'post' },
     }
     exec {
         cmd = "git -C " .. REPO_A1 .. " commit -m 'x' --trailer 'Freechains: state' --allow-empty",
@@ -85,22 +78,16 @@ do
     }
 
     TEST "A crafts post with old timestamp"
-    local f = io.open(REPO_A2 .. "forged.txt", "w")
-    f:write("forged content\n")
-    f:close()
-    -- the mode check demands an action file; content is unread here
-    exec {
-        cmd = "mkdir -p " .. REPO_A2 .. ".freechains/actions/",
-    }
-    local fa = io.open(REPO_A2 .. ".freechains/actions/" ..
-        ("f"):rep(40) .. ".lua", "w")
-    fa:write("return { action='post' }\n")
-    fa:close()
-    exec {
-        cmd = ENV .. " git -C " .. REPO_A2 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " add forged.txt .freechains/actions/",
-    }
-    exec {
-        cmd = ENV .. " git -C " .. REPO_A2 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " commit -S --date='1970-01-01T00:00:01+0000' -m 'x' --trailer 'Freechains: post'",
+    -- S8.4: consistent-but-old (file time == %at == 1), so the
+    -- causal check is what fires
+    FORGE {
+        dir  = REPO_A2,
+        key  = KEY1,
+        pub  = PUB1,
+        time = 1,
+        file = "forged.txt",
+        text = "forged content\n",
+        A    = { action = 'post' },
     }
     exec {
         cmd = "git -C " .. REPO_A2 .. " commit -m 'x' --trailer 'Freechains: state' --allow-empty",

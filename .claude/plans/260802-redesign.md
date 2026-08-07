@@ -627,8 +627,24 @@ green after each step. Progress is tracked here.
             - CAVEAT: send-path tests run the INSTALLED
               freechains (pre-receive hook uses PATH) --
               `make install` after recv-path changes
-        - S8.4 POSTPONED -> lands with S15: receive validation
-          (id/sign/time/backs, par.6)
+        - S8.4 DONE (suite green): receive validation in
+          replay.commit(), after kind/forged checks:
+            - id: `ls-tree` blob sha == filename (the aid)
+            - sign == commit signature key (nil == nil for
+              unsigned begs); time == commit %at
+            - duplicate net: `G.peaks[aid]` already set ->
+              skip re-apply deliberately (before backs check:
+              a truer dup tolerates placement)
+            - backs == git-derived `bs`, sorted exact (BACKS
+              writes sorted -> canonical form enforced)
+            - like-on-beg re-checks id/sign/time locally
+              (fetched begs bypass the gate; peers re-check at
+              merge receive, backs included)
+            - tests: FORGE helper (tests.lua) builds
+              SELF-CONSISTENT forgeries (derived backs, pinned
+              GIT_*_DATE == file time, real blob); 9 craft
+              sites rewritten (err-post x2, err-like x6,
+              cli-send x1)
             - rationale: replay still trusts only commit-derived
               facts (sig, %at, parents); file fields are
               display/vote-content -- validation belongs at the
@@ -910,9 +926,9 @@ green after each step. Progress is tracked here.
   `is-ancestor` membership; src CID -> tst CID(dir, id);
   rockspec: + chain.db, + chain.destroy (was MISSING:
   installed `chain destroy` could never load);
-  next: S8.4 (receive validation: id/sign/time/backs -- the
-  file fields replay now leans on) or S10 (payload eviction);
-  S15.3 (snapshot GC) can wait
+  next: S10 (payload eviction: refs/payloads/<aid>, refspecs,
+  clone, `--why` off post); then S12/S13, S6a, S11b/c GC-side
+  (S15.3, prune) as cleanups
 
 ## 11. Open questions
 

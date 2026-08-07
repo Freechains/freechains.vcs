@@ -97,6 +97,56 @@ function STATE (dir)
     return dofile(dir .. ".git/states/" .. cid .. ".lua")
 end
 
+-- a SELF-CONSISTENT forged action commit: S8.4 validates
+-- id/sign/time/backs at receive, so even a forgery must be
+-- internally consistent to reach its intended error.
+-- T: dir; A (action table -- backs/sign/time/blob filled here);
+--    key+pub (nil: unsigned commit); time (default: wall clock);
+--    file+text (payload). Returns the aid.
+function FORGE (T)
+    local A = T.A
+    A.sign = T.pub
+    A.time = T.time or os.time()
+    do
+        local head = exec {
+            cmd = "git -C " .. T.dir .. " rev-parse HEAD",
+        }
+        local aid = AID_OF(T.dir, head)
+        A.backs = aid and { aid } or {}
+    end
+    if T.file then
+        local f = io.open(T.dir .. T.file, "w")
+        f:write(T.text)
+        f:close()
+        A.blob = exec {
+            cmd = "git -C " .. T.dir .. " hash-object " .. T.file,
+        }
+    end
+    local tmp = T.dir .. ".git/forge.lua"
+    local f = io.open(tmp, "w")
+    f:write(serial(A))
+    f:close()
+    local aid = exec {
+        cmd = "git -C " .. T.dir .. " hash-object " .. tmp,
+    }
+    exec {
+        cmd = "mkdir -p " .. T.dir .. ".freechains/actions/",
+    }
+    os.rename(tmp, T.dir .. ".freechains/actions/" .. aid .. ".lua")
+    local env = "GIT_AUTHOR_DATE='@" .. A.time .. " +0000'" ..
+        " GIT_COMMITTER_DATE='@" .. A.time .. " +0000' "
+    local sig = T.key and
+        (" -c user.signingkey=" .. T.key .. " -c gpg.format=ssh") or ""
+    exec {
+        cmd = env .. "git -C " .. T.dir .. " add .",
+    }
+    exec {
+        cmd = env .. "git -C " .. T.dir .. sig .. " commit" ..
+            (T.key and " -S" or "") .. " -m 'x'",
+    }
+    return aid
+end
+
 -- the aid a commit adds, or nil: the structural action test
 -- (mirrors AID in chain/common.lua, with an explicit dir)
 function AID_OF (dir, hash)

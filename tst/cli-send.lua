@@ -140,17 +140,11 @@ do
     }
 
     TEST "X crafts malicious like signed by non-pioneer (0 reps)"
-    exec {
-        cmd = "mkdir -p " .. REPO_X .. ".freechains/actions/",
-    }
-    local f = io.open(REPO_X .. ".freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua", "w")
-    f:write('return { action="like", author="'..PUB1..'", n=1000 }\n')
-    f:close()
-    exec {
-        cmd = ENV .. " git -C " .. REPO_X .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh" .. " add .freechains/actions/ffffffffffffffffffffffffffffffffffffffff.lua",
-    }
-    exec {
-        cmd = ENV .. " git -C " .. REPO_X .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh" .. " commit -S -m 'x' --trailer 'Freechains: like'",
+    FORGE {
+        dir = REPO_X,
+        key = KEY3,
+        pub = PUB3,
+        A   = { action = 'like', author = PUB1, n = 1000 },
     }
     exec {
         cmd = "git -C " .. REPO_X .. " commit -m 'x' --trailer 'Freechains: state' --allow-empty",

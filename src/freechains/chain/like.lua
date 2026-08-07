@@ -67,6 +67,27 @@ if to_beg then
         cmd = "git -C " .. REPO .. " show " .. ref ..
             ":.freechains/actions/" .. ARGS.aid .. ".lua",
     })
+    -- S8.4: a fetched beg bypassed the receive gate -- check
+    -- its file against its commit before trusting it. (Every
+    -- peer re-checks when the merge reaches them; an invalid
+    -- beg would only get MY merge rejected.) `backs` is
+    -- enforced there too, so it is not re-checked here.
+    do
+        local bid = exec {
+            cmd = "git -C " .. REPO .. " rev-parse " .. ref,
+        }
+        local sha = (exec {
+            cmd = "git -C " .. REPO .. " ls-tree " .. bid ..
+                " -- .freechains/actions/" .. ARGS.aid .. ".lua",
+        }):match("blob (%x+)")
+        local bkey = ssh.verify(REPO, bid)
+        local btime = tonumber((exec {
+            cmd = "git -C " .. REPO .. " log -1 --format=%at " .. bid,
+        }))
+        if sha ~= ARGS.aid or A.sign ~= bkey or A.time ~= btime then
+            ERROR("chain " .. kind .. " : invalid beg")
+        end
+    end
     G.posts[ARGS.aid] = {
         author   = A.sign,
         time     = A.time,
