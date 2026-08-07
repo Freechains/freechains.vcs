@@ -1,6 +1,56 @@
 require "freechains.chain.common"
 require "freechains.chain.consensus"
 
+-- Hard fork protects my ORDER.
+-- Walking my order back from the tip, everything older than fork.time
+-- (or fork.posts entries back) is SETTLED.
+-- `their`: the expected order this sync would leave behind
+-- must reproduce that prefix verbatim, or it is a hard fork.
+local function hardfork (their)
+    local our = dofile(FC .. "state/order.lua")
+    if #our == 0 then
+        return false
+    end
+
+    local low = math.max(1, #our-C.fork.posts+1)
+    local hs = table.concat(our, " ", low, #our)
+
+    -- ask git for exactly `fork.posts` entries with `--no-walk`
+    local ts = {}
+    local out = exec {
+        cmd = "git -C "..REPO.." log --no-walk --format='%H %at' "..hs
+    }
+    for h, t in out:gmatch("(%x+)%s+(%d+)") do
+        ts[h] = tonumber(t)
+    end
+
+    -- index of the last entry that is already settled
+    local set
+    if #our >= C.fork.posts then
+        set = low   -- at least post count, but time may trigger before
+    end
+
+    -- walk from the tip until first entry older than `fork.time`
+    local new = assert(ts[our[#our]])
+    for i=#our, low, -1 do
+        if (new-assert(ts[our[i]])) >= C.fork.time then
+            set = i
+            break
+        end
+    end
+
+    if set then
+        -- backwards: reorder near boundary far more often
+        for i=set, 1, -1 do
+            if their[i] ~= our[i] then
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
 if ARGS.send then
     local url = exec {
         cmd = "git -C " .. REPO .. " config freechains.url",
@@ -71,62 +121,6 @@ elseif ARGS.recv then
                 goto RECV
             end
         end
-
-        ---------------------------------------------------------------------------
-        ---------------------------------------------------------------------------
-
-        -- Hard fork protects my ORDER.
-        -- Walking my order back from the tip, everything older than fork.time
-        -- (or fork.posts entries back) is SETTLED.
-        -- `their`: the expected order this sync would leave behind
-        -- must reproduce that prefix verbatim, or it is a hard fork.
-        local function hardfork (their)
-            local our = dofile(FC .. "state/order.lua")
-            if #our == 0 then
-                return false
-            end
-
-            local low = math.max(1, #our-C.fork.posts+1)
-            local hs = table.concat(our, " ", low, #our)
-
-            -- ask git for exactly `fork.posts` entries with `--no-walk`
-            local ts = {}
-            local out = exec {
-                cmd = "git -C "..REPO.." log --no-walk --format='%H %at' "..hs
-            }
-            for h, t in out:gmatch("(%x+)%s+(%d+)") do
-                ts[h] = tonumber(t)
-            end
-
-            -- index of the last entry that is already settled
-            local set
-            if #our >= C.fork.posts then
-                set = low   -- at least post count, but time may trigger before
-            end
-
-            -- walk from the tip until first entry older than `fork.time`
-            local new = assert(ts[our[#our]])
-            for i=#our, low, -1 do
-                if (new-assert(ts[our[i]])) >= C.fork.time then
-                    set = i
-                    break
-                end
-            end
-
-            if set then
-                -- backwards: reorder near boundary far more often
-                for i=set, 1, -1 do
-                    if their[i] ~= our[i] then
-                        return true
-                    end
-                end
-            end
-
-            return false
-        end
-
-        ---------------------------------------------------------------------------
-        ---------------------------------------------------------------------------
 
         -- we need to check an FF hardfork first:
         --  - remote contains all of our history
