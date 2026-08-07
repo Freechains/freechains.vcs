@@ -1,3 +1,6 @@
+require "freechains.chain.common"
+local ssh = require "freechains.chain.ssh"
+
 -- Boundary octopus:
 -- The common ancestor of every point where the region between `a` and
 -- `b` attaches to shared history.
@@ -5,7 +8,7 @@
 -- re-derives all of it, including merges nested deeper than the outer
 -- one.
 -- With a single fork it degenerates to the pairwise merge-base.
-local function octopus (a, b)
+function octopus (a, b)
     local out = exec {
         cmd = "git -C " .. REPO .. " rev-list --boundary " .. a .. "..." .. b
     }
@@ -38,7 +41,7 @@ end
 -- authors, a commit both sides already hold hands its author's
 -- full reps to whichever side lacked them -- letting undisputed
 -- history decide a disputed merge.
-local function consensus (G, a, b)
+function consensus (G, a, b)
     local com = (exec {
         cmd = "git -C " .. REPO .. " merge-base " .. a .. " " .. b
     }):match("%x+")
@@ -91,7 +94,7 @@ end
 -- detached head and discarded, so `main` never holds one
 local KINDS = { post=true, like=true, revoke=true, state=true }
 
-local function commit (G, hash, beg)
+function commit (G, hash, beg)
     local key, err = ssh.verify(REPO, hash)
 
     local out = exec {
@@ -208,48 +211,54 @@ local function commit (G, hash, beg)
     end
 end
 
--- visited: never re-applies a shared commit
+-- Replay: climb from `com` up to `tip` in consensus order, calling
+-- `commit` once per commit.
+-- visited: never re-applies a shared commit (`G.order` seeds it)
 -- ancestor(cur,com): stops climb from descending below its floor
 -- without these the inner meet underflows to a root
-local visited = {}
-for _, h in ipairs(G_rem.order) do
-    visited[h] = true
-end
-local function ancestor (a, b)
-    return exec { err=false, stderr=false,
-        cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. a .. " " .. b
-    }
-end
-local climb, meet
+function replay (G, com, tip)
+    local visited = {}
+    for _, h in ipairs(G.order) do
+        visited[h] = true
+    end
+    local function ancestor (a, b)
+        return exec { err=false, stderr=false,
+            cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. a .. " " .. b
+        }
+    end
+    local climb, meet
 
-climb = function (G, com, cur, beg)
-    if cur==com or visited[cur] or ancestor(cur,com) then
-        return
-    else
-        local ps = parents(cur)
-        assert(#ps <= 2, "bug: >2 parents")
-        local p1, p2 = ps[1], ps[2]
-        if p2 == nil then
-            climb(G, com, p1, beg)
+    climb = function (G, com, cur, beg)
+        if cur==com or visited[cur] or ancestor(cur,com) then
+            return
         else
-            -- like positivity (n>0) is enforced in commit()
-            local is_beg_merge = (trailer(cur) == "like")
-            meet(G, com, p1, p2, is_beg_merge)
+            local ps = parents(cur)
+            assert(#ps <= 2, "bug: >2 parents")
+            local p1, p2 = ps[1], ps[2]
+            if p2 == nil then
+                climb(G, com, p1, beg)
+            else
+                -- like positivity (n>0) is enforced in commit()
+                local is_beg_merge = (trailer(cur) == "like")
+                meet(G, com, p1, p2, is_beg_merge)
+            end
+            visited[cur] = true
+            commit(G, cur, beg)
         end
-        visited[cur] = true
-        commit(G, cur, beg)
     end
-end
 
-meet = function (G, com, left, right, right_is_beg)
-    local up = octopus(left, right)
-    climb(G, com, up, false)
-    local w = consensus(G, left, right)
-    if w == left then
-        climb(G, up, left,  false)
-        climb(G, up, right, right_is_beg)
-    else
-        climb(G, up, right, right_is_beg)
-        climb(G, up, left,  false)
+    meet = function (G, com, left, right, right_is_beg)
+        local up = octopus(left, right)
+        climb(G, com, up, false)
+        local w = consensus(G, left, right)
+        if w == left then
+            climb(G, up, left,  false)
+            climb(G, up, right, right_is_beg)
+        else
+            climb(G, up, right, right_is_beg)
+            climb(G, up, left,  false)
+        end
     end
+
+    climb(G, com, tip, false)
 end

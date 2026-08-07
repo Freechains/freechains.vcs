@@ -1,5 +1,5 @@
 require "freechains.chain.common"
-local ssh = require "freechains.chain.ssh"
+require "freechains.chain.consensus"
 
 if ARGS.send then
     local url = exec {
@@ -170,7 +170,7 @@ elseif ARGS.recv then
         -- 3,4: need remote validation: replay remote branch from G_oct
         local G_rem = G_oct -- (G_oct no longer required)
         do
-            local ok, err = pcall(climb, G_rem, oct, rem, false)
+            local ok, err = pcall(replay, G_rem, oct, rem)
             if not ok then
                 ERROR("chain sync : " .. err)
             end
