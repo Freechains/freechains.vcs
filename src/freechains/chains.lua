@@ -114,21 +114,22 @@ if ARGS.add then
             cmd = "cp " .. ARGS.path .. " " .. tmp .. "/.freechains/genesis.lua",
         }
         local ps = pioneers(tmp .. "/")
+        local S0 = serial {
+            authors = ps,
+            posts   = {},
+            order   = {},
+            now     = CMD.now,
+            -- TODO : redesign : review
+            -- S16: causal time anchors
+            gen     = CMD.now,  -- genesis stamp: `up` for empty backs
+            peaks   = {},       -- per-action causal peak, permanent
+        }
         do
             local f = assert (
                 io.open(tmp .. "/.freechains/state.lua", "w"),
                 "bug found : chain add : init failed"
             )
-            f:write(serial {
-                authors = ps,
-                posts   = {},
-                order   = {},
-                now     = CMD.now,
-                -- TODO : redesign : review
-                -- S16: causal time anchors
-                gen     = CMD.now,  -- genesis stamp: `up` for empty backs
-                peaks   = {},       -- per-action causal peak, permanent
-            })
+            f:write(S0)
             f:close()
         end
         exec {
@@ -141,6 +142,15 @@ if ARGS.add then
         local hash = "#" .. exec {
             cmd = "git -C " .. tmp .. " rev-parse HEAD",
         }
+        -- S15.1a: genesis snapshot (no chain context here: direct)
+        do
+            exec {
+                cmd = "mkdir -p " .. tmp .. "/.git/states/",
+            }
+            local f = io.open(tmp .. "/.git/states/" .. hash:sub(2) .. ".lua", "w")
+            f:write(S0)
+            f:close()
+        end
         local final = DIR .. "/" .. hash
         if not os.rename(tmp, final) then
             exec {

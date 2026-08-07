@@ -146,16 +146,22 @@ function READ (src)
     return T
 end
 
-function WRITE (G)
-    local f = io.open(FC .. "state.lua", "w")
-    f:write(serial {
+-- one serialization for both stores: the tree `state.lua`
+-- (until S15.2) and the `.git/states/<cid>.lua` snapshots
+function STATE (G)
+    return serial {
         authors = G.authors,
         posts   = G.posts,
         order   = G.order,
         now     = G.now,
         gen     = G.gen,
         peaks   = G.peaks,
-    })
+    }
+end
+
+function WRITE (G)
+    local f = io.open(FC .. "state.lua", "w")
+    f:write(STATE(G))
     f:close()
 end
 
@@ -242,6 +248,7 @@ end
 
 function apply (G, kind, time, T)
     local mutate = (kind ~= 'reps')
+    local up     -- causal peak below T (set iff mutate)
 
     -- TIME: monotonicity, discount, consolidation
     do
@@ -253,16 +260,21 @@ function apply (G, kind, time, T)
             -- TODO : DONE : S16 : peak folds over T.backs (action
             -- IDs) in the DB, no git; the genesis stamp anchors
             -- an empty backs
-            local up = assert(G.gen, "bug found : no gen")
+            up = assert(G.gen, "bug found : no gen")
             for _, b in ipairs(T.backs) do
-                -- (assert would leak its msg into math.max)
-                local p = assert(G.peaks[b], "bug found : no peak")
+                -- TODO : remove : S15 : state catch-up replay
+                -- heals raw-git merged repos; fallback dies
+                -- a raw `git merge` keeps OUR state (merge=ours),
+                -- so the other side's peaks are missing: read the
+                -- back's own committed `now` -- its peak. Never
+                -- cached into G: the value may disagree with a
+                -- native fold (merge stamps) and G is compared
+                local p = G.peaks[b] or PEAK(assert(DB.cid(b)))
                 up = math.max(up, p)
             end
             if time < up-C.time.diff then
                 return false, "too old"
             end
-            G.peaks[T.aid] = math.max(time, up)
         end
 
         -- discount scan (maybe signed at same G.now)
@@ -441,6 +453,13 @@ function apply (G, kind, time, T)
                 G.authors[T.author].reps = G.authors[T.author].reps + n
             end
         end
+    end
+
+    -- peak LAST: only a successful action enters the DB -- a
+    -- voided loser must leave no phantom entry (states would
+    -- byte-diverge across peers)
+    if mutate then
+        G.peaks[T.aid] = math.max(time, up)
     end
 
     -- cap all authors at max

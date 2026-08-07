@@ -102,6 +102,8 @@ do
     }
     -- a beg is about to leave HEAD: its commit is not the tip
     DB.add(aid, "HEAD", not ARGS.beg)
+    -- S15.1a: snapshot BEFORE a beg reset moves HEAD away
+    DB.snap("HEAD", G)
 end
 
 if ARGS.beg then

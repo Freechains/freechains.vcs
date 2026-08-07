@@ -136,6 +136,22 @@ function DB.walk (range)
     save()
 end
 
+-- S15.1a: per-commit state snapshot, `.git/states/<cid>.lua`:
+-- the state as of `ref` -- the fold over its OWN ancestors
+-- (writer semantics). Write-only for now; readers swap in at
+-- S15.1c/S15.2.
+function DB.snap (ref, G)
+    local cid = exec {
+        cmd = "git -C " .. REPO .. " rev-parse " .. ref,
+    }
+    exec {
+        cmd = "mkdir -p " .. REPO .. ".git/states/",
+    }
+    local f = io.open(REPO .. ".git/states/" .. cid .. ".lua", "w")
+    f:write(STATE(G))
+    f:close()
+end
+
 -- record the tip the index now covers (sync recv end); no-op if
 -- this run never touched the index
 function DB.tip ()

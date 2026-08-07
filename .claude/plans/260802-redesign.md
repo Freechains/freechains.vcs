@@ -780,6 +780,28 @@ green after each step. Progress is tracked here.
           + rev-parse of HEAD/MERGE_HEAD, like-on-beg from
           action file); tree state stays; lazy backfill on
           miss (read tree copy, write snapshot)
+            - S15.1a DONE (suite green): write-only --
+              `DB.snap(ref, G)` -> `.git/states/<cid>.lua`
+              (shares `STATE(G)` serialization with WRITE);
+              called at chains add (genesis, direct: no chain
+              context), post/like post-commit (beg: BEFORE
+              the reset moves HEAD)
+            - S15.1b DONE (suite green): replay snaps iff
+              `pure` (flag through climb/meet, false on loser
+              climbs); ff tip re-snapped after the `now`
+              fix-up + verified compare; diverge final merge
+              snapped after its commit
+            - S15.1c DONE (suite green): G_oct = own snapshot;
+              tree copy = fallback for pre-snapshot octs,
+              backfilled on read
+            - S15.1d DONE (suite green): like-on-beg derives
+              entry + peak from the beg's action file; the
+              beg-state read is gone
+            - transition note: climb-written snapshots at
+              interior MERGES carry action-fold `now` while
+              their trees carry PEAKS-inflated `now`; hazard
+              only while both stores coexist, dies at S15.2
+              when inflation itself dies
         - S15.2: evict from tree (`merge=ours`,
           `.gitattributes`, M/MM checks, ff compare, worktree
           `G` load die); destroy reads snapshot at tip
@@ -802,7 +824,7 @@ green after each step. Progress is tracked here.
             - prerequisite: S16 FIRST -- kills PEAK, the only
               frequent interior reader; snapshots keep only
               rare consumers (G_oct, destroy, startup)
-    - S16 IMPLEMENTED (suite pending): peak folds over `backs`
+    - S16 DONE (suite green): peak folds over `backs`
       in the DB (par 7's "piece that must also move";
       pulled BEFORE S15)
         - state gains `gen` (genesis stamp: `up` for empty
@@ -821,7 +843,21 @@ green after each step. Progress is tracked here.
         - CAVEAT confirmed in design: action-DAG fold drops
           merge-commit %at from `up` (old PEAKS counted
           TIME(merge parent)); `now`'s own writers unchanged
-          until S15 -- tests must confirm
+          until S15 -- suite agrees
+        - two bugs found by the suite:
+            - peak set LAST in apply: a voided loser must
+              leave no phantom entry (winner's written state
+              would byte-diverge from peers')
+            - raw-git merged repos (repl-local-*): merge=ours
+              discards the other side's peaks -> fallback
+              reads the back's committed `now` (never cached
+              into G: may disagree with a native fold); dies
+              at S15 with state catch-up
+    - S15.0 (new requirement, found via raw-git repl): state
+      must SELF-HEAL like the index -- on load, if HEAD is not
+      covered, replay the delta from the last covered ancestor
+      (subsumes raw-git interop, crash between commit and
+      WRITE, and kills the S16 fallback)
     - S6a: drop `.freechains/`: `actions/`, `genesis.lua`,
       `random` to root; shard `actions/ab/`
       (needs S10, S15)
@@ -848,8 +884,8 @@ green after each step. Progress is tracked here.
   `is-ancestor` membership; src CID -> tst CID(dir, id);
   rockspec: + chain.db, + chain.destroy (was MISSING:
   installed `chain destroy` could never load);
-  next: run suite for S16 (`make install` first: recv path
-  changed), then S15.1
+  next: S15.0 (state catch-up replay: self-heal like the
+  index; prerequisite for S15.2's startup-from-snapshot)
 
 ## 11. Open questions
 

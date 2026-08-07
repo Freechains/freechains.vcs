@@ -404,10 +404,22 @@ elseif ARGS.recv then
         local oct, G_oct
         do
             oct = octopus(loc, rem)
-            G_oct = READ(exec {
-                cmd = "git -C " .. REPO .. " show " .. oct ..
-                        ":.freechains/state.lua"
-            })
+            -- S15.1c: the replay base is MY OWN past derivation
+            -- (.git/states/), not a transmitted claim; the tree
+            -- copy is the fallback for pre-snapshot octs, and
+            -- gets backfilled
+            local snap = REPO .. ".git/states/" .. oct .. ".lua"
+            local f = io.open(snap)
+            if f then
+                f:close()
+                G_oct = dofile(snap)
+            else
+                G_oct = READ(exec {
+                    cmd = "git -C " .. REPO .. " show " .. oct ..
+                            ":.freechains/state.lua"
+                })
+                DB.snap(oct, G_oct)
+            end
         end
 
         -- 4: needs fst/winner - snd/loser (do now b/c 3 mutates G_oct)
@@ -430,7 +442,11 @@ elseif ARGS.recv then
             end
             local climb, meet
 
-            climb = function (G, com, cur, beg)
+            -- S15.1b: `pure` = everything applied so far is an
+            -- ancestor of `cur`, so G IS the state as of `cur`
+            -- (writer semantics) and may be snapshotted. False
+            -- on loser-side climbs: the winner is already in G.
+            climb = function (G, com, cur, beg, pure)
                 if cur==com or visited[cur] or ancestor(cur,com) then
                     return
                 else
@@ -438,33 +454,36 @@ elseif ARGS.recv then
                     assert(#ps <= 2, "bug: >2 parents")
                     local p1, p2 = ps[1], ps[2]
                     if p2 == nil then
-                        climb(G, com, p1, beg)
+                        climb(G, com, p1, beg, pure)
                     else
                         -- like positivity (n>0) is enforced in commit()
                         -- only a beg-merge like is 2-parent WITH an
                         -- action file
                         local is_beg_merge = (DB.aid(cur) ~= nil)
-                        meet(G, com, p1, p2, is_beg_merge)
+                        meet(G, com, p1, p2, is_beg_merge, pure)
                     end
                     visited[cur] = true
                     commit(G, cur, beg)
+                    if pure then
+                        DB.snap(cur, G)
+                    end
                 end
             end
 
-            meet = function (G, com, left, right, right_is_beg)
+            meet = function (G, com, left, right, right_is_beg, pure)
                 local up = octopus(left, right)
-                climb(G, com, up, false)
+                climb(G, com, up, false, pure)
                 local w = consensus(G, left, right)
                 if w == left then
-                    climb(G, up, left,  false)
-                    climb(G, up, right, right_is_beg)
+                    climb(G, up, left,  false, pure)
+                    climb(G, up, right, right_is_beg, false)
                 else
-                    climb(G, up, right, right_is_beg)
-                    climb(G, up, left,  false)
+                    climb(G, up, right, right_is_beg, pure)
+                    climb(G, up, left,  false, false)
                 end
             end
 
-            local ok, err = pcall(climb, G_rem, oct, rem, false)
+            local ok, err = pcall(climb, G_rem, oct, rem, false, true)
             if not ok then
                 ERROR("chain sync : " .. err)
             end
@@ -490,6 +509,9 @@ elseif ARGS.recv then
                     }
                     ERROR("chain sync : remote state mismatch")
                 end
+                -- S15.1b: re-snap the tip with the verified,
+                -- `now`-fixed state (climb's snap predates it)
+                DB.snap(rem, G_rem)
             end
             goto RECV
         end
@@ -619,6 +641,9 @@ elseif ARGS.recv then
                     cmd = CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
                     .. " --no-edit"
                 }
+                -- S15.1b: the final merge is pure by
+                -- construction (everything applied = ancestors)
+                DB.snap("HEAD", G_fst)
             end
         end
     end

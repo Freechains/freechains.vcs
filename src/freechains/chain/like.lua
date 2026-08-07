@@ -59,14 +59,27 @@ if to_beg then
         --ERROR("chain like : invalid target : beg post does not exist")
     end
     G.order[#G.order+1] = ARGS.aid
-    local S = READ(exec {
-        cmd = "git -C " .. REPO .. " show " .. ref .. ":.freechains/state.lua",
-    })
-    G.posts[ARGS.aid] = S.posts[ARGS.aid]
     -- TODO : redesign : review
-    -- S16: the beg's peak rides its branch state; the like's
-    -- backs fold over it below
-    G.peaks[ARGS.aid] = S.peaks[ARGS.aid]
+    -- S15.1d: the beg SELF-DESCRIBES; no beg-state read. Entry
+    -- shape mirrors apply's beg post; peak = S16 fold over its
+    -- backs (all in my history: ref~1 is an ancestor of HEAD)
+    local A = READ(exec {
+        cmd = "git -C " .. REPO .. " show " .. ref ..
+            ":.freechains/actions/" .. ARGS.aid .. ".lua",
+    })
+    G.posts[ARGS.aid] = {
+        author   = A.sign,
+        time     = A.time,
+        maturity = 'beg',
+        reps     = 0,
+        revoke   = { author=0, others=0 },
+    }
+    local up = assert(G.gen, "bug found : no gen")
+    for _, b in ipairs(A.backs) do
+        local p = G.peaks[b] or PEAK(assert(DB.cid(b)))
+        up = math.max(up, p)
+    end
+    G.peaks[ARGS.aid] = math.max(A.time, up)
 end
 
 -- TODO : redesign : review
@@ -119,6 +132,7 @@ do
         err = "chain " .. kind .. " : invalid sign key",
     }
     DB.add(aid, "HEAD", true)
+    DB.snap("HEAD", G)
 end
 
 if to_beg then
