@@ -808,7 +808,7 @@ green after each step. Progress is tracked here.
 - progress: substrate + S8 + S14 + S9.0-S9.3 + S11a done;
   S9.4 won't-do (superseded by S15);
   order: S11b+S11c -> S15 (+S8.4) -> S10 -> par.7 -> S6a;
-  S11b+S11c IMPLEMENTED (suite pending): chain/db.lua module,
+  S11b+S11c DONE (suite green): chain/db.lua module,
   `.git/index.lua` { tip, a2c, c2a }; load catches up
   `HEAD --not tip` (dead tip -> full rebuild); writers
   DB.add post-commit (beg: not tip; like-on-beg: pair from
@@ -817,8 +817,8 @@ green after each step. Progress is tracked here.
   `is-ancestor` membership; src CID -> tst CID(dir, id);
   rockspec: + chain.db, + chain.destroy (was MISSING:
   installed `chain destroy` could never load);
-  next: run suite (`make install` first: recv path changed),
-  then S15; S15.2 semantics blocker in parallel
+  next: S15.1 (snapshots, dual write); resolve the S15.2
+  semantics blocker first or in parallel
 
 ## 11. Open questions
 
