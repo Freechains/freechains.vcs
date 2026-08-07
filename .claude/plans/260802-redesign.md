@@ -784,17 +784,24 @@ green after each step. Progress is tracked here.
           `.gitattributes`, M/MM checks, ff compare, worktree
           `G` load die); destroy reads snapshot at tip
         - S15.3: GC (settled window); test churn
-        - BLOCKER for S15.2 -- snapshot semantics: tree state
-          today = writer's fold over the COMMIT'S ancestors;
-          replay G follows CONSENSUS order, so they diverge on
-          loser-side interior commits (also why only the ff
-          path ever byte-compared: uniform S9.4 would have
-          false-positived). Equality holds below all forks of
-          the region (octopus points by construction), at meet
-          bases, tips, and all of ff. S15.1: snapshot only
-          where provable, else tree fallback. S15.2 needs:
-          prove future octopi always qualify, or shadow-fold
-          loser sides from the meet base (O(region) applies)
+        - semantics RESOLVED (was blocker): snapshot(X) = fold
+          over X's OWN ancestors (writer semantics), never the
+          replay-cumulative G
+            - write iff PURE (applied-so-far == ancestors):
+              own writes, ff, below-forks, WINNER sides, merge
+              commits, tips; SKIP loser-side interiors (`pure`
+              flag through climb/meet, false on loser climbs)
+            - reads fall back to deterministic recompute from
+              the nearest good ancestor snapshot (octopus on a
+              loser-side interior; destroy below GC) -- rare,
+              O(region); correctness never needs a snapshot
+            - background: replay G == ancestor-fold only at
+              pure points; also why only the ff path ever
+              byte-compared (uniform S9.4 would false-positive
+              on loser-side interiors)
+            - prerequisite: par.7 FIRST -- kills PEAK, the only
+              frequent interior reader; snapshots keep only
+              rare consumers (G_oct, destroy, startup)
     - S6a: drop `.freechains/`: `actions/`, `genesis.lua`,
       `random` to root; shard `actions/ab/`
       (needs S10, S15)
@@ -807,7 +814,11 @@ green after each step. Progress is tracked here.
     - criterion: useful even without the redesign -> `main`
 - progress: substrate + S8 + S14 + S9.0-S9.3 + S11a done;
   S9.4 won't-do (superseded by S15);
-  order: S11b+S11c -> S15 (+S8.4) -> S10 -> par.7 -> S6a;
+  order: par.7 -> S15 (+S8.4) -> S10 -> S6a;
+  par.7 pulled BEFORE S15 (kills PEAK, the frequent interior
+  state reader); CAVEAT par.7: fold over the action DAG drops
+  merge-commit %at from `now` (TIME(p) of merges counts
+  today) -- semantic change, tests must confirm;
   S11b+S11c DONE (suite green): chain/db.lua module,
   `.git/index.lua` { tip, a2c, c2a }; load catches up
   `HEAD --not tip` (dead tip -> full rebuild); writers
@@ -817,8 +828,7 @@ green after each step. Progress is tracked here.
   `is-ancestor` membership; src CID -> tst CID(dir, id);
   rockspec: + chain.db, + chain.destroy (was MISSING:
   installed `chain destroy` could never load);
-  next: S15.1 (snapshots, dual write); resolve the S15.2
-  semantics blocker first or in parallel
+  next: par.7 (peak folds over `backs` in the DB)
 
 ## 11. Open questions
 
