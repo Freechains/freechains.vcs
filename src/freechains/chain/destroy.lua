@@ -24,6 +24,7 @@ end
 
 -- the aid must name an action in our history: its commit anchors the
 -- reset below
+-- TODO : remove : S11b : db[aid] is membership + cid in one place
 local cid = CID(ARGS.aid)
 if not cid then
     ERROR("chain destroy : invalid id")

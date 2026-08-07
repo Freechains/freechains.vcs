@@ -1,3 +1,5 @@
+-- TODO : review : like flow
+
 local ssh = require "freechains.chain.ssh"
 
 -- revoke/unrevoke are content-removal votes: post target only,

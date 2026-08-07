@@ -18,6 +18,7 @@ function parents (cid)
     return ps
 end
 
+-- TODO : remove : par.7 : db[aid].backs replaces the recursion
 -- action ancestors of `cid`: `parents` recursed through merges,
 -- which are plumbing the protocol does not expose. Returns an
 -- array of hashes (dedup'd).
@@ -57,8 +58,7 @@ function AID (cid)
     return out:match("actions/(%x+)%.lua")
 end
 
--- (id -> commit lives in freechains/common.lua as `CID`)
-
+-- TODO : change : par.7 : backs come from the DB, not git walks
 -- the action IDs backing a new action built on top of `tips`
 -- (commit hashes): action ancestors via `backs`, as sorted IDs.
 -- A tip that IS an action commit (joined, S9) backs itself.
@@ -78,6 +78,7 @@ function BACKS (tips)
     return T
 end
 
+-- TODO : change : S6a : shard into actions/ab/; S10 : add `blob`
 -- (blob DONE early at S8.2b for posts: identity needs content;
 --  S10 keeps only the ref-anchoring/eviction part)
 -- pre/pos bracket `apply`: `pre` builds the action file in
@@ -195,6 +196,7 @@ local function TIME (cid)
     })))
 end
 
+-- TODO : remove : par.7 : peak folds over `backs` in the DB
 -- the peak RECORDED in a commit's tree (`state.lua` .now): the newest
 -- time among all of its ancestors. Derived, never trusted: `commit` in
 -- sync.lua checks every stored value against its parents' before using
@@ -223,6 +225,7 @@ function PEAKS (hs)
     return assert(mx)
 end
 
+-- TODO : review : see all callers
 -- the `now` an honest commit must record. A joined action commit
 -- (S9) writes max(state before, own stamp), where "state before"
 -- is its first parent's tree (a merge keeps 'ours'). A merge
@@ -246,6 +249,7 @@ function apply (G, kind, time, T)
         -- depend on the order a replay applies commits in (consensus order
         -- is not chronological order).
         if mutate then
+            -- TODO : change : par.7 : T.backs (action IDs), not commits
             local up = PEAKS(T.parents)
             if time < up-C.time.diff then
                 return false, "too old"

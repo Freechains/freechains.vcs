@@ -176,6 +176,7 @@ elseif ARGS.recv then
             end
 
             local low = math.max(1, #our-C.fork.posts+1)
+            -- TODO : remove : S8.4 : db[aid].time, no commits, no git
             -- order holds action IDs; timestamps live in commits
             local cs = {}
             for i=low, #our do
@@ -220,6 +221,7 @@ elseif ARGS.recv then
         end
 
         -- `merge` is deliberately absent: those commits are built on a
+        -- TODO : remove : S11b : one-pass commit<->ID index over the
         -- fetched range subsumes ORD + AID + CID
         -- aid -> commit for entries this replay applied; falls back to
         -- history for entries below the octopus (always reachable)
@@ -227,6 +229,8 @@ elseif ARGS.recv then
         local function ORD_COMMIT (aid)
             return ORD[aid] or CID(aid)
         end
+
+        -- TODO : review : commit flow
 
         local function commit (G, cid, beg)
             local key, err = ssh.verify(REPO, cid)
@@ -243,6 +247,7 @@ elseif ARGS.recv then
             --                                       (in-tree until S10)
             --   M|MM .freechains/state.lua          joined action, or
             --                                       sync state merge
+            -- TODO : change : S10 : payloads leave the tree
             local aid, pays, stat
             do
                 local diff = exec {
@@ -289,6 +294,7 @@ elseif ARGS.recv then
                 end
                 if stat then
                     -- sync state merge: `now` is derived, not trusted
+                    -- TODO : remove : S15 : state leaves the tree; branch dies
                     local mx = PEAKS(parents(cid))
                     if PEAK(cid) ~= mx then
                         error("invalid state : now", 0)
@@ -299,6 +305,7 @@ elseif ARGS.recv then
             end
 
             -- action commit: its own file self-describes the kind
+            -- TODO : change : S8.4 : action data via db[aid]
             -- data only: no globals to attacker Lua (see READ)
             local t
             do
@@ -330,6 +337,7 @@ elseif ARGS.recv then
             if kind == 'post' then
                 local ok, err = apply(G, 'post', time, {
                     aid     = aid,
+                    -- TODO : remove : par.7 : peak folds over T.backs
                     parents = parents(cid),
                     sign    = key,
                     beg     = beg or (key == nil),
@@ -348,6 +356,7 @@ elseif ARGS.recv then
                 )
                 local ok, err = apply(G, kind, time, {
                     aid     = aid,
+                    -- TODO : remove : par.7 : peak folds over T.backs
                     parents = parents(cid),
                     sign    = key,
                     n       = t.n,
@@ -512,6 +521,7 @@ elseif ARGS.recv then
                     if keep[h] then
                         -- consume: a joined action tip appears both as
                         -- its order entry and as `snd` -- merge it once
+                        keep[h] = nil   -- TODO : redesign : review
                         filtered[#filtered+1] = h
                     end
                 end

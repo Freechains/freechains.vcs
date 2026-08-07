@@ -1,3 +1,5 @@
+-- TODO : review : post flow
+
 local ssh = require "freechains.chain.ssh"
 
 if not (ARGS.sign or ARGS.beg) then
@@ -56,6 +58,7 @@ local aid = ACTION.pre {
 do
     local T = {
         aid     = aid,
+        -- TODO : remove : par.7 : peak folds over T.backs, no git
         parents = { (exec {
             cmd = "git -C " .. REPO .. " rev-parse HEAD",
         }) },

@@ -78,7 +78,7 @@ end
 -- `dir` defaults to the running command's REPO.
 -- --cc: a like-on-beg is a MERGE, and without it `log -- path`
 -- never attributes the add to a merge commit.
--- TODO : change : S11 : src callers move to the commit<->ID
+-- TODO : change : S11b : src callers move to the commit<->ID
 -- index; tests keep this
 function CID (id, all, dir)
     local out = exec { err=false, stderr=false,
