@@ -113,10 +113,10 @@ function M.commit (G, cid, beg)
     --        AA: added vs both parents -- beg-merge like)
     --   A    <payload outside .freechains/> posts only
     --                                       (in-tree until S10)
-    --   M|MM .freechains/state.lua          joined action, or
-    --                                       sync state merge
+    -- TODO : DONE : S15.2 : M/MM state.lua cases die -- no
+    -- state in the tree, so any M is a violation
     -- TODO : change : S10 : payloads leave the tree
-    local aid, pays, stat
+    local aid, pays
     do
         local diff = exec {
             cmd = "git -C " .. REPO ..
@@ -134,9 +134,6 @@ function M.commit (G, cid, beg)
             elseif status=="A" and not path:match("^%.freechains/") then
                 pays = pays + 1
                 bad = false
-            elseif status=="M" or status=="MM" then
-                bad = (path ~= ".freechains/state.lua")
-                stat = not bad
             end
             if bad then
                 error (
@@ -160,15 +157,8 @@ function M.commit (G, cid, beg)
         if pays > 0 then
             error("invalid merge : mode violation : payload", 0)
         end
-        if stat then
-            -- sync state merge: `now` is derived, not trusted
-            -- TODO : remove : S15 : state leaves the tree; branch dies
-            local mx = PEAKS(parents(cid))
-            if PEAK(cid) ~= mx then
-                error("invalid state : now", 0)
-            end
-        end
-        -- else: plumbing merge ('ours' tree): records nothing
+        -- pure topology: records nothing, and (S15.2) there is
+        -- no transmitted state left to verify
         return
     end
 
@@ -310,14 +300,14 @@ function M.region (G, com, tip)
     climb(G, com, tip, false, true)
 end
 
--- S15.0: startup state, SELF-HEALING like the index. The
--- snapshot at HEAD is authoritative; a missing one means the tip
--- was made behind our back (raw git merge; crash between commit
--- and snap) -- rebuild by replaying the uncovered region.
--- Transitional trust: at action commits and genesis the
--- committed tree state is the writer's own current fold, so it
--- seeds the recursion (dies at S15.2 with clone bootstrap).
-local function state_at (cid)
+-- S15.0: state, SELF-HEALING like the index. The snapshot is
+-- authoritative; a missing one means the commit was made behind
+-- our back (raw git merge; fresh clone; crash between commit and
+-- snap) -- rebuild by replaying the uncovered region.
+-- TODO : DONE : S15.2 : tree-state seeding gone -- genesis is
+-- DERIVED from the chain definition (trusted from nothing), so
+-- a fresh clone bootstraps by replaying genesis -> HEAD here
+function M.state_at (cid)
     local snap = REPO .. ".git/states/" .. cid .. ".lua"
     local f = io.open(snap)
     if f then
@@ -325,25 +315,45 @@ local function state_at (cid)
         return dofile(snap)
     end
     local ps = parents(cid)
-    if DB.aid(cid) or #ps == 0 then
-        -- action commit or genesis: its tree state is current
-        local G = READ(exec {
+    if #ps == 0 then
+        -- genesis: pioneers from the definition, stamps from the
+        -- pinned commit date (equals the writer's CMD.now, S1)
+        local gen = READ(exec {
             cmd = "git -C " .. REPO .. " show " .. cid ..
-                ":.freechains/state.lua",
+                ":.freechains/genesis.lua",
         })
+        local A = {}
+        if gen.pioneers then
+            local n = C.reps.max // #gen.pioneers
+            for _, key in ipairs(gen.pioneers) do
+                A[key] = { reps = n }
+            end
+        end
+        local t = assert(tonumber((exec {
+            cmd = "git -C " .. REPO .. " log -1 --format=%at " .. cid,
+        })))
+        local G = {
+            authors = A,
+            posts   = {},
+            order   = {},
+            now     = t,
+            gen     = t,
+            peaks   = {},
+        }
         DB.snap(cid, G)
         return G
     end
-    -- a merge made behind our back: re-derive its own region
-    assert(#ps == 2, "bug found : state_at")
-    local com = M.octopus(ps[1], ps[2])
-    local G = state_at(com)
+    -- replay the region between the nearest covered base and cid
+    -- (an impure interior commit gets REDERIVED purely from its
+    -- own base here, so its snapshot is correct by construction)
+    local com = (#ps == 1) and ps[1] or M.octopus(ps[1], ps[2])
+    local G = M.state_at(com)
     M.region(G, com, cid)
     return G
 end
 
 function M.state ()
-    return state_at((exec {
+    return M.state_at((exec {
         cmd = "git -C " .. REPO .. " rev-parse HEAD",
     }))
 end

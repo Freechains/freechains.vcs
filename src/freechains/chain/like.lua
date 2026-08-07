@@ -121,10 +121,7 @@ do
         }
     end
     ACTION.pos(aid)
-    WRITE(G)
-    exec {
-        cmd = "git -C " .. REPO .. " add .freechains/state.lua",
-    }
+    -- TODO : DONE : S15.2 : state no longer enters the tree
     local s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=ssh"
     local msg = ARGS.why or "(empty message)"
     exec { stderr=false,

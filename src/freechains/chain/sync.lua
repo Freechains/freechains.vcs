@@ -145,44 +145,20 @@ elseif ARGS.recv then
         -- the persisted index)
         DB.walk(rem .. " --not " .. loc)
 
-        -- we need to check an FF hardfork first:
-        --  - remote contains all of our history
-        --  - so if our settled order diverges
-        --  - we need to fail fast, before replay and fail with other error
+        -- TODO : DONE : S15.2 : no transmitted order to fail
+        -- fast on -- the ff hardfork check moves after replay
         local ff = exec { stderr=false, err=false,
             cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. loc .. " " .. rem
         }
-        if ff then
-            local their = READ(exec {
-                cmd = "git -C " .. REPO .. " show " .. rem ..
-                        ":.freechains/state.lua"
-            }).order
-            if hardfork(their) then
-                ERROR("chain sync : hard fork")
-            end
-        end
 
         -- 3,4: need common ancestor
 
         local oct, G_oct
         do
             oct = replay.octopus(loc, rem)
-            -- S15.1c: the replay base is MY OWN past derivation
-            -- (.git/states/), not a transmitted claim; the tree
-            -- copy is the fallback for pre-snapshot octs, and
-            -- gets backfilled
-            local snap = REPO .. ".git/states/" .. oct .. ".lua"
-            local f = io.open(snap)
-            if f then
-                f:close()
-                G_oct = dofile(snap)
-            else
-                G_oct = READ(exec {
-                    cmd = "git -C " .. REPO .. " show " .. oct ..
-                            ":.freechains/state.lua"
-                })
-                DB.snap(oct, G_oct)
-            end
+            -- S15.2: own derivation only -- snapshot, or healed
+            -- by recursive replay (same path bootstraps clones)
+            G_oct = replay.state_at(oct)
         end
 
         -- 4: needs fst/winner - snd/loser (do now b/c 3 mutates G_oct)
@@ -199,28 +175,15 @@ elseif ARGS.recv then
 
         -- 3. local has nothing new
         if ff then
+            -- TODO : DONE : S15.2 : nothing transmitted, nothing
+            -- to compare -- G_rem IS the state, snapped by the
+            -- replay; hardfork checked here, post-replay
+            if hardfork(G_rem.order) then
+                ERROR("chain sync : hard fork")
+            end
             exec {
                 cmd = "git -C " .. REPO .. " merge --ff-only " .. rem
             }
-            -- verify remote state: overwrite with G_rem, diff vs HEAD
-            do
-                -- HEAD == rem after the ff merge; the index (and
-                -- so NOW) takes full hashes only
-                G_rem.now = NOW(rem)
-                WRITE(G_rem)
-                local same = exec { stderr=false, err=false,
-                    cmd = "git -C " .. REPO ..  " diff --quiet HEAD -- .freechains/state.lua"
-                }
-                if not same then
-                    exec {
-                        cmd = "git -C " .. REPO .. " reset --hard " .. loc
-                    }
-                    ERROR("chain sync : remote state mismatch")
-                end
-                -- S15.1b: re-snap the tip with the verified,
-                -- `now`-fixed state (climb's snap predates it)
-                DB.snap(rem, G_rem)
-            end
             goto RECV
         end
 
@@ -337,13 +300,10 @@ elseif ARGS.recv then
             end
 
             if merge then
+                -- TODO : DONE : S15.2 : pure topology commit --
+                -- no state written, no PEAKS `now` inflation
                 exec { stderr=false,
                     cmd = "git -C " .. REPO .. " merge --no-commit " .. merge
-                }
-                G_fst.now = PEAKS { "HEAD", "MERGE_HEAD" }
-                WRITE(G_fst)
-                exec {
-                    cmd = "git -C " .. REPO .. " add .freechains/state.lua"
                 }
                 exec {
                     cmd = CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"

@@ -3,8 +3,8 @@ require "freechains.chain.common"
 -- Escape hatch for a hard fork: destroy `aid` and everything after it, so
 -- the settled remote branch can be received again.
 -- Local only: no signing, no network, no reps.
--- Chain state lives in-tree (`.freechains/state.lua`), so the reset
--- restores it along with the commits: nothing else to rebuild.
+-- Chain state lives in `.git/states/<cid>.lua` (S15): the next
+-- command heals from the snapshot at the new tip (or replays).
 
 -- a beg is a post outside `main`, alone on its own ref: nothing follows
 -- it, so destroying it is just deleting the ref

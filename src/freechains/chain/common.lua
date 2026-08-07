@@ -113,8 +113,9 @@ ACTION = {
     end,
 }
 
--- .freechains/state.lua -- the whole derived state, one table.
--- Always `serial` output (sorted keys), byte-comparable by verifiers:
+-- .git/states/<cid>.lua -- the whole derived state as of one
+-- commit, one table (S15: local snapshots, never in the tree).
+-- Always `serial` output (sorted keys), deterministic across peers:
 --
 --  return {
 --      authors = {                             -- one entry per signer
@@ -146,8 +147,7 @@ function READ (src)
     return T
 end
 
--- one serialization for both stores: the tree `state.lua`
--- (until S15.2) and the `.git/states/<cid>.lua` snapshots
+-- the one state serialization (`.git/states/<cid>.lua`)
 function STATE (G)
     return serial {
         authors = G.authors,
@@ -159,11 +159,8 @@ function STATE (G)
     }
 end
 
-function WRITE (G)
-    local f = io.open(FC .. "state.lua", "w")
-    f:write(STATE(G))
-    f:close()
-end
+-- TODO : DONE : S15.2 : WRITE (the worktree/tree state writer)
+-- deleted -- state lives only in `.git/states/<cid>.lua`
 
 -- REVOKED when either the author's or the community's net revoke sum is negative.
 function is_revoked (p)
@@ -191,60 +188,9 @@ local function ordered (posts)
     return hs
 end
 
--- a commit's OWN author date, which says nothing about its ancestors:
--- a post carries the state file of the commit BEFORE it, so its own
--- stamp lives nowhere else.
-local function TIME (cid)
-    return assert(tonumber((exec {
-        cmd = "git -C " .. REPO .. " log -1 --format=%at " .. cid,
-    })))
-end
-
--- TODO : remove : S15 : `apply` no longer reads this (S16);
--- last readers are sync's merge-state writer/verifier + the ff
--- compare (NOW), which die with state-out-of-tree
--- the peak RECORDED in a commit's tree (`state.lua` .now): the newest
--- time among all of its ancestors. Derived, never trusted: `commit` in
--- sync.lua checks every stored value against its parents' before using
--- it. Only `state` commits are current -- a post/like may just ADD
--- files, so its tree still holds the previous state commit's value.
-function PEAK (cid)
-    local src = exec {
-        cmd = "git -C " .. REPO .. " show " .. cid .. ":.freechains/state.lua",
-    }
-    return READ(src).now
-end
-
--- the peak COMPUTED over a set of commits: the peak each one recorded,
--- or its own time if newer (a post's tree still holds the PREVIOUS
--- peak, so its stamp lives nowhere else). The only place the fold
--- happens: `PEAKS(parents(h))` is the newest time causally preceding
--- `h`, the value a state commit must record, so writer and verifier
--- share the formula. Asserts on an empty set: only a root has no
--- parents, and no path takes a root this far.
-function PEAKS (hs)
-    local mx = nil
-    for _, h in ipairs(hs) do
-        local t = math.max(TIME(h), PEAK(h))
-        mx = math.max(mx or t, t)
-    end
-    return assert(mx)
-end
-
--- TODO : remove : S15 : one caller left (ff compare), dies
--- with state-out-of-tree
--- the `now` an honest commit must record. A joined action commit
--- (S9) writes max(state before, own stamp), where "state before"
--- is its first parent's tree (a merge keeps 'ours'). A merge
--- folds its parents (PEAKS), as before. Writer and verifier
--- share the formula.
-function NOW (cid)
-    if DB.aid(cid) then
-        local ps = parents(cid)
-        return math.max(TIME(cid), PEAK(ps[1]))
-    end
-    return PEAKS(parents(cid))
-end
+-- TODO : DONE : S15.2 : TIME/PEAK/PEAKS/NOW deleted -- the tree
+-- carries no state to read; causal time folds over `peaks` in
+-- the DB (S16) and `now` is the plain apply high-water
 
 function apply (G, kind, time, T)
     local mutate = (kind ~= 'reps')

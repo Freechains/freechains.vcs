@@ -15,9 +15,6 @@ local function git_config (dir)
         cmd = "git -C " .. dir .. " config pull.rebase false",
     }
     exec {
-        cmd = "git -C " .. dir .. " config merge.ours.driver true",
-    }
-    exec {
         cmd = "git -C " .. dir .. " config receive.advertisePushOptions true",
     }
 end
@@ -100,11 +97,8 @@ if ARGS.add then
         exec {
             cmd = "mkdir -p " .. tmp .. "/.freechains/",
         }
-        do
-            local f = io.open(tmp .. "/.gitattributes", "w")
-            f:write(".freechains/state.lua merge=ours\n")
-            f:close()
-        end
+        -- TODO : DONE : S15.2 : no .gitattributes -- state (and
+        -- its merge=ours) left the tree
         do
             local f = io.open(tmp .. "/.freechains/random", "w")
             f:write(tostring(rand) .. "\n")
@@ -124,16 +118,10 @@ if ARGS.add then
             gen     = CMD.now,  -- genesis stamp: `up` for empty backs
             peaks   = {},       -- per-action causal peak, permanent
         }
-        do
-            local f = assert (
-                io.open(tmp .. "/.freechains/state.lua", "w"),
-                "bug found : chain add : init failed"
-            )
-            f:write(S0)
-            f:close()
-        end
+        -- TODO : DONE : S15.2 : S0 goes to the snapshot only,
+        -- never to the tree
         exec {
-            cmd = "git -C " .. tmp .. " add .freechains/ .gitattributes",
+            cmd = "git -C " .. tmp .. " add .freechains/",
         }
         exec {
             cmd = CMD.git .. "git -C " .. tmp .. " commit -m '(empty message)'",
@@ -202,6 +190,20 @@ if ARGS.add then
         exec {
             cmd = "ln -s '" .. hash .. "' " .. DIR .. "/" .. ARGS.alias,
         }
+        -- S15.2: bootstrap -- a clone brings ACTIONS only, so
+        -- validate it NOW by replaying genesis -> HEAD (fills
+        -- .git/states/); a bogus chain fails here, not later
+        local ok, err = pcall(function ()
+            require "freechains.chain.common"
+            require("freechains.chain.replay").state()
+        end)
+        if not ok then
+            exec {
+                cmd = "rm -rf '" .. dir .. "'",
+            }
+            os.remove(DIR .. "/" .. ARGS.alias)
+            ERROR("chains add : invalid chain : " .. tostring(err))
+        end
         print(hash)
     end
 elseif ARGS.rem then

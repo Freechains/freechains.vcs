@@ -88,6 +88,15 @@ function CID (dir, id)
     return out and out:match("^(%x+)") or nil
 end
 
+-- current state of `dir`: the snapshot at HEAD (S15.2: state
+-- lives in `.git/states/<cid>.lua`, never in the tree)
+function STATE (dir)
+    local cid = exec {
+        cmd = "git -C " .. dir .. " rev-parse HEAD",
+    }
+    return dofile(dir .. ".git/states/" .. cid .. ".lua")
+end
+
 -- the aid a commit adds, or nil: the structural action test
 -- (mirrors AID in chain/common.lua, with an explicit dir)
 function AID_OF (dir, hash)

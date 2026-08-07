@@ -802,9 +802,25 @@ green after each step. Progress is tracked here.
               their trees carry PEAKS-inflated `now`; hazard
               only while both stores coexist, dies at S15.2
               when inflation itself dies
-        - S15.2: evict from tree (`merge=ours`,
-          `.gitattributes`, M/MM checks, ff compare, worktree
-          `G` load die); destroy reads snapshot at tip
+        - S15.2 DONE (suite green): evicted from the tree
+            - writers commit actions (+payload) only; genesis
+              tree = genesis.lua + random; `.gitattributes`,
+              `merge=ours` die
+            - mode check: no M/MM cases; smuggled state.lua =
+              "mode violation : A"
+            - ff: hardfork checked post-replay; compare +
+              "remote state mismatch" + NOW fix-up die;
+              diverge merge: pure topology, PEAKS `now`
+              inflation gone (S16 caveat completes)
+            - `state_at`: genesis DERIVED from genesis.lua +
+              pinned %at (trusted from nothing); clone
+              bootstraps EAGERLY at `chains add` (validates or
+              deletes the clone) -- lazy would defer detecting
+              a bogus chain to first use
+            - deleted: WRITE, PEAK, PEAKS, TIME, NOW
+            - tests: `STATE(dir)` = snapshot at HEAD (~20
+              reads swapped); cli-recv step 6 rewritten;
+              bug-forged-state.lua deleted (dies by removal)
         - S15.3: GC (settled window); test churn
         - semantics RESOLVED (was blocker): snapshot(X) = fold
           over X's OWN ancestors (writer semantics), never the
@@ -894,9 +910,9 @@ green after each step. Progress is tracked here.
   `is-ancestor` membership; src CID -> tst CID(dir, id);
   rockspec: + chain.db, + chain.destroy (was MISSING:
   installed `chain destroy` could never load);
-  next: S15.2 (evict state from the tree: `merge=ours`,
-  `.gitattributes`, M/MM checks, ff compare + fail-fast, clone
-  bootstrap replay; the big behavioral step)
+  next: S8.4 (receive validation: id/sign/time/backs -- the
+  file fields replay now leans on) or S10 (payload eviction);
+  S15.3 (snapshot GC) can wait
 
 ## 11. Open questions
 

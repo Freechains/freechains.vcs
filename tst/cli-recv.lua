@@ -176,7 +176,7 @@ do
         assert(all:match("second from B"), "B's post missing")
 
         TEST "A's posts.lua has both entries"
-        local posts = dofile(REPO_A .. ".freechains/state.lua").posts
+        local posts = STATE(REPO_A).posts
         assert(posts[A], "A's should be in posts.lua")
         assert(posts[B], "B's should be in posts.lua")
     end
@@ -200,16 +200,16 @@ do
         assert(all:match("second from B"), "B's post missing in B")
 
         TEST "A and B have same authors.lua"
-        local aa = dofile(REPO_A .. ".freechains/state.lua").authors
-        local ab = dofile(REPO_B .. ".freechains/state.lua").authors
+        local aa = STATE(REPO_A).authors
+        local ab = STATE(REPO_B).authors
         for k, v in pairs(aa) do
             assert(ab[k], "author missing in B: " .. k)
             assert(ab[k].reps == v.reps, "reps mismatch for " .. k)
         end
 
         TEST "A and B have same posts.lua"
-        local pa = dofile(REPO_A .. ".freechains/state.lua").posts
-        local pb = dofile(REPO_B .. ".freechains/state.lua").posts
+        local pa = STATE(REPO_A).posts
+        local pb = STATE(REPO_B).posts
         for k, v in pairs(pa) do
             assert(pb[k], "post missing in B: " .. k)
             assert(pb[k].maturity == v.maturity, "maturity mismatch for " .. k)
@@ -236,7 +236,7 @@ do
 
     local A
     do
-        local posts = dofile(REPO_A .. ".freechains/state.lua").posts
+        local posts = STATE(REPO_A).posts
         for k in pairs(posts) do
             A = k
             break
@@ -328,14 +328,14 @@ do
 
     TEST "A writes tampered state commit"
     do
-        local S = dofile(REPO_A .. ".freechains/state.lua")
-        S.authors = {}
+        -- S15.2: state is never tracked -- smuggling one INTO
+        -- the tree is itself the violation
         local f = io.open(REPO_A .. ".freechains/state.lua", "w")
-        f:write(serial(S))
+        f:write("return { authors = {} }\n")
         f:close()
     end
     exec {
-        cmd = "git -C " .. REPO_A .. " add .freechains/state.lua",
+        cmd = "git -C " .. REPO_A .. " add -f .freechains/state.lua",
     }
     exec {
         cmd = "git -C " .. REPO_A .. " commit -m '(empty message)'" .. " --no-edit --trailer 'Freechains: state'",
@@ -346,12 +346,10 @@ do
         cmd = "git -C " .. REPO_B .. " rev-parse HEAD",
     }
 
-    -- S9.3/S11a: the 1-parent action-less shape itself is
-    -- refused, before any state compare
-    TEST "B recvs from A fails: pure state commit refused"
+    TEST "B recvs from A fails: smuggled state refused"
     FAIL {
         cmd = EXE_B .. " --now=10000 chain '#test' sync recv " .. REPO_A,
-        err = "ERROR : chain sync : invalid commit : expects one action file",
+        err = "ERROR : chain sync : invalid commit : mode violation : A .freechains/state.lua",
     }
 
     TEST "B's HEAD unchanged"
