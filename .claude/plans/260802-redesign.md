@@ -802,20 +802,26 @@ green after each step. Progress is tracked here.
             - prerequisite: S16 FIRST -- kills PEAK, the only
               frequent interior reader; snapshots keep only
               rare consumers (G_oct, destroy, startup)
-    - S16: peak folds over `backs` in the DB (par 7's "piece
-      that must also move", now a step; pulled BEFORE S15)
-        - per-action `peak` memoized in `posts` entries:
-          peak(a) = max(a.time, peaks of a.backs); permanent
-          field (a new action may back a consolidated one)
-        - `apply` takes `T.backs`, computes `up` with no git;
-          PEAK/PEAKS/TIME/NOW die (NOW's one caller is the ff
-          compare, gone at S15 anyway)
-        - kills the frequent interior state reader -> S15
-          snapshots keep only rare consumers (G_oct, destroy,
-          startup)
-        - CAVEAT: action-DAG fold drops merge-commit %at from
-          `now` (today TIME(parent) counts merges) -- semantic
-          change, tests must confirm
+    - S16 IMPLEMENTED (suite pending): peak folds over `backs`
+      in the DB (par 7's "piece that must also move";
+      pulled BEFORE S15)
+        - state gains `gen` (genesis stamp: `up` for empty
+          backs) + `peaks[aid]` (permanent: a new action may
+          back a consolidated one); peak = max(time, backs'
+          peaks); set in `apply`, written by WRITE, seeded at
+          `chains add`
+        - `apply` takes `T.backs` (post/like pass the BACKS
+          result; sync commit() derives from git via `backs()`
+          -- file's `backs` untrusted until S8.4); `T.parents`
+          + its rev-parses die
+        - like-on-beg imports the beg's peak with its entry
+        - PEAK/PEAKS/TIME/NOW leave the WRITE path; last
+          readers (sync merge-state writer/verifier :598/:293
+          + ff NOW) die at S15
+        - CAVEAT confirmed in design: action-DAG fold drops
+          merge-commit %at from `up` (old PEAKS counted
+          TIME(merge parent)); `now`'s own writers unchanged
+          until S15 -- tests must confirm
     - S6a: drop `.freechains/`: `actions/`, `genesis.lua`,
       `random` to root; shard `actions/ab/`
       (needs S10, S15)
@@ -842,7 +848,8 @@ green after each step. Progress is tracked here.
   `is-ancestor` membership; src CID -> tst CID(dir, id);
   rockspec: + chain.db, + chain.destroy (was MISSING:
   installed `chain destroy` could never load);
-  next: S16 (peak folds over `backs` in the DB)
+  next: run suite for S16 (`make install` first: recv path
+  changed), then S15.1
 
 ## 11. Open questions
 

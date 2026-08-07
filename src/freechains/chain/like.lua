@@ -59,15 +59,22 @@ if to_beg then
         --ERROR("chain like : invalid target : beg post does not exist")
     end
     G.order[#G.order+1] = ARGS.aid
-    local src = exec {
+    local S = READ(exec {
         cmd = "git -C " .. REPO .. " show " .. ref .. ":.freechains/state.lua",
-    }
-    G.posts[ARGS.aid] = READ(src).posts[ARGS.aid]
+    })
+    G.posts[ARGS.aid] = S.posts[ARGS.aid]
+    -- TODO : redesign : review
+    -- S16: the beg's peak rides its branch state; the like's
+    -- backs fold over it below
+    G.peaks[ARGS.aid] = S.peaks[ARGS.aid]
 end
+
+-- TODO : redesign : review
+local bs = to_beg and BACKS { "HEAD", ref } or BACKS { "HEAD" }
 
 local aid = ACTION.pre {
     action = kind,
-    backs  = to_beg and BACKS { "HEAD", ref } or BACKS { "HEAD" },
+    backs  = bs,
     sign   = pub,
     time   = CMD.now,
     n      = num,
@@ -77,16 +84,11 @@ local aid = ACTION.pre {
 
 -- apply BEFORE the commit: failure leaves the repo untouched
 do
-    local head = (exec {
-        cmd = "git -C " .. REPO .. " rev-parse HEAD",
-    })
     local T = {
         [ARGS.target] = ARGS.aid,
         aid     = aid,
-        -- TODO : remove : S16 : peak folds over T.backs, no git
-        parents = to_beg and { head, (exec {
-            cmd = "git -C " .. REPO .. " rev-parse " .. ref,
-        }) } or { head },
+        -- TODO : DONE : S16 : peak folds over T.backs, no git
+        backs   = bs,
         sign    = pub,
         n       = num,
         beg     = to_beg,

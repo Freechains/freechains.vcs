@@ -19,10 +19,11 @@ function parents (cid)
     return ps
 end
 
--- TODO : change : S16/S8.4 : write-path caller (BACKS) moves
+-- TODO : change : S8.4 : write-path caller (BACKS) moves
 -- to the DB frontier; the recursion itself STAYS as the receive
 -- validator (par.6 two-DAG check: recompute true ancestors from
--- git, reject a file whose `backs` lie)
+-- git, reject a file whose `backs` lie) -- sync commit()
+-- already folds apply over it (S16)
 -- action ancestors of `cid`: `parents` recursed through merges,
 -- which are plumbing the protocol does not expose. Returns an
 -- array of hashes (dedup'd).
@@ -48,7 +49,7 @@ function backs (cid)
 end
 
 -- TODO : remove : S11b : commit<->ID index replaces this lookup
--- TODO : change : S16 : backs come from the DB, not git walks
+-- TODO : change : S8.4 : backs come from the DB, not git walks
 -- the action IDs backing a new action built on top of `tips`
 -- (resolved to hashes for the index): action ancestors via
 -- `backs`, as sorted IDs.
@@ -152,6 +153,8 @@ function WRITE (G)
         posts   = G.posts,
         order   = G.order,
         now     = G.now,
+        gen     = G.gen,
+        peaks   = G.peaks,
     })
     f:close()
 end
@@ -191,7 +194,9 @@ local function TIME (cid)
     })))
 end
 
--- TODO : remove : S16 : peak folds over `backs` in the DB
+-- TODO : remove : S15 : `apply` no longer reads this (S16);
+-- last readers are sync's merge-state writer/verifier + the ff
+-- compare (NOW), which die with state-out-of-tree
 -- the peak RECORDED in a commit's tree (`state.lua` .now): the newest
 -- time among all of its ancestors. Derived, never trusted: `commit` in
 -- sync.lua checks every stored value against its parents' before using
@@ -220,7 +225,8 @@ function PEAKS (hs)
     return assert(mx)
 end
 
--- TODO : review : see all callers
+-- TODO : remove : S15 : one caller left (ff compare), dies
+-- with state-out-of-tree
 -- the `now` an honest commit must record. A joined action commit
 -- (S9) writes max(state before, own stamp), where "state before"
 -- is its first parent's tree (a merge keeps 'ours'). A merge
@@ -244,11 +250,19 @@ function apply (G, kind, time, T)
         -- depend on the order a replay applies commits in (consensus order
         -- is not chronological order).
         if mutate then
-            -- TODO : change : S16 : T.backs (action IDs), not commits
-            local up = PEAKS(T.parents)
+            -- TODO : DONE : S16 : peak folds over T.backs (action
+            -- IDs) in the DB, no git; the genesis stamp anchors
+            -- an empty backs
+            local up = assert(G.gen, "bug found : no gen")
+            for _, b in ipairs(T.backs) do
+                -- (assert would leak its msg into math.max)
+                local p = assert(G.peaks[b], "bug found : no peak")
+                up = math.max(up, p)
+            end
             if time < up-C.time.diff then
                 return false, "too old"
             end
+            G.peaks[T.aid] = math.max(time, up)
         end
 
         -- discount scan (maybe signed at same G.now)

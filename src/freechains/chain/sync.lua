@@ -327,11 +327,21 @@ elseif ARGS.recv then
                 error("invalid " .. kind .. " : mode violation : payload", 0)
             end
 
+            -- TODO : DONE : S16 : peak folds over T.backs, no
+            -- PEAKS(parents) -- but backs are GIT-derived here:
+            -- the file's `backs` stays untrusted until S8.4
+            -- compares it against exactly this
+
+            -- TODO : redesign : review
+            local bs = {}
+            for _, h in ipairs(backs(cid)) do
+                bs[#bs+1] = assert(DB.aid(h), "bug found")
+            end
+
             if kind == 'post' then
                 local ok, err = apply(G, 'post', time, {
                     aid     = aid,
-                    -- TODO : remove : S16 : peak folds over T.backs
-                    parents = parents(cid),
+                    backs   = bs,
                     sign    = key,
                     beg     = beg or (key == nil),
                 })
@@ -349,8 +359,7 @@ elseif ARGS.recv then
                 )
                 local ok, err = apply(G, kind, time, {
                     aid     = aid,
-                    -- TODO : remove : S16 : peak folds over T.backs
-                    parents = parents(cid),
+                    backs   = bs,
                     sign    = key,
                     n       = t.n,
                     post    = t.post,

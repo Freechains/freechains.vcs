@@ -124,6 +124,10 @@ if ARGS.add then
                 posts   = {},
                 order   = {},
                 now     = CMD.now,
+                -- TODO : redesign : review
+                -- S16: causal time anchors
+                gen     = CMD.now,  -- genesis stamp: `up` for empty backs
+                peaks   = {},       -- per-action causal peak, permanent
             })
             f:close()
         end

@@ -44,9 +44,12 @@ do
     end
 end
 
+-- TODO : redesign : review
+local bs = BACKS { "HEAD" }
+
 local aid = ACTION.pre {
     action = 'post',
-    backs  = BACKS { "HEAD" },
+    backs  = bs,
     sign   = pub,
     time   = CMD.now,
     -- content is part of the identity: without it, same
@@ -58,10 +61,8 @@ local aid = ACTION.pre {
 do
     local T = {
         aid     = aid,
-        -- TODO : remove : S16 : peak folds over T.backs, no git
-        parents = { (exec {
-            cmd = "git -C " .. REPO .. " rev-parse HEAD",
-        }) },
+        -- TODO : DONE : S16 : peak folds over T.backs, no git
+        backs   = bs,
         sign    = pub,
         beg     = ARGS.beg,
     }
