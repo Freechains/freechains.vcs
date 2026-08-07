@@ -1,25 +1,77 @@
 # Redesign from scratch: state trust + verification
 
-# Next steps (run on other machine)
+# Next steps (continue on other machine)
 
-- decide: verify remote state vs local-only state (see Q4/Q5)
-- [x] test `tst/bug-forged-state.lua` on main
-    - confirmed red: scenario 1 (diverge) fails first
-- [x] scenario 4 added: clone accepts forged history
-    - to reach it: `do` -> `if false then` on scenarios 1-3
-- red/green map on main (all 4 holes proven):
-    - 1 diverge tip: RED (accepted, bug)
-    - 2 interior: RED after date fix (confirmed on run)
-        - was GREEN by accident: forged `%at=1120` tripped the
-          NEXT commit's `now` check (`PEAKS = max(%at, now)`)
-        - stealthy forger pins dates to `now` (@1100): passes
-    - 3 merge side: RED (accepted, bug)
-    - 4 clone: RED (accepted, bug)
-- create `src/chain/consensus.lua` skeleton
-    - move: `ancestor`, `octopus`, `consensus`, `replay`
-    - from scratch, no code from other branches
-- wire verification into sync recv AND clone
-    - one operation: `rev-list tip --not frontier`
+- implement fix in consensus.lua (design below), pass 1:
+    - split `commit` -> `check` + `play`
+    - `state_link`, `verify`, `frontier`
+    - wire recv + clone
+    - covers scenarios 1 (tip), 2 (interior), 4 (clone)
+- pass 2: `state_merge` + begs
+    - covers scenario 3 (merge side)
+- run full suite: only bug-forged-state red between passes
+
+# Done
+
+- [x] all 4 holes proven red in `tst/bug-forged-state.lua`:
+    - 1 diverge tip, 2 interior, 3 merge side, 4 clone
+    - 2 was GREEN by accident: forged `%at=1120` tripped the
+      NEXT commit's `now` check (`PEAKS = max(%at, now)`);
+      stealthy forger pins dates to `now` (@1100): passes
+- [x] decision: verify remote state (not local-only), Q4/Q5
+- [x] `src/freechains/chain/consensus.lua` extracted + committed
+    - `octopus`, `consensus`, `commit`, `replay` (climb/meet)
+    - `hardfork` stays in sync.lua; suite green
+
+# Fix design: context-free verification (consensus.lua)
+
+- idea from [260802-state-verify.md](260802-state-verify.md),
+  code written from scratch
+
+## split `commit` in two
+
+- `check(hash)`: context-free, cacheable
+    - signature, kind, mode (paths/status)
+    - state commits: state-link (below) + `now` vs PEAKS
+- `play(G, hash, beg)`: order-dependent
+    - the `apply` calls + `G.order` append
+    - `replay` calls `play`, not `check`
+
+## state-link (1-parent state commit S)
+
+- rule: `state(S) == apply(state(P), action(P))`, P = parent
+- read G2 = 4 state files from P's own tree
+- derive P's action: trailer + metadata file + sign key
+- re-apply onto G2, compare `serial` of `authors`, `posts`
+    - skip `order`: honest peers may disagree (own bug)
+    - `now` checked separately (PEAKS)
+- beg ambiguity: signed post w/o reps flag -> try both readings
+- like-on-beg: P is 2-parent `-X ours` merge
+    - pre-apply beg side from P^2 first
+
+## state-merge (2-parent state commit)
+
+- replay one side from `octopus(p1,p2)` anchored at its
+  committed state, compare
+- not O(1), accepted (measured +60..90% on merge-heavy)
+
+## verify walk + frontier
+
+- `verify(tip)`:
+    - `git rev-list --reverse tip --not refs/freechains/verified`
+    - `check` each (genesis: 0 parents, skip)
+- `frontier(tip)`: advance `refs/freechains/verified`
+    - local, untracked: no peer can forge it
+    - memoized forever: content-addressed facts
+
+## wiring
+
+- recv: `verify(rem)` + every `refs/begs/*`
+    - BEFORE `G_oct` is read from any tree
+- clone (chains.lua): `verify(main)` after clone
+    - remove chain again on failure
+- destroy: `frontier("HEAD")` after reset
+- keep FF `write`+`diff` as end-to-end probe (for now)
 
 # Ground rules
 
