@@ -1,6 +1,6 @@
 # Redesign: Lua Database as the Action Layer
 
-Four changes that compose into one:
+Five changes that compose into one:
 
 1. **Join** the action and state commits into a single commit
 2. **Flatten** `.freechains/likes/`, `.freechains/revokes/` into
@@ -9,6 +9,9 @@ Four changes that compose into one:
 3. **Self-describe** each action with `action` and `backs`, where
    `backs` holds *action IDs*, not commit hashes
 4. **Evict payloads** from the tree into ref-anchored loose blobs
+5. **Evict state** from the tree into per-commit local snapshots
+   (`.git/states/<cid>.lua`, S15) — commit what peers must agree
+   on; cache what any peer rederives alone
 
 The result is a division of labour:
 
@@ -392,6 +395,12 @@ Same formula, same verification, no `git show`.
 
 ## 8. Layout: `actions/` + `state/`
 
+> **Superseded in part by S15**: `state.lua` leaves the tree for
+> `.git/states/<cid>.lua`; `.gitattributes` dies with it. The
+> tree keeps only `actions/`, `genesis.lua`, `random`. The
+> in-tree consolidation below landed as S6b and remains the
+> shape S15 starts from.
+
 `.freechains/` existed to keep internal files out of the user's
 way. With payloads evicted (§3) there are no user files left, so
 the prefix hides nothing from anyone. Drop it — but keep the
@@ -475,7 +484,8 @@ sync.lua:506-515's `"content conflict"` path and its
 **The mode check becomes exact.** Exactly one added
 `actions/<hex>.lua`, `A|M` confined to `state/`, nothing else
 permitted — replacing the two disjoint permission sets at
-sync.lua:243-275.
+sync.lua:243-275. *(S15 tightens further: no `M` at all — a
+commit adds one action file, or nothing and is a merge.)*
 
 **Filename collisions disappear.** post.lua:16-22 and :30-37
 error when a payload name is taken. With no payload in the tree
@@ -502,6 +512,8 @@ check and is merely passed through — and `G_oct` is then loaded
 straight from a commit tree (sync.lua:363-374). Joining makes
 every commit a state commit, so the comparison becomes uniform
 and cheap. It should land with this, not after.
+*(Superseded by S15: state is no longer transmitted, so the hole
+dies by removal — there is nothing to compare.)*
 
 **`destroy` needs three fixes.** chain/destroy.lua (the hard-fork
 escape hatch) is the one command whose correctness depends on
@@ -527,7 +539,8 @@ Worth noting destroy.lua:6-7 states the dependency outright —
 *"Chain state lives in-tree, so the reset restores it along with
 the commits: nothing else to rebuild"*. That is independent
 support for keeping state committed rather than moving it to a
-local cache.
+local cache. *(Reversed by S15: the reset restores commits only;
+state comes from `.git/states/<tip>.lua`.)*
 
 **The signing key must be read before committing.**
 `ssh.pubkey` parses a signature out of an existing commit, so it
@@ -614,13 +627,13 @@ green after each step. Progress is tracked here.
             - CAVEAT: send-path tests run the INSTALLED
               freechains (pre-receive hook uses PATH) --
               `make install` after recv-path changes
-        - S8.4 POSTPONED -> lands with S11: receive validation
+        - S8.4 POSTPONED -> lands with S15: receive validation
           (id/sign/time/backs, par.6)
             - rationale: replay still trusts only commit-derived
               facts (sig, %at, parents); file fields are
               display/vote-content -- validation belongs at the
-              step that starts TRUSTING them (S11), where the
-              index also makes the backs compare cheap
+              step that starts TRUSTING them (S15; the backs
+              compare walks git via `backs()` until S11b)
             - includes the duplicate-ID net: identical action
               via two commits must dedup deliberately (skip
               re-apply), not overwrite/double-append
@@ -661,12 +674,17 @@ green after each step. Progress is tracked here.
           shape error, step 7 resets to good state first;
           crafted trailing state commits in err-* stay (their
           action errors fire first, shape never reached)
-        - S9.4: per-commit state compare; bug-forged-state
-          rewritten, green
+        - S9.4 WON'T DO: superseded by S15 -- state leaves the
+          tree, so nothing is transmitted to forge; the compare
+          (and 260803-forged-state.md) die by removal
     - S10: payload eviction: `refs/payloads/<id>`, refspecs,
       clone, `--why` off post (needs S8)
         - `blob` identity half landed early at S8.2b
-    - S11a: delete trailers; structural classification
+        - mode check final (with S15): one A/AA
+          `actions/<hex>.lua` or EMPTY diff; parents classify
+          (action/merge/genesis/invalid) -- par.5 literally
+          total, no mode enumeration left
+    - S11a DONE: delete trailers; structural classification
       (pulled BEFORE S9.4: commit() already pays the
       diff-tree; kind = action file's `action`; merge =
       2p no action; MM state.lua = state merge vs
@@ -674,10 +692,37 @@ green after each step. Progress is tracked here.
     - S11b: one-pass commit<->ID index (subsumes `ORD`,
       `COMMIT_ACTION`, `ACTION_COMMIT`) -- optimization,
       batches S11a's per-commit diffs (needs S11a)
+        - sketch (implemented once, reverted to land WITH S11c:
+          per-command full walk alone is not worth it):
+          `INDEX(tips)` one `log --full-history --cc
+          --diff-filter=A` walk fills `a2c`/`c2a`; `AID`/`CID`
+          become lookups (full hashes only; sync ff `NOW(rem)`;
+          `BACKS` rev-parses tips); lazy over HEAD, widened
+          BEFORE first lookup (sync: `loc rem`; like on beg:
+          `HEAD ref`); `ORD` dies; src `CID` moves to
+          tst/tests.lua as `CID(dir, id)` with `--all` baked in
         - better id<->commit story for tests too: today
           `AID`/`CID` (tests) duplicate the src pair with
           divergent defaults (`--all`, dir param); want ONE
           parameterized solution both sides use
+    - S11c: persist index in `.git/index.lua` (needs S11b)
+        - `{ tips, a2c }` (`c2a` inverted on load); extend with
+          `git log <tips-now> --not <tips-saved>`, rewrite on
+          delta
+        - facts immutable (a commit's tree never changes): no
+          invalidation ever, destroy included
+        - membership leaves the index: cache outlives resets and
+          mixes refs, so get/destroy verify
+          `merge-base --is-ancestor cid HEAD` per query
+        - NOT in state.lua: local-only consumers; would draft
+          plumbing into the S9.4 byte-compare and grow state
+          by a hash per action (against S12)
+        - prune (prune.md) invalidates it: saved tips die
+          (`--not <dead>` errors) and entries map aids to
+          pruned cids -> prune deletes the file; rebuilt
+          lazily over the flattened history
+        - lands right after S10 (S8.4/S10 shrink consumers
+          first; par.7 shrinks more, later)
     - S12: shrink `posts` entries to `{maturity, reps, revoke}`
       (needs S8)
     - S13: revoke deletes payload ref; `gc` policy (needs S10)
@@ -691,9 +736,39 @@ green after each step. Progress is tracked here.
         - kept: `bid`/`tid` (aid-flavored locals), `ARGS.key`
           (reps: aid OR pubkey), tests' `AID`/`CID` helpers
         - design docs (.md) keep conceptual "id" prose
-    - S6a: drop `.freechains/`: `actions/`, `state.lua`,
-      `genesis.lua`, `random` to root; shard `actions/ab/`
-      (needs S10)
+    - S15: state leaves the tree: one snapshot per commit in
+      `.git/states/<cid>.lua` (local, derived, immutable,
+      keyed by cid -- same nature as S11c's index)
+        - writer and replay write the snapshot as each commit
+          lands (cid known post-commit; no cycle: not in tree);
+          `G_oct`, `PEAK`, destroy read `.git/states/<cid>.lua`
+        - genesis snapshot at `chains add`
+        - commits become pure action adds; merges pure topology:
+          `merge=ours`, `.gitattributes`, M/MM mode checks,
+          state-merge and "remote state mismatch" machinery die;
+          S9.3 shape rule (1-parent no action = invalid) stays
+        - mode check shrinks: legal diff = one A/AA action file
+          (+ A payloads until S10); no M cases left
+        - forged state impossible instead of checked (replaces
+          S9.4); ff hardfork fail-fast becomes post-replay
+        - like-on-beg derives the beg entry from its action file
+          (no `show ref:state.lua`)
+        - GC: hardfork settles history, octopus never sits below
+          the settled window -> keep window + margin only;
+          destroy below GC depth and fresh clones replay from
+          genesis
+        - costs: m loose O(m) files until GC (no delta
+          compression); one snapshot write per replayed commit
+        - prune (prune.md) must prune caches too: snapshots
+          below the cut die; the prune-point snapshot is KEPT
+          and rekeyed to the new orphan root (without it the
+          flattened prefix must be replayed from its action
+          files to reboot state)
+        - reverses par.9's destroy argument and par.8's
+          full-state-merge resolution
+    - S6a: drop `.freechains/`: `actions/`, `genesis.lua`,
+      `random` to root; shard `actions/ab/`
+      (needs S10, S15)
         - BLOCKED before S10: user posts live at root; the
           prefix separates them (par.8 relies on "no user
           files left")
@@ -701,11 +776,21 @@ green after each step. Progress is tracked here.
     - `main`: fixes + design-neutral cleanups (S1, S4, S5)
     - `260803-redesign`: substrate + cluster (S2, S3, S6b, S8+)
     - criterion: useful even without the redesign -> `main`
-- progress: substrate + S8 + S14 + S9.0-S9.3 done (S8.4
-  folded into S11b); order: S11a -> S9.4 -> S10 -> S11b;
-  next: S11a (trailers die)
+- progress: substrate + S8 + S14 + S9.0-S9.3 + S11a done;
+  S9.4 won't-do (superseded by S15);
+  order: S15 (+S8.4) -> S10 -> S11b+S11c -> par.7 -> S6a;
+  next: S15 (state leaves the tree)
 
 ## 11. Open questions
+
+- **State out of the tree — RESOLVED: yes, as step S15.**
+
+- **Cache `fronts` (inverse of `backs`)? RESOLVED: no store.**
+  Impossible in action files (immutable, future-dependent);
+  churn if committed (derivable, against S12); a `.git/` file
+  saves nothing (rebuild needs no git, unlike the index).
+  Derive in memory -- one O(n) inversion of `db[aid].backs` --
+  when a consumer appears; today none exists.
 
 - **When does deletion actually run?** `is_revoked` flips during
   replay, but dropping the ref mid-replay is destructive and hard
@@ -721,8 +806,7 @@ green after each step. Progress is tracked here.
 - **Size limits.** `constants.lua` has a commented-out
   `post.size`. With payloads out of the tree this becomes a
   transport policy rather than a tree concern.
-- **Full state merge — RESOLVED: yes (§8).** No solo read of
-  `now` survives the redesign: the peak moves into the DB folded
-  over `backs` (§7), receive validation compares the whole state
-  table, and startup reads the one worktree file. Until §7
-  lands, PEAK re-reads the file per call — accepted.
+- **Full state merge — RESOLVED (§8), then reversed by S15.**
+  Merged in-tree at S6b (one `state.lua` table, still current);
+  leaves the tree entirely at S15. Until §7 lands, PEAK re-reads
+  the snapshot per call — accepted.
