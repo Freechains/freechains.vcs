@@ -706,9 +706,16 @@ green after each step. Progress is tracked here.
           divergent defaults (`--all`, dir param); want ONE
           parameterized solution both sides use
     - S11c: persist index in `.git/index.lua` (needs S11b)
-        - `{ tips, a2c }` (`c2a` inverted on load); extend with
-          `git log <tips-now> --not <tips-saved>`, rewrite on
-          delta
+        - `{ tips, a2c }` (`c2a` inverted on load)
+        - steady state is INCREMENTAL, zero extra git:
+          post/like append their own pair post-commit;
+          like-on-beg derives it from the ref itself
+          (`refs/begs/beg-<aid>` -> rev-parse); sync recv
+          collects pairs from commit()'s own mode-check diff
+          during replay
+        - `git log <tips-now> --not <tips-saved>` walk = cold
+          start only: bootstrap (no index file), clone,
+          prune-rebuild
         - facts immutable (a commit's tree never changes): no
           invalidation ever, destroy included
         - membership leaves the index: cache outlives resets and
@@ -721,8 +728,9 @@ green after each step. Progress is tracked here.
           (`--not <dead>` errors) and entries map aids to
           pruned cids -> prune deletes the file; rebuilt
           lazily over the flattened history
-        - lands right after S10 (S8.4/S10 shrink consumers
-          first; par.7 shrinks more, later)
+        - pulled FIRST (before S15): mechanical, no open
+          questions, and S8.4's backs validation leans on it;
+          incremental fill makes consumer count irrelevant
     - S12: shrink `posts` entries to `{maturity, reps, revoke}`
       (needs S8)
     - S13: revoke deletes payload ref; `gc` policy (needs S10)
@@ -766,6 +774,27 @@ green after each step. Progress is tracked here.
           files to reboot state)
         - reverses par.9's destroy argument and par.8's
           full-state-merge resolution
+        - S15.1: dual write, behavior-neutral -- snapshots
+          written (writer post-commit, replay per commit,
+          genesis at chains add); reads swap (`G_oct`, `PEAK`
+          + rev-parse of HEAD/MERGE_HEAD, like-on-beg from
+          action file); tree state stays; lazy backfill on
+          miss (read tree copy, write snapshot)
+        - S15.2: evict from tree (`merge=ours`,
+          `.gitattributes`, M/MM checks, ff compare, worktree
+          `G` load die); destroy reads snapshot at tip
+        - S15.3: GC (settled window); test churn
+        - BLOCKER for S15.2 -- snapshot semantics: tree state
+          today = writer's fold over the COMMIT'S ancestors;
+          replay G follows CONSENSUS order, so they diverge on
+          loser-side interior commits (also why only the ff
+          path ever byte-compared: uniform S9.4 would have
+          false-positived). Equality holds below all forks of
+          the region (octopus points by construction), at meet
+          bases, tips, and all of ff. S15.1: snapshot only
+          where provable, else tree fallback. S15.2 needs:
+          prove future octopi always qualify, or shadow-fold
+          loser sides from the meet base (O(region) applies)
     - S6a: drop `.freechains/`: `actions/`, `genesis.lua`,
       `random` to root; shard `actions/ab/`
       (needs S10, S15)
@@ -778,8 +807,18 @@ green after each step. Progress is tracked here.
     - criterion: useful even without the redesign -> `main`
 - progress: substrate + S8 + S14 + S9.0-S9.3 + S11a done;
   S9.4 won't-do (superseded by S15);
-  order: S15 (+S8.4) -> S10 -> S11b+S11c -> par.7 -> S6a;
-  next: S15 (state leaves the tree)
+  order: S11b+S11c -> S15 (+S8.4) -> S10 -> par.7 -> S6a;
+  S11b+S11c IMPLEMENTED (suite pending): chain/db.lua module,
+  `.git/index.lua` { tip, a2c, c2a }; load catches up
+  `HEAD --not tip` (dead tip -> full rebuild); writers
+  DB.add post-commit (beg: not tip; like-on-beg: pair from
+  ref name); sync DB.walk(rem --not loc) pre-replay +
+  DB.tip at recv end; ORD dies; get/destroy add
+  `is-ancestor` membership; src CID -> tst CID(dir, id);
+  rockspec: + chain.db, + chain.destroy (was MISSING:
+  installed `chain destroy` could never load);
+  next: run suite (`make install` first: recv path changed),
+  then S15; S15.2 semantics blocker in parallel
 
 ## 11. Open questions
 
