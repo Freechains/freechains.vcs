@@ -180,7 +180,7 @@ elseif ARGS.recv then
             -- order holds action IDs; timestamps live in commits
             local cs = {}
             for i=low, #our do
-                cs[i] = assert(CID(our[i]), "bug found")
+                cs[i] = assert(DB.cid(our[i]), "bug found")
             end
             local hs = table.concat(cs, " ", low, #our)
 
@@ -220,15 +220,8 @@ elseif ARGS.recv then
             return false
         end
 
-        -- `merge` is deliberately absent: those commits are built on a
-        -- TODO : remove : S11b : one-pass commit<->ID index over the
-        -- fetched range subsumes ORD + AID + CID
-        -- aid -> commit for entries this replay applied; falls back to
-        -- history for entries below the octopus (always reachable)
-        local ORD = {}
-        local function ORD_COMMIT (aid)
-            return ORD[aid] or CID(aid)
-        end
+        -- TODO : DONE : S11b : one-pass commit<->ID index over the
+        -- fetched range subsumes ORD + AID + CID (DB.cid below)
 
         -- TODO : review : commit flow
 
@@ -368,12 +361,17 @@ elseif ARGS.recv then
                     error("invalid " .. kind .. " : " .. err, 0)
                 end
             end
-            ORD[aid] = cid
             G.order[#G.order+1] = aid
         end
 
         ---------------------------------------------------------------------------
         ---------------------------------------------------------------------------
+
+        -- TODO : redesign : review
+        -- index the fetched delta before replay (S11c): every
+        -- DB.aid/DB.cid below resolves in memory (loc side comes from
+        -- the persisted index)
+        DB.walk(rem .. " --not " .. loc)
 
         -- we need to check an FF hardfork first:
         --  - remote contains all of our history
@@ -414,7 +412,7 @@ elseif ARGS.recv then
             -- without these the inner meet underflows to a root
             local visited = {}
             for _, i in ipairs(G_rem.order) do
-                visited[assert(CID(i), "bug found")] = true
+                visited[assert(DB.cid(i), "bug found")] = true
             end
             local function ancestor (a, b)
                 return exec { err=false, stderr=false,
@@ -436,7 +434,7 @@ elseif ARGS.recv then
                         -- like positivity (n>0) is enforced in commit()
                         -- only a beg-merge like is 2-parent WITH an
                         -- action file
-                        local is_beg_merge = (AID(cur) ~= nil)
+                        local is_beg_merge = (DB.aid(cur) ~= nil)
                         meet(G, com, p1, p2, is_beg_merge)
                     end
                     visited[cur] = true
@@ -470,7 +468,9 @@ elseif ARGS.recv then
             }
             -- verify remote state: overwrite with G_rem, diff vs HEAD
             do
-                G_rem.now = NOW("HEAD")
+                -- HEAD == rem after the ff merge; the index (and
+                -- so NOW) takes full hashes only
+                G_rem.now = NOW(rem)
                 WRITE(G_rem)
                 local same = exec { stderr=false, err=false,
                     cmd = "git -C " .. REPO ..  " diff --quiet HEAD -- .freechains/state.lua"
@@ -502,7 +502,7 @@ elseif ARGS.recv then
                 end
                 -- order holds IDs; the loser replay walks COMMITS
                 for _, i in ipairs(ids) do
-                    O_snd[#O_snd+1] = assert(ORD_COMMIT(i), "bug found")
+                    O_snd[#O_snd+1] = assert(DB.cid(i), "bug found")
                 end
             end
             O_snd[#O_snd+1] = snd
@@ -537,7 +537,7 @@ elseif ARGS.recv then
 
             for _, cid in ipairs(O_snd) do
                 -- merge action commits; a merge tip re-derives itself
-                if AID(cid) then
+                if DB.aid(cid) then
                     ok = exec { stderr=false, err=false,
                         cmd = "git -C " .. REPO .. " merge --no-commit " .. cid
                     }
@@ -585,7 +585,7 @@ elseif ARGS.recv then
             }
             -- --no-merges: every remaining commit is an action
             for cid in out:gmatch("%x+") do
-                print("voided : " .. assert(AID(cid)))
+                print("voided : " .. assert(DB.aid(cid)))
             end
         end
 
@@ -632,4 +632,8 @@ elseif ARGS.recv then
             end
         end
     end
+
+    -- TODO : redesign : review
+    -- the index now covers everything up to the settled HEAD
+    DB.tip()
 end

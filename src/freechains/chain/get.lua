@@ -2,13 +2,13 @@ require "freechains.chain.common"
 local ssh = require "freechains.chain.ssh"
 
 -- ARGS.aid is an action ID; git ops below need its commit
--- TODO : remove : S11b : db[aid] is membership + cid in one place
-local cid = CID(ARGS.aid)
+-- TODO : DONE : S11b : db[aid] is membership + cid in one place
+local cid = DB.own(ARGS.aid)
 if not cid then
     ERROR("chain get : unknown post")
 end
 
--- the action file self-describes; CID guarantees it is tracked
+-- the action file self-describes; DB.cid guarantees it is tracked
 local A = dofile(FC .. "actions/" .. ARGS.aid .. ".lua")
 
 -- TODO : remove : S10 : payload = db[aid].blob

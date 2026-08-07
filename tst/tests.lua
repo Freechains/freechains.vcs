@@ -70,8 +70,23 @@ function REPS (exe, chain, pub)
     }))
 end
 
--- id -> commit: `CID` comes from freechains/common.lua; tests
--- pass `all=true` (begs live off-main) and the repo dir
+-- TODO : DONE : S11b : src callers moved to the commit<->ID
+-- index; tests keep this (was CID in freechains/common.lua)
+-- id -> commit: the commit that ADDED action `id`, or nil.
+-- --all: tests inspect begs off-main. --cc: a like-on-beg is a
+-- MERGE, and without it `log -- path` never attributes the add.
+-- Deliberately NOT src's chain/db.lua index: git is the ORACLE
+-- the index is verified against -- resolving via DB would make
+-- index bugs self-confirming (and SAVE index files into
+-- fixtures mid-test).
+function CID (dir, id)
+    local out = exec { err=false, stderr=false,
+        cmd = "git -C " .. dir ..
+            " log --all -1 --cc --name-only --format=%H --diff-filter=A" ..
+            " -- .freechains/actions/" .. id .. ".lua",
+    }
+    return out and out:match("^(%x+)") or nil
+end
 
 -- the aid a commit adds, or nil: the structural action test
 -- (mirrors AID in chain/common.lua, with an explicit dir)

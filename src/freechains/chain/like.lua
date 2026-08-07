@@ -43,6 +43,9 @@ local to_beg = (
 -- beg: validate parent, load beg entry (the merge waits for `apply`)
 local ref = "refs/begs/beg-" .. ARGS.aid
 if to_beg then
+    -- a fetched beg was never replayed, so the index may not
+    -- know it -- but its ref NAMES the aid
+    DB.add(ARGS.aid, ref)
     -- the beg branch is one joined commit: ref~1 is its base
     local up = exec {
         cmd = "git -C " .. REPO .. " rev-parse " .. ref .. "~1",
@@ -113,6 +116,7 @@ do
         cmd = CMD.git .. "git -C " .. REPO .. s1 .. " commit -S -m '" .. msg .. "'",
         err = "chain " .. kind .. " : invalid sign key",
     }
+    DB.add(aid, "HEAD", true)
 end
 
 if to_beg then

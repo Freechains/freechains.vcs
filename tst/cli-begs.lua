@@ -148,10 +148,10 @@ do
     do
         TEST "beg-different-parents"
         local parent1 = exec {
-            cmd = "git -C " .. DIR3 .. " log -1 --format=%P " .. CID(BEG1, true, DIR3),
+            cmd = "git -C " .. DIR3 .. " log -1 --format=%P " .. CID(DIR3, BEG1),
         }
         local parent2 = exec {
-            cmd = "git -C " .. DIR3 .. " log -1 --format=%P " .. CID(BEG2, true, DIR3),
+            cmd = "git -C " .. DIR3 .. " log -1 --format=%P " .. CID(DIR3, BEG2),
         }
         assert(parent1 == HEAD1, "beg1 parent: " .. parent1 .. " expected: " .. HEAD1)
         assert(parent2 == HEAD2, "beg2 parent: " .. parent2 .. " expected: " .. HEAD2)
@@ -206,11 +206,11 @@ do
         local beg = exec {
             cmd = "git -C " .. DIR4 .. " rev-parse " .. like .. "^2",
         }
-        assert(beg == CID(BEG, true, DIR4), "beg: " .. beg .. " expected: " .. BEG)
+        assert(beg == CID(DIR4, BEG), "beg: " .. beg .. " expected: " .. BEG)
 
         TEST "like-beg-ancestor-is-beg"
         local _, code = exec { err=false,
-            cmd = "git -C " .. DIR4 .. " merge-base --is-ancestor " .. CID(BEG, true, DIR4) .. " HEAD",
+            cmd = "git -C " .. DIR4 .. " merge-base --is-ancestor " .. CID(DIR4, BEG) .. " HEAD",
         }
         assert(code == 0, "beg should be ancestor of HEAD")
     end
@@ -325,7 +325,7 @@ do
 
     do
         TEST "merge-preserves-beg-sig"
-        local key = ssh.verify(DIR5, CID(BEG, true, DIR5))
+        local key = ssh.verify(DIR5, CID(DIR5, BEG))
         assert(key, "beg commit signature should be intact")
     end
 
@@ -364,7 +364,7 @@ do
     do
         TEST "merge-has-two-parents"
         local parents = exec {
-            cmd = "git -C " .. DIR6 .. " log -1 --format=%P " .. CID(LIKE, true, DIR6),
+            cmd = "git -C " .. DIR6 .. " log -1 --format=%P " .. CID(DIR6, LIKE),
         }
         local count = 0
         for _ in parents:gmatch("%x+") do count = count + 1 end
@@ -374,7 +374,7 @@ do
     do
         TEST "merge-ancestor-includes-beg"
         local _, code = exec { err=false,
-            cmd = "git -C " .. DIR6 .. " merge-base --is-ancestor " .. CID(BEG, true, DIR6) .. " " .. CID(LIKE, true, DIR6),
+            cmd = "git -C " .. DIR6 .. " merge-base --is-ancestor " .. CID(DIR6, BEG) .. " " .. CID(DIR6, LIKE),
         }
         assert(code == 0, "beg should be ancestor of like")
     end

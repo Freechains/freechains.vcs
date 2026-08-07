@@ -99,6 +99,8 @@ do
         cmd = CMD.git .. "git -C " .. REPO .. s1 .. " commit" .. s2 .. " -m '" .. msg .. "'",
         err = "chain post : invalid sign key",
     }
+    -- a beg is about to leave HEAD: its commit is not the tip
+    DB.add(aid, "HEAD", not ARGS.beg)
 end
 
 if ARGS.beg then

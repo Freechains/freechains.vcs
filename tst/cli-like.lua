@@ -58,7 +58,7 @@ do
     do
         TEST "like-action-file"
         local out = exec {
-            cmd = "git -C " .. DIR .. " show " .. CID(LIKE, true, DIR) ..
+            cmd = "git -C " .. DIR .. " show " .. CID(DIR, LIKE) ..
                 ":.freechains/actions/" .. LIKE .. ".lua",
         }
         local tbl = load(out)()
@@ -80,7 +80,7 @@ do
     do
         TEST "like-ancestor-is-post"
         local _, code = exec { err=false,
-            cmd = "git -C " .. DIR .. " merge-base --is-ancestor " .. CID(POST, true, DIR) .. " HEAD",
+            cmd = "git -C " .. DIR .. " merge-base --is-ancestor " .. CID(DIR, POST) .. " HEAD",
         }
         assert(code == 0, "post should be ancestor of HEAD")
     end

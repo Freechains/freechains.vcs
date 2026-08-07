@@ -1,6 +1,7 @@
 C    = require "freechains.constants"
 REPO = ARGS.root .. "/chains/" .. ARGS.alias .. "/"
 FC   = REPO .. ".freechains/"
+DB   = require "freechains.chain.db"
 
 -- the git parents of `cid`: one step back in the DAG, no time
 -- involved. Returns an array (empty for a root).
@@ -18,7 +19,10 @@ function parents (cid)
     return ps
 end
 
--- TODO : remove : par.7 : db[aid].backs replaces the recursion
+-- TODO : change : par.7/S8.4 : write-path caller (BACKS) moves
+-- to the DB frontier; the recursion itself STAYS as the receive
+-- validator (par.6 two-DAG check: recompute true ancestors from
+-- git, reject a file whose `backs` lie)
 -- action ancestors of `cid`: `parents` recursed through merges,
 -- which are plumbing the protocol does not expose. Returns an
 -- array of hashes (dedup'd).
@@ -27,7 +31,7 @@ function backs (cid)
     local see = {}
     local function rec (h)
         for _, p in ipairs(parents(h)) do
-            if AID(p) then
+            if DB.aid(p) then
                 if not see[p] then
                     see[p] = true
                     ret[#ret+1] = p
@@ -43,34 +47,25 @@ function backs (cid)
     return ret
 end
 
--- the aid a commit ADDED (.freechains/actions/<aid>.lua), or nil:
--- THE structural action test. No trailers -- the tree classifies
--- (par.5): action = one action file; merge = none, >=2 parents;
--- genesis = none, 0 parents; invalid = none, 1 parent.
--- Flat, unsharded: sharding waits for the S6a layout move.
 -- TODO : remove : S11b : commit<->ID index replaces this lookup
-function AID (cid)
-    local out = exec {
-        cmd = "git -C " .. REPO ..
-            " diff-tree --cc --no-commit-id -r --name-only " .. cid ..
-            " -- .freechains/actions/",
-    }
-    return out:match("actions/(%x+)%.lua")
-end
-
 -- TODO : change : par.7 : backs come from the DB, not git walks
 -- the action IDs backing a new action built on top of `tips`
--- (commit hashes): action ancestors via `backs`, as sorted IDs.
+-- (resolved to hashes for the index): action ancestors via
+-- `backs`, as sorted IDs.
 -- A tip that IS an action commit (joined, S9) backs itself.
 function BACKS (tips)
     local T = {}
     for _, tip in ipairs(tips) do
-        local aid = AID(tip)
+        -- TODO : redesign : review
+        tip = exec {
+            cmd = "git -C " .. REPO .. " rev-parse " .. tip,
+        }
+        local aid = DB.aid(tip)
         if aid then
             T[#T+1] = aid
         else
             for _, h in ipairs(backs(tip)) do
-                T[#T+1] = assert(AID(h))
+                T[#T+1] = assert(DB.aid(h))
             end
         end
     end
@@ -232,7 +227,7 @@ end
 -- folds its parents (PEAKS), as before. Writer and verifier
 -- share the formula.
 function NOW (cid)
-    if AID(cid) then
+    if DB.aid(cid) then
         local ps = parents(cid)
         return math.max(TIME(cid), PEAK(ps[1]))
     end

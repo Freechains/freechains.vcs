@@ -133,7 +133,7 @@ do
             cmd = "git -C " .. DIR1 .. " rev-parse HEAD",
         }
         assert(AID_OF(DIR1, head) == p1, "HEAD is not p1's commit")
-        assert(head == CID(p1, true, DIR1), "HEAD should be p1: " .. head)
+        assert(head == CID(DIR1, p1), "HEAD should be p1: " .. head)
     end
 
     -- state files revert with the tree: the destroyed posts never happened

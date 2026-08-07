@@ -22,10 +22,10 @@ do
     end
 end
 
--- the aid must name an action in our history: its commit anchors the
--- reset below
--- TODO : remove : S11b : db[aid] is membership + cid in one place
-local cid = CID(ARGS.aid)
+-- the aid must name an action in our history: its commit anchors
+-- the reset below
+-- TODO : DONE : S11b : db[aid] is membership + cid in one place
+local cid = DB.own(ARGS.aid)
 if not cid then
     ERROR("chain destroy : invalid id")
 end
@@ -46,7 +46,7 @@ do
     }
     -- --no-merges: every remaining commit is an action
     for h in out:gmatch("%x+") do
-        print(assert(AID(h)))
+        print(assert(DB.aid(h)))
     end
 end
 
