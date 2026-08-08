@@ -3,14 +3,14 @@
 # Next steps (continue on other machine)
 
 - implement local snapshots (design below), phase 1 (dual):
-    - [x] `snap(G, hash)` in chain/common.lua
-    - [x] writes: post, like, genesis (direct, no chain ctx),
-      sync merge state, sync remote-win, replay TIP only
+    - snap writes REVERTED (were tips-only; superseded by the
+      backfill design: one mechanism for all commits)
+    - `snap` helper + writes come back with the backfill
     - NOT inside climb: on a meet's 2nd side G holds the 1st
       side's commits (non-ancestors) -> keys would be wrong;
       interior remote commits stay snapshot-less
-    - reads phase needs fallback for snapshot-less oct:
-      derive by `replay(G_gen, genesis, oct)`, then snap
+    - reads phase: snapshot-less commits (interiors, clone,
+      old chains) -> backfill walk (see design below)
     - all reads switch: `G_oct`, destroy, worktree dofiles
     - committed state still written, completely ignored
 - phase 2: remove committed state from the tree
@@ -66,6 +66,27 @@
     - interior remote commits are never derived elsewhere
 - clone: replay genesis -> main writes all snapshots
     - genesis tree trusted by chain identity (base case)
+
+## snapshot backfill (interiors, clone, old chains)
+
+- goal: a correct snapshot for EVERY commit, bottom-up
+- start floor: any snapshotted ancestor
+    - sync: `octopus(loc, rem)` (in local history)
+    - clone/old chains: genesis
+- walk: `rev-list --reverse --topo-order floor..tip`
+- anchor each commit on its PARENT's snapshot, never on one
+  accumulated `G`:
+    - topo order interleaves parallel branches; a running `G`
+      holds sibling commits (non-ancestors) -> wrong keys
+- per commit:
+    - linear: `G = clone(snap(p1)); apply(G, action(h))`
+    - merge: `G = combine(snap(p1), snap(p2))`
+        - replay one side from `octopus(p1,p2)` in consensus
+          order onto the other parent's snapshot
+- cost: one state clone per commit; one side-replay per merge
+- incremental: `rev-list tip --not <snapped>` skips done work
+- same code serves: clone base case, missing-oct fallback,
+  migration of pre-snapshot chains
 
 ## read sites (all switch to snapshots)
 
