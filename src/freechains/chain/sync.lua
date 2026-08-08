@@ -154,6 +154,9 @@ elseif ARGS.recv then
             if not ok then
                 ERROR("chain sync : " .. err)
             end
+            -- replay just derived state(rem): the only site that
+            -- snapshots remote-authored tips
+            snap(G_rem, false, rem)
         end
 
         -- final state: consensus + replay loser
@@ -277,6 +280,7 @@ elseif ARGS.recv then
                     cmd = CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
                     .. " --no-edit --trailer 'Freechains: state'"
                 }
+                snap(G_fst, true, "HEAD")
             elseif fst ~= loc then
                 -- remote wins and no merge: need to verify state
                 -- 1. FF (remote always wins: case 2 rules out the
@@ -293,6 +297,7 @@ elseif ARGS.recv then
                     }
                     ERROR("chain sync : remote state mismatch")
                 end
+                snap(G_fst, false, fst)
             end
         end
     end
