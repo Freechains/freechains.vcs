@@ -22,6 +22,15 @@
 - [x] `src/freechains/chain/consensus.lua` extracted + committed
     - `octopus`, `consensus`, `commit`, `replay` (climb/meet)
     - `hardfork` stays in sync.lua; suite green
+- [x] FF special handling removed from recv (unified w/ diverge)
+    - consensus: ancestor rule (contributing nothing cannot win)
+        - zero-reps FF suffix tied, fell to hash: loser machinery
+          on descendants FFs, no MERGE_HEAD, crash (cli-recv)
+    - early FF hardfork fast-fail deleted: read REMOTE committed
+      order (trust hole); now one post-replay check vs DERIVED
+    - state probe after final ref update: covers FF tip AND
+      diverge w/ no surviving loser (was unchecked before)
+    - suite 37/37 green; bug-forged-state still red (interior)
 
 # Fix design: context-free verification (consensus.lua)
 
@@ -71,7 +80,8 @@
 - clone (chains.lua): `verify(main)` after clone
     - remove chain again on failure
 - destroy: `frontier("HEAD")` after reset
-- keep FF `write`+`diff` as end-to-end probe (for now)
+- keep `write`+`diff` tip probe as end-to-end check (for now)
+    - no longer FF-only: runs whenever remote wins w/o loser merge
 
 # Ground rules
 
