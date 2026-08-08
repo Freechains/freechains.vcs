@@ -45,6 +45,14 @@ function consensus (G, a, b)
     local com = (exec {
         cmd = "git -C " .. REPO .. " merge-base " .. a .. " " .. b
     }):match("%x+")
+
+    -- FF must be chosen
+    if com == a then
+        return b, a
+    elseif com == b then
+        return a, b
+    end
+
     local function collect_keys (tip)
         --[[
             com..tip = commits reachable from tip but not from com:

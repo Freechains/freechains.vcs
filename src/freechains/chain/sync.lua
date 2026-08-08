@@ -87,17 +87,18 @@ elseif ARGS.recv then
         }
 
         --[[
-        -- Four cases:
+        -- Three cases:
         --  1. unrelated histories (different genesis)
         --      - ERROR
         --  2. local contains remote (remote is ancestor of local)
         --      - DONE
-        --  3,4: need common ancestor, remote validation/replay
-        --      - replay_remote: climb / meet
-        --  3. remote contains local (local is ancestor of remote)
-        --      - merge with fast-forward
-        --  4. local and remote diverge
+        --  3. remote has new commits (FF or diverge)
+        --      - common ancestor, remote validation/replay: climb / meet
+        --      - FF degenerates: ancestor rule in `consensus` picks
+        --        remote, loser set filters to empty, reset == FF merge
         ]]
+
+        -----------------------------------------------------------------------
 
         -- 1. reject unrelated histories
         do
@@ -122,24 +123,9 @@ elseif ARGS.recv then
             end
         end
 
-        -- we need to check an FF hardfork first:
-        --  - remote contains all of our history
-        --  - so if our settled order diverges
-        --  - we need to fail fast, before replay and fail with other error
-        local ff = exec { stderr=false, err=false,
-            cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. loc .. " " .. rem
-        }
-        if ff then
-            local their = load(exec {
-                cmd = "git -C " .. REPO .. " show " .. rem ..
-                        ":.freechains/state/order.lua"
-            })()
-            if hardfork(their) then
-                ERROR("chain sync : hard fork")
-            end
-        end
+        -----------------------------------------------------------------------
 
-        -- 3,4: need common ancestor
+        -- 3. need common ancestor
 
         local oct, G_oct
         do
@@ -158,10 +144,10 @@ elseif ARGS.recv then
             }
         end
 
-        -- 4: needs fst/winner - snd/loser (do now b/c 3 mutates G_oct)
+        -- needs fst/winner - snd/loser (do now b/c replay mutates G_oct)
         local fst, snd = consensus(G_oct, loc, rem)
 
-        -- 3,4: need remote validation: replay remote branch from G_oct
+        -- remote validation: replay remote branch from G_oct
         local G_rem = G_oct -- (G_oct no longer required)
         do
             local ok, err = pcall(replay, G_rem, oct, rem)
@@ -169,30 +155,6 @@ elseif ARGS.recv then
                 ERROR("chain sync : " .. err)
             end
         end
-
-        -- 3. local has nothing new
-        if ff then
-            exec {
-                cmd = "git -C " .. REPO .. " merge --ff-only " .. rem
-            }
-            -- verify remote state: overwrite with G_rem, diff vs HEAD
-            do
-                G_rem.now = PEAKS(parents("HEAD"))
-                write(G_rem)
-                local same = exec { stderr=false, err=false,
-                    cmd = "git -C " .. REPO ..  " diff --quiet HEAD -- .freechains/state/"
-                }
-                if not same then
-                    exec {
-                        cmd = "git -C " .. REPO .. " reset --hard " .. loc
-                    }
-                    ERROR("chain sync : remote state mismatch")
-                end
-            end
-            goto RECV
-        end
-
-        --  4. local and remote diverge
 
         -- final state: consensus + replay loser
         local G_fst, merge
@@ -315,6 +277,22 @@ elseif ARGS.recv then
                     cmd = CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
                     .. " --no-edit --trailer 'Freechains: state'"
                 }
+            elseif fst ~= loc then
+                -- remote wins and no merge: need to verify state
+                -- 1. FF (remote always wins: case 2 rules out the
+                --    converse, ancestor rule in `consensus` decides)
+                -- 2. failing merge at first commit
+                G_fst.now = PEAKS(parents("HEAD"))
+                write(G_fst)
+                local same = exec { stderr=false, err=false,
+                    cmd = "git -C " .. REPO ..  " diff --quiet HEAD -- .freechains/state/"
+                }
+                if not same then
+                    exec {
+                        cmd = "git -C " .. REPO .. " reset --hard " .. loc
+                    }
+                    ERROR("chain sync : remote state mismatch")
+                end
             end
         end
     end
