@@ -2,22 +2,23 @@
 
 # Next steps (continue on other machine)
 
-- implement local snapshots (design below), phase 1 (dual):
-    - snap writes REVERTED (were tips-only; superseded by the
-      backfill design: one mechanism for all commits)
-    - `snap` helper + writes come back with the backfill
-    - NOT inside climb: on a meet's 2nd side G holds the 1st
-      side's commits (non-ancestors) -> keys would be wrong;
-      interior remote commits stay snapshot-less
-    - reads phase: snapshot-less commits (interiors, clone,
-      old chains) -> backfill walk (see design below)
-    - all reads switch: `G_oct`, destroy, worktree dofiles
+- phase 1, ONE step (backfill + reads land together, green):
+    - snap writes at tips: reapplied (staged), see write sites
+    - backfill walk (design below): interiors, clone, old chains
+    - all reads switch: `G_oct`, `PEAK`, hardfork order,
+      worktree dofiles (init.lua), destroy, like beg entry
     - committed state still written, completely ignored
-- phase 2: remove committed state from the tree
-    - mode check, `write`, destroy, tests
-- clone: replay genesis -> main (base case; fixes scenario 4)
-- run suite each phase; bug-forged-state green after reads
-  switch + clone replay
+    - rationale: neither half is useful alone; reads without
+      backfill miss interior octs, backfill unread is dead code
+- rewrite `tst/bug-forged-state.lua` expectations:
+    - forgery becomes INERT, not refused
+    - recv/clone SUCCEED; posts arrive
+    - assert reps = derived value, never 30000
+    - drop every `err:find("invalid state")` FAIL
+- phase 2: stop writing state to the tree
+    - mode check, `write`, probe, destroy, tests
+- later, separate: remove state COMMITS (protocol break;
+  joins 260802-redesign "join commits")
 
 # Done
 
@@ -56,16 +57,16 @@
 - branch `260803-redesign` has same shape (S15.1); we ignore
   its implementation (DB etc), keep only the naming/idea
 
-## write sites
+## write sites (landed, staged)
 
-- same places that write committed state today:
-    - post, like, sync merge state, genesis (`chains add`)
+- `snap(G, is_ref, rev)` in chain/common.lua
+- tips, same places that write committed state today:
+    - post, like, genesis (`chains add`)
+    - sync: replay tip (`rem`), merge state, remote-win
     - write both: state commit (phase 1) + snapshot
-- one NEW site: replay
-    - `commit()`/`play` snapshots after each visited commit
-    - interior remote commits are never derived elsewhere
-- clone: replay genesis -> main writes all snapshots
-    - genesis tree trusted by chain identity (base case)
+- NOT inside climb: on a meet's 2nd side `G` holds the 1st
+  side's commits (non-ancestors) -> keys would be wrong
+- interiors, clone, old chains: the backfill walk (below)
 
 ## snapshot backfill (interiors, clone, old chains)
 
@@ -91,8 +92,13 @@
 ## read sites (all switch to snapshots)
 
 - `G_oct` (sync.lua): read `.git/states/<oct>.lua`
-- worktree `dofile(FC.."state/...")` (sync, reps, list, get,
-  hardfork): read snapshot at HEAD
+    - missing (interior) -> backfill, then read
+- `PEAK(hash)` (common.lua): `.now` of snapshot at hash
+- worktree `dofile(FC.."state/...")` (init.lua G, sync G_fst
+  and O_snd, hardfork order): read snapshot at HEAD
+- like.lua beg entry: today `show ref:posts.lua` (remote
+  tree, scenario-3 vector) -> build entry locally from the
+  beg post commit
 - destroy: after reset, restore from snapshot at new tip
 - after reset to remote win: no probe needed, state is ours
 
