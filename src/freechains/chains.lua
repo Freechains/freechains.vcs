@@ -1,24 +1,34 @@
 local C    = require "freechains.constants"
 local HERE = debug.getinfo(1, "S").source:match("@(.*/)")
 
-local function git_config (dir)
+local function git_init (dir)
     exec {
-        cmd = "git -C " .. dir .. " config user.name  '-'",
+        cmd = "git -C " .. dir .. " config user.name  '-'"
     }
     exec {
-        cmd = "git -C " .. dir .. " config user.email '-'",
+        cmd = "git -C " .. dir .. " config user.email '-'"
     }
     exec {
-        cmd = "git -C " .. dir .. " config commit.gpgsign false",
+        cmd = "git -C " .. dir .. " config commit.gpgsign false"
     }
     exec {
-        cmd = "git -C " .. dir .. " config pull.rebase false",
+        cmd = "git -C " .. dir .. " config pull.rebase false"
     }
     exec {
-        cmd = "git -C " .. dir .. " config merge.ours.driver true",
+        cmd = "git -C " .. dir .. " config merge.ours.driver true"
     }
     exec {
-        cmd = "git -C " .. dir .. " config receive.advertisePushOptions true",
+        cmd = "git -C " .. dir .. " config receive.advertisePushOptions true"
+    }
+
+    exec {
+        cmd = "mkdir -p " .. dir .. "/.git/states/"
+    }
+    exec {
+        cmd = "cp " .. HERE .. "/hooks/pre-receive " .. dir .. "/.git/hooks/pre-receive"
+    }
+    exec {
+        cmd = "chmod +x " .. dir .. "/.git/hooks/pre-receive"
     }
 end
 
@@ -102,10 +112,7 @@ if ARGS.add then
             cmd = "git init -b main " .. tmp,
             err = "chains add : init failed",
         }
-        git_config(tmp)
-        exec {
-            cmd = "cp " .. HERE .. "/hooks/pre-receive " .. tmp .. "/.git/hooks/pre-receive && chmod +x " .. tmp .. "/.git/hooks/pre-receive",
-        }
+        git_init(tmp)
         exec {
             cmd = "cp -r " .. HERE .. "/skel/. " .. tmp .. "/",
         }
@@ -131,9 +138,24 @@ if ARGS.add then
             .. " --trailer 'Freechains: state'",
         }
 
-        local hash = "#" .. exec {
+        local gen = exec {
             cmd = "git -C " .. tmp .. " rev-parse HEAD",
         }
+
+        -- genesis snapshot (no chain context here: direct write)
+        do
+            local G = {
+                authors = dofile(tmp .. "/.freechains/state/authors.lua"),
+                posts   = dofile(tmp .. "/.freechains/state/posts.lua"),
+                order   = dofile(tmp .. "/.freechains/state/order.lua"),
+                now     = dofile(tmp .. "/.freechains/state/now.lua"),
+            }
+            local f = io.open(tmp .. "/.git/states/" .. gen .. ".lua", "w")
+            f:write(serial(G))
+            f:close()
+        end
+
+        local hash = "#" .. gen
         local final = DIR .. "/" .. hash
         if not os.rename(tmp, final) then
             exec {
@@ -165,10 +187,7 @@ if ARGS.add then
                 " refs/begs/*:refs/begs/*",
             err = "chains add : clone failed",
         }
-        git_config(tmp)
-        exec {
-            cmd = "cp " .. HERE .. "/hooks/pre-receive " .. tmp .. "/.git/hooks/pre-receive && chmod +x " .. tmp .. "/.git/hooks/pre-receive",
-        }
+        git_init(tmp)
         local hash = "#" .. exec {
             cmd = "git -C " .. tmp .. " rev-list --max-parents=0 HEAD",
         }

@@ -2,14 +2,22 @@
 
 # Next steps (continue on other machine)
 
-- implement fix in consensus.lua (design below), pass 1:
-    - split `commit` -> `check` + `play`
-    - `state_link`, `verify`, `frontier`
-    - wire recv + clone
-    - covers scenarios 1 (tip), 2 (interior), 4 (clone)
-- pass 2: `state_merge` + begs
-    - covers scenario 3 (merge side)
-- run full suite: only bug-forged-state red between passes
+- implement local snapshots (design below), phase 1 (dual):
+    - [x] `snap(G, hash)` in chain/common.lua
+    - [x] writes: post, like, genesis (direct, no chain ctx),
+      sync merge state, sync remote-win, replay TIP only
+    - NOT inside climb: on a meet's 2nd side G holds the 1st
+      side's commits (non-ancestors) -> keys would be wrong;
+      interior remote commits stay snapshot-less
+    - reads phase needs fallback for snapshot-less oct:
+      derive by `replay(G_gen, genesis, oct)`, then snap
+    - all reads switch: `G_oct`, destroy, worktree dofiles
+    - committed state still written, completely ignored
+- phase 2: remove committed state from the tree
+    - mode check, `write`, destroy, tests
+- clone: replay genesis -> main (base case; fixes scenario 4)
+- run suite each phase; bug-forged-state green after reads
+  switch + clone replay
 
 # Done
 
@@ -18,7 +26,9 @@
     - 2 was GREEN by accident: forged `%at=1120` tripped the
       NEXT commit's `now` check (`PEAKS = max(%at, now)`);
       stealthy forger pins dates to `now` (@1100): passes
-- [x] decision: verify remote state (not local-only), Q4/Q5
+- [x] decision REVERSED (was: verify remote state):
+    - local-only snapshots, remote state ignored (Q4 option)
+    - deletes the attack class; drops lie-detection (accepted)
 - [x] `src/freechains/chain/consensus.lua` extracted + committed
     - `octopus`, `consensus`, `commit`, `replay` (climb/meet)
     - `hardfork` stays in sync.lua; suite green
@@ -32,7 +42,51 @@
       diverge w/ no surviving loser (was unchecked before)
     - suite 37/37 green; bug-forged-state still red (interior)
 
-# Fix design: context-free verification (consensus.lua)
+# Fix design: local state snapshots (.git/states/)
+
+- never trust the tree: never READ committed state
+- every state we hold was derived locally, so anchor on that
+
+## naming (Q5/Q7)
+
+- `.git/states/<commit-hash>.lua`
+- one file per commit, whole serialized `G`
+- local, untracked, unforgeable by peers
+- precedent: `tmp/` -> `.git/` (c0e4a16), sqlite.md cache idea
+- branch `260803-redesign` has same shape (S15.1); we ignore
+  its implementation (DB etc), keep only the naming/idea
+
+## write sites
+
+- same places that write committed state today:
+    - post, like, sync merge state, genesis (`chains add`)
+    - write both: state commit (phase 1) + snapshot
+- one NEW site: replay
+    - `commit()`/`play` snapshots after each visited commit
+    - interior remote commits are never derived elsewhere
+- clone: replay genesis -> main writes all snapshots
+    - genesis tree trusted by chain identity (base case)
+
+## read sites (all switch to snapshots)
+
+- `G_oct` (sync.lua): read `.git/states/<oct>.lua`
+- worktree `dofile(FC.."state/...")` (sync, reps, list, get,
+  hardfork): read snapshot at HEAD
+- destroy: after reset, restore from snapshot at new tip
+- after reset to remote win: no probe needed, state is ours
+
+## consequences
+
+- compare/verification machinery unnecessary:
+    - no `state_link`, no `verify` walk, no frontier ref
+    - forged remote state never read -> attack class deleted
+    - lost: DETECTING liars (was only an alarm; accepted)
+- state probe (`write`+`diff`) deleted with phase 2
+- phase 2 removes state from the tree entirely
+    - clashes with 260802-redesign par.9 (destroy dependency):
+      resolved by destroy reading snapshots
+
+# Superseded: context-free verification (kept for reference)
 
 - idea from [260802-state-verify.md](260802-state-verify.md),
   code written from scratch
