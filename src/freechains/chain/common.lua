@@ -64,39 +64,40 @@ function write (G)
     f(G.now,     FC .. "state/now.lua")
 end
 
--- G is also saved locally with every new state commit:
+-- local state snapshots, one per state commit:
 --  - `.git/states/<hash>.lua`
 --  - is_ref = true  : rev is a ref (HEAD)
 --  - is_ref = false : rev is a hash
-function snap (G, is_ref, rev)
-    local hash = rev
-    if is_ref then
-        hash = exec {
-            cmd = "git -C " .. REPO .. " rev-parse " .. rev,
-        }
-    end
-    -- `.git/states/` is created at repo creation (chains.lua)
-    local f = io.open(REPO .. ".git/states/" .. hash .. ".lua", "w")
-    f:write(serial(G))
-    f:close()
-end
+STATE = {
+    -- G saved with every new state commit
+    write = function (G, is_ref, rev)
+        local hash = rev
+        if is_ref then
+            hash = exec {
+                cmd = "git -C " .. REPO .. " rev-parse " .. rev,
+            }
+        end
+        -- `.git/states/` is created at repo creation (chains.lua)
+        local f = io.open(REPO .. ".git/states/" .. hash .. ".lua", "w")
+        f:write(serial(G))
+        f:close()
+    end,
 
--- the state RECORDED at `rev`: the local snapshot
---  - is_ref = true  : rev is a ref (HEAD)
---  - is_ref = false : rev is a hash
-function STATE (is_ref, rev)
-    local hash = rev
-    if is_ref then
-        hash = exec {
-            cmd = "git -C " .. REPO .. " rev-parse " .. rev,
-        }
-    end
-    local f = assert(
-        loadfile(REPO .. ".git/states/" .. hash .. ".lua"),
-        "bug found : no snapshot : " .. hash
-    )
-    return f()
-end
+    -- the state RECORDED at `rev`
+    read = function (is_ref, rev)
+        local hash = rev
+        if is_ref then
+            hash = exec {
+                cmd = "git -C " .. REPO .. " rev-parse " .. rev,
+            }
+        end
+        local f = assert(
+            loadfile(REPO .. ".git/states/" .. hash .. ".lua"),
+            "bug found : no snapshot : " .. hash
+        )
+        return f()
+    end,
+}
 
 -- REVOKED when either the author's or the community's net revoke sum is negative.
 function is_revoked (p)
@@ -139,7 +140,7 @@ end
 -- Only `state` commits are current -- a post/like may just ADD
 -- files, so its state is still the previous state commit's value.
 function PEAK (hash)
-    return STATE(false, hash).now
+    return STATE.read(false, hash).now
 end
 
 -- the peak COMPUTED over a set of commits: the peak each one recorded,

@@ -13,7 +13,7 @@ if ARGS.sync then
 elseif ARGS.destroy then
     require "freechains.chain.destroy"
 else
-    G = STATE(true, "HEAD")
+    G = STATE.read(true, "HEAD")
 
     if ARGS.list then
         require "freechains.chain.list"

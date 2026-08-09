@@ -49,7 +49,7 @@ if to_beg then
     G.order[#G.order+1] = exec {
         cmd = "git -C " .. REPO .. " rev-parse " .. ref .. "~1",   -- beg post
     }
-    G.posts[ARGS.id] = STATE(true, ref).posts[ARGS.id]
+    G.posts[ARGS.id] = STATE.read(true, ref).posts[ARGS.id]
 end
 
 -- commit the vote (content only, no state). The trailer + dir
@@ -114,7 +114,7 @@ do
         cmd = CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
         .. " --trailer 'Freechains: state'",
     }
-    snap(G, true, "HEAD")
+    STATE.write(G, true, "HEAD")
 end
 
 if to_beg then
