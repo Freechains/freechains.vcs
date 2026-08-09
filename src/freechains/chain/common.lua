@@ -64,6 +64,23 @@ function write (G)
     f(G.now,     FC .. "state/now.lua")
 end
 
+-- G is also saved locally with every new state commit:
+--  - `.git/states/<hash>.lua`
+--  - is_ref = true  : rev is a ref (HEAD)
+--  - is_ref = false : rev is a hash
+function snap (G, is_ref, rev)
+    local hash = rev
+    if is_ref then
+        hash = exec {
+            cmd = "git -C " .. REPO .. " rev-parse " .. rev,
+        }
+    end
+    -- `.git/states/` is created at repo creation (chains.lua)
+    local f = io.open(REPO .. ".git/states/" .. hash .. ".lua", "w")
+    f:write(serial(G))
+    f:close()
+end
+
 -- REVOKED when either the author's or the community's net revoke sum is negative.
 function is_revoked (p)
     local r = p.revoke or {}

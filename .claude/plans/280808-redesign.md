@@ -22,8 +22,12 @@
 
 - state `G` = `{ authors, posts, order, now }` (4 facets)
     - snapshot = `serial(G)` in `.git/states/<cid>.lua`
-- L1: snaps after local actions — dual write
-    - genesis (`chains add`), post, like (beg: before reset)
+- L1 DONE: snaps after local actions — dual write
+    - `snap(G, is_ref, rev)` in common.lua
+    - genesis (`chains add`, direct write), post, like
+      (beg: snapped before the reset)
+    - `mkdir .git/states/` in `git_init`
+    - sync untouched; nothing reads snapshots yet
 - L2: local reads of snaps
     - `PEAK`, init.lua startup `G`, destroy restore,
       like-on-beg entry

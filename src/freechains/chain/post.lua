@@ -86,6 +86,7 @@ do
         cmd = CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
         .. " --trailer 'Freechains: state'",
     }
+    snap(G, true, "HEAD")
 end
 
 if ARGS.beg then
