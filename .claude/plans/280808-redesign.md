@@ -126,7 +126,35 @@
     - parked: err-post/err-like forgery gsubs on
       "(empty message)" match nothing now -> new tamper
       vector needed at sync phase
+- NO DEBT: cost-quantized gates (BEFORE reps units, red tests
+  first — holes exist today at 1000 granularity: sybil posts
+  at parity spread dislike-punishment across throwaway keys)
+    - invariant: entering maturation costs >= `cost`, paid by
+      the author (post) or the sponsor (beg-like)
+    - post gate `reps > 0` -> `reps >= cost`
+        - today 1 unit = a full 1000-cost posting right (to
+          -999): author-like of 2 -> sybil gets 1 -> posts;
+          30000 cap = ~15000 sybil posts vs 30 direct (500x)
+        - `>= cost` restores lossy transfers (cheapest useful
+          grant: 1112 author-like / 2223 post-like vs 1000
+          direct); negative balances from posting die
+        - matches the vote rule ("afford full magnitude")
+    - beg gate `reps <= 0` -> `reps < cost` (else 1..999
+      holders can neither post nor beg)
+    - beg-like floor: positive like on a beg requires
+      `n >= cost` — admission mints future income (+cost per
+      post at 12h, +cost/24h author ratchet) and its price
+      must not be dust; the sponsor pays the entry fee the
+      begger couldn't
+    - discounts untouched: they only shift WHEN the 12h
+      credit lands; credits are cost-quantized, so the first
+      one alone crosses the post gate (beg-like 1000 ->
+      begger 450 now, posts after discounted 12h; immediate:
+      beg-like >= 2223 or author-like >= 1112 top-up)
+    - old ext CLI masked both holes: min like = 1000
 - REPS UNITS: one currency — CLI speaks internal units
+  (requires NO DEBT first: raw units make sub-unit grants
+  and dust beg-likes expressible)
     - drop the ext/int seam: `reps` prints raw (15450), `like N`
       takes raw (450); `ext()` + its lying ceil die
     - `C.reps.unit` leaves the interface (stays as the scale of
