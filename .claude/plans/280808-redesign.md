@@ -191,6 +191,34 @@
 - later (from b803): payload eviction, action files (aid),
   commit<->id index, prune/GC of snapshots
 
+# apply's T (why not the action table)
+
+- apply's input = the COMMIT-derived view of an action; the
+  action table = the wire object; neither contains the other
+    - `aid`: the file's own hash — cannot be in the file
+    - `parents`: cids (PEAKS reads cid-keyed snapshots); the
+      file stores `backs` (aids)
+    - `beg`: local circumstance, recomputed per site (writer:
+      refs/begs/ probe; replay: maturity=='beg')
+    - replay takes sign/time from the ENVELOPE (verified
+      signature, commit %at), NEVER from the file: the
+      explicit T whitelists the trusted fields by construction
+- candidate at S1 (pending decision): `apply(G, act, env)`
+    - `act` = the action file table as-is (content: n,
+      post/author; action replaces the kind arg; sign/time
+      readable once PINNED, see below)
+    - `env` = {aid, parents} (+beg): NON-OVERLAPPING,
+      envelope-derived; the two names make provenance visible;
+      writers stop duplicating fields into a second table
+    - PRECONDITION: recv validation pins the file to the
+      envelope (signature verified against the file's `sign`,
+      `time` == commit %at) BEFORE apply — until that check
+      exists, the whitelist-T is the safer shape
+    - vote `beg` derivable INSIDE apply (like + n>0 +
+      maturity=='beg'): env shrinks to {aid, parents} for
+      votes; post `beg` needs a story first — how does replay
+      recognize a signed --beg? (file field? action='beg'?)
+
 # Ladder (local-only; all local tests pass after each step; DONE)
 
 - state `G` = `{ authors, posts, order, now }` (4 facets)
