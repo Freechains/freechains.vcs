@@ -72,9 +72,16 @@
       `--why` leaves post; why-text deletable like any payload)
     - trap again: `io.write(exec{...})` prints (out, code) ->
       parenthesize multi-return calls in argument position
-- B3b (candidate): apply BEFORE commit
-    - all T inputs now pre-commit: aid minted, parents = HEAD
-      (+ref on beg like); rollbacks + actions/.gitkeep die
+- B3b DONE: apply BEFORE commit
+    - `ACTION.write` split: `pre(T)` mints aid (tmp in `.git/`,
+      worktree untouched), `pos(aid)` places + stages on accept
+    - `apply` takes `T.parents` (resolved cids: HEAD, +ref on
+      beg like); `T.cid` gone
+    - writer order: payload -> pre -> apply -> add + pos ->
+      commit; reject removes the payload file (+ merge --abort
+      on a beg like); reset rollbacks die
+    - the commit exists only for ACCEPTED actions
+    - trap (3rd time): `{ exec{...} }` captures (out, code)
 - B4: index `.git/index.lua` `{tip, a2c}` replaces the walk
 - B5: trailers die on the write path
 - B6: receive-side validation -> deferred to sync phase

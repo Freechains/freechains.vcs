@@ -67,7 +67,12 @@ end
 --   revoke/unrev -> .freechains/revokes/ , 'Freechains: revoke'
 
 local aid      -- own action id, minted with the action file
-local cid
+local file     -- vote file (unstaged until `apply` accepts)
+
+-- the parents of the commit about to be created: `backs` walks
+-- them and `apply` folds its time peak over them
+local ps = to_beg and { "HEAD", ref } or { "HEAD" }
+
 do
     local payload = [[
         return {
@@ -76,19 +81,15 @@ do
         }
     ]]
     local rand = math.random(0, 9999999999)
-    local file = ".freechains/" .. kind .. "s/" .. kind .. "-" .. CMD.now .. "-" .. rand .. ".lua"
+    file = ".freechains/" .. kind .. "s/" .. kind .. "-" .. CMD.now .. "-" .. rand .. ".lua"
     local f = io.open(REPO .. file, "w")
     f:write(payload)
     f:close()
-    exec {
-        cmd = "git -C " .. REPO .. " add " .. file,
-    }
 
-    -- action file: self-description, same commit;
+    -- action file: self-description; minted BEFORE the commit;
     -- a beg like backs both sides of its merge.
     -- ARGS.id is already the aid (or a pubkey): stored as is
-    local ps = to_beg and { "HEAD", ref } or { "HEAD" }
-    aid = ACTION.write {
+    aid = ACTION.pre {
         action = kind,
         backs  = ACTION.backs(ps),
         sign   = pub,
@@ -96,7 +97,38 @@ do
         [ARGS.target] = ARGS.id,
         n      = num,
     }
+end
 
+-- apply BEFORE the commit: a rejected vote leaves nothing;
+-- an in-progress beg merge is aborted
+do
+    local T = {
+        [ARGS.target] = ARGS.id,
+        aid     = aid,
+        parents = ps,
+        sign    = pub,
+        n       = num,
+        beg     = to_beg,
+    }
+    local ok, err = apply(G, kind, CMD.now, T)
+    if not ok then
+        os.remove(REPO .. file)
+        if to_beg then
+            exec {
+                cmd = "git -C " .. REPO .. " merge --abort",
+            }
+        end
+        ERROR("chain " .. kind .. " : " .. err)
+    end
+    G.order[#G.order+1] = aid
+end
+
+exec {
+    cmd = "git -C " .. REPO .. " add " .. file,
+}
+ACTION.pos(aid)
+
+do
     local s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=ssh"
     local msg = ARGS.why or "(empty message)"
     exec { stderr=false,
@@ -104,29 +136,6 @@ do
                   "' --trailer 'Freechains: " .. kind .. "'",
         err = "chain " .. kind .. " : invalid sign key",
     }
-    cid = exec {
-        cmd = "git -C " .. REPO .. " rev-parse HEAD",
-    }
-end
-
--- apply
-do
-    local T = {
-        [ARGS.target] = ARGS.id,
-        aid  = aid,
-        cid  = cid,
-        sign = pub,
-        n    = num,
-        beg  = to_beg,
-    }
-    local ok, err = apply(G, kind, CMD.now, T)
-    if not ok then
-        exec {
-            cmd = "git -C " .. REPO .. " reset --hard HEAD~1",
-        }
-        ERROR("chain " .. kind .. " : " .. err)
-    end
-    G.order[#G.order+1] = aid
 end
 
 -- snapshot state at the new tip (the action commit itself)

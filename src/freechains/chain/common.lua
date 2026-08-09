@@ -137,20 +137,27 @@ ACTION = {
         return ret
     end,
 
-    -- write `T` as the action file, stage it, return its aid
-    write = function (T)
+    -- mint `T`'s aid: the file waits in `.git/` (worktree
+    -- untouched) until `pos` places it after `apply` accepts
+    pre = function (T)
         local tmp = REPO .. ".git/action-tmp.lua"
         local f = io.open(tmp, "w")
         f:write(serial(T))
         f:close()
-        local aid = exec {
+        return (exec {
             cmd = "git -C " .. REPO .. " hash-object " .. tmp,
-        }
-        os.rename(tmp, REPO .. ".freechains/actions/" .. aid .. ".lua")
+        })
+    end,
+
+    -- place + stage the minted action file
+    pos = function (aid)
+        os.rename(
+            REPO .. ".git/action-tmp.lua",
+            REPO .. ".freechains/actions/" .. aid .. ".lua"
+        )
         exec {
             cmd = "git -C " .. REPO .. " add .freechains/actions/" .. aid .. ".lua",
         }
-        return aid
     end,
 }
 
@@ -189,13 +196,12 @@ local function TIME (hash)
     })))
 end
 
--- the peak RECORDED at a commit (`now`): the newest time among all of
+-- the peak RECORDED at `rev` (`now`): the newest time among all of
 -- its ancestors. Derived, never trusted: `commit` in consensus.lua
 -- checks every stored value against its parents' before using it.
--- Only `state` commits are current -- a post/like may just ADD
--- files, so its state is still the previous state commit's value.
-function PEAK (hash)
-    return STATE.read(false, hash).now
+-- Accepts refs (HEAD): the snapshot read resolves them.
+function PEAK (rev)
+    return STATE.read(true, rev).now
 end
 
 -- the peak COMPUTED over a set of commits: the peak each one recorded,
@@ -224,7 +230,7 @@ function apply (G, kind, time, T)
         -- depend on the order a replay applies commits in (consensus order
         -- is not chronological order).
         if mutate then
-            local up = PEAKS(parents(T.cid))
+            local up = PEAKS(T.parents)
             if time < up-C.time.diff then
                 return false, "too old"
             end

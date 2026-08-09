@@ -15,10 +15,10 @@ if ARGS.sign then
 end
 
 -- commit post (content only, no state)
-local cid
+
 local aid
+local file
 do
-    local file
     if ARGS.inline then
         local text = ARGS.text
         local rand = math.random(0, 9999999999)
@@ -51,12 +51,9 @@ do
             err = "chain post : invalid path",
         }
     end
-    exec {
-        cmd = "git -C " .. REPO .. " add " .. file,
-    }
-
-    -- action file: self-description, same commit
-    aid = ACTION.write {
+    -- action file: self-description; minted BEFORE the commit
+    -- (`pos` places it only after `apply` accepts)
+    aid = ACTION.pre {
         action = 'post',
         backs  = ACTION.backs { "HEAD" },
         sign   = pub,
@@ -65,7 +62,31 @@ do
             cmd = "git -C " .. REPO .. " hash-object " .. REPO .. "/" .. file,
         },
     }
+end
 
+-- apply BEFORE the commit: a rejected post leaves nothing
+-- but the unstaged payload, removed right here
+do
+    local T = {
+        aid     = aid,
+        parents = { "HEAD" },
+        sign    = pub,
+        beg     = ARGS.beg,
+    }
+    local ok, err = apply(G, 'post', CMD.now, T)
+    if not ok then
+        os.remove(REPO .. "/" .. file)
+        ERROR("chain post : " .. err)
+    end
+    G.order[#G.order+1] = aid
+end
+
+exec {
+    cmd = "git -C " .. REPO .. " add " .. file,
+}
+ACTION.pos(aid)
+
+do
     local s1, s2 = "", ""
     if ARGS.sign then
         s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=ssh"
@@ -77,27 +98,6 @@ do
         .. "' --trailer 'Freechains: post'",
         err = "chain post : invalid sign key",
     }
-    cid = exec {
-        cmd = "git -C " .. REPO .. " rev-parse HEAD",
-    }
-end
-
--- apply with real cid
-do
-    local T = {
-        aid  = aid,
-        cid  = cid,
-        sign = pub,
-        beg  = ARGS.beg,
-    }
-    local ok, err = apply(G, 'post', CMD.now, T)
-    if not ok then
-        exec {
-            cmd = "git -C " .. REPO .. " reset --hard HEAD~1",
-        }
-        ERROR("chain post : " .. err)
-    end
-    G.order[#G.order+1] = aid
 end
 
 -- snapshot state at the new tip (the action commit itself)
