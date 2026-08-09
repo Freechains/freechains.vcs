@@ -40,11 +40,19 @@
       vote `{action, backs, sign, time, post|author, n}`
     - get `commit_file` excludes `.freechains/actions`
     - CLI, G, trailers unchanged
-- B2: CLI speaks aids; internals still commit-keyed
+- B2 DONE: CLI speaks aids; internals still commit-keyed
+    - argparse: get/destroy `<hash>` -> `<id>`, `:target("aid")`
+      (code reads `ARGS.aid`); like/revoke keep `ARGS.id`
+      (aid OR pubkey, target-dependent)
     - post/like print aid; `refs/begs/beg-<aid>`
-    - entry translations aid->cid (like/get/reps/destroy);
-      list prints cid->aid
-    - all test churn here, once (`CID(dir, aid)` helper)
+    - `ACTION.cid(aid)` added (nil on unknown, oldest -m match)
+    - entry translations: like `tid`, get/destroy `cid`,
+      reps `entry()`; prints translate cid->aid (list order/
+      revokes/dag labels, reps posts/revokes, destroy report,
+      get metadata backs)
+    - get metadata: field `hash` kept, value = aid
+    - tests: `CID`/`AID` helpers; probes translated in
+      cli-sign, cli-like, cli-begs, cli-destroy
 - B3: G keyed by aid
     - `apply` takes `T.aid` (`T.cid` stays for PEAKS);
       translations die; get backs + dag ups from action files

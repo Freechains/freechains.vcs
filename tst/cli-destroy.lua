@@ -133,7 +133,7 @@ do
         local head = exec {
             cmd = "git -C " .. DIR1 .. " rev-parse HEAD",
         }
-        assert(head == p1, "HEAD should be p1: " .. head)
+        assert(head == CID(DIR1, p1), "HEAD should be p1: " .. head)
     end
 
     -- state reverts with the snapshot: the destroyed posts never happened

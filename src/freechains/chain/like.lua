@@ -14,6 +14,10 @@ if ARGS.dislike or ARGS.revoke then
     num = -num
 end
 
+-- the trailer + vote dir distinguish a revoke-axis vote from a
+-- like/dislike (see the commit block below)
+local kind = (ARGS.revoke or ARGS.unrevoke) and "revoke" or "like"
+
 if ARGS.target == "author" then
     if #ARGS.id~=80 or (not ARGS.id:match("^ssh%-ed25519 %S+$")) then
         ERROR("chain like : invalid author key")
@@ -29,11 +33,22 @@ local to_beg = (
         } and true
 )
 
+-- ARGS.id is an aid (post target) or a pubkey (author target);
+-- internals are commit-keyed: `tid` is the target's commit.
+local tid = ARGS.id
+if ARGS.target == "post" then
+    tid = ACTION.cid(ARGS.id)
+    if not tid then
+        ERROR("chain " .. kind .. " : invalid target : post not found")
+    end
+end
+
 -- beg: validate parent, merge into main, load beg entry
+-- (the ref is named by the beg's aid)
 local ref = "refs/begs/beg-" .. ARGS.id
 if to_beg then
     local up = exec {
-        cmd = "git -C " .. REPO .. " log -1 --format=%P " .. ARGS.id,
+        cmd = "git -C " .. REPO .. " log -1 --format=%P " .. ref,
     }
     local _,ok = exec { err=false,
         cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. up .. " HEAD",
@@ -46,17 +61,9 @@ if to_beg then
     exec {
         cmd = "git -C " .. REPO .. " merge --no-ff --no-commit --no-edit " .. ref,
     }
-    G.order[#G.order+1] = exec {
-        cmd = "git -C " .. REPO .. " rev-parse " .. ref,   -- beg post
-    }
-    G.posts[ARGS.id] = STATE.read(true, ref).posts[ARGS.id]
+    G.order[#G.order+1] = tid   -- beg post commit
+    G.posts[tid] = STATE.read(true, ref).posts[tid]
 end
-
--- commit the vote (content only, no state). The trailer + dir
--- distinguish a revoke-axis vote from a like/dislike:
---   like/dislike -> .freechains/likes/   , 'Freechains: like'
---   revoke/unrev -> .freechains/revokes/ , 'Freechains: revoke'
-local kind = (ARGS.revoke or ARGS.unrevoke) and "revoke" or "like"
 
 -- the writer's own pubkey, read from the `.pub` file BEFORE the
 -- commit: a bad key fails early, nothing enters the tree
@@ -64,7 +71,13 @@ local pub = ssh.pub.key(ARGS.sign)
 if not pub then
     ERROR("chain " .. kind .. " : invalid sign key")
 end
-local hash
+
+-- commit the vote (content only, no state):
+--   like/dislike -> .freechains/likes/   , 'Freechains: like'
+--   revoke/unrev -> .freechains/revokes/ , 'Freechains: revoke'
+
+local aid      -- own action id, minted with the action file
+local cid
 do
     local payload = [[
         return {
@@ -81,21 +94,16 @@ do
         cmd = "git -C " .. REPO .. " add " .. file,
     }
 
-    -- action file: self-description, same commit
+    -- action file: self-description, same commit;
     -- a beg like backs both sides of its merge.
-    -- an invalid post target keeps the raw id: `apply` rejects it
-    -- right after and the whole commit rolls back
+    -- ARGS.id is already the aid (or a pubkey): stored as is
     local ps = to_beg and { "HEAD", ref } or { "HEAD" }
-    local id = ARGS.id
-    if ARGS.target == "post" then
-        id = ACTION.aid(ARGS.id) or ARGS.id
-    end
-    ACTION.write {
+    aid = ACTION.write {
         action = kind,
         backs  = ACTION.backs(ps),
         sign   = pub,
         time   = tonumber(CMD.now),
-        [ARGS.target] = id,
+        [ARGS.target] = ARGS.id,
         n      = num,
     }
 
@@ -106,7 +114,7 @@ do
                   "' --trailer 'Freechains: " .. kind .. "'",
         err = "chain " .. kind .. " : invalid sign key",
     }
-    hash = exec {
+    cid = exec {
         cmd = "git -C " .. REPO .. " rev-parse HEAD",
     }
 end
@@ -114,8 +122,8 @@ end
 -- apply
 do
     local T = {
-        [ARGS.target] = ARGS.id,
-        hash = hash,
+        [ARGS.target] = tid,
+        cid  = cid,
         sign = pub,
         n    = num,
         beg  = to_beg,
@@ -127,7 +135,7 @@ do
         }
         ERROR("chain " .. kind .. " : " .. err)
     end
-    G.order[#G.order+1] = hash
+    G.order[#G.order+1] = cid
 end
 
 -- snapshot state at the new tip (the action commit itself)
@@ -139,4 +147,4 @@ if to_beg then
     }
 end
 
-print(hash)
+print(aid)

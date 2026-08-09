@@ -174,10 +174,10 @@ do
     cmd.chain.get._ = cmd.chain._:command("get")
     do
         cmd.chain.get.metadata._ = cmd.chain.get._:command("metadata")
-        cmd.chain.get.metadata._:argument("hash")
+        cmd.chain.get.metadata._:argument("id"):target("aid")
 
         cmd.chain.get.payload._ = cmd.chain.get._:command("payload")
-        cmd.chain.get.payload._:argument("hash")
+        cmd.chain.get.payload._:argument("id"):target("aid")
     end
 
     -- cmd.chain.like / dislike : target is a post OR an author
@@ -201,7 +201,7 @@ do
 
     -- cmd.chain.destroy : local only (no sign, no network)
     cmd.chain.destroy._ = cmd.chain._:command("destroy")
-    cmd.chain.destroy._:argument("hash")
+    cmd.chain.destroy._:argument("id"):target("aid")
 
     -- cmd.chain.sync
     cmd.chain.sync._ = cmd.chain._:command("sync")

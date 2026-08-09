@@ -15,7 +15,8 @@ if ARGS.sign then
 end
 
 -- commit post (content only, no state)
-local hash
+local cid
+local aid
 do
     local file
     if ARGS.inline then
@@ -55,7 +56,7 @@ do
     }
 
     -- action file: self-description, same commit
-    ACTION.write {
+    aid = ACTION.write {
         action = 'post',
         backs  = ACTION.backs { "HEAD" },
         sign   = pub,
@@ -76,15 +77,15 @@ do
         .. "' --trailer 'Freechains: post'",
         err = "chain post : invalid sign key",
     }
-    hash = exec {
+    cid = exec {
         cmd = "git -C " .. REPO .. " rev-parse HEAD",
     }
 end
 
--- apply with real hash
+-- apply with real cid
 do
     local T = {
-        hash = hash,
+        cid  = cid,
         sign = pub,
         beg  = ARGS.beg,
     }
@@ -95,7 +96,7 @@ do
         }
         ERROR("chain post : " .. err)
     end
-    G.order[#G.order+1] = hash
+    G.order[#G.order+1] = cid
 end
 
 -- snapshot state at the new tip (the action commit itself)
@@ -103,11 +104,11 @@ STATE.write(G, true, "HEAD")
 
 if ARGS.beg then
     exec {
-        cmd = "git -C " .. REPO .. " update-ref refs/begs/beg-" .. hash .. " HEAD",
+        cmd = "git -C " .. REPO .. " update-ref refs/begs/beg-" .. aid .. " HEAD",
     }
     exec {
         cmd = "git -C " .. REPO .. " reset --hard HEAD~1",
     }
 end
 
-print(hash)
+print(aid)

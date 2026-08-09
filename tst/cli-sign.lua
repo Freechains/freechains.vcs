@@ -56,7 +56,7 @@ do
 
         TEST "beg commit has no gpgsig"
         local out = exec {
-            cmd = "git -C " .. DIR .. " cat-file commit " .. BEG,
+            cmd = "git -C " .. DIR .. " cat-file commit " .. CID(DIR, BEG),
         }
         assert(not out:match("gpgsig"), "gpgsig should be absent")
     end

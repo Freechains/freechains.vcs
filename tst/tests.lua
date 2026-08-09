@@ -35,6 +35,22 @@ function TEST (name)
     print("  - " .. name .. "... ")
 end
 
+-- the commit that added action `aid` (CLI prints aids; git-level
+-- probes and commit-keyed state need the commit)
+function CID (dir, aid)
+    local out = exec {
+        cmd = "git -C " .. dir ..
+            " log --all --full-history -m --diff-filter=A --format=%H" ..
+            " -- .freechains/actions/" .. aid .. ".lua",
+    }
+    -- `-m` also lists merges that bring the file in: oldest wins
+    local cid
+    for h in out:gmatch("%x+") do
+        cid = h
+    end
+    return (assert(cid, "no commit: " .. aid))
+end
+
 -- the state snapshot at `dir`'s HEAD (.git/states/<hash>.lua)
 function STATE (dir)
     local hash = exec {

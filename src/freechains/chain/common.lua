@@ -113,6 +113,26 @@ ACTION = {
         return out and out:match("actions/(%x+)%.lua")
     end,
 
+    -- cid(aid): aid -> cid : the commit that added action `aid`,
+    cid = function (aid)
+        local out = exec { err=false, stderr=false,
+            cmd = "git -C " .. REPO ..
+                " log --all --full-history -m --diff-filter=A --format=%H" ..
+                " -- .freechains/actions/" .. aid .. ".lua",
+        }
+        if not out then
+            return nil
+        end
+        -- `-m` also lists a MERGE whose side brought the file in
+        -- (its parent-1 diff shows it as added): the true adder is
+        -- the OLDEST listed commit
+        local cid
+        for h in out:gmatch("%x+") do
+            cid = h
+        end
+        return cid
+    end,
+
     -- the action ancestors (as sorted aids) of the commit about to
     -- be created, from its parents `ps` (revs)
     -- TODO : walk gets simpler : no trailers
@@ -229,7 +249,7 @@ function apply (G, kind, time, T)
         -- depend on the order a replay applies commits in (consensus order
         -- is not chronological order).
         if mutate then
-            local up = PEAKS(parents(T.hash))
+            local up = PEAKS(parents(T.cid))
             if time < up-C.time.diff then
                 return false, "too old"
             end
@@ -322,7 +342,7 @@ function apply (G, kind, time, T)
             end
 
             -- mutation
-            G.posts[T.hash] = {
+            G.posts[T.cid] = {
                 author   = T.sign,
                 time     = time,
                 maturity = (T.beg and 'beg') or (T.sign and '00-12') or 'beg',
