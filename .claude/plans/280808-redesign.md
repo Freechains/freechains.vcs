@@ -42,13 +42,22 @@
     - Makefile: cli-get-merge moved after cli-begs (first
       sync-dependent test); suite green end to end
     - destroy unchanged: reset still restores tree state (L3)
-- L3: remove state commits + tree state from local writers
+- L3 DONE: remove state commits + tree state from local writers
     - possible w/o aid redesign: snapshot written AFTER commit,
       cid known -> no cycle
     - one commit per action; beg 2 -> 1; destroy `beg~2` -> `beg~1`
-    - like beg merge: pure topology, no `-X ours` on state
-    - local tests updated to new anatomy
-    - sync recv/mode-check unchanged -> sync tests fail, accepted
+    - like beg merge: no `-X ours`; beg ref = the post itself
+      (like.lua order entry: `ref~1` -> `ref`)
+    - genesis: tree = genesis.lua + random + likes/ + revokes/;
+      skel loses state/ + .gitattributes; pioneers() returns
+      the authors table (snapshot-only); no now.lua write
+    - snapshots now keyed by ACTION commits (tips)
+    - `write(G)` (tree state) kept: sync-only, dies at sync phase
+    - tests: HEAD~1 -> HEAD anatomy; STATE(dir) helper in
+      tests.lua (snapshot at HEAD) replaces state/ dofiles;
+      state-commit TESTs removed (get/destroy); repl counts -1;
+      err-like exit moved up (recv dies at G_oct tree read now)
+    - suite green end to end
 - dropped: backfill walk (only needed for commits we did not
   create: sync interiors, clone) — deferred to sync phase
 

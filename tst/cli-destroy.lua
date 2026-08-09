@@ -4,8 +4,8 @@
 -- escape from a hard fork: abandon the diverging branch, receive the
 -- settled one, repost on top of it.
 --
--- Every post/like is TWO commits: the content one (whose hash the CLI
--- prints) and the `state` one that follows it, holding the state files.
+-- Every post/like is ONE commit (whose hash the CLI prints); state
+-- lives in local snapshots (`.git/states/`).
 -- A post is always committed on top of a valid tip, so `destroy` lands on
 -- the PARENT of `hash`, and only a post/like/revoke may be named.
 --
@@ -126,22 +126,17 @@ do
         assert(not io.open(DIR1 .. "p3.txt"), "p3.txt should be gone")
     end
 
-    -- `destroy` names the first post to remove, so it lands on its parent,
-    -- which is the `state` commit accounting for p1
+    -- `destroy` names the first post to remove, so it lands on its
+    -- parent, which is p1 itself
     do
-        TEST "HEAD lands on the state commit of p1"
+        TEST "HEAD lands on p1"
         local head = exec {
             cmd = "git -C " .. DIR1 .. " rev-parse HEAD",
         }
-        assert(TRAILER(DIR1, head) == 'state', "HEAD is not a state commit")
-        assert(head ~= p1, "HEAD should be past p1")
-        local parent = exec {
-            cmd = "git -C " .. DIR1 .. " rev-parse HEAD^1",
-        }
-        assert(parent == p1, "HEAD^1 should be p1: " .. parent)
+        assert(head == p1, "HEAD should be p1: " .. head)
     end
 
-    -- state files revert with the tree: the destroyed posts never happened
+    -- state reverts with the snapshot: the destroyed posts never happened
     do
         TEST "reps are restored"
         local now = REPS(ENV_EXE, "#cli-destroy-1", PUB1)
@@ -173,17 +168,6 @@ do
         assert(O[1] == p1, "p1 should be the only entry")
     end
 
-    -- `state` commits are plumbing: they are not part of the protocol
-    do
-        TEST "state commit rejects"
-        local head = exec {
-            cmd = "git -C " .. DIR1 .. " rev-parse HEAD",
-        }
-        FAIL {
-            cmd = ENV_EXE .. " chain '#cli-destroy-1' destroy " .. head,
-            err = "ERROR : chain destroy : invalid hash",
-        }
-    end
 end
 
 -- 2. Errors and beg cleanup
@@ -207,7 +191,7 @@ do
         }
     end
 
-    -- the genesis is a `state` commit, and there is nothing before it
+    -- the genesis is plumbing, and there is nothing before it
     do
         TEST "genesis rejects"
         FAIL {
@@ -222,18 +206,6 @@ do
     local b0 = exec {
         cmd = ENV_EXE .. " chain '#cli-destroy-2' post inline 'b0\n' --file b0.txt --beg --sign " .. KEY2,
     }
-
-    -- the ref points to the beg's `state` commit, which no ref names
-    do
-        TEST "hash outside main rejects"
-        local ref = exec {
-            cmd = "git -C " .. DIR2 .. " for-each-ref refs/begs/ --format='%(objectname)'",
-        }
-        FAIL {
-            cmd = ENV_EXE .. " chain '#cli-destroy-2' destroy " .. ref,
-            err = "ERROR : chain destroy : invalid hash",
-        }
-    end
 
     -- G -- b0[K2], b2[K2]                  (a second beg, to destroy alone)
     TEST "beg b2 off the genesis"

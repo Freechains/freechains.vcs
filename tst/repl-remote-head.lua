@@ -112,11 +112,11 @@ do
     end
 
     do
-        TEST "B has 3 commits (genesis + post + state)"
+        TEST "B has 2 commits (genesis + post)"
         local count = exec {
             cmd = "git -C " .. REPO_B .. " rev-list --count HEAD",
         }
-        assert(count == "3", "count: " .. count)
+        assert(count == "2", "count: " .. count)
     end
 
     -- 280808 : EARLY EXIT : rest needs clone/recv snapshots

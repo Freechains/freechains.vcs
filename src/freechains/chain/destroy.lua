@@ -3,8 +3,8 @@ require "freechains.chain.common"
 -- Escape hatch for a hard fork: destroy `hash` and everything after it, so
 -- the settled remote branch can be received again.
 -- Local only: no signing, no network, no reps.
--- Chain state lives in-tree (`.freechains/state/`), so the reset
--- restores it along with the commits: nothing else to rebuild.
+-- Chain state lives in local snapshots (`.git/states/`), keyed by
+-- commit: the reset lands on a tip whose snapshot already exists.
 
 local hash = exec { stderr=false, err=false,
     cmd = "git -C " .. REPO .. " rev-parse --verify " .. ARGS.hash .. "^{commit}",
@@ -42,8 +42,8 @@ do
     end
 end
 
--- a post is always committed on top of a valid tip: a `state` commit, a
--- merge, or the genesis. So its parent is where we land, no search
+-- a post is always committed on top of a valid tip: an action commit,
+-- a merge, or the genesis. So its parent is where we land, no search
 local tip = exec {
     cmd = "git -C " .. REPO .. " rev-parse " .. hash .. "^1",
 }
@@ -69,7 +69,7 @@ exec {
     err = "chain destroy : git reset failed",
 }
 
--- stale-beg cleanup: a beg is two commits (post + state) on top of the
+-- stale-beg cleanup: a beg is one commit (the post) on top of the
 -- `main` it was created from. If that base is gone, the beg can no
 -- longer attach to `main`, so destroy it.
 do
@@ -78,7 +78,7 @@ do
     }
     for refname, beg in out:gmatch("(%S+)%s+(%S+)") do
         local ok = exec { stderr=false, err=false,
-            cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. beg .. "~2 HEAD",
+            cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. beg .. "~1 HEAD",
         }
         if not ok then
             exec {

@@ -34,24 +34,14 @@ end
 
 local function pioneers (dir)
     local T = dofile(dir .. ".freechains/genesis.lua")
+    local A = {}
     if T.pioneers then
         local n = C.reps.max // #T.pioneers
-        local A = {}
         for _, key in ipairs(T.pioneers) do
             A[key] = { reps = n }
         end
-        local f = assert(io.open(
-            dir .. ".freechains/state/authors.lua", "w"
-        ), "bug found : chain add : init failed")
-        f:write(serial(A))
-        f:close()
-    else
-        local f = assert(io.open(
-            dir .. ".freechains/state/authors.lua", "w"
-        ), "bug found : chain add : init failed")
-        f:write("return {\n}\n")
-        f:close()
     end
+    return A
 end
 
 local DIR = ARGS.root .. "/chains/"
@@ -124,14 +114,8 @@ if ARGS.add then
         exec {
             cmd = "cp " .. ARGS.path .. " " .. tmp .. "/.freechains/genesis.lua",
         }
-        pioneers(tmp .. "/")
-        do
-            local f = io.open(tmp .. "/.freechains/state/now.lua", "w")
-            f:write("return " .. CMD.now .. "\n")
-            f:close()
-        end
         exec {
-            cmd = "git -C " .. tmp .. " add .freechains/ .gitattributes",
+            cmd = "git -C " .. tmp .. " add .freechains/",
         }
         exec {
             cmd = CMD.git .. "git -C " .. tmp .. " commit -m '(empty message)'"
@@ -145,10 +129,10 @@ if ARGS.add then
         -- genesis snapshot (no chain context here: direct write)
         do
             local G = {
-                authors = dofile(tmp .. "/.freechains/state/authors.lua"),
-                posts   = dofile(tmp .. "/.freechains/state/posts.lua"),
-                order   = dofile(tmp .. "/.freechains/state/order.lua"),
-                now     = dofile(tmp .. "/.freechains/state/now.lua"),
+                authors = pioneers(tmp .. "/"),
+                posts   = {},
+                order   = {},
+                now     = tonumber(CMD.now),
             }
             local f = io.open(tmp .. "/.git/states/" .. gen .. ".lua", "w")
             f:write(serial(G))

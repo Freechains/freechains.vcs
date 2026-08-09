@@ -51,7 +51,7 @@ do
 
     do
         TEST "beg-not-in-main-posts"
-        local posts = dofile(DIR1 .. ".freechains/state/posts.lua")
+        local posts = STATE(DIR1).posts
         assert(not posts[BEG], "beg should not be in main posts.lua")
     end
 
@@ -199,12 +199,12 @@ do
         }
         assert(head ~= HEAD, "HEAD should advance after merge")
 
-        TEST "like-beg-structure: BEG-S-LIKE"
+        TEST "like-beg-structure: BEG-LIKE"
         local like = exec {
-            cmd = "git -C " .. DIR4 .. " rev-parse HEAD~1",
+            cmd = "git -C " .. DIR4 .. " rev-parse HEAD",
         }
         local beg = exec {
-            cmd = "git -C " .. DIR4 .. " rev-parse " .. like .. "^2~1",
+            cmd = "git -C " .. DIR4 .. " rev-parse " .. like .. "^2",
         }
         assert(beg == BEG, "beg: " .. beg .. " expected: " .. BEG)
 
@@ -217,7 +217,7 @@ do
 
     do
         TEST "like-beg-unblocks"
-        local posts = dofile(DIR4 .. ".freechains/state/posts.lua")
+        local posts = STATE(DIR4).posts
         assert(posts[BEG], "post entry not found: " .. BEG)
         assert(posts[BEG].maturity ~= "beg", "maturity should no longer be beg")
     end
@@ -310,7 +310,7 @@ do
     }
 
     local MERGE = exec {
-        cmd = "git -C " .. DIR5 .. " rev-parse HEAD~1",
+        cmd = "git -C " .. DIR5 .. " rev-parse HEAD",
     }
 
     do

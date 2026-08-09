@@ -14,9 +14,6 @@ local POST = exec {
 local LIKE = exec {
     cmd = ENV_EXE .. " chain '#cli-get' like 1 post " .. POST .. " --sign " .. KEY2,
 }
-local STATE   = exec {
-    cmd = "git -C " .. DIR .. " rev-parse HEAD",
-}
 local GENESIS = exec {
     cmd = "git -C " .. DIR .. " rev-list --max-parents=0 HEAD",
 }
@@ -64,14 +61,6 @@ do
         TEST "payload of revoke"
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-get' get payload " .. REVOKE,
-            err = "ERROR : chain get : unknown post",
-        }
-    end
-
-    do
-        TEST "payload of state"
-        FAIL {
-            cmd = ENV_EXE .. " chain '#cli-get' get payload " .. STATE,
             err = "ERROR : chain get : unknown post",
         }
     end
@@ -144,14 +133,6 @@ do
         assert(T.revoke.post == RPOST, "revoke.post: " .. tostring(T.revoke.post))
         assert(math.type(T.revoke.n) == "integer", "revoke.n: " .. tostring(T.revoke.n))
         assert(T.revoke.n < 0, "revoke.n should be negative: " .. tostring(T.revoke.n))
-    end
-
-    do
-        TEST "metadata of state"
-        FAIL {
-            cmd = ENV_EXE .. " chain '#cli-get' get metadata " .. STATE,
-            err = "ERROR : chain get : unknown post",
-        }
     end
 
     do

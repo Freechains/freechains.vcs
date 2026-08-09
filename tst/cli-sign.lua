@@ -26,7 +26,7 @@ do
     do
         TEST "git verify-commit passes"
         local hash = exec {
-            cmd = "git -C " .. DIR .. " rev-parse HEAD~1",
+            cmd = "git -C " .. DIR .. " rev-parse HEAD",
         }
         local key = ssh.verify(DIR, hash)
         assert(key == PUB1, "verify-commit failed: " .. tostring(key))
@@ -35,7 +35,7 @@ do
     do
         TEST "gpgsig header present"
         local out = exec {
-            cmd = "git -C " .. DIR .. " cat-file commit HEAD~1",
+            cmd = "git -C " .. DIR .. " cat-file commit HEAD",
         }
         assert(out:match("gpgsig"), "gpgsig header missing")
     end

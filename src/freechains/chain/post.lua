@@ -76,25 +76,15 @@ do
     G.order[#G.order+1] = hash
 end
 
--- commit state
-do
-    write(G)
-    exec {
-        cmd = "git -C " .. REPO .. " add .freechains/state/",
-    }
-    exec {
-        cmd = CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
-        .. " --trailer 'Freechains: state'",
-    }
-    STATE.write(G, true, "HEAD")
-end
+-- snapshot state at the new tip (the action commit itself)
+STATE.write(G, true, "HEAD")
 
 if ARGS.beg then
     exec {
         cmd = "git -C " .. REPO .. " update-ref refs/begs/beg-" .. hash .. " HEAD",
     }
     exec {
-        cmd = "git -C " .. REPO .. " reset --hard HEAD~2",
+        cmd = "git -C " .. REPO .. " reset --hard HEAD~1",
     }
 end
 

@@ -44,10 +44,10 @@ if to_beg then
         --ERROR("chain like : invalid target : beg post does not exist")
     end
     exec {
-        cmd = "git -C " .. REPO .. " merge -X ours --no-ff --no-commit --no-edit " .. ref,
+        cmd = "git -C " .. REPO .. " merge --no-ff --no-commit --no-edit " .. ref,
     }
     G.order[#G.order+1] = exec {
-        cmd = "git -C " .. REPO .. " rev-parse " .. ref .. "~1",   -- beg post
+        cmd = "git -C " .. REPO .. " rev-parse " .. ref,   -- beg post
     }
     G.posts[ARGS.id] = STATE.read(true, ref).posts[ARGS.id]
 end
@@ -104,18 +104,8 @@ do
     G.order[#G.order+1] = hash
 end
 
--- commit state
-do
-    write(G)
-    exec {
-        cmd = "git -C " .. REPO .. " add .freechains/state/",
-    }
-    exec {
-        cmd = CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
-        .. " --trailer 'Freechains: state'",
-    }
-    STATE.write(G, true, "HEAD")
-end
+-- snapshot state at the new tip (the action commit itself)
+STATE.write(G, true, "HEAD")
 
 if to_beg then
     exec {

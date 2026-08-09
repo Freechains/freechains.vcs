@@ -35,6 +35,14 @@ function TEST (name)
     print("  - " .. name .. "... ")
 end
 
+-- the state snapshot at `dir`'s HEAD (.git/states/<hash>.lua)
+function STATE (dir)
+    local hash = exec {
+        cmd = "git -C " .. dir .. " rev-parse HEAD",
+    }
+    return dofile(dir .. ".git/states/" .. hash .. ".lua")
+end
+
 -- run a command expected to FAIL; assert the error msg if given; return it
 function FAIL (t)
     local _, code, err = exec { err=false,
