@@ -19,7 +19,8 @@ local kind = trailer(ARGS.hash)
 local function commit_file ()
     local files = exec {
         cmd = "git -C " .. REPO ..
-        " diff-tree --cc --no-commit-id -r --name-only " .. ARGS.hash,
+        " diff-tree --cc --no-commit-id -r --name-only " .. ARGS.hash ..
+        " -- . ':!.freechains/actions'",    -- TODO : remove
     }
     assert(not files:match("\n%S"), "bug found")
     return files:match("^(%S+)")

@@ -99,6 +99,66 @@ STATE = {
     end,
 }
 
+-- action files: one per action, inside the action commit itself:
+--  - `.freechains/actions/<aid>.lua`
+--  - aid = git blob hash of the file, minted BEFORE the commit
+ACTION = {
+    -- aid(cid): cid -> aid : aid of the action commit cid
+    aid = function (cid)
+        local out = exec { err=false, stderr=false,
+            cmd = "git -C " .. REPO ..
+                " diff-tree --cc --no-commit-id -r --name-only " .. cid ..
+                " -- .freechains/actions/", -- TODO : remove
+        }
+        return out and out:match("actions/(%x+)%.lua")
+    end,
+
+    -- the action ancestors (as sorted aids) of the commit about to
+    -- be created, from its parents `ps` (revs)
+    -- TODO : walk gets simpler : no trailers
+    backs = function (ps)
+        local ret = {}
+        local see = {}
+        local function rec (h)
+            local k = trailer(h)
+            if k=='post' or k=='like' or k=='revoke' then
+                local a = assert(ACTION.aid(h))
+                if not see[a] then
+                    see[a] = true
+                    ret[#ret+1] = a
+                end
+            elseif k=='state' or k=='merge' then
+                for _, p in ipairs(parents(h)) do
+                    rec(p)
+                end
+            else
+                error("bug found : invalid trailer")
+            end
+        end
+        for _, p in ipairs(ps) do
+            rec(p)
+        end
+        table.sort(ret)
+        return ret
+    end,
+
+    -- write `T` as the action file, stage it, return its aid
+    write = function (T)
+        local tmp = REPO .. ".git/action-tmp.lua"
+        local f = io.open(tmp, "w")
+        f:write(serial(T))
+        f:close()
+        local aid = exec {
+            cmd = "git -C " .. REPO .. " hash-object " .. tmp,
+        }
+        os.rename(tmp, REPO .. ".freechains/actions/" .. aid .. ".lua")
+        exec {
+            cmd = "git -C " .. REPO .. " add .freechains/actions/" .. aid .. ".lua",
+        }
+        return aid
+    end,
+}
+
 -- REVOKED when either the author's or the community's net revoke sum is negative.
 function is_revoked (p)
     local r = p.revoke or {}

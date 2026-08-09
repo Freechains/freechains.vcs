@@ -80,6 +80,25 @@ do
     exec {
         cmd = "git -C " .. REPO .. " add " .. file,
     }
+
+    -- action file: self-description, same commit
+    -- a beg like backs both sides of its merge.
+    -- an invalid post target keeps the raw id: `apply` rejects it
+    -- right after and the whole commit rolls back
+    local ps = to_beg and { "HEAD", ref } or { "HEAD" }
+    local id = ARGS.id
+    if ARGS.target == "post" then
+        id = ACTION.aid(ARGS.id) or ARGS.id
+    end
+    ACTION.write {
+        action = kind,
+        backs  = ACTION.backs(ps),
+        sign   = pub,
+        time   = tonumber(CMD.now),
+        [ARGS.target] = id,
+        n      = num,
+    }
+
     local s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=ssh"
     local msg = ARGS.why or "(empty message)"
     exec { stderr=false,

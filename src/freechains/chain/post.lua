@@ -53,6 +53,18 @@ do
     exec {
         cmd = "git -C " .. REPO .. " add " .. file,
     }
+
+    -- action file: self-description, same commit
+    ACTION.write {
+        action = 'post',
+        backs  = ACTION.backs { "HEAD" },
+        sign   = pub,
+        time   = tonumber(CMD.now),
+        blob   = exec {
+            cmd = "git -C " .. REPO .. " hash-object " .. REPO .. "/" .. file,
+        },
+    }
+
     local s1, s2 = "", ""
     if ARGS.sign then
         s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=ssh"

@@ -27,21 +27,30 @@
       get, consensus, verify) — reference naming adopted
     - post/like `T.sign` = pub.key, read early; missing/invalid
       `.pub` fails early, same error message
-- A1: write `actions/<aid>.lua` inside the action commit
-    - `{action, backs, sign, time, blob?, post/author, n}`
-    - aid = `git hash-object` of the file, minted pre-commit
-    - `backs` from tips (HEAD, +MERGE_HEAD on beg like)
-    - additive: trailers, commit-hash CLI, G keys unchanged
-- A2: G keyed by aid
-    - `posts[aid]`, `order` holds aids; `apply` takes `T.aid`
-    - aid<->cid mapped at git boundaries
-- A3: index `.git/index.lua` = `{tip, a2c}`
-    - writers append post-commit; lazy catch-up `HEAD --not tip`
-- A4: CLI speaks aids
-    - print/take aids; `refs/begs/beg-<aid>`; big test churn
-- A5: trailers die on the write path
-    - structural classification; walkers switch to db/index
-- A6: receive-side validation -> deferred to sync phase
+- v2 reorder: CLI flips BEFORE internals (v1 A2-then-A4 built a
+  throwaway translation layer in list/reps/get)
+- traps (learned in v1):
+    - aid->cid walk must take the OLDEST `-m` match (merges also
+      list a beg's file as added)
+    - never `return assert(v, msg)`: returns BOTH values
+- B1 DONE: action files in the commit (additive)
+    - `ACTION` in common.lua: `write(T)` mints aid pre-commit,
+      `aid(cid)` via diff-tree, `backs(ps)` sorted aids
+    - post `{action, backs, sign, time, blob}`;
+      vote `{action, backs, sign, time, post|author, n}`
+    - get `commit_file` excludes `.freechains/actions`
+    - CLI, G, trailers unchanged
+- B2: CLI speaks aids; internals still commit-keyed
+    - post/like print aid; `refs/begs/beg-<aid>`
+    - entry translations aid->cid (like/get/reps/destroy);
+      list prints cid->aid
+    - all test churn here, once (`CID(dir, aid)` helper)
+- B3: G keyed by aid
+    - `apply` takes `T.aid` (`T.cid` stays for PEAKS);
+      translations die; get backs + dag ups from action files
+- B4: index `.git/index.lua` `{tip, a2c}` replaces the walk
+- B5: trailers die on the write path
+- B6: receive-side validation -> deferred to sync phase
 
 # Next steps (sync phase)
 
