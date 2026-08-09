@@ -18,6 +18,26 @@
 - NOT present: snapshots, backfill, `.git/index.lua`,
   `actions/<aid>.lua`; trailers + 4-file `state/` tree still live
 
+# Ladder (local-only; all local tests pass after each step)
+
+- state `G` = `{ authors, posts, order, now }` (4 facets)
+    - snapshot = `serial(G)` in `.git/states/<cid>.lua`
+- L1: snaps after local actions — dual write
+    - genesis (`chains add`), post, like (beg: before reset)
+- L2: local reads of snaps
+    - `PEAK`, init.lua startup `G`, destroy restore,
+      like-on-beg entry
+    - miss -> lazy fallback: read tree state, snap it
+- L3: remove state commits + tree state from local writers
+    - possible w/o aid redesign: snapshot written AFTER commit,
+      cid known -> no cycle
+    - one commit per action; beg 2 -> 1; destroy `beg~2` -> `beg~1`
+    - like beg merge: pure topology, no `-X ours` on state
+    - local tests updated to new anatomy
+    - sync recv/mode-check unchanged -> sync tests fail, accepted
+- dropped: backfill walk (only needed for commits we did not
+  create: sync interiors, clone) — deferred to sync phase
+
 # What leaves commits
 
 - state (`state.lua` / `state/`): no longer committed at all (S15)
