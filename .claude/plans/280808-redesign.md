@@ -89,6 +89,11 @@
     - genesis tree = actions/.gitkeep + genesis.lua + random
     - tests: like-payload-file -> action-file-only diff assert
 - B4: index `.git/index.lua` `{tip, a2c}` replaces the walk
+    - DECIDED: variant B (write-through): loader + catch-up
+      (`log HEAD --not tip`; dead tip -> full rebuild) AND
+      writers append their own (aid, cid) pair post-commit
+      (beg via its ref) -- steady state = zero extra git
+    - NOT YET: do after current work settles
 - B5 DONE: trailers die on the write path
     - post/like/genesis commits carry NO trailer: the envelope
       is tree + parents + signature only
