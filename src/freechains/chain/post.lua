@@ -94,8 +94,7 @@ do
     end
     local msg = ARGS.why or "(empty message)"
     exec { stderr=false,
-        cmd = CMD.git .. "git -C " .. REPO .. s1 .. " commit" .. s2 .. " -m '" .. msg
-        .. "' --trailer 'Freechains: post'",
+        cmd = CMD.git .. "git -C " .. REPO .. s1 .. " commit" .. s2 .. " -m '" .. msg .. "'",
         err = "chain post : invalid sign key",
     }
 end

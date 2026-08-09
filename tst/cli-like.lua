@@ -18,13 +18,14 @@ do
     }
     assert(#POST == 40, "target hash: " .. POST)
 
-    print("==> freechains: post trailer")
+    print("==> freechains: post action")
     do
-        TEST "post-has-trailer"
+        TEST "post-is-action"
         local out = exec {
-            cmd = "git -C " .. DIR .. " cat-file commit HEAD",
+            cmd = ENV_EXE .. " chain '#cli-like' get metadata " .. POST,
         }
-        assert(out:match("Freechains: post"), "missing freechains: post trailer")
+        local T = load(out, "metadata", "t", {})()
+        assert(T.action == "post", "action: " .. tostring(T.action))
     end
 end
 
@@ -54,11 +55,12 @@ do
     end
 
     do
-        TEST "like-has-trailer"
+        TEST "like-is-action"
         local out = exec {
-            cmd = "git -C " .. DIR .. " cat-file commit HEAD",
+            cmd = ENV_EXE .. " chain '#cli-like' get metadata " .. LIKE,
         }
-        assert(out:match("Freechains: like"), "missing freechains: like trailer")
+        local T = load(out, "metadata", "t", {})()
+        assert(T.action == "like", "action: " .. tostring(T.action))
     end
 
     do
@@ -103,6 +105,7 @@ do
         cmd = ENV_EXE .. " chain '#cli-like' post inline 'another post' --sign " .. KEY1,
     }
 
+    local DISLIKE
     do
         TEST "dislike-success"
         local out, code = exec {
@@ -111,14 +114,17 @@ do
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
         assert(out:match("^%x+$"), "hash is hex: " .. out)
+        DISLIKE = out
     end
 
     do
-        TEST "dislike-payload"
+        TEST "dislike-is-like-action"
         local out = exec {
-            cmd = "git -C " .. DIR .. " cat-file commit HEAD",
+            cmd = "git -C " .. DIR .. " cat-file blob " .. DISLIKE,
         }
-        assert(out:match("Freechains: like"), "missing freechains: like trailer")
+        local T = load(out, "metadata", "t", {})()
+        assert(T.action == "like", "action: " .. tostring(T.action))
+        assert(T.n < 0, "n should be negative: " .. tostring(T.n))
     end
 
     do

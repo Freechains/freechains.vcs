@@ -2,14 +2,6 @@ C    = require "freechains.constants"
 REPO = ARGS.root .. "/chains/" .. ARGS.alias .. "/"
 FC   = REPO .. ".freechains/"
 
-function trailer (hash)
-    local out = exec {
-        cmd = "git -C " .. REPO ..
-            " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash,
-    }
-    return out:match "(%S+)"
-end
-
 -- the git parents of `hash`: one step back in the DAG, no time
 -- involved. Returns an array (empty for a root).
 function parents (hash)
@@ -109,25 +101,23 @@ ACTION = {
     end,
 
     -- the action ancestors (as sorted aids) of the commit about to
-    -- be created, from its parents `ps` (revs)
-    -- TODO : walk gets simpler : no trailers
+    -- be created, from its parents `ps` (revs). Structural: an
+    -- action IS a commit adding its action file; anything else
+    -- (genesis, plumbing merge) is transparent
     backs = function (ps)
         local ret = {}
         local see = {}
         local function rec (h)
-            local k = trailer(h)
-            if k=='post' or k=='like' or k=='revoke' then
-                local a = assert(ACTION.aid(h))
+            local a = ACTION.aid(h)
+            if a then
                 if not see[a] then
                     see[a] = true
                     ret[#ret+1] = a
                 end
-            elseif k=='state' or k=='merge' then
+            else
                 for _, p in ipairs(parents(h)) do
                     rec(p)
                 end
-            else
-                error("bug found : invalid trailer")
             end
         end
         for _, p in ipairs(ps) do

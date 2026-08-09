@@ -83,7 +83,20 @@
     - the commit exists only for ACCEPTED actions
     - trap (3rd time): `{ exec{...} }` captures (out, code)
 - B4: index `.git/index.lua` `{tip, a2c}` replaces the walk
-- B5: trailers die on the write path
+- B5 DONE: trailers die on the write path
+    - post/like/genesis commits carry NO trailer: the envelope
+      is tree + parents + signature only
+    - classification structural: action <=> adds its action
+      file (`ACTION.aid(cid) ~= nil`); kind = the file's
+      `action` field (get.lua)
+    - `ACTION.backs` rec: aid-or-recurse; trailer dispatch +
+      "invalid trailer" error die
+    - destroy: resolution IS the proof-of-action (kind check
+      dropped); report skips non-actions gracefully
+    - `trailer()` kept, marked sync-only (dies at sync phase)
+    - tests: trailer probes -> action-field asserts (cli-like,
+      cli-chains "no trailer", cli-now by %at only); TRAILER
+      helper deleted
 - B6: receive-side validation -> deferred to sync phase
 
 # Next steps (sync phase)

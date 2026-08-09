@@ -95,12 +95,12 @@ do
             cmd = ENV_EXE .. " --now=300 chain '#cli-now' post inline 3 --sign " .. KEY1,
         }
 
-        -- newest first, filter post commits only
+        -- newest first; every commit but the genesis is a post
         local logs = exec {
-            cmd = "git -C " .. DIR .. " log --format='%at %(trailers:key=Freechains,valueonly)'",
+            cmd = "git -C " .. DIR .. " log --format='%at'",
         }
         local ts = {}
-        for t in logs:gmatch("(%d+) post") do
+        for t in logs:gmatch("(%d+)") do
             ts[#ts+1] = tonumber(t)
             if #ts == 4 then
                 break

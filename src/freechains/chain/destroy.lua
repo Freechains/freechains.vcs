@@ -27,15 +27,13 @@ do
     end
 end
 
--- the commit must be part of our history, and must be a post/like/revoke:
--- the `state` commits in between are plumbing, never printed by `list`
+-- the commit must be part of our history (resolution already
+-- proves it is an action: it adds the aid's file)
 do
     local ok = exec { stderr=false, err=false,
         cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. cid .. " HEAD",
     }
-    local kind = trailer(cid)
-    local is_post = (kind=='post' or kind=='like' or kind=='revoke')
-    if (not ok) or (not is_post) then
+    if not ok then
         ERROR("chain destroy : invalid hash")
     end
 end
@@ -55,8 +53,9 @@ do
             (tip .. "..HEAD"),
     }
     for h in out:gmatch("%x+") do
-        if trailer(h) ~= 'state' then
-            print(assert(ACTION.aid(h)))
+        local a = ACTION.aid(h)
+        if a then
+            print(a)
         end
     end
 end

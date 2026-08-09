@@ -13,7 +13,13 @@ do
     end
 end
 
-local kind = trailer(cid)
+-- the action file, fetched ONCE: raw for metadata, parsed for
+-- the payload branch's kind
+local src = exec { trim=false,
+    cmd = "git -C " .. REPO .. " cat-file blob " .. ARGS.aid,
+}
+
+local kind = assert(load(src))().action
 
 -- the single tracked file in this commit (post payload or like Lua).
 -- --cc reduces to the file(s) present in this commit but absent
@@ -45,10 +51,6 @@ if ARGS.payload then
     io.write(out)
 
 elseif ARGS.metadata then
-    -- the metadata IS the action file (serialized Lua): the aid
-    -- names its blob, so one cat-file is the whole answer.
-    -- (resolution above already guarantees an action commit)
-    io.write((exec { trim=false,
-        cmd = "git -C " .. REPO .. " cat-file blob " .. ARGS.aid,
-    }))
+    -- the metadata IS the action file (serialized Lua)
+    io.write(src)
 end

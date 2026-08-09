@@ -14,8 +14,8 @@ if ARGS.dislike or ARGS.revoke then
     num = -num
 end
 
--- the trailer + vote dir distinguish a revoke-axis vote from a
--- like/dislike (see the commit block below)
+-- the action file + vote dir distinguish a revoke-axis vote
+-- from a like/dislike (see the commit block below)
 local kind = (ARGS.revoke or ARGS.unrevoke) and "revoke" or "like"
 
 if ARGS.target == "author" then
@@ -63,8 +63,8 @@ if not pub then
 end
 
 -- commit the vote (content only, no state):
---   like/dislike -> .freechains/likes/   , 'Freechains: like'
---   revoke/unrev -> .freechains/revokes/ , 'Freechains: revoke'
+--   like/dislike -> .freechains/likes/
+--   revoke/unrev -> .freechains/revokes/
 
 local aid      -- own action id, minted with the action file
 local file     -- vote file (unstaged until `apply` accepts)
@@ -132,8 +132,7 @@ do
     local s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=ssh"
     local msg = ARGS.why or "(empty message)"
     exec { stderr=false,
-        cmd = CMD.git .. "git -C " .. REPO .. s1 .. " commit -S -m '" .. msg ..
-                  "' --trailer 'Freechains: " .. kind .. "'",
+        cmd = CMD.git .. "git -C " .. REPO .. s1 .. " commit -S -m '" .. msg .. "'",
         err = "chain " .. kind .. " : invalid sign key",
     }
 end

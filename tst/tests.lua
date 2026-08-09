@@ -94,10 +94,3 @@ function REPS (exe, chain, pub)
     }))
 end
 
--- the `Freechains` trailer of a commit: post, like, revoke or state
-function TRAILER (dir, hash)
-    return (exec {
-        cmd = "git -C " .. dir ..
-            " log -1 --format='%(trailers:key=Freechains,valueonly)' " .. hash,
-    }):match("%S+")
-end
