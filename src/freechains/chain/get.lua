@@ -1,5 +1,4 @@
 require "freechains.chain.common"
-local ssh = require "freechains.chain.ssh"
 
 local cid = ACTION.cid(ARGS.aid)
 if not cid then
@@ -46,44 +45,10 @@ if ARGS.payload then
     io.write(out)
 
 elseif ARGS.metadata then
-    if kind~='post' and kind~='like' and kind~='revoke' then
-        ERROR("chain get : unknown post")
-    end
-
-    local file = commit_file()
-
-    local time = tonumber((exec {
-        cmd = "git -C " .. REPO .. " log -1 --format=%at " .. cid,
-    }))
-
-    -- why: full commit message minus Freechains: trailer
-    local why = exec {
-        cmd = "git -C " .. REPO .. " log -1 --format=%B " .. cid,
-    } :gsub("\n*Freechains:%s*%S+%s*$", "")
-
-    -- action ancestors (aids), straight from the action file:
-    -- the aid IS its blob hash
-    local backs = assert(load(exec {
+    -- the metadata IS the action file (serialized Lua): the aid
+    -- names its blob, so one cat-file is the whole answer.
+    -- (resolution above already guarantees an action commit)
+    io.write((exec { trim=false,
         cmd = "git -C " .. REPO .. " cat-file blob " .. ARGS.aid,
-    }))().backs
-
-    -- value keyed by kind: post -> filename; like/revoke -> vote table
-    local val = file
-    if kind=='like' or kind=='revoke' then
-        local f = exec {
-            cmd = "git -C " .. REPO .. " show " .. cid .. ":" .. file,
-        }
-        val = assert(assert(load(f))())
-    end
-
-    local T = {
-        hash  = ARGS.aid,
-        time  = time,
-        sign  = ssh.pub.commit(REPO, cid) or false,
-        why   = why,
-        backs = backs,
-        --
-        [kind] = val,
-    }
-    io.write(serial(T))
+    }))
 end

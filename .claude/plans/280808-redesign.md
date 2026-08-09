@@ -62,6 +62,16 @@
       (`cat-file blob <aid>`) — no commit walk in readers
     - like keeps the fail-fast `ACTION.cid` existence check
     - tests: cli-begs snapshot posts[] back to direct aids
+- METADATA DONE: `get metadata` = the action file
+    - one `cat-file blob <aid>`; time/why/sign/vote reads die;
+      unused `ssh` require dropped
+    - output shape = the file: `action`, flat `post|author`/`n`,
+      `blob` (not filename), `sign` absent when unsigned
+    - `why` gone from metadata; at payload eviction a vote's
+      payload BECOMES its why (commit messages go empty;
+      `--why` leaves post; why-text deletable like any payload)
+    - trap again: `io.write(exec{...})` prints (out, code) ->
+      parenthesize multi-return calls in argument position
 - B3b (candidate): apply BEFORE commit
     - all T inputs now pre-commit: aid minted, parents = HEAD
       (+ref on beg like); rollbacks + actions/.gitkeep die
