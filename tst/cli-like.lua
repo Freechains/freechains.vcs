@@ -131,10 +131,26 @@ do
             cmd = ENV_EXE .. " chain '#cli-like' dislike 1 post " .. TARGET3 .. " --sign " .. KEY2 .. " --why 'spam content'",
         }
         assert(code == 0, "exit code: " .. tostring(code))
+
+        TEST "why is the vote's payload"
+        local why = exec {
+            cmd = ENV_EXE .. " chain '#cli-like' get payload " .. out,
+        }
+        assert(why == "spam content", "why: " .. why)
+
+        TEST "vote commit message is empty"
         local msg = exec {
             cmd = "git -C " .. DIR .. " log -1 --format=%s HEAD",
         }
-        assert(msg:match("spam content"), "reason not recorded")
+        assert(msg == "(empty message)", "message should be empty: " .. msg)
+    end
+
+    do
+        TEST "vote without why has no payload"
+        FAIL {
+            cmd = ENV_EXE .. " chain '#cli-like' get payload " .. DISLIKE,
+            err = "ERROR : chain get : no payload",
+        }
     end
 end
 

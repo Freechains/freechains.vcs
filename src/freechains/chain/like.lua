@@ -62,7 +62,20 @@ if not pub then
     ERROR("chain " .. kind .. " : invalid sign key")
 end
 
--- the vote IS its action file: nothing else enters the commit
+-- the vote IS its action file: nothing else enters the commit.
+-- `--why` is its OPTIONAL payload: a loose blob outside the
+-- tree, deletable like any payload
+local path = REPO .. ".git/payload-tmp"   -- why staging file
+local blob
+if ARGS.why then
+    local f = io.open(path, "w")
+    f:write(ARGS.why)
+    f:close()
+    -- DRY hash: nothing enters the object db before `apply`
+    blob = exec {
+        cmd = "git -C " .. REPO .. " hash-object " .. path,
+    }
+end
 
 -- the parents of the commit about to be created: `backs` walks
 -- them and `apply` folds its time peak over them
@@ -76,6 +89,7 @@ local aid = ACTION.pre {
     backs  = ACTION.backs(ps),
     sign   = pub,
     time   = tonumber(CMD.now),
+    blob   = blob,
     [ARGS.target] = ARGS.id,
     n      = num,
 }
@@ -105,11 +119,21 @@ end
 
 ACTION.pos(aid)
 
+-- the why enters the object db anchored at its final name
+if blob then
+    exec {
+        cmd = "git -C " .. REPO .. " hash-object -w " .. path,
+    }
+    exec {
+        cmd = "git -C " .. REPO .. " update-ref refs/payloads/" .. aid .. " " .. blob,
+    }
+    os.remove(path)
+end
+
 do
     local s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=ssh"
-    local msg = ARGS.why or "(empty message)"
     exec { stderr=false,
-        cmd = CMD.git .. "git -C " .. REPO .. s1 .. " commit -S -m '" .. msg .. "'",
+        cmd = CMD.git .. "git -C " .. REPO .. s1 .. " commit -S -m '(empty message)'",
         err = "chain " .. kind .. " : invalid sign key",
     }
 end

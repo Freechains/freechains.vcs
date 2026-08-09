@@ -109,11 +109,34 @@
     - tests: cli-post file/inline sections rewritten (payload
       via get, anchor ref, empty worktree, no collisions);
       cli-destroy payload probes -> get-based
-- E2: votes gain payloads; why unification
-    - `--why` = the vote's payload; `get payload` on votes;
-      `--why` leaves post; commit messages go empty
+- E2 DONE: votes gain payloads; why unification
+    - `--why` = the vote's OPTIONAL payload: staged, DRY-hashed
+      into the action file's `blob`, written + anchored at
+      `refs/payloads/<aid>` post-accept (same scheme as post)
+    - `get payload` keyed by `T.blob` presence: posts always,
+      votes with `--why`; else "no payload" (new error)
+    - `--why` leaves post's CLI; commit messages are ALWAYS
+      "(empty message)": no user text in undeletable objects
+    - cost accepted: `git log` no longer informative
+    - tests: cli-post --why section -> reject + empty-msg;
+      cli-like why-as-payload + no-payload; cli-get vote
+      payload errors -> "no payload"
+- REPS UNITS: one currency — CLI speaks internal units
+    - drop the ext/int seam: `reps` prints raw (15450), `like N`
+      takes raw (450); `ext()` + its lying ceil die
+    - `C.reps.unit` leaves the interface (stays as the scale of
+      cost/max constants); guide + tests renumber
+    - rationale: exact integers end to end; the x1000 scale
+      exists for tax/split integrality and is now visible
+- RENAME: `destroy` -> `abandon`
+    - mechanism is local (only your repo changes) but the
+      meaning is global: resolving a hard fork by abandoning
+      your sub-history to become compatible with the settled
+      one (and incompatible with the abandoned one)
+    - CLI command, destroy.lua -> abandon.lua, error strings,
+      rockspec module, tests
 - E3: deletion becomes real
-    - revoke deletes `refs/payloads/<aid>`; destroy cleans
+    - revoke deletes `refs/payloads/<aid>`; abandon cleans
       orphaned payload refs; gc policy decision
 - S6a DONE: drop `.freechains/` + skel dies (unblocked by E1)
     - tree root = `actions/` (sharded `ab/<aid>.lua`),

@@ -148,7 +148,6 @@ do
     -- cmd.chain.post
     cmd.chain.post._ = cmd.chain._:command("post")
     cmd.chain.post._:option("--sign"):args("?"):action(sign)
-    cmd.chain.post._:option("--why")
     cmd.chain.post._:flag("--beg")
     do
         -- cmd.chain.post.file

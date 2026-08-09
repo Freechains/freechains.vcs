@@ -17,8 +17,9 @@ end
 
 if ARGS.payload then
     local T = assert(load(src))()
-    if T.action ~= "post" then
-        ERROR("chain get : unknown post")
+    -- a post always has a payload; a vote only with `--why`
+    if not T.blob then
+        ERROR("chain get : no payload")
     end
 
     if G.posts[ARGS.aid] and is_revoked(G.posts[ARGS.aid]) then

@@ -104,38 +104,21 @@ do
     end
 end
 
--- POST --why
+-- POST --why: gone -- a post's payload IS its text, and no user
+-- text may live in the (undeletable) commit message
 do
     print("==> freechains chain post --why")
 
     do
-        TEST "inline --why sets commit message"
-        exec {
-            cmd = ENV_EXE .. " chain '#cli-post' post inline 'some text' --sign " .. KEY1 .. " --why 'reason for posting'",
+        TEST "post rejects --why"
+        local _, code = exec { err=false, stderr=false,
+            cmd = ENV_EXE .. " chain '#cli-post' post inline 'some text' --sign " .. KEY1 .. " --why 'reason'",
         }
-        local msg = exec {
-            cmd = "git -C " .. DIR .. " log -1 --format=%s HEAD",
-        }
-        assert(msg == "reason for posting", "commit message: " .. msg)
+        assert(code ~= 0, "--why should be rejected")
     end
 
     do
-        TEST "file --why sets commit message"
-        local tmp = TMP .. "/why-test.txt"
-        local f = io.open(tmp, "w")
-        f:write("why test content\n")
-        f:close()
-        exec {
-            cmd = ENV_EXE .. " chain '#cli-post' post file " .. tmp .. " --sign " .. KEY1 .. " --why 'file reason'",
-        }
-        local msg = exec {
-            cmd = "git -C " .. DIR .. " log -1 --format=%s HEAD",
-        }
-        assert(msg == "file reason", "commit message: " .. msg)
-    end
-
-    do
-        TEST "post without --why has empty message"
+        TEST "post commit message is always empty"
         exec {
             cmd = ENV_EXE .. " chain '#cli-post' post inline 'no reason' --sign " .. KEY1,
         }

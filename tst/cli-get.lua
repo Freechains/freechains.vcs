@@ -50,18 +50,18 @@ do
     end
 
     do
-        TEST "payload of like"
+        TEST "payload of like (no --why): none"
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-get' get payload " .. LIKE,
-            err = "ERROR : chain get : unknown post",
+            err = "ERROR : chain get : no payload",
         }
     end
 
     do
-        TEST "payload of revoke"
+        TEST "payload of revoke (no --why): none"
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-get' get payload " .. REVOKE,
-            err = "ERROR : chain get : unknown post",
+            err = "ERROR : chain get : no payload",
         }
     end
 

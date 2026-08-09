@@ -86,9 +86,8 @@ do
         s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=ssh"
         s2 = " -S"
     end
-    local msg = ARGS.why or "(empty message)"
     exec { stderr=false,
-        cmd = CMD.git .. "git -C " .. REPO .. s1 .. " commit" .. s2 .. " -m '" .. msg .. "'",
+        cmd = CMD.git .. "git -C " .. REPO .. s1 .. " commit" .. s2 .. " -m '(empty message)'",
         err = "chain post : invalid sign key",
     }
 end
