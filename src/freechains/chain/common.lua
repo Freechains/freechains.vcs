@@ -81,6 +81,23 @@ function snap (G, is_ref, rev)
     f:close()
 end
 
+-- the state RECORDED at `rev`: the local snapshot
+--  - is_ref = true  : rev is a ref (HEAD)
+--  - is_ref = false : rev is a hash
+function STATE (is_ref, rev)
+    local hash = rev
+    if is_ref then
+        hash = exec {
+            cmd = "git -C " .. REPO .. " rev-parse " .. rev,
+        }
+    end
+    local f = assert(
+        loadfile(REPO .. ".git/states/" .. hash .. ".lua"),
+        "bug found : no snapshot : " .. hash
+    )
+    return f()
+end
+
 -- REVOKED when either the author's or the community's net revoke sum is negative.
 function is_revoked (p)
     local r = p.revoke or {}
@@ -116,16 +133,13 @@ local function TIME (hash)
     })))
 end
 
--- the peak RECORDED in a commit's tree (`state/now.lua`): the newest
--- time among all of its ancestors. Derived, never trusted: `commit` in
--- sync.lua checks every stored value against its parents' before using
--- it. Only `state` commits are current -- a post/like may just ADD
--- files, so its tree still holds the previous state commit's value.
+-- the peak RECORDED at a commit (`now`): the newest time among all of
+-- its ancestors. Derived, never trusted: `commit` in consensus.lua
+-- checks every stored value against its parents' before using it.
+-- Only `state` commits are current -- a post/like may just ADD
+-- files, so its state is still the previous state commit's value.
 function PEAK (hash)
-    local src = exec {
-        cmd = "git -C " .. REPO .. " show " .. hash .. ":.freechains/state/now.lua",
-    }
-    return load(src)()
+    return STATE(false, hash).now
 end
 
 -- the peak COMPUTED over a set of commits: the peak each one recorded,

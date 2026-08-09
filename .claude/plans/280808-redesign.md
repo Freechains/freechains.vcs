@@ -28,10 +28,15 @@
       (beg: snapped before the reset)
     - `mkdir .git/states/` in `git_init`
     - sync untouched; nothing reads snapshots yet
-- L2: local reads of snaps
-    - `PEAK`, init.lua startup `G`, destroy restore,
-      like-on-beg entry
-    - miss -> lazy fallback: read tree state, snap it
+- L2 DONE: local reads of snaps
+    - `STATE(rev)` in common.lua: snapshot at rev, no fallback
+      (missing snapshot = "bug found")
+    - `PEAK` = `STATE(hash).now`
+    - init.lua startup `G` = `STATE("HEAD")`
+    - like-on-beg entry = `STATE(ref).posts[id]`
+    - no backcompat: old chains unsupported; sync recv leaves
+      unsnapped tips -> sync tests may fail (accepted)
+    - destroy unchanged: reset still restores tree state (L3)
 - L3: remove state commits + tree state from local writers
     - possible w/o aid redesign: snapshot written AFTER commit,
       cid known -> no cycle

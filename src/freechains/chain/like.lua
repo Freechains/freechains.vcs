@@ -49,10 +49,7 @@ if to_beg then
     G.order[#G.order+1] = exec {
         cmd = "git -C " .. REPO .. " rev-parse " .. ref .. "~1",   -- beg post
     }
-    local src = exec {
-        cmd = "git -C " .. REPO .. " show " .. ref .. ":.freechains/state/posts.lua",
-    }
-    G.posts[ARGS.id] = load(src)()[ARGS.id]
+    G.posts[ARGS.id] = STATE(true, ref).posts[ARGS.id]
 end
 
 -- commit the vote (content only, no state). The trailer + dir

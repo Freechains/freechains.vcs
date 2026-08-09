@@ -13,12 +13,7 @@ if ARGS.sync then
 elseif ARGS.destroy then
     require "freechains.chain.destroy"
 else
-    G = {
-        authors = dofile(FC .. "state/authors.lua"),
-        posts   = dofile(FC .. "state/posts.lua"),
-        order   = dofile(FC .. "state/order.lua"),
-        now     = PEAK("HEAD"),
-    }
+    G = STATE(true, "HEAD")
 
     if ARGS.list then
         require "freechains.chain.list"
