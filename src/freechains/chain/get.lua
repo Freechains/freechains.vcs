@@ -7,7 +7,7 @@ require "freechains.chain.common"
 local src
 do
     local f = ARGS.aid:match("^%x+$") and
-        io.open(FC .. "actions/" .. ARGS.aid .. ".lua")
+        io.open(REPO .. ACTION.path(ARGS.aid))
     if not f then
         ERROR("chain get : unknown post")
     end

@@ -115,6 +115,18 @@
 - E3: deletion becomes real
     - revoke deletes `refs/payloads/<aid>`; destroy cleans
       orphaned payload refs; gc policy decision
+- S6a DONE: drop `.freechains/` + skel dies (unblocked by E1)
+    - tree root = `actions/` (sharded `ab/<aid>.lua`),
+      `genesis.lua`, `random`; FC constant dies
+    - `ACTION.path(aid)` helper; `aid()` pathspec dropped,
+      pattern `actions/%x+/(%x+)%.lua`; `pos` mkdirs the bucket
+    - skel deleted: `chains add` mkdirs `actions/` + writes
+      `.gitkeep` + `random` + `genesis.lua` directly, `add .`
+    - `write(G)` deleted (sync-only; its dirs are gone)
+    - `random` STAYS (protocol: genesis uniqueness seed)
+    - tests: paths updated (tests.lua CID, cli-post, cli-like,
+      cli-chains); cli-post empty-worktree assert lists the
+      three internals
 - B5 DONE: trailers die on the write path
     - post/like/genesis commits carry NO trailer: the envelope
       is tree + parents + signature only

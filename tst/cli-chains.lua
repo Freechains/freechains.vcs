@@ -18,7 +18,7 @@ do
         assert(out:match("^#%x+$"), "hash is hex")
 
         TEST "genesis file"
-        local gen = DIR .. "/.freechains/genesis.lua"
+        local gen = DIR .. "/genesis.lua"
         local _, code = exec {
             cmd = "diff -q " .. GEN_0 .. " " .. gen,
         }
@@ -246,7 +246,7 @@ do
         assert(out:match("^#%x+$"), "hash is hex")
 
         TEST "inline genesis"
-        local gen = ROOT .. "/chains/#inl-chat/.freechains/genesis.lua"
+        local gen = ROOT .. "/chains/#inl-chat/genesis.lua"
         local t = dofile(gen)
         assert(t.type == "#", "type: " .. tostring(t.type))
         assert(t.name == "#inl-chat", "name: " .. tostring(t.name))
@@ -268,7 +268,7 @@ do
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 41, "hash length: " .. #out)
 
-        local gen = ROOT .. "/chains/#inl-default/.freechains/genesis.lua"
+        local gen = ROOT .. "/chains/#inl-default/genesis.lua"
         local t = dofile(gen)
         assert (
             t.pioneers and t.pioneers[1] == PUB1

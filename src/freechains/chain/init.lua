@@ -1,7 +1,7 @@
 require "freechains.chain.common"
 
 do
-    local f = io.open(FC .. "/genesis.lua")
+    local f = io.open(REPO .. "genesis.lua")
     if not f then
         ERROR("chain " .. ARGS.alias .. " : not found")
     end

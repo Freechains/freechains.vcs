@@ -1,6 +1,5 @@
 C    = require "freechains.constants"
 REPO = ARGS.root .. "/chains/" .. ARGS.alias .. "/"
-FC   = REPO .. ".freechains/"
 
 -- the git parents of `hash`: one step back in the DAG, no time
 -- involved. Returns an array (empty for a root).
@@ -16,19 +15,6 @@ function parents (hash)
     end
     table.remove(ps, 1)
     return ps
-end
-
-function write (G)
-    local function f (V, file)
-        local f = io.open(file, "w")
-        f:write(serial(V))
-        f:close()
-    end
-
-    f(G.authors, FC .. "state/authors.lua")
-    f(G.posts,   FC .. "state/posts.lua")
-    f(G.order,   FC .. "state/order.lua")
-    f(G.now,     FC .. "state/now.lua")
 end
 
 -- local state snapshots, one per state commit:
@@ -67,17 +53,22 @@ STATE = {
 }
 
 -- action files: one per action, inside the action commit itself:
---  - `.freechains/actions/<aid>.lua`
+--  - `actions/ab/<aid>.lua` (256 mechanical buckets: git stores
+--    a tree object whole, so one flat dir would cost O(n^2))
 --  - aid = git blob hash of the file, minted BEFORE the commit
 ACTION = {
+    -- tree path of action `aid`
+    path = function (aid)
+        return "actions/" .. aid:sub(1, 2) .. "/" .. aid .. ".lua"
+    end,
+
     -- aid(cid): cid -> aid : aid of the action commit cid
     aid = function (cid)
         local out = exec { err=false, stderr=false,
             cmd = "git -C " .. REPO ..
-                " diff-tree --cc --no-commit-id -r --name-only " .. cid ..
-                " -- .freechains/actions/", -- TODO : remove
+                " diff-tree --cc --no-commit-id -r --name-only " .. cid,
         }
-        return out and out:match("actions/(%x+)%.lua")
+        return out and out:match("actions/%x+/(%x+)%.lua")
     end,
 
     -- cid(aid): aid -> cid : the commit that added action `aid`,
@@ -85,7 +76,7 @@ ACTION = {
         local out = exec { err=false, stderr=false,
             cmd = "git -C " .. REPO ..
                 " log --all --full-history -m --diff-filter=A --format=%H" ..
-                " -- .freechains/actions/" .. aid .. ".lua",
+                " -- " .. ACTION.path(aid),
         }
         if not out then
             return nil
@@ -139,14 +130,16 @@ ACTION = {
         })
     end,
 
-    -- place + stage the minted action file
+    -- place + stage the minted action file (the bucket dir may
+    -- not exist yet -- or may have been emptied by a reset)
     pos = function (aid)
-        os.rename(
-            REPO .. ".git/action-tmp.lua",
-            REPO .. ".freechains/actions/" .. aid .. ".lua"
-        )
+        local path = ACTION.path(aid)
         exec {
-            cmd = "git -C " .. REPO .. " add .freechains/actions/" .. aid .. ".lua",
+            cmd = "mkdir -p " .. REPO .. "actions/" .. aid:sub(1, 2) .. "/",
+        }
+        os.rename(REPO .. ".git/action-tmp.lua", REPO .. path)
+        exec {
+            cmd = "git -C " .. REPO .. " add " .. path,
         }
     end,
 }

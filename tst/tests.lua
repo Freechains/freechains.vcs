@@ -41,7 +41,7 @@ function CID (dir, aid)
     local out = exec {
         cmd = "git -C " .. dir ..
             " log --all --full-history -m --diff-filter=A --format=%H" ..
-            " -- .freechains/actions/" .. aid .. ".lua",
+            " -- actions/" .. aid:sub(1, 2) .. "/" .. aid .. ".lua",
     }
     -- `-m` also lists merges that bring the file in: oldest wins
     local cid

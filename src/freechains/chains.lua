@@ -33,7 +33,7 @@ local function git_init (dir)
 end
 
 local function pioneers (dir)
-    local T = dofile(dir .. ".freechains/genesis.lua")
+    local T = dofile(dir .. "genesis.lua")
     local A = {}
     if T.pioneers then
         local n = C.reps.max // #T.pioneers
@@ -103,19 +103,16 @@ if ARGS.add then
             err = "chains add : init failed",
         }
         git_init(tmp)
-        exec {
-            cmd = "cp -r " .. HERE .. "/skel/. " .. tmp .. "/",
-        }
         do
-            local f = io.open(tmp .. "/.freechains/random", "w")
+            local f = io.open(tmp .. "/random", "w")
             f:write(tostring(rand) .. "\n")
             f:close()
         end
         exec {
-            cmd = "cp " .. ARGS.path .. " " .. tmp .. "/.freechains/genesis.lua",
+            cmd = "cp " .. ARGS.path .. " " .. tmp .. "/genesis.lua",
         }
         exec {
-            cmd = "git -C " .. tmp .. " add .freechains/",
+            cmd = "git -C " .. tmp .. " add .",
         }
         exec {
             cmd = CMD.git .. "git -C " .. tmp .. " commit -m '(empty message)'",

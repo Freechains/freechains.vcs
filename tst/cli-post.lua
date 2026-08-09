@@ -51,9 +51,9 @@ do
     do
         TEST "genesis still in tree"
         local _, code = exec {
-            cmd = "test -f " .. DIR .. "/.freechains/genesis.lua",
+            cmd = "test -f " .. DIR .. "/genesis.lua",
         }
-        assert(code == 0, ".freechains/genesis.lua missing")
+        assert(code == 0, "genesis.lua missing")
     end
 
     do
@@ -96,10 +96,11 @@ do
 
     do
         TEST "worktree carries no user files"
-        local files = exec {
+        local files = exec { trim=false,
             cmd = "ls " .. DIR,
         }
-        assert(files == "", "expected empty root: " .. files)
+        assert(files == "actions\ngenesis.lua\nrandom\n",
+            "expected internals only: " .. files)
     end
 end
 

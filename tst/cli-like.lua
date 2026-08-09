@@ -69,7 +69,7 @@ do
             cmd = "git -C " .. DIR .. " diff-tree --cc --no-commit-id -r --name-only " .. CID(DIR, LIKE),
         }
         assert(
-            files == ".freechains/actions/" .. LIKE .. ".lua",
+            files == "actions/" .. LIKE:sub(1, 2) .. "/" .. LIKE .. ".lua",
             "expected only the action file: " .. files
         )
     end
