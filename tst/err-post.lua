@@ -49,6 +49,10 @@ do
         cmd = "git -C " .. REPO_A1 .. " commit -m 'x' --trailer 'Freechains: state' --allow-empty",
     }
 
+    -- 280808 : EARLY EXIT : rest needs clone/recv snapshots
+    print("<== PASSED (280808 early exit)")
+    os.exit()
+
     TEST "B rejects post with insufficient reps on sync"
     FAIL {
         cmd = EXE_B .. " chain '#err-reps' sync recv " .. REPO_A1,

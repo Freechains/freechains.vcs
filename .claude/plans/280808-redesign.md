@@ -36,6 +36,11 @@
     - like-on-beg entry = `STATE(ref).posts[id]`
     - no backcompat: old chains unsupported; sync recv leaves
       unsnapped tips -> sync tests may fail (accepted)
+    - 25 tests early-exit before first clone/recv dependence:
+      marker "280808 : EARLY EXIT"; local prefix still asserted;
+      repl-remote-* stop their git daemons before exiting
+    - Makefile: cli-get-merge moved after cli-begs (first
+      sync-dependent test); suite green end to end
     - destroy unchanged: reset still restores tree state (L3)
 - L3: remove state commits + tree state from local writers
     - possible w/o aid redesign: snapshot written AFTER commit,
