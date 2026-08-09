@@ -64,19 +64,14 @@ do
     end
 
     do
-        TEST "like-payload-file"
-        local cid = CID(DIR, LIKE)
-        local file = exec {
-            cmd = "git -C " .. DIR .. " diff-tree --no-commit-id --name-only -r " .. cid .. " -- .freechains/likes/",
+        TEST "like-commit-is-action-file-only"
+        local files = exec {
+            cmd = "git -C " .. DIR .. " diff-tree --cc --no-commit-id -r --name-only " .. CID(DIR, LIKE),
         }
-        assert(file ~= "", "like payload file missing")
-        local out = exec {
-            cmd = "git -C " .. DIR .. " show " .. cid .. ":" .. file,
-        }
-        local tbl = load(out)()
-        assert(tbl.post == POST, "post: " .. tostring(tbl.post))
-        assert(tbl.author == nil, "author should be unset")
-        assert(tbl.n == 1000, "n: " .. tostring(tbl.n))
+        assert(
+            files == ".freechains/actions/" .. LIKE .. ".lua",
+            "expected only the action file: " .. files
+        )
     end
 
     do

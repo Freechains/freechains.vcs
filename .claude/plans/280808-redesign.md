@@ -82,6 +82,12 @@
       on a beg like); reset rollbacks die
     - the commit exists only for ACCEPTED actions
     - trap (3rd time): `{ exec{...} }` captures (out, code)
+- VOTE FILES DONE: `.freechains/likes|revokes/` die
+    - a vote commit = its action file, nothing else
+    - like.lua: payload write, `file` var, add, reject-remove
+      all gone; skel loses both dirs
+    - genesis tree = actions/.gitkeep + genesis.lua + random
+    - tests: like-payload-file -> action-file-only diff assert
 - B4: index `.git/index.lua` `{tip, a2c}` replaces the walk
 - B5 DONE: trailers die on the write path
     - post/like/genesis commits carry NO trailer: the envelope

@@ -62,42 +62,23 @@ if not pub then
     ERROR("chain " .. kind .. " : invalid sign key")
 end
 
--- commit the vote (content only, no state):
---   like/dislike -> .freechains/likes/
---   revoke/unrev -> .freechains/revokes/
-
-local aid      -- own action id, minted with the action file
-local file     -- vote file (unstaged until `apply` accepts)
+-- the vote IS its action file: nothing else enters the commit
 
 -- the parents of the commit about to be created: `backs` walks
 -- them and `apply` folds its time peak over them
 local ps = to_beg and { "HEAD", ref } or { "HEAD" }
 
-do
-    local payload = [[
-        return {
-            ]] .. ARGS.target .. [[ = "]] .. ARGS.id .. [[",
-            n      = ]] .. num .. [[,
-        }
-    ]]
-    local rand = math.random(0, 9999999999)
-    file = ".freechains/" .. kind .. "s/" .. kind .. "-" .. CMD.now .. "-" .. rand .. ".lua"
-    local f = io.open(REPO .. file, "w")
-    f:write(payload)
-    f:close()
-
-    -- action file: self-description; minted BEFORE the commit;
-    -- a beg like backs both sides of its merge.
-    -- ARGS.id is already the aid (or a pubkey): stored as is
-    aid = ACTION.pre {
-        action = kind,
-        backs  = ACTION.backs(ps),
-        sign   = pub,
-        time   = tonumber(CMD.now),
-        [ARGS.target] = ARGS.id,
-        n      = num,
-    }
-end
+-- action file: self-description; minted BEFORE the commit;
+-- a beg like backs both sides of its merge.
+-- ARGS.id is already the aid (or a pubkey): stored as is
+local aid = ACTION.pre {
+    action = kind,
+    backs  = ACTION.backs(ps),
+    sign   = pub,
+    time   = tonumber(CMD.now),
+    [ARGS.target] = ARGS.id,
+    n      = num,
+}
 
 -- apply BEFORE the commit: a rejected vote leaves nothing;
 -- an in-progress beg merge is aborted
@@ -112,7 +93,6 @@ do
     }
     local ok, err = apply(G, kind, CMD.now, T)
     if not ok then
-        os.remove(REPO .. file)
         if to_beg then
             exec {
                 cmd = "git -C " .. REPO .. " merge --abort",
@@ -123,9 +103,6 @@ do
     G.order[#G.order+1] = aid
 end
 
-exec {
-    cmd = "git -C " .. REPO .. " add " .. file,
-}
 ACTION.pos(aid)
 
 do
