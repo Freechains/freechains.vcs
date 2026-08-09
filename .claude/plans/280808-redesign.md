@@ -114,13 +114,18 @@
       into the action file's `blob`, written + anchored at
       `refs/payloads/<aid>` post-accept (same scheme as post)
     - `get payload` keyed by `T.blob` presence: posts always,
-      votes with `--why`; else "no payload" (new error)
-    - `--why` leaves post's CLI; commit messages are ALWAYS
-      "(empty message)": no user text in undeletable objects
+      votes with `--why`; else empty output (uniform with an
+      empty post payload; "no payload" error dropped)
+    - `--why` leaves post's CLI; commit messages are TRULY
+      empty (`--allow-empty-message -m ''`): no user text in
+      undeletable objects, no placeholder either
     - cost accepted: `git log` no longer informative
     - tests: cli-post --why section -> reject + empty-msg;
-      cli-like why-as-payload + no-payload; cli-get vote
-      payload errors -> "no payload"
+      cli-like why-as-payload + empty-payload; cli-get vote
+      payloads -> empty output
+    - parked: err-post/err-like forgery gsubs on
+      "(empty message)" match nothing now -> new tamper
+      vector needed at sync phase
 - REPS UNITS: one currency — CLI speaks internal units
     - drop the ext/int seam: `reps` prints raw (15450), `like N`
       takes raw (450); `ext()` + its lying ceil die
@@ -235,7 +240,7 @@
 - state commits themselves: action + state join into one commit (S9)
 - payloads (post content, like `--why`): out of the tree (S10)
 - trailers (`Freechains:` kind): classification derived from tree (S11a)
-- commit messages: empty placeholder, no user text
+- commit messages: truly empty (no placeholder), no user text
 - `.freechains/` prefix, `.gitattributes`, `.gitignore`, skel
 
 # What enters commits

@@ -125,7 +125,7 @@ do
         local msg = exec {
             cmd = "git -C " .. DIR .. " log -1 --format=%s HEAD",
         }
-        assert(msg == "(empty message)", "commit message should be empty: " .. msg)
+        assert(msg == "", "commit message should be empty: " .. msg)
     end
 end
 

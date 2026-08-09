@@ -87,7 +87,7 @@ do
         s2 = " -S"
     end
     exec { stderr=false,
-        cmd = CMD.git .. "git -C " .. REPO .. s1 .. " commit" .. s2 .. " -m '(empty message)'",
+        cmd = CMD.git .. "git -C " .. REPO .. s1 .. " commit" .. s2 .. " --allow-empty-message -m ''",
         err = "chain post : invalid sign key",
     }
 end

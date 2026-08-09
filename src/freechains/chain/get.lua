@@ -16,21 +16,20 @@ do
 end
 
 if ARGS.payload then
-    local T = assert(load(src))()
-    -- a post always has a payload; a vote only with `--why`
-    if not T.blob then
-        ERROR("chain get : no payload")
-    end
-
     if G.posts[ARGS.aid] and is_revoked(G.posts[ARGS.aid]) then
         ERROR("chain get : revoked post")
     end
 
-    -- the payload is the blob the action file pins: never in a
-    -- tree, anchored by refs/payloads/<aid>
-    io.write((exec { trim=false,
-        cmd = "git -C " .. REPO .. " cat-file blob " .. T.blob,
-    }))
+    local T = assert(load(src))()
+
+    local pay = ""
+    if T.blob then
+        pay = exec { trim=false,
+            cmd = "git -C " .. REPO .. " cat-file blob " .. T.blob,
+        }
+    end
+
+    io.write(pay)
 
 elseif ARGS.metadata then
     -- the metadata IS the action file (serialized Lua)

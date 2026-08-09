@@ -115,7 +115,7 @@ if ARGS.add then
             cmd = "git -C " .. tmp .. " add .",
         }
         exec {
-            cmd = CMD.git .. "git -C " .. tmp .. " commit -m '(empty message)'",
+            cmd = CMD.git .. "git -C " .. tmp .. " commit --allow-empty-message -m ''",
         }
 
         local gen = exec {

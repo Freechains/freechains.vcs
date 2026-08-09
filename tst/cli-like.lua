@@ -142,15 +142,16 @@ do
         local msg = exec {
             cmd = "git -C " .. DIR .. " log -1 --format=%s HEAD",
         }
-        assert(msg == "(empty message)", "message should be empty: " .. msg)
+        assert(msg == "", "message should be empty: " .. msg)
     end
 
     do
-        TEST "vote without why has no payload"
-        FAIL {
+        TEST "vote without why has empty payload"
+        local pay, code = exec {
             cmd = ENV_EXE .. " chain '#cli-like' get payload " .. DISLIKE,
-            err = "ERROR : chain get : no payload",
         }
+        assert(code == 0, "exit code: " .. tostring(code))
+        assert(pay == "", "payload should be empty: " .. pay)
     end
 end
 

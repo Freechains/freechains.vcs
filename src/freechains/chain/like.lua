@@ -66,6 +66,7 @@ end
 -- `--why` is its OPTIONAL payload: a loose blob outside the
 -- tree, deletable like any payload
 local path = REPO .. ".git/payload-tmp"   -- why staging file
+
 local blob
 if ARGS.why then
     local f = io.open(path, "w")
@@ -133,7 +134,7 @@ end
 do
     local s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=ssh"
     exec { stderr=false,
-        cmd = CMD.git .. "git -C " .. REPO .. s1 .. " commit -S -m '(empty message)'",
+        cmd = CMD.git .. "git -C " .. REPO .. s1 .. " commit -S --allow-empty-message -m ''",
         err = "chain " .. kind .. " : invalid sign key",
     }
 end
