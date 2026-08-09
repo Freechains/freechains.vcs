@@ -2,6 +2,22 @@
 
 - sources: `trash/b803-260802-redesign.md`, `trash/b807-260807-redesign.md`
 
+# Done (already on main)
+
+- `chain/consensus.lua` extracted from sync.lua
+    - `octopus`, `consensus`, `commit`, `replay` (climb/meet)
+- FF special-casing removed from recv
+    - unified into diverge path
+    - post-replay hardfork check
+    - state probe after final ref update
+- snap writes landed then REVERTED (563a745)
+    - only `git_config` -> `git_init` refactor kept
+- `tmp/` -> `.git/` (allowed_signers scratch)
+- fixes: clone drops pending begs, clock skew (pinned `GIT_*_DATE`)
+- `tst/trash/bug-forged-state.lua`: 4 holes proven red, parked
+- NOT present: snapshots, backfill, `.git/index.lua`,
+  `actions/<aid>.lua`; trailers + 4-file `state/` tree still live
+
 # What leaves commits
 
 - state (`state.lua` / `state/`): no longer committed at all (S15)
