@@ -26,31 +26,6 @@ function parents (hash)
     return ps
 end
 
--- post/like/revoke ancestors of `hash`: `parents` recursed through
--- `state` (and `merge`) commits, which are plumbing the protocol does
--- not expose. Returns an array of hashes (dedup'd).
-function backs (hash)
-    local ret = {}
-    local see = {}
-    local function rec (h)
-        for _, p in ipairs(parents(h)) do
-            local k = trailer(p)
-            if k=='post' or k=='like' or k=='revoke' then
-                if not see[p] then
-                    see[p] = true
-                    ret[#ret+1] = p
-                end
-            elseif k=='state' or k=='merge' then
-                rec(p)
-            else
-                error("bug found : invalid trailer")
-            end
-        end
-    end
-    rec(hash)
-    return ret
-end
-
 function write (G)
     local function f (V, file)
         local f = io.open(file, "w")

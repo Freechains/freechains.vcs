@@ -61,12 +61,11 @@ elseif ARGS.metadata then
         cmd = "git -C " .. REPO .. " log -1 --format=%B " .. cid,
     } :gsub("\n*Freechains:%s*%S+%s*$", "")
 
-    -- action ancestors as aids (the CLI surface): the commit walk,
-    -- each back mapped to its action file
-    local backs = backs(cid)
-    for i, b in ipairs(backs) do
-        backs[i] = assert(ACTION.aid(b))
-    end
+    -- action ancestors (aids), straight from the action file:
+    -- the aid IS its blob hash
+    local backs = assert(load(exec {
+        cmd = "git -C " .. REPO .. " cat-file blob " .. ARGS.aid,
+    }))().backs
 
     -- value keyed by kind: post -> filename; like/revoke -> vote table
     local val = file
