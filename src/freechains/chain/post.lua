@@ -85,6 +85,7 @@ end
 -- apply with real cid
 do
     local T = {
+        aid  = aid,
         cid  = cid,
         sign = pub,
         beg  = ARGS.beg,
@@ -96,7 +97,7 @@ do
         }
         ERROR("chain post : " .. err)
     end
-    G.order[#G.order+1] = cid
+    G.order[#G.order+1] = aid
 end
 
 -- snapshot state at the new tip (the action commit itself)

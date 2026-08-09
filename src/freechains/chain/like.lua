@@ -33,16 +33,6 @@ local to_beg = (
         } and true
 )
 
--- ARGS.id is an aid (post target) or a pubkey (author target);
--- internals are commit-keyed: `tid` is the target's commit.
-local tid = ARGS.id
-if ARGS.target == "post" then
-    tid = ACTION.cid(ARGS.id)
-    if not tid then
-        ERROR("chain " .. kind .. " : invalid target : post not found")
-    end
-end
-
 -- beg: validate parent, merge into main, load beg entry
 -- (the ref is named by the beg's aid)
 local ref = "refs/begs/beg-" .. ARGS.id
@@ -61,8 +51,8 @@ if to_beg then
     exec {
         cmd = "git -C " .. REPO .. " merge --no-ff --no-commit --no-edit " .. ref,
     }
-    G.order[#G.order+1] = tid   -- beg post commit
-    G.posts[tid] = STATE.read(true, ref).posts[tid]
+    G.order[#G.order+1] = ARGS.id   -- beg post
+    G.posts[ARGS.id] = STATE.read(true, ref).posts[ARGS.id]
 end
 
 -- the writer's own pubkey, read from the `.pub` file BEFORE the
@@ -122,7 +112,8 @@ end
 -- apply
 do
     local T = {
-        [ARGS.target] = tid,
+        [ARGS.target] = ARGS.id,
+        aid  = aid,
         cid  = cid,
         sign = pub,
         n    = num,
@@ -135,7 +126,7 @@ do
         }
         ERROR("chain " .. kind .. " : " .. err)
     end
-    G.order[#G.order+1] = cid
+    G.order[#G.order+1] = aid
 end
 
 -- snapshot state at the new tip (the action commit itself)

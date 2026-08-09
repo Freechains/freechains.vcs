@@ -35,7 +35,7 @@ if ARGS.payload then
         ERROR("chain get : unknown post")
     end
 
-    if G.posts[cid] and is_revoked(G.posts[cid]) then
+    if G.posts[ARGS.aid] and is_revoked(G.posts[ARGS.aid]) then
         ERROR("chain get : revoked post")
     end
 

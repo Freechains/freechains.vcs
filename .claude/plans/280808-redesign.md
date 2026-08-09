@@ -53,9 +53,18 @@
     - get metadata: field `hash` kept, value = aid
     - tests: `CID`/`AID` helpers; probes translated in
       cli-sign, cli-like, cli-begs, cli-destroy
-- B3: G keyed by aid
+- B3 DONE: G keyed by aid
     - `apply` takes `T.aid` (`T.cid` stays for PEAKS);
-      translations die; get backs + dag ups from action files
+      `T.post` is an aid; posts/order hold aids
+    - translations die: like `tid`, get/reps lookups,
+      list order/revokes/dag maps
+    - get backs + dag ups from the action file
+      (`cat-file blob <aid>`) — no commit walk in readers
+    - like keeps the fail-fast `ACTION.cid` existence check
+    - tests: cli-begs snapshot posts[] back to direct aids
+- B3b (candidate): apply BEFORE commit
+    - all T inputs now pre-commit: aid minted, parents = HEAD
+      (+ref on beg like); rollbacks + actions/.gitkeep die
 - B4: index `.git/index.lua` `{tip, a2c}` replaces the walk
 - B5: trailers die on the write path
 - B6: receive-side validation -> deferred to sync phase

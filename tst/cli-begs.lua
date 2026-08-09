@@ -52,7 +52,7 @@ do
     do
         TEST "beg-not-in-main-posts"
         local posts = STATE(DIR1).posts
-        assert(not posts[CID(DIR1, BEG)], "beg should not be in main posts")
+        assert(not posts[BEG], "beg should not be in main posts")
     end
 
     -- only a positive `like` accepts a beg; other votes cannot act on
@@ -218,9 +218,8 @@ do
     do
         TEST "like-beg-unblocks"
         local posts = STATE(DIR4).posts
-        local bid = CID(DIR4, BEG)
-        assert(posts[bid], "post entry not found: " .. BEG)
-        assert(posts[bid].maturity ~= "beg", "maturity should no longer be beg")
+        assert(posts[BEG], "post entry not found: " .. BEG)
+        assert(posts[BEG].maturity ~= "beg", "maturity should no longer be beg")
     end
 
     do

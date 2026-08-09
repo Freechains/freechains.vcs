@@ -8,11 +8,9 @@ if ARGS.begs then
     end
 
 elseif ARGS.order then
-    -- consensus order; revoked posts wrapped in ~aid~
-    -- (G.order is commit-keyed; the CLI speaks aids)
-    for _, cid in ipairs(G.order) do
-        local aid = assert(ACTION.aid(cid))
-        if G.posts[cid] and is_revoked(G.posts[cid]) then
+    -- consensus order (aids); revoked posts wrapped in ~aid~
+    for _, aid in ipairs(G.order) do
+        if G.posts[aid] and is_revoked(G.posts[aid]) then
             print("~" .. aid .. "~")
         else
             print(aid)
@@ -21,9 +19,9 @@ elseif ARGS.order then
 
 elseif ARGS.revokes then
     -- revoked posts only, in consensus order (bare aids)
-    for _, cid in ipairs(G.order) do
-        if G.posts[cid] and is_revoked(G.posts[cid]) then
-            print(assert(ACTION.aid(cid)))
+    for _, aid in ipairs(G.order) do
+        if G.posts[aid] and is_revoked(G.posts[aid]) then
+            print(aid)
         end
     end
 
@@ -35,22 +33,19 @@ elseif ARGS.dag then
     local SHORT = 7
     local SPAN  = 4
 
-    -- G.order is already post/like only (commit-keyed); the dag
-    -- renders aids, so keep a cid -> aid label map
+    -- G.order is already post/like only (aids)
     local V = G.order
     if #V == 0 then
         return
     end
-    local AID = {}
-    for _, h in ipairs(V) do
-        AID[h] = assert(ACTION.aid(h))
-    end
 
-    -- ups[h]: the nodes drawn above h, via backs() (walks state/merge
-    -- commits transparently)
+    -- ups[h]: the nodes drawn above h, straight from each action
+    -- file's `backs` (the aid IS its blob hash)
     local ups = {}
     for _, h in ipairs(V) do
-        ups[h] = backs(h)
+        ups[h] = assert(load(exec {
+            cmd = "git -C " .. REPO .. " cat-file blob " .. h,
+        }))().backs
     end
 
     -- group V into rows: consecutive nodes sharing one single up.
@@ -170,7 +165,7 @@ elseif ARGS.dag then
         local t = blank()
         for _, h in ipairs(cur) do
             -- revoked posts render as ~short~
-            local lbl = AID[h]:sub(1, SHORT)
+            local lbl = h:sub(1, SHORT)
             if G.posts[h] and is_revoked(G.posts[h]) then
                 lbl = "~" .. lbl .. "~"
             end
@@ -182,7 +177,7 @@ elseif ARGS.dag then
             local distant = {}
             for _, u in ipairs(ups[h]) do
                 if groupOf[u] ~= g - 1 then
-                    distant[#distant+1] = "^" .. AID[u]:sub(1, SHORT)
+                    distant[#distant+1] = "^" .. u:sub(1, SHORT)
                 end
             end
             if #distant > 0 then

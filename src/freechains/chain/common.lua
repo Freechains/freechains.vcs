@@ -342,7 +342,7 @@ function apply (G, kind, time, T)
             end
 
             -- mutation
-            G.posts[T.cid] = {
+            G.posts[T.aid] = {
                 author   = T.sign,
                 time     = time,
                 maturity = (T.beg and 'beg') or (T.sign and '00-12') or 'beg',
