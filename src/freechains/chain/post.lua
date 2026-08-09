@@ -14,43 +14,33 @@ if ARGS.sign then
     end
 end
 
--- commit post (content only, no state)
+-- the payload lives OUTSIDE the tree: a loose blob, anchored by
+-- `refs/payloads/<aid>`. The action file's `blob` field is what
+-- binds it: the aid transitively commits to the content
+
+local path = REPO .. ".git/payload-tmp"   -- payload staging file
 
 local aid
-local file
+local blob
 do
     if ARGS.inline then
-        local text = ARGS.text
-        local rand = math.random(0, 9999999999)
-        file = ARGS.file or "post-" .. CMD.now .. "-" .. rand .. ".txt"
-        local path = REPO .. "/" .. file
-        do
-            local f = io.open(path, "r")
-            if f then
-                f:close()
-                ERROR("chain post : file already exists")
-            end
-        end
-        do
-            local f = io.open(path, "w")
-            f:write(text)
-            f:close()
-        end
+        local f = io.open(path, "w")
+        f:write(ARGS.text)
+        f:close()
     else
         assert(ARGS.file)
-        file = ARGS.path:match("[^/]+$")
-        do
-            local f = io.open(REPO .. "/" .. file, "r")
-            if f then
-                f:close()
-                ERROR("chain post : file already exists")
-            end
-        end
+        -- `cp` runs in the caller's cwd: relative paths just work
         exec { stderr=false,
-            cmd = "cp " .. ARGS.path .. " " .. REPO .. "/",
+            cmd = "cp -- '" .. ARGS.path .. "' " .. path,
             err = "chain post : invalid path",
         }
     end
+    -- DRY hash: nothing enters the object db before `apply`
+    -- accepts, so a rejection leaves nothing to clean
+    blob = exec {
+        cmd = "git -C " .. REPO .. " hash-object " .. path,
+    }
+
     -- action file: self-description; minted BEFORE the commit
     -- (`pos` places it only after `apply` accepts)
     aid = ACTION.pre {
@@ -58,14 +48,11 @@ do
         backs  = ACTION.backs { "HEAD" },
         sign   = pub,
         time   = tonumber(CMD.now),
-        blob   = exec {
-            cmd = "git -C " .. REPO .. " hash-object " .. REPO .. "/" .. file,
-        },
+        blob   = blob,
     }
 end
 
 -- apply BEFORE the commit: a rejected post leaves nothing
--- but the unstaged payload, removed right here
 do
     local T = {
         aid     = aid,
@@ -75,16 +62,23 @@ do
     }
     local ok, err = apply(G, 'post', CMD.now, T)
     if not ok then
-        os.remove(REPO .. "/" .. file)
         ERROR("chain post : " .. err)
     end
     G.order[#G.order+1] = aid
 end
 
-exec {
-    cmd = "git -C " .. REPO .. " add " .. file,
-}
 ACTION.pos(aid)
+
+-- the payload enters the object db anchored at its final name:
+-- `refs/payloads/<aid>` -> blob. (A crash between the two calls
+-- leaves one loose blob for the gc grace period)
+exec {
+    cmd = "git -C " .. REPO .. " hash-object -w " .. path,
+}
+exec {
+    cmd = "git -C " .. REPO .. " update-ref refs/payloads/" .. aid .. " " .. blob,
+}
+os.remove(path)
 
 do
     local s1, s2 = "", ""

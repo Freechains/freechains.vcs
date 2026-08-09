@@ -1,42 +1,23 @@
 require "freechains.chain.common"
 
-local cid = ACTION.cid(ARGS.aid)
-if not cid then
-    ERROR("chain get : unknown post")
-end
+-- membership: an action of the CURRENT history <=> its file is
+-- in HEAD's tree (mirrored by the worktree): files only ever
+-- accumulate, and `destroy`'s reset drops exactly the destroyed
+-- ones. One io.open, no git -- and it doubles as the read
+local src
 do
-    local _, code = exec { stderr=false, err=false,
-        cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. cid .. " HEAD",
-    }
-    if code ~= 0 then
+    local f = ARGS.aid:match("^%x+$") and
+        io.open(FC .. "actions/" .. ARGS.aid .. ".lua")
+    if not f then
         ERROR("chain get : unknown post")
     end
-end
-
--- the action file, fetched ONCE: raw for metadata, parsed for
--- the payload branch's kind
-local src = exec { trim=false,
-    cmd = "git -C " .. REPO .. " cat-file blob " .. ARGS.aid,
-}
-
-local kind = assert(load(src))().action
-
--- the single tracked file in this commit (post payload or like Lua).
--- --cc reduces to the file(s) present in this commit but absent
--- from every parent — handles both regular commits and merges
--- (without --cc, diff-tree emits nothing for merge commits).
-local function commit_file ()
-    local files = exec {
-        cmd = "git -C " .. REPO ..
-        " diff-tree --cc --no-commit-id -r --name-only " .. cid ..
-        " -- . ':!.freechains/actions'",    -- TODO : remove
-    }
-    assert(not files:match("\n%S"), "bug found")
-    return files:match("^(%S+)")
+    src = f:read("a")
+    f:close()
 end
 
 if ARGS.payload then
-    if kind ~= "post" then
+    local T = assert(load(src))()
+    if T.action ~= "post" then
         ERROR("chain get : unknown post")
     end
 
@@ -44,11 +25,11 @@ if ARGS.payload then
         ERROR("chain get : revoked post")
     end
 
-    local file = commit_file()
-    local out = exec { trim=false,
-        cmd = "git -C " .. REPO .. " show " .. cid .. ":" .. file,
-    }
-    io.write(out)
+    -- the payload is the blob the action file pins: never in a
+    -- tree, anchored by refs/payloads/<aid>
+    io.write((exec { trim=false,
+        cmd = "git -C " .. REPO .. " cat-file blob " .. T.blob,
+    }))
 
 elseif ARGS.metadata then
     -- the metadata IS the action file (serialized Lua)

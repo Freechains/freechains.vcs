@@ -120,10 +120,19 @@ do
     end
 
     do
-        TEST "destroyed payloads are out of the tree"
-        assert(io.open(DIR1 .. "p1.txt"), "p1.txt should remain")
-        assert(not io.open(DIR1 .. "p2.txt"), "p2.txt should be gone")
-        assert(not io.open(DIR1 .. "p3.txt"), "p3.txt should be gone")
+        TEST "destroyed payloads are unreachable via get"
+        local v = exec {
+            cmd = ENV_EXE .. " chain '#cli-destroy-1' get payload " .. p1,
+        }
+        assert(v == "p1", "p1 payload should remain: " .. v)
+        FAIL {
+            cmd = ENV_EXE .. " chain '#cli-destroy-1' get payload " .. p2,
+            err = "ERROR : chain get : unknown post",
+        }
+        FAIL {
+            cmd = ENV_EXE .. " chain '#cli-destroy-1' get payload " .. p3,
+            err = "ERROR : chain get : unknown post",
+        }
     end
 
     -- `destroy` names the first post to remove, so it lands on its

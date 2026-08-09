@@ -12,6 +12,7 @@ exec {
 do
     print("==> freechains chain post file")
 
+    local P1
     do
         TEST "post file success"
         local out, code = exec {
@@ -20,12 +21,31 @@ do
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
         assert(out:match("^%x+$"), "hash is hex")
+        P1 = out
     end
 
     do
-        TEST "posted file in tree"
-        local v = io.open(DIR .. "/hello.txt"):read'*a'
-        assert(v=="Hello World!\n", "content: " .. v)
+        TEST "payload retrievable (out of the tree)"
+        local v = exec {
+            cmd = ENV_EXE .. " chain '#cli-post' get payload " .. P1,
+        }
+        assert(v == "Hello World!", "content: " .. v)
+    end
+
+    do
+        TEST "payload anchored on refs/payloads/<aid>"
+        local ref = exec {
+            cmd = "git -C " .. DIR .. " rev-parse refs/payloads/" .. P1,
+        }
+        assert(#ref == 40, "anchor missing: " .. ref)
+    end
+
+    do
+        TEST "no payload file in the worktree"
+        local _, code = exec { err=false,
+            cmd = "test -f " .. DIR .. "/hello.txt",
+        }
+        assert(code ~= 0, "hello.txt should not exist in the worktree")
     end
 
     do
@@ -37,38 +57,23 @@ do
     end
 
     do
-        TEST "post same file again rejects"
+        TEST "same name never collides"
         local tmp = TMP .. "/hello.txt"
         local f = io.open(tmp, "w")
         f:write("collision attempt\n")
         f:close()
-        FAIL {
-            cmd = ENV_EXE .. " chain '#cli-post' post file " .. tmp .. " --sign " .. KEY1,
-            err = "ERROR : chain post : file already exists",
-        }
-        local content = exec {
-            cmd = "cat " .. DIR .. "/hello.txt",
-        }
-        assert(content == "Hello World!", "content: " .. content)
-    end
-
-    do
-        TEST "post second file, both in tree"
-        local tmp = TMP .. "/second.txt"
-        local f = io.open(tmp, "w")
-        f:write("second file\n")
-        f:close()
-        exec {
+        local out, code = exec {
             cmd = ENV_EXE .. " chain '#cli-post' post file " .. tmp .. " --sign " .. KEY1,
         }
-        local _, code1 = exec {
-            cmd = "test -f " .. DIR .. "/hello.txt",
+        assert(code == 0, "exit code: " .. tostring(code))
+        local v2 = exec {
+            cmd = ENV_EXE .. " chain '#cli-post' get payload " .. out,
         }
-        local _, code2 = exec {
-            cmd = "test -f " .. DIR .. "/second.txt",
+        assert(v2 == "collision attempt", "content: " .. v2)
+        local v1 = exec {
+            cmd = ENV_EXE .. " chain '#cli-post' get payload " .. P1,
         }
-        assert(code1 == 0, "hello.txt missing")
-        assert(code2 == 0, "second.txt missing")
+        assert(v1 == "Hello World!", "first payload should be intact: " .. v1)
     end
 end
 
@@ -77,46 +82,24 @@ do
     print("==> freechains chain post inline")
 
     do
-        TEST "inline auto-name"
+        TEST "inline payload retrievable"
         local out, code = exec {
             cmd = ENV_EXE .. " chain '#cli-post' post inline 'Quick note' --sign " .. KEY1,
         }
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
+        local v = exec {
+            cmd = ENV_EXE .. " chain '#cli-post' get payload " .. out,
+        }
+        assert(v == "Quick note", "content: " .. v)
+    end
+
+    do
+        TEST "worktree carries no user files"
         local files = exec {
-            cmd = "ls " .. DIR .. "/*-*.txt",
+            cmd = "ls " .. DIR,
         }
-        assert(files ~= "", "auto-named file missing")
-
-        do
-            TEST "inline auto-name - filename format"
-            local f1 = files:match("[^/]+$")
-            assert(f1:match("^post%-%d+%-%d+%.txt$"), "bad format: " .. f1)
-        end
-    end
-
-    do
-        TEST "inline --file creates file"
-        local _, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-post' post inline 'Line 1\n'" .. " --file log.txt --sign " .. KEY1,
-        }
-        assert(code == 0, "exit code: " .. tostring(code))
-        local content = exec {
-            cmd = "cat " .. DIR .. "/log.txt",
-        }
-        assert(content == "Line 1", "content: " .. content)
-    end
-
-    do
-        TEST "inline --file rejects existing"
-        FAIL {
-            cmd = ENV_EXE .. " chain '#cli-post' post inline 'Line 2\n'" .. " --file log.txt --sign " .. KEY1,
-            err = "ERROR : chain post : file already exists",
-        }
-        local content = exec {
-            cmd = "cat " .. DIR .. "/log.txt",
-        }
-        assert(content == "Line 1", "content: " .. content)
+        assert(files == "", "expected empty root: " .. files)
     end
 end
 

@@ -88,12 +88,33 @@
       all gone; skel loses both dirs
     - genesis tree = actions/.gitkeep + genesis.lua + random
     - tests: like-payload-file -> action-file-only diff assert
-- B4: index `.git/index.lua` `{tip, a2c}` replaces the walk
-    - DECIDED: variant B (write-through): loader + catch-up
-      (`log HEAD --not tip`; dead tip -> full rebuild) AND
-      writers append their own (aid, cid) pair post-commit
-      (beg via its ref) -- steady state = zero extra git
-    - NOT YET: do after current work settles
+- B4 DEMOTED: probably unnecessary — revisit after eviction
+    - `ACTION.cid` callers shrank to get + destroy; E1 removes
+      get's; one walk on rare `destroy` is acceptable
+    - if revived: variant B (write-through) was the decision
+- E1 DONE: payload leaves the tree
+    - post payload -> loose blob (`hash-object -w`), anchored
+      `refs/payloads/tmp-<rand>` over the mint window, renamed
+      to `refs/payloads/<aid>` after apply accepts
+    - commit diff = the action file, for EVERY action
+    - `get payload` = `cat-file blob <T.blob>`; commit_file dies
+    - get membership via `G.order` scan: ACTION.cid out of get
+      (destroy is its last caller)
+    - filename machinery dies: no worktree payload, no
+      "file already exists", collisions impossible; worktree
+      root is EMPTY of user files
+    - `--file <path>` absolutized (git -C chdirs first)
+    - destroyed actions: payload REF lingers until E3; `get`
+      already refuses via membership
+    - tests: cli-post file/inline sections rewritten (payload
+      via get, anchor ref, empty worktree, no collisions);
+      cli-destroy payload probes -> get-based
+- E2: votes gain payloads; why unification
+    - `--why` = the vote's payload; `get payload` on votes;
+      `--why` leaves post; commit messages go empty
+- E3: deletion becomes real
+    - revoke deletes `refs/payloads/<aid>`; destroy cleans
+      orphaned payload refs; gc policy decision
 - B5 DONE: trailers die on the write path
     - post/like/genesis commits carry NO trailer: the envelope
       is tree + parents + signature only
