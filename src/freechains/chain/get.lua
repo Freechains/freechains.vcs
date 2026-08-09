@@ -72,7 +72,7 @@ elseif ARGS.metadata then
     local T = {
         hash  = ARGS.hash,
         time  = time,
-        sign  = ssh.pubkey(REPO, ARGS.hash) or false,
+        sign  = ssh.pub.commit(REPO, ARGS.hash) or false,
         why   = why,
         backs = backs,
         --

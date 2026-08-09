@@ -1,8 +1,24 @@
 local M = {}
 
+-- Pubkey by source: `key` from a key file, `commit` from a signature.
+M.pub = {}
+
+-- The canonical pubkey of a private key file: the first two fields
+-- of its `.pub` sibling, or nil if unreadable.
+-- Known before any commit exists, unlike `commit` below.
+function M.pub.key (path)
+    local f = io.open(path .. ".pub")
+    if not f then
+        return nil
+    end
+    local s = f:read("l") or ""
+    f:close()
+    return s:match("^(%S+ %S+)")
+end
+
 -- Extract the SSH pubkey from a signed commit, or nil if unsigned.
 -- Parses the SSHSIG armored blob in the gpgsig header.
-function M.pubkey (repo, hash)
+function M.pub.commit (repo, hash)
     local commit = exec {
         cmd = "git -C " .. repo .. " cat-file commit " .. hash,
     }
@@ -58,7 +74,7 @@ end
 -- Verify a commit's SSH signature against its embedded pubkey.
 -- Returns pubkey on success, nil on failure.
 function M.verify (repo, hash)
-    local key = M.pubkey(repo, hash)
+    local key = M.pub.commit(repo, hash)
     if key == nil then
         return nil, 'unsigned'
     end

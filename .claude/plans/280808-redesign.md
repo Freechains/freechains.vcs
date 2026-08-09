@@ -18,7 +18,52 @@
 - NOT present: snapshots, backfill, `.git/index.lua`,
   `actions/<aid>.lua`; trailers + 4-file `state/` tree still live
 
-# Ladder (local-only; all local tests pass after each step)
+# Aid ladder (local-only; suite green after each; before sync)
+
+- ground rule: 260803-redesign is reference only, no code reuse
+- A0 DONE: sign read from `.pub` file BEFORE commit
+    - `ssh.pub.key(path)` = first two fields of `<path>.pub`
+    - `ssh.pubkey` -> `ssh.pub.commit` (others' commits:
+      get, consensus, verify) — reference naming adopted
+    - post/like `T.sign` = pub.key, read early; missing/invalid
+      `.pub` fails early, same error message
+- A1: write `actions/<aid>.lua` inside the action commit
+    - `{action, backs, sign, time, blob?, post/author, n}`
+    - aid = `git hash-object` of the file, minted pre-commit
+    - `backs` from tips (HEAD, +MERGE_HEAD on beg like)
+    - additive: trailers, commit-hash CLI, G keys unchanged
+- A2: G keyed by aid
+    - `posts[aid]`, `order` holds aids; `apply` takes `T.aid`
+    - aid<->cid mapped at git boundaries
+- A3: index `.git/index.lua` = `{tip, a2c}`
+    - writers append post-commit; lazy catch-up `HEAD --not tip`
+- A4: CLI speaks aids
+    - print/take aids; `refs/begs/beg-<aid>`; big test churn
+- A5: trailers die on the write path
+    - structural classification; walkers switch to db/index
+- A6: receive-side validation -> deferred to sync phase
+
+# Next steps (sync phase)
+
+- goal: re-green the 25 early-exited tests, one by one
+- S1: recv derives state from actions, snaps adopted tips
+    - G_oct = snapshot at octopus (recompute region on miss)
+    - replay commit(): no state commits arrive; mode check =
+      action adds only; PEAK on remote commits via snapshots
+      written during replay
+    - drop tree reads: G_fst, O_snd, hardfork order (sync.lua)
+    - drop tree writes: write(G), merge state commit, probe
+- S2: clone = base case of recv
+    - replay genesis -> tip, snapshot every commit
+    - validate or delete the clone (eager at chains add)
+- S3: send/pre-receive hook on new protocol; make install
+- S4: cleanups after sync lands
+    - delete write(G); 'state' cases in backs()/trailer walkers
+    - genesis trailer rethink; consensus.lua state-path checks
+- later (from b803): payload eviction, action files (aid),
+  commit<->id index, prune/GC of snapshots
+
+# Ladder (local-only; all local tests pass after each step; DONE)
 
 - state `G` = `{ authors, posts, order, now }` (4 facets)
     - snapshot = `serial(G)` in `.git/states/<cid>.lua`

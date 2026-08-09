@@ -69,7 +69,7 @@ function consensus (G, a, b)
             cmd = "git -C " .. REPO .. " log --reverse --format=%H " .. com .. ".." .. tip
         }
         for hash in out:gmatch("%x+") do
-            local key = ssh.pubkey(REPO, hash)
+            local key = ssh.pub.commit(REPO, hash)
             if key then
                 keys[key] = true
             end
