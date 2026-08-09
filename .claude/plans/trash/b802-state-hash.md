@@ -1,0 +1,113 @@
+# Plan: state-hash (FF integrity without cyclic garbage)
+
+> **Extended by [260802-state-verify.md](260802-state-verify.md).**
+> What shipped here still stands, but it covers the FF path only.
+> The non-FF exclusion below turned out to be a hole, not just a
+> scope decision: on the diverge path no comparison happens at
+> all, so a forged state commit rides into shared history and is
+> read back later as `G_oct` (`tst/bug-forged-state.lua`).
+
+## Problem
+
+On FF recv/send, remote's state files land verbatim on
+disk. If remote is dishonest, B's query sees a lie.
+
+If we naively recompute + overwrite + commit on every FF,
+sync without new data creates endless state commits
+(cyclic garbage).
+
+## Goal
+
+Verify remote state without unconditional rewrite.
+
+## Approach: tree-hash compare
+
+Git already stores `.freechains/state/` as a subtree.
+Compute hash of computed state equivalently, compare to
+remote's tree hash.
+
+    git rev-parse FETCH_HEAD:.freechains/state
+    # vs computed G_rem serialized identically
+
+## Options
+
+### A. Pure git compare (preferred)
+
+1. Phase 1 replay builds G_rem.
+2. Write G_rem to `tmp/state/` + `git hash-object`
+   each file.
+3. Combine into a tree hash, compare to
+   `FETCH_HEAD:.freechains/state`.
+4. If equal -> accept FF as-is (no new commit).
+5. If differ -> reset past remote state tip + write
+   G_rem + new state commit.
+
+### B. Embedded `state-hash` trailer
+
+Each state commit carries:
+
+    Freechains: state
+    Freechains-state-hash: <sha256 of sorted serial>
+
+FF compare: trailer of remote's state tip vs sha256 of
+local G_rem.serial(). No git tree walking.
+
+### C. File-content compare
+
+Read each `.lua` file as string, compare to
+`serial(G_rem.*)`. Simple, no hashing, no git plumbing.
+
+## Idempotency
+
+All three options converge to: write only when differ.
+No new commits when state matches -> no cyclic garbage.
+
+## Recommendation
+
+**Shipped:** after FF merge, `write(G_rem)` to disk then
+`git diff --quiet HEAD -- .freechains/state/`. On diff:
+`git reset --hard loc` and `ERROR "chain recv : remote
+state mismatch"`.
+
+One subtlety: `G_rem.order` trailing element is `rem`
+itself (replay appends every visited hash). A's stored
+state at rem never contains rem's own commit hash. Pop
+the trailing element before `write(G_rem)` so honest
+remotes don't trip the check.
+
+**B** avoids reading files but introduces a new trailer
+and a hash algorithm dependency; skip.
+
+**C** skipped.
+
+## Name: `state-hash`
+
+If/when option B lands, trailer is:
+
+    Freechains-state-hash: <hash>
+
+## Scope
+
+- recv FF: currently trusts remote -> add compare
+
+(send hook, reset/rewrite, non-FF all dropped from scope)
+
+non-FF picked back up in
+[260802-state-verify.md](260802-state-verify.md): the comparison
+moves off the FF path and off the replay entirely, becoming a
+per-commit check against the commit's own parent.
+
+## TODO
+
+- [x] recv FF: verify remote state vs replayed G_rem;
+  ERROR + rollback on mismatch
+- [x] pop trailing `rem` from `G_rem.order` before
+  `write` (self-reference not stored by A)
+- [x] tst/cli-recv.lua step 6: tampered-FF test
+
+## Pending
+
+(none — error prefixes unified to `chain sync`)
+
+Follow-on work is tracked in
+[260802-state-verify.md](260802-state-verify.md), not here.
