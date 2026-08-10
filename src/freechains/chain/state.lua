@@ -3,8 +3,11 @@
 --  - is_ref = true  : rev is a ref (HEAD)
 --  - is_ref = false : rev is a hash
 
+local M = {}
+
 -- G saved with every new state commit
-write = function (G, is_ref, rev)
+
+function M.write (G, is_ref, rev)
     local hash = rev
     if is_ref then
         hash = exec {
@@ -15,10 +18,11 @@ write = function (G, is_ref, rev)
     local f = io.open(REPO .. ".git/states/" .. hash .. ".lua", "w")
     f:write(serial(G))
     f:close()
-end,
+end
 
 -- the state RECORDED at `rev`
-read = function (is_ref, rev)
+
+function M.read (is_ref, rev)
     local hash = rev
     if is_ref then
         hash = exec {
@@ -30,4 +34,6 @@ read = function (is_ref, rev)
         "bug found : no snapshot : " .. hash
     )
     return f()
-end,
+end
+
+return M
