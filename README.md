@@ -25,7 +25,7 @@ Members can like and dislike messages from other members, which transfer `reps`
 between them.
 
 By "Sybil-resistant", we mean that extra identities grant no power:
-    a fresh key holds zero `reps` and cannot act in a chain.
+    a fresh key holds zero `reps` and cannot post in a chain.
 By "permissionless", we mean that no central authority gatekeeps membership:
     any member can welcome any newcomer in a chain.
 

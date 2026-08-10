@@ -32,11 +32,15 @@ local function git_init (dir)
     }
 end
 
+-- chain starts with max split among pioneers
 local function pioneers (dir)
     local T = dofile(dir .. "genesis.lua")
     local A = {}
     if T.pioneers then
         local n = C.reps.max // #T.pioneers
+        if n < C.reps.cost then
+            ERROR("chains add : too many pioneers")
+        end
         for _, key in ipairs(T.pioneers) do
             A[key] = { reps = n }
         end

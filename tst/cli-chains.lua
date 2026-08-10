@@ -285,4 +285,47 @@ do
     end
 end
 
+-- PIONEER LIMIT
+do
+    print("==> Pioneer limit")
+
+    do
+        TEST "too many pioneers rejects"
+        -- 101 keys: 50000/101 = 495, below the 500 post cost
+        local tmp = TMP .. "/many.lua"
+        local f = io.open(tmp, "w")
+        f:write("return {\n")
+        f:write('    version = {1,2,3}, type = "#", name = "many",\n')
+        f:write("    pioneers = {\n")
+        for i = 1, 101 do
+            f:write('        "ssh-ed25519 ' .. string.rep(tostring(i%10), 43) .. '",\n')
+        end
+        f:write("    },\n}\n")
+        f:close()
+        FAIL {
+            cmd = ENV_EXE .. " chains add '#many' init file " .. tmp,
+            err = "ERROR : chains add : too many pioneers",
+        }
+    end
+
+    do
+        TEST "the limit itself is accepted"
+        local tmp = TMP .. "/limit.lua"
+        local f = io.open(tmp, "w")
+        f:write("return {\n")
+        f:write('    version = {1,2,3}, type = "#", name = "limit",\n')
+        f:write("    pioneers = {\n")
+        for i = 1, 100 do
+            f:write('        "ssh-ed25519 ' .. string.rep(tostring(i%10), 43) .. '",\n')
+        end
+        f:write("    },\n}\n")
+        f:close()
+        local out, code = exec {
+            cmd = ENV_EXE .. " chains add '#limit' init file " .. tmp,
+        }
+        assert(code == 0, "exit code: " .. tostring(code))
+        assert(out:match("^#%x+$"), "chain id: " .. out)
+    end
+end
+
 print("<== ALL PASSED")

@@ -21,7 +21,6 @@ integral.
 | `cost`   | 500   | one signed post/file (refunded)|
 | `earn`   | 1000  | minted per author per day      |
 | `max`    | 50000 | cap per author (100 posts)     |
-| `floor`  | 2500  | min pioneer share (5 posts)    |
 
 `cost` is a deposit (returned at the discount), `earn`
 is income (minted at consolidation): halving one must
@@ -45,13 +44,14 @@ Each chain starts with a total of **50000 reputation**
 | 3        | 16666     |
 | N        | 50000 / N |
 
-The split must leave each pioneer at least `floor`
-(2500, five posts), so a genesis may name at most
-`max // floor` = **20 pioneers**; beyond that
-`chains add` fails with "too many pioneers". The
-invariant is that a chain starts with exactly one cap's
-worth of reps -- a 21st founder is admitted by a like
-seconds later.
+The split must leave each pioneer at the post gate, so
+a genesis may name at most `max // cost` = **100
+pioneers**; beyond that `chains add` fails with "too
+many pioneers". The bound is the only one the mechanics
+require (a founder who cannot post in their own chain
+is broken), and it keeps the invariant that a chain
+starts with exactly one cap's worth of reps -- a 101st
+founder is admitted by a like seconds later.
 
 Pioneers are defined by the `pioneers` list in
 `genesis.lua`. At chain creation/clone, `pioneers()`
@@ -681,11 +681,11 @@ Observations:
 - [x] Tests: gate check (blocked, accepted, unblocked, beg-with-reps)
 - [x] Tests: author-targeted likes (cost, gains, like 2, dislike)
 - [x] Impl: consensus tie-breaker (hash comparison)
-- [ ] Impl: NO DEBT — post gate `reps >= cost`, beg gate
+- [x] Impl: NO DEBT — post gate `reps >= cost`, beg gate
       `reps < cost`, beg-like floor `n >= cost`
-      ([260809-reps.md](260809-reps.md); before sync/release)
-- [ ] Decide: pioneer floor for large N ([260809-reps.md](260809-reps.md))
-- [ ] Decide: exclude the author from `subsequent_reps`
+- [x] Decide: pioneer limit for large N — genesis rejected
+      beyond `max // cost` = 100 pioneers
+- [x] Decide: the author DOES count in `subsequent_reps`
       ([260809-reps.md](260809-reps.md))
 - [ ] Tests: bilateral sync (B recv A + bit-equality)
 - [ ] Tests: tie-breaker (same-timestamp divergence)

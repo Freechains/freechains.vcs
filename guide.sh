@@ -14,8 +14,8 @@ FC () {
     LUA_PATH="src/?.lua;src/?/init.lua;;" lua5.4 src/freechains.lua "$@"
 }
 
-# same as FC, but also keeps the printed hash in $HASH, for the commands
-# that take a post hash later on (votes, revokes, abandon)
+# same as FC, but also keeps the printed id in $HASH, for the commands
+# that take an action id later on (votes, revokes, abandon)
 FCH () {
     local out
     out=$(LUA_PATH="src/?.lua;src/?/init.lua;;" lua5.4 src/freechains.lua "$@")
@@ -68,7 +68,7 @@ HERE=$HASH
 FC --root="$A" chain '#chat' list dag
 FC --root="$A" chain '#chat' list order
 
-# each post can be queried individually: its payload and its metadata
+# each action can be queried individually: its payload and its metadata
 FC --root="$A" chain '#chat' get payload "$HELLO"
 FC --root="$A" chain '#chat' get payload "$HERE"
 FC --root="$A" chain '#chat' get metadata "$HERE"
@@ -136,11 +136,11 @@ echo
 FC --root="$B" --now=$((T0+81)) chain '#chat' like    1000 post "$HELLO" --sign="$KEYS/charlie"
 FC --root="$B" --now=$((T0+82)) chain '#chat' dislike 1000 post "$HERE"  --sign="$KEYS/bob"
 
-# expected: 'Hello World' 1 , 'Sync me' 0 , 'I am here' -1
+# expected: 'Hello World' 450 , 'Sync me' 0 , 'I am here' -450
 FC --root="$B" chain '#chat' reps posts
 
-# expected: alice 23 (her two received votes cancel out), while bob and
-# charlie each pay in full for the single vote they cast
+# expected: alice 40000 (her two received votes cancel out), while bob
+# and charlie each pay in full for the single vote they cast
 FC --root="$B" chain '#chat' reps authors
 
 # Dave holds no reps at all, so he begs: the post is parked on
@@ -290,7 +290,7 @@ MOD=$((FORK+7*DAY+600))
 FCH --root="$A" --now=$((MOD+0)) chain '#chat' post inline $'BUY NOW\n' --sign="$KEYS/dave"
 SPAM=$HASH
 
-# Alice detects the spam and revokes it with 1 rep: the payload vanishes
+# Alice detects the spam and revokes it with 1000 reps: the payload vanishes
 FC --root="$A" --now=$((MOD+10)) chain '#chat' revoke 1000 "$SPAM" --sign="$KEYS/alice"
 echo "-- expected failure (revoked post):"
 FC --root="$A" chain '#chat' get payload "$SPAM" || true
