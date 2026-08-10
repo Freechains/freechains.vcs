@@ -40,7 +40,7 @@ function M.full (pre)
         aid = a or aid
     end
     return aid or pre
-end,
+end
 
 -- aid(cid): cid -> aid : aid of the action commit cid
 
@@ -50,7 +50,7 @@ function M.aid (cid)
             " diff-tree --cc --no-commit-id -r --name-only " .. cid,
     }
     return out and out:match("actions/%x+/(%x+)%.lua")
-end,
+end
 
 -- cid(aid): aid -> cid : the commit that added action `aid`,
 
@@ -58,7 +58,7 @@ function M.cid (aid)
     local out = exec { err=false, stderr=false,
         cmd = "git -C " .. REPO ..
             " log --all --full-history -m --diff-filter=A --format=%H" ..
-            " -- " .. ACTION.path(aid),
+            " -- " .. M.path(aid),
     }
     if not out then
         return nil
@@ -71,7 +71,7 @@ function M.cid (aid)
         cid = h
     end
     return cid
-end,
+end
 
 -- the action ancestors (as sorted aids) of the commit about to
 -- be created, from its parents `ps` (revs). Structural: an
@@ -82,7 +82,7 @@ function M.backs (ps)
     local ret = {}
     local see = {}
     local function rec (h)
-        local a = ACTION.aid(h)
+        local a = M.aid(h)
         if a then
             if not see[a] then
                 see[a] = true
@@ -99,7 +99,7 @@ function M.backs (ps)
     end
     table.sort(ret)
     return ret
-end,
+end
 
 -- mint `T`'s aid: the file waits in `.git/` (worktree
 -- untouched) until `pos` places it after `apply` accepts
@@ -112,13 +112,13 @@ function M.pre (T)
     return (exec {
         cmd = "git -C " .. REPO .. " hash-object " .. tmp,
     })
-end,
+end
 
 -- place + stage the minted action file (the bucket dir may
 -- not exist yet -- or may have been emptied by a reset)
 
 function M.pos (aid)
-    local path = ACTION.path(aid)
+    local path = M.path(aid)
     exec {
         cmd = "mkdir -p " .. REPO .. "actions/" .. aid:sub(1, 2) .. "/",
     }
@@ -126,6 +126,6 @@ function M.pos (aid)
     exec {
         cmd = "git -C " .. REPO .. " add " .. path,
     }
-end,
+end
 
 return M

@@ -22,6 +22,7 @@ build = {
         ["freechains.common"]          = "src/freechains/common.lua",
         ["freechains.constants"]       = "src/freechains/constants.lua",
         ["freechains.chain"]           = "src/freechains/chain/init.lua",
+        ["freechains.chain.action"]    = "src/freechains/chain/action.lua",
         ["freechains.chain.common"]    = "src/freechains/chain/common.lua",
         ["freechains.chain.consensus"] = "src/freechains/chain/consensus.lua",
         ["freechains.chain.abandon"]   = "src/freechains/chain/abandon.lua",
