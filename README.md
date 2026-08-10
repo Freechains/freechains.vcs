@@ -78,7 +78,7 @@ Freechains' API is straightforward:
 
 - `freechains chains add ...`:       creates or clones chain locally
 - `freechains chain post ...`:       posts to chain (signed with SSH)
-- `freechains chain list dag/order`: lists all posts (DAG or consensus order)
+- `freechains chain list dag/order`: lists all actions (DAG or consensus order)
 - `freechains chain (dis)like ...`:  rates post or author
 - `freechains chain (un)revoke ...`: hides or restores post payload
 - `freechains chain reps ...`:       queries reputation
@@ -134,7 +134,8 @@ d6568e4...
 
 The output is each post's unique identifier.
 
-A post is backed by a Git commit in the chain repository.
+Each action -- post, like or revoke -- is backed by one Git commit in the
+chain repository.
 
 We can list all posts in the chain...
 
@@ -155,7 +156,7 @@ b52c62f...
 d6568e4...
 ```
 
-We can also query each post individually:
+We can also query each action individually:
 
 - Post payload:
 
@@ -171,15 +172,13 @@ I am here
 ```
 $ freechains chain '#chat' get metadata d6568e4
 return {
-    ["backs"] = {
+    ["action"] = "post",                    -- post, like or revoke
+    ["backs"] = {                           -- actions it links back to
         [1] = "b52c62f...",
     },
-    ["hash"] = "d6568e4...",
-    ["like"] = false,
-    ["post"] = "post-1780088002-4865365518.txt",
-    ["sign"] = "ssh-ed25519 ...vzTc96I",
-    ["time"] = 1780088002,
-    ["why"] = "(empty message)",
+    ["blob"] = "b569cb2...",                -- payload hash
+    ["sign"] = "ssh-ed25519 ...vzTc96I",    -- author's public key
+    ["time"] = 1780088002,                  -- local creation time
 }
 ```
 
@@ -400,7 +399,7 @@ $ freechains chain '#chat' list dag
 ```
 
 The post is now part of the chain and `Dave` becomes a proper member.
-Note that the like `d8e9f0a` links back to two posts:
+Note that the like `d8e9f0a` links back to two actions:
     the beg `c7d8e9f` just above it, and
     the previous tip pointed as `(^560a55c)`.
 
@@ -413,7 +412,7 @@ quality.
 ### Consensus
 
 Freechains provides a consensus mechanism that enforces the same order for all
-posts in all peers, regardless of the receiving order in each peer.
+actions in all peers, regardless of the receiving order in each peer.
 Since Git itself provides no consensus mechanism for diverging branches,
 Freechains applies a custom hook to order first branches whose authors hold
 more `reps`.
@@ -499,8 +498,8 @@ peers reach the same state without any central authority.
 
 As a measure against malicious members with strong past reputation, Freechains
 protects settled local branches from unexpected consensus reorderings.
-A settled branch is a branch with at least *100 posts* or *7 days* between
-oldest and newest posts.
+A settled branch is a branch with at least *100 actions* or *7 days* between
+oldest and newest actions.
 Posts older than this window are frozen and cannot be reordered.
 So, if a `sync` operation would reorder frozen posts in a settled branch, then
 the merge is simply refused and the peers are no longer compatible.
@@ -551,7 +550,7 @@ To resynchronize, `Alice`'s only option is to revert her local history, receive
 the settled branch, repost the rejected message on top of it, and finally send
 the updated history.
 To revert history, Freechains provides an `abandon` command that permanently
-drops a post along with everything after it:
+drops an action along with everything after it:
 
 ```
 # revert local history
