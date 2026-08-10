@@ -233,6 +233,75 @@ function PEAKS (hs)
     return assert(mx)
 end
 
+function advance ()
+    -- discount scan (maybe signed at same G.now)
+    local sign = (mutate and env.sign) or nil
+    if env.time>G.now or sign then
+        for _, hash in ipairs(ordered(G.posts)) do
+            local entry = G.posts[hash]
+            if entry.maturity == "00-12" then
+                local subs = {}
+                for h2, other in pairs(G.posts) do
+                    if other.author and other.time and other.time>entry.time then
+                        subs[other.author] = true
+                    end
+                end
+                if sign then
+                    subs[sign] = true
+                end
+
+                local cur = 0
+                for a in pairs(subs) do
+                    cur = cur + math.max(0, (G.authors[a] and G.authors[a].reps) or 0)
+                end
+                local tot = 0
+                for _, v in pairs(G.authors) do
+                    tot = tot + math.max(0, v.reps)
+                end
+
+                local ratio = (tot>0 and cur/tot) or 0
+                local discount = C.time.half * math.max(0, 1 - 2*ratio)
+
+                if env.time >= entry.time + discount then
+                    -- signed beg?
+                    if entry.author then
+                        G.authors[entry.author].reps = G.authors[entry.author].reps + C.reps.cost
+                    end
+                    entry.maturity = "12-24"
+                end
+            end
+        end
+    end
+
+    -- consolidation scan
+    if env.time > G.now then
+        for _, hash in ipairs(ordered(G.posts)) do
+            local entry = G.posts[hash]
+            if entry.maturity == "12-24" then
+                if env.time >= entry.time+C.time.full then
+                    if entry.author then
+                        local last = G.authors[entry.author].time
+                        if env.time-last >= C.time.full then
+                            G.authors[entry.author].reps = G.authors[entry.author].reps + C.reps.earn
+                            G.authors[entry.author].time = last + C.time.full
+                            entry.maturity = nil
+                            entry.time  = nil
+                        end
+                    else
+                        -- authorless (unsigned beg): consolidate, no credit
+                        entry.maturity = nil
+                        entry.time  = nil
+                    end
+                end
+            end
+        end
+    end
+
+    if env.time > G.now then
+        G.now = env.time
+    end
+end
+
 -- an action is applied from two sides:
 --  - `act`: what its author CLAIMS -- the action file itself
 --    (`n`, `post`/`author`); extra fields are ignored
@@ -255,73 +324,6 @@ function apply (G, kind, act, env)
             if env.time < up-C.time.diff then
                 return false, "too old"
             end
-        end
-
-        -- discount scan (maybe signed at same G.now)
-        local sign = (mutate and env.sign) or nil
-        if env.time>G.now or sign then
-            for _, hash in ipairs(ordered(G.posts)) do
-                local entry = G.posts[hash]
-                if entry.maturity == "00-12" then
-                    local subs = {}
-                    for h2, other in pairs(G.posts) do
-                        if other.author and other.time and other.time>entry.time then
-                            subs[other.author] = true
-                        end
-                    end
-                    if sign then
-                        subs[sign] = true
-                    end
-
-                    local cur = 0
-                    for a in pairs(subs) do
-                        cur = cur + math.max(0, (G.authors[a] and G.authors[a].reps) or 0)
-                    end
-                    local tot = 0
-                    for _, v in pairs(G.authors) do
-                        tot = tot + math.max(0, v.reps)
-                    end
-
-                    local ratio = (tot>0 and cur/tot) or 0
-                    local discount = C.time.half * math.max(0, 1 - 2*ratio)
-
-                    if env.time >= entry.time + discount then
-                        -- signed beg?
-                        if entry.author then
-                            G.authors[entry.author].reps = G.authors[entry.author].reps + C.reps.cost
-                        end
-                        entry.maturity = "12-24"
-                    end
-                end
-            end
-        end
-
-        -- consolidation scan
-        if env.time > G.now then
-            for _, hash in ipairs(ordered(G.posts)) do
-                local entry = G.posts[hash]
-                if entry.maturity == "12-24" then
-                    if env.time >= entry.time+C.time.full then
-                        if entry.author then
-                            local last = G.authors[entry.author].time
-                            if env.time-last >= C.time.full then
-                                G.authors[entry.author].reps = G.authors[entry.author].reps + C.reps.earn
-                                G.authors[entry.author].time = last + C.time.full
-                                entry.maturity = nil
-                                entry.time  = nil
-                            end
-                        else
-                            -- authorless (unsigned beg): consolidate, no credit
-                            entry.maturity = nil
-                            entry.time  = nil
-                        end
-                    end
-                end
-            end
-        end
-
-        if env.time > G.now then
-            G.now = env.time
         end
     end
 
