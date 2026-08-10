@@ -15,7 +15,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-reps' reps author '" .. PUB1 .. "'",
         }
         assert(code==0, "exit code: " .. tostring(code))
-        assert(out=="30000", "reps: " .. out)
+        assert(out=="50000", "reps: " .. out)
     end
 
     do
@@ -34,7 +34,7 @@ do
         }
         assert(code==0,         "exit code: " .. tostring(code))
         assert(out:find(PUB1, 1, true), "PUB1 not listed")
-        assert(out:match("30000"), "30000 not in output")
+        assert(out:match("50000"), "50000 not in output")
     end
 
     do
@@ -60,7 +60,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-reps' reps author '" .. PUB1 .. "'",
         }
         assert(code == 0, "exit code: " .. tostring(code))
-        assert(out == "29000", "reps: " .. out)    -- KEY1: 30000 -> post -> 29000
+        assert(out == "49500", "reps: " .. out)    -- KEY1: 50000 -> post -> 49500
     end
 
     do
@@ -75,7 +75,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-reps' reps author '" .. PUB1 .. "'",
         }
         assert(code==0, "exit code: " .. tostring(code))
-        assert(out == "29000", "reps: " .. out)    -- KEY1: 30000 -> posts -> 29000 (discount refunds)
+        assert(out == "49500", "reps: " .. out)    -- KEY1: 50000 -> posts -> 49500 (discount refunds)
     end
 
     do
@@ -116,7 +116,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-reps' reps author '" .. PUB1 .. "'",
         }
         assert(code==0, "exit code: " .. tostring(code))
-        assert(out == "13000", "reps: " .. out)    -- KEY1: 15000 -> like -> 13000
+        assert(out == "23000", "reps: " .. out)    -- KEY1: 25000 -> like -> 23000
 
         local out, code = exec {
             cmd = ENV_EXE .. " chain '#cli-reps' reps post " .. post,
@@ -137,7 +137,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-reps' reps author '" .. PUB1 .. "'",
         }
         assert(code==0, "exit code: " .. tostring(code))
-        assert(out == "12000", "reps: " .. out) -- KEY1: 15000 -> like -> 13000 -> dislike -> 12000
+        assert(out == "22000", "reps: " .. out) -- KEY1: 25000 -> like -> 23000 -> dislike -> 22000
     end
 
     do
@@ -153,10 +153,10 @@ do
             cmd = ENV_EXE .. " chain '#cli-reps' reps author '" .. PUB2 .. "'",
         }
         assert(code == 0, "exit code: " .. tostring(code))
-        -- KEY2: 15000 - 3000 (posts) + 900 (like) - 900 (dislikes)
-        --       + 2000 (refunds) = 14000
+        -- KEY2: 25000 - 1500 (posts) + 900 (like) - 900 (dislikes)
+        --       + 1000 (refunds) = 24500
         local n = tonumber(out)
-        assert(n == 14000, "target should lose reps: " .. out)
+        assert(n == 24500, "target should lose reps: " .. out)
     end
 
     exec {
@@ -179,8 +179,8 @@ do
         local out2 = exec {
             cmd = ENV_EXE .. " chain '#cli-reps' reps author '" .. PUB2 .. "'",
         }
-        assert(out1 == "15000", "KEY1 reps: " .. out1)
-        assert(out2 == "15000", "KEY2 reps: " .. out2)
+        assert(out1 == "25000", "KEY1 reps: " .. out1)
+        assert(out2 == "25000", "KEY2 reps: " .. out2)
     end
 
     do
@@ -197,11 +197,11 @@ do
         local out = exec {
             cmd = ENV_EXE .. " chain '#cr7' reps author '" .. PUB1 .. "'",
         }
-        assert(out == "10000", "KEY1 reps: " .. out)
+        assert(out == "16666", "KEY1 reps: " .. out)
     end
 end
 
--- GATE CHECK (Rule 4.a: >= 1 rep to post)
+-- GATE CHECK (Rule 4.a: >= cost to post)
 do
     print("==> Gate check")
 
@@ -226,7 +226,7 @@ do
 
     do
         TEST "gate-accepted-with-reps"
-        -- KEY1 is pioneer with 30 reps -> post must succeed
+        -- KEY1 is pioneer at the cap -> post must succeed
         local out, code = exec {
             cmd = ENV_EXE .. " chain '#cli-reps' post inline 'accepted'" .. " --sign " .. KEY1,
         }
@@ -243,7 +243,8 @@ do
         local out2 = exec {
             cmd = ENV_EXE .. " chain '#cli-reps' reps author '" .. PUB2 .. "'",
         }
-        assert(tonumber(out2) >= 1, "KEY2 should have reps: " .. out2)
+        -- one standard like (1000 -> 900) covers the 500 post cost
+        assert(tonumber(out2) >= 500, "KEY2 should afford a post: " .. out2)
 
         local post, code = exec {
             cmd = ENV_EXE .. " chain '#cli-reps' post inline 'now ok'" .. " --sign " .. KEY2,
@@ -261,6 +262,114 @@ do
         }
     end
 
+end
+
+-- NO DEBT: gates are cost-quantized (posting costs `cost`, so
+-- holding less than `cost` can neither post nor be sponsored
+-- with dust). Times are pinned: the whole section lives at
+-- now=0, except the maturity step at 12h
+do
+    print("==> No debt")
+
+    exec {
+        cmd = ENV_EXE .. " --now=0 chains add '#no-debt' init file " .. GEN_1,
+    }
+
+    -- KEY1 grants KEY2 dust: 445 -> 90% -> 400 (below the 500 cost)
+    exec {
+        cmd = ENV_EXE .. " --now=0 chain '#no-debt' like 445 author '" .. PUB2 .. "' --sign " .. KEY1,
+    }
+
+    do
+        TEST "dust-cannot-post"
+        local out = exec {
+            cmd = ENV_EXE .. " --now=0 chain '#no-debt' reps author '" .. PUB2 .. "'",
+        }
+        assert(out == "400", "KEY2 reps: " .. out)
+        FAIL {
+            cmd = ENV_EXE .. " --now=0 chain '#no-debt' post inline 'dust' --sign " .. KEY2,
+            err = "ERROR : chain post : insufficient reputation",
+        }
+    end
+
+    local BEG
+    do
+        TEST "dust-can-beg"
+        -- the mirror gate: below `cost` one may still beg
+        BEG = exec {
+            cmd = ENV_EXE .. " --now=0 chain '#no-debt' post inline 'please' --beg --sign " .. KEY2,
+        }
+        assert(#BEG == 40, "beg: " .. BEG)
+    end
+
+    do
+        TEST "dust-beg-like-rejected"
+        -- admission mints future income: its price is not dust
+        FAIL {
+            cmd = ENV_EXE .. " --now=0 chain '#no-debt' like 499 post " .. BEG .. " --sign " .. KEY1,
+            err = "ERROR : chain like : invalid beg like : insufficient reputation",
+        }
+    end
+
+    do
+        TEST "beg-like admits the post, holds the author"
+        -- the vote splits 50/50: 1000 -> 900 -> author 450, post 450
+        exec {
+            cmd = ENV_EXE .. " --now=0 chain '#no-debt' like 1000 post " .. BEG .. " --sign " .. KEY1,
+        }
+        local out = exec {
+            cmd = ENV_EXE .. " --now=0 chain '#no-debt' reps author '" .. PUB2 .. "'",
+        }
+        assert(out == "850", "KEY2 reps: " .. out)   -- 400 + 450
+        local post = exec {
+            cmd = ENV_EXE .. " --now=0 chain '#no-debt' reps post " .. BEG,
+        }
+        assert(post == "450", "beg post reps: " .. post)
+    end
+
+    do
+        TEST "beg-like on a ZERO author: still below the gate"
+        -- KEY3 starts at 0: 450 < 500, so its first own post waits
+        -- for the 12h refund (probation)
+        local beg3 = exec {
+            cmd = ENV_EXE .. " --now=0 chain '#no-debt' post inline 'me too' --beg --sign " .. KEY3,
+        }
+        exec {
+            cmd = ENV_EXE .. " --now=0 chain '#no-debt' like 1000 post " .. beg3 .. " --sign " .. KEY1,
+        }
+        local out = exec {
+            cmd = ENV_EXE .. " --now=0 chain '#no-debt' reps author '" .. PUB3 .. "'",
+        }
+        assert(out == "450", "KEY3 reps: " .. out)
+        FAIL {
+            cmd = ENV_EXE .. " --now=0 chain '#no-debt' post inline 'too soon' --sign " .. KEY3,
+            err = "ERROR : chain post : insufficient reputation",
+        }
+
+        TEST "...and speaks after the 12h refund"
+        local out = exec {
+            cmd = ENV_EXE .. " --now=43200 chain '#no-debt' reps author '" .. PUB3 .. "'",
+        }
+        assert(tonumber(out) >= 500, "KEY3 after 12h: " .. out)
+        local post, code = exec {
+            cmd = ENV_EXE .. " --now=43200 chain '#no-debt' post inline 'matured' --sign " .. KEY3,
+        }
+        assert(code == 0, "matured author should post: " .. tostring(code))
+        assert(#post == 40, "post: " .. post)
+    end
+
+    do
+        TEST "reps-above-cost-cannot-beg"
+        -- KEY2 holds 850 >= 500
+        FAIL {
+            cmd = ENV_EXE .. " --now=43200 chain '#no-debt' post inline 'no beg' --beg --sign " .. KEY2,
+            err = "ERROR : chain post : --beg error : author has sufficient reputation",
+        }
+    end
+
+    exec {
+        cmd = ENV_EXE .. " chains rem '#no-debt'",
+    }
 end
 
 -- WHITESPACE TRIM
@@ -342,14 +451,14 @@ do
     exec {
         cmd = ENV_EXE .. " chains add '#cli-reps' init file " .. GEN_1,
     }
-    -- KEY1 pioneer caps at 30 ext; a post to target
+    -- KEY1 pioneer starts at the 50000 cap; a post to target
     local post = exec {
         cmd = ENV_EXE .. " chain '#cli-reps' post inline 'target' --sign " .. KEY1,
     }
 
     do
         TEST "debt-overspend-rejected"
-        -- like 100000 (ext) is far beyond the 30-ext cap -> always unaffordable
+        -- like 100000 is far beyond the 50000 cap -> always unaffordable
         local before = exec {
             cmd = ENV_EXE .. " chain '#cli-reps' reps author '" .. PUB1 .. "'",
         }

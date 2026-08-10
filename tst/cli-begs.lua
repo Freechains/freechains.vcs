@@ -184,8 +184,10 @@ do
     local LIKE
     do
         TEST "like-beg-succeeds"
+        -- 2000 -> 90% -> 1800 -> split -> 900 to the author, over
+        -- the 500 post cost (a 1000 like admits but holds: 450)
         local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-begs-4' like 1000 post " .. BEG .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain '#cli-begs-4' like 2000 post " .. BEG .. " --sign " .. KEY1,
         }
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)

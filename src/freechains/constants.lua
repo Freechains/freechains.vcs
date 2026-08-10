@@ -15,9 +15,10 @@ return {
         posts   = 100,          -- entries of my settled order (hard fork)
     },
     reps = {
-        --pioneer = 30*unit,    -- split among pioneers
-        cost    = 1*unit,       -- 1000 per signed post
-        max     = 30*unit,      -- 30000 cap per author
+        --pioneer = 50*unit,    -- split among pioneers
+        cost    = unit//2,      -- 500 per signed post (refunded at 12h)
+        earn    = 1*unit,       -- 1000 minted per author per day
+        max     = 50*unit,      -- 50000 cap per author (100 posts)
     },
     like = {
         tax     = 10,           -- 10% burned on likes

@@ -267,7 +267,7 @@ function apply (G, kind, time, T)
                         if entry.author then
                             local last = G.authors[entry.author].time
                             if time-last >= C.time.full then
-                                G.authors[entry.author].reps = G.authors[entry.author].reps + C.reps.cost
+                                G.authors[entry.author].reps = G.authors[entry.author].reps + C.reps.earn
                                 G.authors[entry.author].time = last + C.time.full
                                 entry.maturity = nil
                                 entry.time  = nil
@@ -294,12 +294,12 @@ function apply (G, kind, time, T)
             if T.sign then
                 if T.beg then
                     local reps = G.authors[T.sign] and G.authors[T.sign].reps or 0
-                    if reps > 0 then
+                    if reps >= C.reps.cost then
                         return false, "--beg error : author has sufficient reputation"
                     end
                 else
                     local reps = G.authors[T.sign] and G.authors[T.sign].reps or 0
-                    if reps <= 0 then
+                    if reps < C.reps.cost then
                         return false, "insufficient reputation"
                     end
                 end
@@ -348,6 +348,12 @@ function apply (G, kind, time, T)
             local reps = (G.authors[T.sign] and G.authors[T.sign].reps) or 0
             if (not self_revoke) and reps<math.abs(T.n) then
                 return false, "insufficient reputation"
+            end
+
+            -- admission mints future income (a refund at 12h, then
+            -- `earn` a day): its price must not be dust
+            if T.beg and T.n<C.reps.cost then
+                return false, "invalid beg like : insufficient reputation"
             end
 
             -- mutation

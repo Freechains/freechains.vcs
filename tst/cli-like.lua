@@ -50,8 +50,8 @@ do
         local k1 = exec {
             cmd = ENV_EXE .. " chain '#cli-like' reps author '" .. PUB1 .. "'",
         }
-        -- KEY1: 15000 - 1000 (post) + 1000 (discount refund) + 450 (self-back) = 15450
-        assert(k1 == "15450", "KEY1 reps after like: " .. k1)
+        -- KEY1: 25000 - 500 (post) + 500 (discount refund) + 450 (self-back) = 25450
+        assert(k1 == "25450", "KEY1 reps after like: " .. k1)
     end
 
     do
@@ -177,18 +177,18 @@ do
 
     do
         TEST "like-author-liker-cost"
-        -- KEY1: 15000 - 1000 (cost) = 14000
+        -- KEY1: 25000 - 1000 (like cost) = 24000
         local out = exec {
             cmd = ENV_EXE .. " chain '#cli-like' reps author '" .. PUB1 .. "'",
         }
-        assert(out == "14000", "liker reps: " .. out)
+        assert(out == "24000", "liker reps: " .. out)
 
         TEST "like-author-target-gains"
-        -- KEY2: 15000 + 900 = 15900
+        -- KEY2: 25000 + 900 = 25900
         local out = exec {
             cmd = ENV_EXE .. " chain '#cli-like' reps author '" .. PUB2 .. "'",
         }
-        assert(out == "15900", "target reps: " .. out)
+        assert(out == "25900", "target reps: " .. out)
     end
 
     do
@@ -203,10 +203,10 @@ do
         local k2 = exec {
             cmd = ENV_EXE .. " chain '#cli-like' reps author '" .. PUB2 .. "'",
         }
-        -- KEY1: 14000 - 2000 = 12000
-        -- KEY2: 15900 + 1800 = 17700
-        assert(k1 == "12000", "liker reps: " .. k1)
-        assert(k2 == "17700", "target reps: " .. k2)
+        -- KEY1: 24000 - 2000 = 22000
+        -- KEY2: 25900 + 1800 = 27700
+        assert(k1 == "22000", "liker reps: " .. k1)
+        assert(k2 == "27700", "target reps: " .. k2)
     end
 
     do
@@ -220,10 +220,10 @@ do
         local k2 = exec {
             cmd = ENV_EXE .. " chain '#cli-like' reps author '" .. PUB2 .. "'",
         }
-        -- KEY1: 12000 - 1000 = 11000
-        -- KEY2: 17700 - 900 = 16800
-        assert(k1 == "11000", "liker reps: " .. k1)
-        assert(k2 == "16800", "target reps: " .. k2)
+        -- KEY1: 22000 - 1000 = 21000
+        -- KEY2: 27700 - 900 = 26800
+        assert(k1 == "21000", "liker reps: " .. k1)
+        assert(k2 == "26800", "target reps: " .. k2)
     end
 end
 
