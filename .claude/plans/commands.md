@@ -10,16 +10,16 @@
 | `freechains chains list` | `ls` of symlinks in `chains/` | 3 | no native multi-repo listing in git |
 | `freechains chain <n> genesis` | `git rev-list --max-parents=0 HEAD` | 4 | finding root commit, very close |
 | `freechains chain <n> heads` | `git rev-parse HEAD` | 4 | single HEAD model simplifies this to one command |
-| `freechains chain <n> get metadata <hash>` | `git log -1 --format=… <hash>` + `rev-list --parents` + `diff-tree` + `ssh.pubkey` | 2 | composite: builds a Lua table (`hash`, `time`, `sign`, `backs`, `why`, plus one kind-keyed field `[kind]` = `post` filename / `like` / `revoke` vote table); no single-command equivalent |
-| `freechains chain <n> get payload <hash>` | `git diff-tree --name-only <hash>` then `git show <hash>:<file>` | 4 | two-step: locate the single file added by the commit, then dump its blob |
+| `freechains chain <n> get metadata <id>` | `git cat-file blob <aid>` | 5 | the metadata IS the action file: `{action, backs, sign, time, blob, post/author, n}` |
+| `freechains chain <n> get payload <id>` | `git cat-file blob <T.blob>` | 5 | payloads live outside the tree, anchored at `refs/payloads/<aid>`; empty output when the action has no `blob` |
 | `freechains chain <n> post inline <text>` | `git hash-object` + `git commit` | 3 | must write blob + tree before committing |
-| `freechains chain <n> like <hash>` | zero-payload commit with `freechains-like: <hash>` extra header | 1 | stored as structural commit with metadata only |
-| `freechains chain <n> dislike <hash>` | zero-payload commit with `freechains-dislike: <hash>` extra header | 1 | same pattern as like |
-| `freechains chain <n> reps <hash_or_pub>` | walk `git log`, accumulate like/dislike headers, cache in SQLite | 1 | computed state, not stored in git |
-| `freechains chain <n> reps revoke <hash>` | read `.freechains/state/posts.lua` | 1 | prints the two revoke sums (`author others`); post-only, so no `post` keyword |
-| `freechains chain <n> reps revokes` | read `.freechains/state/posts.lua` | 1 | `<hash> <author> <others>` for all posts, most revoked first |
+| `freechains chain <n> like <N> <target> <id>` | commit adding `actions/ab/<aid>.lua` (`action='like'`, `n=+N`) | 1 | no trailer, no payload in the tree; N is raw reps |
+| `freechains chain <n> dislike <N> <target> <id>` | same, `n=-N` | 1 | same pattern as like |
+| `freechains chain <n> reps <pub_or_aid>` | read `.git/states/<cid>.lua` snapshot | 1 | derived state, never committed; prints raw units |
+| `freechains chain <n> reps revoke <id>` | read the snapshot's `posts[aid].revoke` | 1 | prints the two revoke sums (`author others`); post-only, so no `post` keyword |
+| `freechains chain <n> reps revokes` | read the snapshot's `posts` | 1 | `<aid> <author> <others>` for all posts, most revoked first |
 | `freechains chain <n> consensus` | `git log --date-order` skipping sync commits | 3 | deterministic but not the same rule; sync marker strategy deferred |
-| `freechains chain <n> destroy <hash>` | `git reset --hard <hash>^1` | 5 | local only; `<hash>` is the first post to destroy and must be an ancestor of HEAD; a beg instead deletes its `refs/begs/*` ref |
+| `freechains chain <n> abandon <id>` | `git reset --hard <cid>^1` | 5 | local only; `<id>` is the first action to abandon and must be an ancestor of HEAD; a beg instead deletes its `refs/begs/*` ref |
 | `freechains chain <n> listen` | `post-receive` git hook on server | 3 | fires server-side after every push; see hooks below |
 | `freechains peer <addr> ping` | `git ls-remote <remote>` | 2 | tests reachability but does much more |
 | `freechains peer <addr> chains` | `ls` of repos served by remote `git daemon` | 2 | no standard discovery protocol in git |

@@ -4,61 +4,73 @@
 
 Reputation is a per-author and per-post integer tracked
 per chain.
-Internally stored with 1000x precision (external 1 =
-internal 1000).
-External values are truncated toward zero:
-`ext = sign(int) * (abs(int) // 1000)`.
 
-## Internal vs External
+## One Currency
 
-| External | Internal |
-|----------|----------|
-| 1        | 1000     |
-| 30       | 30000    |
-| 0        | 0..999   |
-| -1       | -1000    |
+There is a single unit. The CLI speaks it raw: `reps`
+prints `15450`, `like 450` transfers 450. No external/
+internal seam, no truncation, no rounding — exact
+integers end to end.
 
-All operations use internal values.
-Queries return external (truncated toward zero).
+The x1000 scale survives only inside the constants
+(`cost = 1000`, `max = 30000`): it exists so the 10% tax
+and the 50/50 post split stay integral.
+
+| Constant | Value | Meaning              |
+|----------|-------|----------------------|
+| `cost`   | 1000  | one signed post/file |
+| `max`    | 30000 | cap per author       |
+
+Parameter review and the pending gate work:
+[260809-reps.md](260809-reps.md).
 
 ## Initial Reputation: Pioneers
 
-Each chain starts with a total of **30 reputation** split
-equally among its pioneers:
+Each chain starts with a total of **30000 reputation**
+(= `max`) split equally among its pioneers:
 
-| Pioneers | Reps each (ext) | Internal  |
-|----------|-----------------|-----------|
-| 1        | 30              | 30000     |
-| 2        | 15              | 15000     |
-| 3        | 10              | 10000     |
-| N        | 30 / N          | 30000 / N |
+| Pioneers | Reps each |
+|----------|-----------|
+| 1        | 30000     |
+| 2        | 15000     |
+| 3        | 10000     |
+| N        | 30000 / N |
+
+Large N starves pioneers below `cost` — open decision in
+[260809-reps.md](260809-reps.md).
 
 Pioneers are defined by the `pioneers` list in
 `genesis.lua`. At chain creation/clone, `pioneers()`
-writes `local/authors.lua` with initial reps split
-equally among pioneers.
+returns the initial `G.authors` with reps split equally
+among pioneers.
 Non-pioneer authors start with **0 reputation**.
 
 Chains without pioneers (no `pioneers` field in
-genesis) have an empty `local/authors.lua` — no
+genesis) start with an empty `G.authors` — no
 reputation gate at all.
 
 ### Special chain types
 
 | Type        | Reputation rule                     |
 |-------------|-------------------------------------|
-| `#` public  | Pioneer-based (30 / N)              |
+| `#` public  | Pioneer-based (30000 / N)           |
 | `$` private | All holders of shared key = infinite|
 | `@` personal| Key holder = infinite               |
 
 ## Constraints
 
-| Rule | Name | Effect                        | Ref             |
-|------|------|-------------------------------|-----------------|
-| 4.a  | min  | Author needs >= 1 rep to post | Sybil gate      |
-| 4.b  | max  | Author capped at 30 reps      | Spend incentive |
-| 4.c  | size | Post <= 128 KB                | DDoS prevention |
-| 5    | ops  | Each file op costs 1 rep      | Edit throttle   |
+| Rule | Name | Effect                          | Ref             |
+|------|------|---------------------------------|-----------------|
+| 4.a  | min  | Author affords the act's cost   | Sybil gate      |
+| 4.b  | max  | Author capped at `max` (30000)  | Spend incentive |
+| 4.c  | size | Post <= 128 KB                  | DDoS prevention |
+| 5    | ops  | Each file op costs `cost`       | Edit throttle   |
+
+Rule 4.a is affordability, not presence: a voter needs
+the full vote magnitude (shipped,
+[done/260722-bug-reps-debt.md](done/260722-bug-reps-debt.md)),
+an author needs `cost` (NOT SHIPPED — the code still gates
+on `reps > 0`, see [260809-reps.md](260809-reps.md)).
 
 No post expiry — posts are permanent.
 
@@ -66,23 +78,21 @@ No post expiry — posts are permanent.
 
 ### Posting (Rule 2 — Expense)
 
-A signed post costs **-N rep** (N * 1000 internal)
-where N = number of file operations (Rule 5),
-**temporarily**.
+A signed post costs **-N * `cost`** where N = number of
+file operations (Rule 5), **temporarily**.
 The cost is refunded after a **variable discount
 period** (0–12 hours) that depends on subsequent
 activity from reputed authors.
 
 ```
 post block:
-    N = count file ops outside .freechains/
-    if author.reps < N * 1000:
+    N = count file ops (payload actions)
+    if author.reps < N * cost:
         state = BLOCKED
     else:
         state = ACCEPTED
-    author.reps -= N * 1000
-    add to local/posts.lua with state "00-12"
-        and cost = N * 1000
+    author.reps -= N * cost
+    add to posts with maturity "00-12"
 ```
 
 If the author's reputation is insufficient (Rule 4.a),
@@ -91,35 +101,30 @@ the post is accepted into the DAG but marked
 
 ### File Operation Costs (Rule 5 — Per-Op Expense)
 
-Each file operation outside `.freechains/` costs
-**1 rep** (1000 internal).
+Each file operation costs **`cost`** (1000).
 Operations: add, modify, delete.
-`.freechains/` changes are free (deterministic,
-verifiable by recomputation).
 
-A normal post adds 1 file → 1 rep.
-An edition touching 3 files → 3 rep.
-A mass delete of 100 files → 100 rep (self-limiting).
+A normal post adds 1 file → 1000.
+An edition touching 3 files → 3000.
+A mass delete of 100 files → 100000 (self-limiting).
 
 ```
 post:
-    N = count file ops outside .freechains/
-        (via git diff-tree --no-commit-id -r )
-    author.reps -= N * 1000
-    add entry to local/posts.lua ("00-12")
-        with cost = N * 1000
+    N = count file ops
+    author.reps -= N * cost
+    add entry to posts ("00-12")
 ```
 
-Discount refunds the full N * 1000.
-Consolidation still grants +1/day (1000 internal).
+Discount refunds the full N * `cost`.
+Consolidation still grants +`cost`/day.
 Heavy edits drain rep over time — natural pressure.
 
 #### Validation at Fetch/Merge
 
 For each incoming commit:
 1. `git diff-tree --no-commit-id -r <commit>`
-2. Count A/M/D entries outside `.freechains/`
-3. Verify author had >= N * 1000 reps at that
+2. Count A/M/D entries (payload actions)
+3. Verify author had >= N * `cost` reps at that
    DAG position
 4. Reject commit if insufficient
 
@@ -155,9 +160,9 @@ The discount is **not stored** — it is recomputed on
 every commit because new activity shortens it.
 
 When discount ends:
-- Refund: `author.reps += 1000`
-- Transition: entry moves from state `"00-12"` to
-  `"12-24"` in `local/posts.lua`
+- Refund: `author.reps += cost`
+- Transition: entry moves from maturity `"00-12"` to
+  `"12-24"`
 
 ### Consolidation (Rule 1.b — Emission)
 
@@ -165,13 +170,13 @@ After the discount period ends AND 24h have passed
 since the post's timestamp:
 
 ```
-last = time_authors[author]
+last = authors[author].time
 if NOW - last >= 86400:
-    author.reps += 1000
-    time_authors[author] = last + 86400
-    remove from local/posts.lua
+    author.reps += cost
+    authors[author].time = last + 86400
+    remove the post entry
 else:
-    keep in local/posts.lua (retry next commit)
+    keep the entry (retry next commit)
 ```
 
 Grant slots advance by fixed 24h from last grant,
@@ -180,11 +185,11 @@ This prevents "wasting" time if commits are
 infrequent — multiple entries can consolidate in
 one commit if enough 24h slots have elapsed.
 
-The author enters `local/authors.lua` at first signed
-post (`time_authors[author] = NOW`), so `last` is
-never nil during consolidation.
+The author enters `authors` at first signed post
+(`authors[author].time = NOW`), so `last` is never nil
+during consolidation.
 
-Cap at 30000 is applied after all effects (step 4).
+Cap at `max` is applied after all effects (step 4).
 
 Only **1 consolidated post per author per 24h slot**.
 This is the only way to create new reps in the system.
@@ -197,22 +202,24 @@ Internally both produce a like commit — dislike
 negates the number.
 
 ```
-freechains chain <alias> like 1 post <hash> --sign <key>
-freechains chain <alias> dislike 1 post <hash> --sign <key>
+freechains chain <alias> like 1000 post <id> --sign <key>
+freechains chain <alias> dislike 1000 post <id> --sign <key>
 ```
 
+N is raw reps (one post's worth = `cost` = 1000).
+
 Gate: the liker must **afford the full magnitude** —
-`reps >= N * 1000` — else "insufficient reputation". This
-prevents debt (spending more than you hold). The liker pays the
-full `N * 1000`, so the transfer conserves reps.
+`reps >= N` — else "insufficient reputation". This
+prevents debt (spending more than you hold). The liker pays
+the full N, so the transfer conserves reps.
 
 #### Like targeting a post
 
 ```
 Like(+N, post):
-    liker.reps -= N * 1000      (cost = full magnitude)
-    tax = N * 1000 * 10 / 100   (10% burned)
-    delivered = N * 1000 - tax
+    liker.reps -= N          (cost = full magnitude)
+    tax = N * 10 / 100       (10% burned)
+    delivered = N - tax
     post_author.reps += delivered / 2
     post.reps        += delivered / 2
 ```
@@ -221,11 +228,17 @@ Like(+N, post):
 
 ```
 Like(+N, author):
-    liker.reps    -= N * 1000     (cost = full magnitude)
-    tax = N * 1000 * 10 / 100     (10% burned)
-    delivered = N * 1000 - tax
+    liker.reps    -= N       (cost = full magnitude)
+    tax = N * 10 / 100       (10% burned)
+    delivered = N - tax
     target_author.reps += delivered
 ```
+
+So a post-like of 1000 delivers 450 to the author, an
+author-like of 1000 delivers 900 — neither pays for the
+next post on its own. The cheapest grant that posts
+immediately is 2223 (post) or 1112 (author); see
+[260809-reps.md](260809-reps.md).
 
 #### Dislike (negative N)
 
@@ -258,11 +271,10 @@ freechains chain <alias> unrevoke 1 <hash> --sign <key>
 (post-only, so no `post`/`author` target argument — unlike
 `like`/`dislike`.)
 
-Stored as a first-class commit kind: file under
-`.freechains/revokes/`, trailer `Freechains: revoke` (parallel
-to likes under `.freechains/likes/` + `Freechains: like`). The
-dir/trailer marks the revoke axis; `n` sign gives the direction
-(revoke `n<0`, unrevoke `n>0`).
+Stored as a first-class action kind: `action='revoke'` in the
+action file (parallel to `action='like'`). The field marks the
+revoke axis; `n` sign gives the direction (revoke `n<0`,
+unrevoke `n>0`).
 
 The two axes are coupled **asymmetrically**:
 
@@ -353,187 +365,187 @@ payload.
 
 ## Storage
 
-Reputation state lives inside each chain repo under
-`.freechains/`:
+Reputation state is **never committed**. It is derived
+from the action DAG and cached per-commit as local
+snapshots (see `280808-redesign.md`):
 
 ```
 <chain-repo>/
-  .freechains/
-    genesis.lua        -- tracked
-    random             -- tracked
-    likes/             -- tracked
-    authors.lua        -- tracked (committed in state commits)
-    posts.lua          -- tracked (committed in state commits)
-    now.lua            -- UNTRACKED (.git/info/exclude)
+  actions/ab/<aid>.lua  -- tracked (the actions themselves)
+  genesis.lua           -- tracked
+  random                -- tracked
+  .git/states/<cid>.lua -- LOCAL snapshot of the whole G
 ```
 
-The `chains add` command initializes default files.
-`pioneers()` writes `.freechains/authors.lua` from
-genesis pioneers (splitting 30 reps equally).
+The `chains add` command writes the tracked trio and
+snapshots genesis; `pioneers()` returns the initial
+authors table (splitting 30000 equally) straight into
+that snapshot — no tree file.
 
-`authors.lua` and `posts.lua` are tracked by git but
-only committed in "freechains: state" commits (before
-send/recv). Post/like commits do not stage them.
+`G = { authors, posts, order, now }`. Every accepted
+action writes a fresh snapshot keyed by its commit;
+readers load `STATE(rev)` rather than any worktree file.
 
-`now.lua` is untracked (wall-clock dependent, per-node).
-
-Local time effects update `authors.lua`/`posts.lua`
-on disk on every command (including queries) but only
-commit them via state commits.
-
-### local/authors.lua
+### G.authors
 
 Maps each author's public key to their reputation
 and grant-slot timestamp:
 
 ```lua
-return {
+{
     ["CA6391CE..."] = { reps=29000, time=1710374400 },
     ["78397501..."] = { reps=1350 },
 }
 ```
 
-- `reps`: internal reputation (1000x)
+- `reps`: reputation (raw units)
 - `time`: last grant-slot timestamp (initialized on
   first signed post, advanced +24h on consolidation)
 
-### local/posts.lua
+### G.posts
 
 Tracks posts in discount period (`"00-12"`) or
 awaiting consolidation (`"12-24"`):
 
 ```lua
-return {
-    ["a1b2c3d4..."] = { author="CA6391CE...", time=1710288000, state="00-12", reps=0 },
-    ["e5f6g7h8..."] = { author="CA6391CE...", time=1710201600, state="12-24", reps=450 },
+{
+    ["a1b2c3d4..."] = { author="CA6391CE...", time=1710288000, maturity="00-12", reps=0 },
+    ["e5f6g7h8..."] = { author="CA6391CE...", time=1710201600, maturity="12-24", reps=450 },
 }
 ```
 
 - `"00-12"`: post in variable discount period (Rule 2).
   Discount is recomputed on every commit.
-  When discount ends: refund -1, transition to `"12-24"`.
+  When discount ends: refund `cost`, transition to
+  `"12-24"`.
 - `"12-24"`: discount ended, awaiting 24h consolidation
   (Rule 1.b).
   When 24h passed AND author's grant slot is open:
-  grant +1, remove entry.
+  grant `cost`, remove entry.
   Otherwise keep entry for retry on next commit.
 - `reps`: accumulated likes/dislikes on this post
+- `"beg"`: unfunded post, awaiting a sponsor's like
+  (see `begs.md`)
 
 ### Update frequency
 
-All files are updated on **every commit** (post or
-like).
+`G` is recomputed on **every action** (post or vote)
+and snapshotted at the resulting commit.
 
-## Processing on Every Commit
+## Processing on Every Action
 
 ```
-on every commit (post, like, or dislike):
-    1. scan local/posts.lua:
+on every action (post, like, or dislike):
+    1. scan G.posts:
        for each "00-12" entry:
            recompute discount:
                subsequent_reps = sum of reps of authors
                    who posted after this post
-               total_reps = sum of all reps in authors.lua
+               total_reps = sum of all reps in G.authors
                ratio = subsequent_reps / total_reps
                discount = 43200 * max(0, 1 - 2*ratio)
            if NOW >= entry.time + discount:
-               authors[entry.author] += 1000
-               entry.state = "12-24"
+               authors[entry.author].reps += cost
+               entry.maturity = "12-24"
        for each "12-24" entry:
            if NOW >= entry.time + 86400:
-               last = time_authors[entry.author]
+               last = authors[entry.author].time
                if NOW - last >= 86400:
-                   authors[entry.author] += 1000
-                   time_authors[entry.author] = last + 86400
-                   remove entry from local/posts.lua
+                   authors[entry.author].reps += cost
+                   authors[entry.author].time = last + 86400
+                   remove entry from G.posts
                else:
-                   keep entry (retry next commit)
-       remove processed entries from local/posts.lua
-    2. apply this commit's immediate effects:
-       post:    N = count file ops outside .freechains/
-                author.reps -= N * 1000
-                add entry to local/posts.lua ("00-12")
-                    with cost = N * 1000
+                   keep entry (retry next action)
+    2. apply this action's immediate effects:
+       post:    N = count file ops
+                author.reps -= N * cost
+                add entry to G.posts ("00-12")
                 if authors[author].time is nil:
                     authors[author].time = NOW
-       like:    liker.reps -= N * 1000   (must afford it)
+       like:    liker.reps -= N   (must afford it)
                 tax + split to target
-       dislike: liker.reps -= N * 1000
+       dislike: liker.reps -= N
                 tax + split (negative) to target
-                check revocation threshold
-    3. gate: check author has >= 1 rep (Rule 4.a)
-       -> ACCEPTED or BLOCKED
-    4. cap: clamp all authors at 30000
-    5. write all modified files
-    6. git add + git commit
+                update the revoke channels
+    3. gate: author affords the cost (Rule 4.a)
+       -> ACCEPTED or BLOCKED/beg
+    4. cap: clamp all authors at `max`
+    5. snapshot G, then commit the action file
 ```
+
+Apply runs BEFORE the commit: a rejected action never
+becomes a commit at all.
 
 ## Computation
 
 Reputation can be recomputed from scratch by walking
-the DAG in `--date-order`:
+the DAG in `--date-order` and replaying each action
+file:
 
 ```
-load local/authors.lua (pioneers)
+authors = pioneers(genesis)
 for each commit after genesis in git log --date-order:
     process time effects (discount, consolidation)
-    if commit has freechains-like header:
-        parse sign, number, target
-        liker.reps -= 1000
-        tax = abs(number) * 1000 * 10 / 100
-        delivered = number * 1000 - sign(number) * tax
-        if target is post:
+    act = the commit's actions/ab/<aid>.lua
+    if act.action is 'like' or 'revoke':
+        liker.reps -= abs(act.n)        (full magnitude)
+        tax = abs(act.n) * 10 / 100
+        delivered = act.n - sign(act.n) * tax
+        if act.post:
             post_author.reps += delivered / 2
             post.reps        += delivered / 2
-        elif target is author:
+        elif act.author:
             target_author.reps += delivered
-    elif commit is a regular post:
-        author.reps -= 1000
+    elif act.action is 'post':
+        author.reps -= cost
         add to time tracking
-    (skip merge-only commits)
-    cap all authors at 30000
+    (skip merge commits: pure topology, empty diff)
+    cap all authors at `max`
 ```
 
 ## Git Representation
 
-Likes are stored as commits with:
-
-- **Empty tree** (no payload — same tree as genesis)
-- **Extra header** identifying the target and value
-- **Signed** by the liker's key (required for authorship)
+Every action — post and vote alike — is one commit
+whose entire diff is its own action file:
 
 ```
-tree 4b825dc...           (empty tree)
-parent <HEAD>
-author <pubkey> <timestamp>
-committer <pubkey> <timestamp>
-freechains-like: +1 <target-hash-or-pubkey>
-
+actions/ab/<aid>.lua
+    { action='like', backs={...}, sign=<pubkey>,
+      time=<ts>, post=<aid>, n=450 }
 ```
 
-This makes likes first-class blocks in the DAG,
+- **no trailer**: classification is structural (the
+  commit adds an action file; `action` names the kind)
+- **empty commit message**: no user text in undeletable
+  objects
+- **payload out of the tree**: a vote's `--why` is its
+  optional payload, anchored at `refs/payloads/<aid>`
+- **signed** by the caster's key (required for
+  authorship)
+
+This makes votes first-class blocks in the DAG,
 synchronized via the same git fetch/merge mechanism as
 regular posts.
 
 ## CLI Commands
 
 ```
-freechains chain <alias> like <N> <target> <id> --sign <key> [--why <reason>]
-freechains chain <alias> dislike <N> <target> <id> --sign <key> [--why <reason>]
-freechains chain <alias> reps <pubkey-or-hash>
+freechains chain <alias> like <N> <target> <id> --sign <key> [--why <text>]
+freechains chain <alias> dislike <N> <target> <id> --sign <key> [--why <text>]
+freechains chain <alias> reps <pubkey-or-aid>
 ```
 
-`reps` returns the external integer (internal // 1000,
-truncated toward zero).
+`reps` prints raw units (no truncation): a pioneer of a
+1-pioneer chain reads `30000`.
 
 ## Test: Time Flow Example
 
-1-pioneer chain, KEY has 30 reps (30000 internal).
+1-pioneer chain, KEY has 30000 reps.
 
 ```
 t=0:    KEY posts P1 (signed)
-        authors:     KEY=29000 (-1000)
-        local/posts:  P1={author=KEY, time=0, state="00-12"}
+        G.authors: KEY={reps=29000} (-1000)
+        G.posts:   P1={author=KEY, time=0, maturity="00-12"}
 
 t=0:    KEY posts P2 (signed)
         -- scan "00-12": P1 discount recomputed
@@ -542,107 +554,111 @@ t=0:    KEY posts P2 (signed)
         --   ratio = 29000/29000 = 1.0 >= 0.5
         --   discount = 0
         --   NOW(0) >= 0+0 -> refund P1
-        authors:     KEY=29000 (29000+1000-1000)
-        local/posts:  P1={..., state="12-24"}
-                     P2={author=KEY, time=0, state="00-12"}
+        G.authors: KEY={reps=29000} (29000+1000-1000)
+        G.posts:   P1={..., maturity="12-24"}
+                   P2={author=KEY, time=0, maturity="00-12"}
 
 t=0:    KEY posts P3 (signed)
         -- scan "00-12": P2 discount = 0 (ratio=1.0) -> refund
         -- scan "12-24": P1 time=0, NOW=0 < 0+86400 -> wait
-        authors:     KEY=29000 (29000+1000-1000)
-        local/posts:  P1={..., state="12-24"}
-                     P2={..., state="12-24"}
-                     P3={author=KEY, time=0, state="00-12"}
+        G.authors: KEY={reps=29000} (29000+1000-1000)
+        G.posts:   P1={..., maturity="12-24"}
+                   P2={..., maturity="12-24"}
+                   P3={author=KEY, time=0, maturity="00-12"}
 
 t=24h:  KEY posts P4 (signed)
         -- scan "00-12": P3 discount = 0 -> refund
         -- scan "12-24": P1 time=0, NOW=86400 >= 86400
-        --   time_authors[KEY] absent -> grant +1
-        --   authors[KEY] += 1000, cap 30000
-        --   time_authors[KEY] = 0
+        --   authors[KEY].time absent -> grant +1000
+        --   authors[KEY].reps += 1000, cap 30000
+        --   authors[KEY].time = 0
         -- scan "12-24": P2 time=0, NOW=86400 >= 86400
-        --   time_authors[KEY] = 0, 0-0 = 0 < 86400
+        --   authors[KEY].time = 0, 0-0 = 0 < 86400
         --   -> no grant (1/day limit), discard
-        authors:     KEY=30000 (29000+1000+1000-1000, capped)
-        local/posts:  P3={..., state="12-24"}
-                     P4={author=KEY, time=86400, state="00-12"}
-        local/authors: KEY=0
+        G.authors: KEY={reps=30000, time=0} (capped)
+        G.posts:   P3={..., maturity="12-24"}
+                   P4={author=KEY, time=86400, maturity="00-12"}
 
 t=48h:  KEY posts P5 (signed)
         -- scan "00-12": P4 discount = 0 -> refund
         -- scan "12-24": P3 time=0, NOW=172800 >= 86400
-        --   time_authors[KEY]=0, 0-0=0 < 86400 -> no grant
+        --   authors[KEY].time=0, 0-0=0 < 86400 -> no grant
         --   discard P3
-        authors:     KEY=30000 (capped)
-        local/posts:  P5={author=KEY, time=172800, state="00-12"}
-        local/authors: KEY=0
+        G.authors: KEY={reps=30000, time=0} (capped)
+        G.posts:   P5={author=KEY, time=172800, maturity="00-12"}
 ```
 
 Observations:
 - Posts are effectively free in active chains (discount=0)
-- Consolidation grants +1/day, capped at 30
-- Pioneer stays at 30 despite posting (cost refunded)
-- Matches Kotlin test c03/c04 behavior (reps=30 after posts)
+- Consolidation grants +`cost`/day, capped at `max`
+- Pioneer stays at 30000 despite posting (cost refunded)
+- Matches Kotlin test c03/c04 behavior (full reps after posts)
 
 ## Related Plans
 
 - [chains.md](chains.md) — chain types and pioneer setup
+- [260809-reps.md](260809-reps.md) — parameter review
+  (what's good/bad for users) + the pending NO DEBT gates
+- [done/260722-bug-reps-debt.md](done/260722-bug-reps-debt.md)
+  — vote affordability gate (shipped)
+- [280808-redesign.md](280808-redesign.md) — action files,
+  snapshots, the storage model above
 - [commands.md](commands.md) — CLI command mapping
 - [consensus.md](consensus.md) — reputation as validation
   gate
-- [layout.md](layout.md) — filesystem layout including
-  `.freechains/`
+- [layout.md](layout.md) — filesystem layout
 - [tests.md](tests.md) — Sections C, M, N test reputation
 - [references.md](references.md) — papers, docs, guides
 
 ## Done
 
-- [x] Plan: internal/external rep model (1000x)
+- [x] Plan: internal/external rep model (1000x) — REVERTED
+      by REPS UNITS: one currency, CLI speaks raw
 - [x] Plan: 10% tax on likes
 - [x] Plan: like/dislike split subcommands
 - [x] Plan: self-like allowed
 - [x] Plan: variable discount (0-12h, Rule 2)
 - [x] Plan: consolidation regrant (+1/day, Rule 1.b)
 - [x] Plan: 3 block states (ACCEPTED/BLOCKED/REVOKED)
-- [x] Plan: 30-rep cap (Rule 4.b)
+- [x] Plan: `max` cap (Rule 4.b)
 - [x] Plan: revocation threshold (Rule 3.b)
-- [x] Plan: time/ storage (posts.lua, authors.lua)
 - [x] Tests: cli-like.lua (like command structure)
 - [x] Tests: reps.lua (reputation math)
 - [x] Impl: like/dislike commands in src/freechains
-- [x] Impl: .freechains/likes/ created at chain init
-- [x] Impl: skel() creates full .freechains/ skeleton
-- [x] Impl: reps/ nested dir (authors.lua, posts.lua)
+- [x] Impl: vote affordability gate (no debt)
+- [x] Impl: one currency (CLI speaks raw units)
+- [x] Impl: state as snapshots, not tree files
+      (`.freechains/` and skel deleted)
 
 ## TODO
 
-- [x] Impl: time/ dir created by skel()
-- [x] Impl: gate check (Rule 4.a, > 0 internal rep to post)
+- [x] Impl: post gate (Rule 4.a, presence: `reps > 0`)
 - [x] Impl: variable discount engine (Rule 2)
 - [x] Impl: consolidation engine (Rule 1.b)
-- [x] Impl: 30-rep cap (Rule 4.b)
+- [x] Impl: `max` cap (Rule 4.b)
 - [x] Impl: signing gate (--sign required, --beg bypass)
 - [x] Impl: reps command in src/freechains
-- [x] Refactor: merge reps/ + time/ into authors.lua + posts.lua
 - [x] Refactor: chain.lua flatten (less nesting)
 - [x] Tests: variable discount (0-12h)
-- [x] Tests: consolidation (+1/day, 24h)
-- [x] Tests: 30-rep cap
+- [x] Tests: consolidation (+`cost`/day, 24h)
+- [x] Tests: `max` cap
 - [x] Tests: gate check (blocked, accepted, unblocked, beg-with-reps)
 - [x] Tests: author-targeted likes (cost, gains, like 2, dislike)
 - [x] Impl: consensus tie-breaker (hash comparison)
-- [ ] Impl: state checkpoint walk (find last state commit before merge-base)
-- [ ] Impl: state commit after merge in recv
-- [ ] Impl: remove state commit from send
+- [ ] Impl: NO DEBT — post gate `reps >= cost`, beg gate
+      `reps < cost`, beg-like floor `n >= cost`
+      ([260809-reps.md](260809-reps.md); before sync/release)
+- [ ] Decide: pioneer floor for large N ([260809-reps.md](260809-reps.md))
+- [ ] Decide: exclude the author from `subsequent_reps`
+      ([260809-reps.md](260809-reps.md))
 - [ ] Tests: bilateral sync (B recv A + bit-equality)
 - [ ] Tests: tie-breaker (same-timestamp divergence)
 - [ ] Plan: file-op cost model (Rule 5)
 - [ ] Impl: file-op count via git diff-tree (Rule 5)
-- [ ] Impl: N * 1000 post cost (Rule 5)
+- [ ] Impl: N * `cost` post cost (Rule 5)
 - [ ] Impl: fetch/merge file-op validation (Rule 5)
-- [ ] Tests: file-op cost (1 file, multi-file, .freechains/ exempt)
+- [ ] Tests: file-op cost (1 file, multi-file)
 - [ ] Impl: revocation state (Rule 3.b)
 - [ ] Impl: 128 KB size limit (Rule 4.c)
-- [ ] Impl: --beg creates BLOCKED post
 - [ ] Tests: revocation threshold
 - [ ] Tests: time flow example (above)

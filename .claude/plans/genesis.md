@@ -132,9 +132,11 @@ Reputation constants for the chain.
 
 | Field  | Description                          |
 |--------|--------------------------------------|
-| `unit` | Internal units per 1 external rep    |
-| `cost` | Rep cost per signed post             |
-| `max`  | Max rep cap per author               |
+| `cost` | Rep cost per signed post (1000)      |
+| `max`  | Max rep cap per author (30000)       |
+
+(`unit` is gone: one currency, the CLI speaks raw reps
+— see [reps.md](reps.md).)
 
 #### `like`
 
