@@ -126,7 +126,7 @@
     - parked: err-post/err-like forgery gsubs on
       "(empty message)" match nothing now -> new tamper
       vector needed at sync phase
-- NO DEBT -> moved to `260809-reps.md` (cost-quantized gates
+- NO DEBT -> moved to `done/260809-reps.md` (cost-quantized gates
   + reps parameter review; must ship before sync/release)
 - REPS UNITS DONE: one currency — CLI speaks internal units
   (landed BEFORE no-debt: order flipped, holes stay open

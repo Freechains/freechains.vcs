@@ -30,7 +30,7 @@ A like of 1000 therefore costs two posts, and the post
 cost comes back while the like is spent for good: speak
 freely, endorse deliberately.
 
-Parameter review: [260809-reps.md](260809-reps.md).
+Parameter review: [260809-reps.md](done/260809-reps.md).
 
 ## Initial Reputation: Pioneers
 
@@ -274,7 +274,7 @@ So a post-like of 1000 delivers 450 to the author, an
 author-like of 1000 delivers 900 — neither pays for the
 next post on its own. The cheapest grant that posts
 immediately is 2223 (post) or 1112 (author); see
-[260809-reps.md](260809-reps.md).
+[260809-reps.md](done/260809-reps.md).
 
 #### Dislike (negative N)
 
@@ -633,7 +633,7 @@ Observations:
 ## Related Plans
 
 - [chains.md](chains.md) — chain types and pioneer setup
-- [260809-reps.md](260809-reps.md) — parameter review
+- [260809-reps.md](done/260809-reps.md) — parameter review
   (what's good/bad for users) + the pending NO DEBT gates
 - [done/260722-bug-reps-debt.md](done/260722-bug-reps-debt.md)
   — vote affordability gate (shipped)
@@ -686,7 +686,7 @@ Observations:
 - [x] Decide: pioneer limit for large N — genesis rejected
       beyond `max // cost` = 100 pioneers
 - [x] Decide: the author DOES count in `subsequent_reps`
-      ([260809-reps.md](260809-reps.md))
+      ([260809-reps.md](done/260809-reps.md))
 - [ ] Tests: bilateral sync (B recv A + bit-equality)
 - [ ] Tests: tie-breaker (same-timestamp divergence)
 - [ ] Plan: file-op cost model (Rule 5)
