@@ -6,6 +6,9 @@ require "freechains.chain.common"
 -- Chain state lives in local snapshots (`.git/states/`), keyed by
 -- commit: the reset lands on a tip whose snapshot already exists.
 
+-- the aid may be abbreviated (`list dag` prints it so)
+ARGS.aid = ACTION.full(ARGS.aid)
+
 local cid = ACTION.cid(ARGS.aid)
 if not cid then
     ERROR("chain abandon : invalid hash")

@@ -176,7 +176,7 @@ return {
     ["backs"] = {                           -- actions it links back to
         [1] = "b52c62f...",
     },
-    ["blob"] = "b569cb2...",                -- payload hash
+    ["blob"] = "90c7c77...",                -- payload hash
     ["sign"] = "ssh-ed25519 ...vzTc96I",    -- author's public key
     ["time"] = 1780088002,                  -- local creation time
 }

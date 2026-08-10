@@ -6,6 +6,7 @@ require "freechains.chain.common"
 -- ones. One io.open, no git -- and it doubles as the read
 local src
 do
+    ARGS.aid = ACTION.full(ARGS.aid)
     local f = ARGS.aid:match("^%x+$") and
         io.open(REPO .. ACTION.path(ARGS.aid))
     if not f then

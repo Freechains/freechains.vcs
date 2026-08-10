@@ -75,6 +75,18 @@ do
     end
 
     do
+        TEST "like accepts a SHORT target id"
+        local out, code = exec {
+            cmd = ENV_EXE .. " chain '#cli-like' like 1000 post " .. POST:sub(1, 7) .. " --sign " .. KEY2,
+        }
+        assert(code == 0, "exit code: " .. tostring(code))
+        local T = load(exec {
+            cmd = ENV_EXE .. " chain '#cli-like' get metadata " .. out,
+        }, "metadata", "t", {})()
+        assert(T.post == POST, "target should be the full id: " .. tostring(T.post))
+    end
+
+    do
         TEST "like-is-signed"
         local hash = exec {
             cmd = "git -C " .. DIR .. " rev-parse HEAD",

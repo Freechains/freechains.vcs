@@ -68,6 +68,36 @@ do
     end
 
     do
+        TEST "payload of a SHORT id"
+        -- ids are printed abbreviated (`list dag`), so a prefix must
+        -- resolve, like git does with commit hashes
+        local out, code = exec {
+            cmd = ENV_EXE .. " chain '#cli-get' get payload " .. POST:sub(1, 7),
+        }
+        assert(code == 0, "exit code: " .. tostring(code))
+        assert(out == "hello world", "content: " .. out)
+    end
+
+    do
+        TEST "payload of a TOO SHORT id"
+        -- one char cannot even name the bucket
+        FAIL {
+            cmd = ENV_EXE .. " chain '#cli-get' get payload " .. POST:sub(1, 1),
+            err = "ERROR : chain get : unknown post",
+        }
+    end
+
+    do
+        TEST "metadata of a SHORT id"
+        local out, code = exec {
+            cmd = ENV_EXE .. " chain '#cli-get' get metadata " .. POST:sub(1, 7),
+        }
+        assert(code == 0, "exit code: " .. tostring(code))
+        local T = load(out, "metadata", "t", {})()
+        assert(T.action == "post", "action: " .. tostring(T.action))
+    end
+
+    do
         TEST "payload of genesis"
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-get' get payload " .. GENESIS,

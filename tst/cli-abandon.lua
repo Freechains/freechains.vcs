@@ -167,11 +167,12 @@ do
 
     -- G -- p1[K1]                         (p2' abandoned again)
     do
-        TEST "abandon the newest post removes just it"
+        TEST "abandon the newest post removes just it (SHORT id)"
+        -- ids may be abbreviated, as `list dag` prints them
         local out = exec {
-            cmd = ENV_EXE .. " chain '#cli-abandon-1' abandon " .. p2b,
+            cmd = ENV_EXE .. " chain '#cli-abandon-1' abandon " .. p2b:sub(1, 7),
         }
-        assert(out == p2b, "should list p2' alone: " .. out)
+        assert(out == p2b, "should list p2' in full: " .. out)
         local O = ORDER(ENV_EXE, "#cli-abandon-1")
         assert(#O == 1, "expected 1 entry, got " .. #O)
         assert(O[1] == p1, "p1 should be the only entry")

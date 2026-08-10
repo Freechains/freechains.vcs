@@ -8,6 +8,12 @@ end
 
 ARGS.id = ARGS.id:match("^%s*(.-)%s*$")
 
+-- a post target may be abbreviated (`list dag` prints it so); an
+-- author target is a pubkey and passes through untouched
+if ARGS.target == "post" then
+    ARGS.id = ACTION.full(ARGS.id)
+end
+
 -- num: dislike and revoke remove reps; like and unrevoke add reps
 local num = ARGS.number
 if ARGS.dislike or ARGS.revoke then

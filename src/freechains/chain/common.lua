@@ -62,6 +62,36 @@ ACTION = {
         return "actions/" .. aid:sub(1, 2) .. "/" .. aid .. ".lua"
     end,
 
+    -- `pre` expanded to a full aid: ids are printed abbreviated
+    -- (`list dag`), so a prefix must resolve, as git does with
+    -- commit hashes. Two chars name the bucket, so anything
+    -- shorter cannot resolve. Unknown or ambiguous prefixes are
+    -- returned unchanged: the caller fails on the id it was given
+    full = function (pre)
+        if (#pre == 40) or (#pre < 2) or (not pre:match("^%x+$")) then
+            return pre
+        end
+        -- an action in history sits in its bucket; a pending beg
+        -- is outside HEAD's tree, on its own ref
+        local dir = exec { err=false, stderr=false,
+            cmd = "ls " .. REPO .. "actions/" .. pre:sub(1, 2) .. "/" ..
+                pre .. "*.lua",
+        } or ""
+        local begs = exec { err=false, stderr=false,
+            cmd = "git -C " .. REPO .. " for-each-ref --format='%(refname)'" ..
+                " 'refs/begs/beg-" .. pre .. "*'",
+        } or ""
+        local aid = nil
+        for l in (dir .. "\n" .. begs):gmatch("[^\n]+") do
+            local a = l:match("(%x+)%.lua$") or l:match("beg%-(%x+)$")
+            if a and aid and (a ~= aid) then
+                return pre      -- ambiguous
+            end
+            aid = a or aid
+        end
+        return aid or pre
+    end,
+
     -- aid(cid): cid -> aid : aid of the action commit cid
     aid = function (cid)
         local out = exec { err=false, stderr=false,
