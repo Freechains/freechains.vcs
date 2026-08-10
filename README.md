@@ -289,33 +289,33 @@ Now, we use their public keys to query their reputations:
 
 ```
 $ freechains chain '#chat' reps author "$(cat /tmp/alice.pub)"
-30
+30000
 $ freechains chain '#chat' reps author "$(cat /tmp/bob.pub)"
 0
 ```
 
-As the chain pioneer, `Alice` still has `30 reps` to use, whereas `Bob` has no
+As the chain pioneer, `Alice` still has `30000 reps` to use, whereas `Bob` has no
 reputation and cannot post on the chain.
 
 To welcome new members into the chain, the pioneer needs to redistribute a
 share of its `reps`:
 
 ```
-$ freechains chain '#chat' like 10 author "$(cat /tmp/bob.pub)" --sign=/tmp/alice
+$ freechains chain '#chat' like 10000 author "$(cat /tmp/bob.pub)" --sign=/tmp/alice
 560a55c...
 ```
 
-`Alice` just transferred `10 reps` to `Bob`:
+`Alice` just transferred `10000 reps` to `Bob`:
 
 ```
 $ freechains --root=/tmp/B/ chain '#chat' sync recv localhost
 $ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/alice.pub)"
-23
+23000
 $ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/bob.pub)"
-9
+9000
 ```
 
-You might have expected `20` and `10`, not `23` and `9` as `reps`.
+You might have expected `20000` and `10000`, not `23000` and `9000` as `reps`.
 This is due to internal rules that tax transfers and recover `reps` over time,
 which are out of the scope of this guide.
 
@@ -323,13 +323,13 @@ Let's now introduce new member `Charlie`, who is welcomed by `Bob` in peer `B`:
 
 ```
 $ ssh-keygen -t ed25519 -C '' -f /tmp/charlie
-$ freechains --root=/tmp/B/ chain '#chat' like 5 author "$(cat /tmp/charlie.pub)" --sign=/tmp/bob
+$ freechains --root=/tmp/B/ chain '#chat' like 5000 author "$(cat /tmp/charlie.pub)" --sign=/tmp/bob
 $ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/alice.pub)"
-23
+23000
 $ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/bob.pub)"
-4
+4000
 $ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/charlie.pub)"
-5
+4500
 ```
 
 After a few interactions, we already have `Alice`, `Bob`, and `Charlie` with
@@ -345,9 +345,9 @@ As with authors, posts also have associated `reps` and can receive likes and
 dislikes:
 
 ```
-$ freechains --root=/tmp/B/ chain '#chat' like    1 post b52c62f --sign=/tmp/charlie
+$ freechains --root=/tmp/B/ chain '#chat' like    1000 post b52c62f --sign=/tmp/charlie
 a9b0c1d...
-$ freechains --root=/tmp/B/ chain '#chat' dislike 1 post d6568e4 --sign=/tmp/bob
+$ freechains --root=/tmp/B/ chain '#chat' dislike 1000 post d6568e4 --sign=/tmp/bob
 b0c1d2e...
 ```
 
@@ -356,13 +356,13 @@ author (half), whereas a dislike drains `reps` from them:
 
 ```
 $ freechains --root=/tmp/B/ chain '#chat' reps posts
-b52c62f... 1
+b52c62f... 450
 e1f2a3b... 0
-d6568e4... -1
+d6568e4... -450
 $ freechains --root=/tmp/B/ chain '#chat' reps authors
-ssh-ed25519 ...vzTc96I 23    # Alice (unaffected)
-ssh-ed25519 ...je8+xIa ?     # Bob
-ssh-ed25519 ...Ks9pL2v ?     # Charlie
+ssh-ed25519 ...vzTc96I 23000   # Alice (unaffected)
+ssh-ed25519 ...je8+xIa ?       # Bob
+ssh-ed25519 ...Ks9pL2v ?       # Charlie
 ```
 
 As an alternative to welcome new members, Freechains supports begging posts.
@@ -382,10 +382,10 @@ $ freechains chain '#chat' list begs
 c7d8e9f...
 ```
 
-`Alice` likes the post and rates it, spending `4 reps`:
+`Alice` likes the post and rates it, spending `4000 reps`:
 
 ```
-$ freechains chain '#chat' like 4 post c7d8e9f --sign=/tmp/alice
+$ freechains chain '#chat' like 4000 post c7d8e9f --sign=/tmp/alice
 d8e9f0a...
 $ freechains chain '#chat' list begs
 # (empty)
@@ -600,7 +600,7 @@ $ freechains chain '#chat' post inline $'BUY NOW\n' --sign=/tmp/dave
 `Alice` detects the SPAM and revokes it:
 
 ```
-$ freechains chain '#chat' revoke 1 4a5b6c7 --sign=/tmp/alice
+$ freechains chain '#chat' revoke 1000 4a5b6c7 --sign=/tmp/alice
 8f9a0b1...
 ```
 
@@ -626,7 +626,7 @@ Let's say `Bob` posts something he immediately regrets:
 ```
 $ freechains --root=/tmp/B/ chain '#chat' post inline $'my address is ...\n' --sign=/tmp/bob
 5d6e7f8...
-$ freechains --root=/tmp/B/ chain '#chat' revoke 1 5d6e7f8 --sign=/tmp/bob
+$ freechains --root=/tmp/B/ chain '#chat' revoke 1000 5d6e7f8 --sign=/tmp/bob
 6e7f8a9...
 $ freechains chain '#chat' get payload 5d6e7f8
 ERROR : chain get : revoked post

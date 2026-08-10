@@ -73,7 +73,7 @@ do
     -- K2 pays 1, 10% burned, half credited to K1 -> K1 > K2
     TEST "KEY2 likes seed (loses reps, KEY1 > KEY2)"
     exec {
-        cmd = EXE_A .. " --now=1200 chain '#hs' like 1 post " .. seed .. " --sign " .. KEY2,
+        cmd = EXE_A .. " --now=1200 chain '#hs' like 1000 post " .. seed .. " --sign " .. KEY2,
     }
 
     TEST "X clones hs"

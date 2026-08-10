@@ -12,7 +12,7 @@ local POST = exec {
     cmd = ENV_EXE .. " chain '#cli-get' post inline 'hello world' --sign " .. KEY1,
 }
 local LIKE = exec {
-    cmd = ENV_EXE .. " chain '#cli-get' like 1 post " .. POST .. " --sign " .. KEY2,
+    cmd = ENV_EXE .. " chain '#cli-get' like 1000 post " .. POST .. " --sign " .. KEY2,
 }
 local GENESIS = exec {
     cmd = "git -C " .. DIR .. " rev-list --max-parents=0 HEAD",
@@ -24,7 +24,7 @@ local UNSIGNED = exec {
     cmd = ENV_EXE .. " chain '#cli-get' post inline 'unsigned content' --beg",
 }
 local MERGE_LIKE = exec {
-    cmd = ENV_EXE .. " chain '#cli-get' like 1 post " .. UNSIGNED .. " --sign " .. KEY2,
+    cmd = ENV_EXE .. " chain '#cli-get' like 1000 post " .. UNSIGNED .. " --sign " .. KEY2,
 }
 
 -- a separate post + a community revoke of it, to exercise the revoke
@@ -33,7 +33,7 @@ local RPOST = exec {
     cmd = ENV_EXE .. " chain '#cli-get' post inline 'to be revoked' --sign " .. KEY1,
 }
 local REVOKE = exec {
-    cmd = ENV_EXE .. " chain '#cli-get' revoke 1 " .. RPOST .. " --sign " .. KEY2,
+    cmd = ENV_EXE .. " chain '#cli-get' revoke 1000 " .. RPOST .. " --sign " .. KEY2,
 }
 
 -- GET PAYLOAD

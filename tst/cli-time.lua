@@ -18,7 +18,7 @@ do
         local out = exec {
             cmd = ENV_EXE .. " --now=0 chain '#cli-time' reps author '" .. PUB1 .. "'",
         }
-        assert(out == "29", "reps: " .. out)
+        assert(out == "29000", "reps: " .. out)
 
         exec { -- 29 -> 30 (refund) -> 29 (post)
             cmd = ENV_EXE .. " --now=0 chain '#cli-time' post inline 'p2' --sign " .. KEY1,
@@ -26,7 +26,7 @@ do
         local out = exec {
             cmd = ENV_EXE .. " --now=0 chain '#cli-time' reps author '" .. PUB1 .. "'",
         }
-        assert(out == "29", "reps: " .. out)
+        assert(out == "29000", "reps: " .. out)
     end
 end
 
@@ -51,7 +51,7 @@ do
         local out = exec {
             cmd = ENV_EXE .. " --now=0 chain '#cli-time' reps author '" .. PUB1 .. "'",
         }
-        assert(out == "29", "reps: " .. out)
+        assert(out == "29000", "reps: " .. out)
 
         exec { -- refund P1 + consolidate P1 + cost P2 → 30
             cmd = ENV_EXE .. " --now=86400 chain '#cli-time' post inline 'p2' --sign " .. KEY1,
@@ -59,7 +59,7 @@ do
         local out = exec {
             cmd = ENV_EXE .. " --now=86400 chain '#cli-time' reps author '" .. PUB1 .. "'",
         }
-        assert(out == "30", "reps: " .. out)
+        assert(out == "30000", "reps: " .. out)
     end
 
     exec {
@@ -85,7 +85,7 @@ do
         local out = exec {
             cmd = ENV_EXE .. " --now=0 chain '#cli-time' reps author '" .. PUB1 .. "'",
         }
-        assert(out == "29", "reps: " .. out)
+        assert(out == "29000", "reps: " .. out)
 
         exec { -- refund P3 + consolidate P1 only + cost P4 → 30
             cmd = ENV_EXE .. " --now=86400 chain '#cli-time' post inline 'p4' --sign " .. KEY1,
@@ -93,7 +93,7 @@ do
         local out = exec {
             cmd = ENV_EXE .. " --now=86400 chain '#cli-time' reps author '" .. PUB1 .. "'",
         }
-        assert(out == "30", "reps: " .. out)
+        assert(out == "30000", "reps: " .. out)
     end
 
     exec {
@@ -119,13 +119,13 @@ do
         local out = exec {
             cmd = ENV_EXE .. " --now=0 chain '#cli-time' reps author '" .. PUB1 .. "'",
         }
-        assert(out == "29", "reps at now=0: " .. out)
+        assert(out == "29000", "reps at now=0: " .. out)
 
         -- query at now=86400: refund + consolidation → 30
         local out = exec {
             cmd = ENV_EXE .. " --now=86400 chain '#cli-time' reps author '" .. PUB1 .. "'",
         }
-        assert(out == "30", "reps at now=86400: " .. out)
+        assert(out == "30000", "reps at now=86400: " .. out)
     end
 
     exec {

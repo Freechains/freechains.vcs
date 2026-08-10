@@ -35,7 +35,7 @@ do
 
     TEST "KEY2 likes seed (loses reps, KEY1 > KEY2 at fork)"
     exec {
-        cmd = EXE_A .. " --now=1200 chain '#cons-a' like 1 post " .. seed_a .. " --sign " .. KEY2,
+        cmd = EXE_A .. " --now=1200 chain '#cons-a' like 1000 post " .. seed_a .. " --sign " .. KEY2,
     }
 
     TEST "B clones cons-a"
@@ -92,7 +92,7 @@ do
 
     TEST "KEY2 likes seed (loses reps, KEY1 > KEY2 at fork)"
     exec {
-        cmd = EXE_A .. " --now=1200 chain '#cons-b' like 1 post " .. seed_b .. " --sign " .. KEY2,
+        cmd = EXE_A .. " --now=1200 chain '#cons-b' like 1000 post " .. seed_b .. " --sign " .. KEY2,
     }
 
     TEST "B clones cons-b"
@@ -151,17 +151,17 @@ do
 
     TEST "B: KEY1 dislikes KEY4 author by 3"
     local X1 = exec {
-        cmd = EXE_B .. " --now=2000 chain '#cons-c' dislike 3 author '" .. PUB4 .. "' --sign " .. KEY1,
+        cmd = EXE_B .. " --now=2000 chain '#cons-c' dislike 3000 author '" .. PUB4 .. "' --sign " .. KEY1,
     }
 
     TEST "B: KEY2 dislikes KEY4 author by 3"
     local X2 = exec {
-        cmd = EXE_B .. " --now=2000 chain '#cons-c' dislike 3 author '" .. PUB4 .. "' --sign " .. KEY2,
+        cmd = EXE_B .. " --now=2000 chain '#cons-c' dislike 3000 author '" .. PUB4 .. "' --sign " .. KEY2,
     }
 
     TEST "B: KEY3 dislikes KEY4 author by 3"
     local X3 = exec {
-        cmd = EXE_B .. " --now=2000 chain '#cons-c' dislike 3 author '" .. PUB4 .. "' --sign " .. KEY3,
+        cmd = EXE_B .. " --now=2000 chain '#cons-c' dislike 3000 author '" .. PUB4 .. "' --sign " .. KEY3,
     }
 
     TEST "A: KEY2 posts P1 (survives)"
@@ -266,7 +266,7 @@ do
     -- K4: 7500 - 2700 = 4800
     TEST "A: KEY1 dislikes KEY4 author by 3"
     exec {
-        cmd = EXE_A .. " --now=2000 chain '#cons-d' dislike 3 author '" .. PUB4 .. "' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=2000 chain '#cons-d' dislike 3000 author '" .. PUB4 .. "' --sign " .. KEY1,
     }
 
     -- A: G -- D1 -- D2
@@ -274,7 +274,7 @@ do
     -- K4: 4800 - 2700 = 2100
     TEST "A: KEY2 dislikes KEY4 author by 3"
     exec {
-        cmd = EXE_A .. " --now=2000 chain '#cons-d' dislike 3 author '" .. PUB4 .. "' --sign " .. KEY2,
+        cmd = EXE_A .. " --now=2000 chain '#cons-d' dislike 3000 author '" .. PUB4 .. "' --sign " .. KEY2,
     }
 
     -- A: G -- D1 -- D2 -- D3
@@ -282,7 +282,7 @@ do
     -- K4: 2100 - 2700 = -600
     TEST "A: KEY3 dislikes KEY4 author by 3"
     exec {
-        cmd = EXE_A .. " --now=2000 chain '#cons-d' dislike 3 author '" .. PUB4 .. "' --sign " .. KEY3,
+        cmd = EXE_A .. " --now=2000 chain '#cons-d' dislike 3000 author '" .. PUB4 .. "' --sign " .. KEY3,
     }
 
     -- A: G -- D1 -- D2 -- D3

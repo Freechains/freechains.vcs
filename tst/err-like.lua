@@ -477,7 +477,7 @@ do
 
     TEST "A crafts a like with forged signature"
     exec {
-        cmd = EXE_A .. " chain '#err-forge-like' like 1 author '" .. PUB1 .. "' --sign " .. KEY1,
+        cmd = EXE_A .. " chain '#err-forge-like' like 1000 author '" .. PUB1 .. "' --sign " .. KEY1,
     }
     -- Strip state commit
     exec {

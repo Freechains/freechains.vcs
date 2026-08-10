@@ -56,7 +56,7 @@ local BEG = exec {
 
 -- KEY1 likes the beg → LIKE is a 2-parent merge with `Freechains: like`
 local LIKE = exec {
-    cmd = EXE_B .. " --now=5000 chain '#test' like 1 post " .. BEG .. " --sign " .. KEY1,
+    cmd = EXE_B .. " --now=5000 chain '#test' like 1000 post " .. BEG .. " --sign " .. KEY1,
 }
 
 TEST "get metadata on like-merge over a state-merge should succeed"

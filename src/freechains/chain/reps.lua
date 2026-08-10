@@ -1,13 +1,3 @@
-local function ext (int)
-    if int > 0 then
-        return math.tointeger((int + 999) // 1000)
-    elseif int < 0 then
-        return -math.tointeger((-int + 999) // 1000)
-    else
-        return 0
-    end
-end
-
 if ARGS.key then
     ARGS.key = ARGS.key:match("^%s*(.-)%s*$")
 end
@@ -18,7 +8,7 @@ if ARGS.target == "post" then
     end
     local e = G.posts[ARGS.key]
     local v = (e and e.reps) or 0
-    print(ext(v))
+    print(v)
 elseif ARGS.target == "posts" then
     local T = {}
     for k, v in pairs(G.posts) do
@@ -26,7 +16,7 @@ elseif ARGS.target == "posts" then
     end
     table.sort(T, function (a, b) return a.v > b.v end)
     for _, e in ipairs(T) do
-        print(e.k .. " " .. ext(e.v))
+        print(e.k .. " " .. e.v)
     end
 
 elseif ARGS.target == "revoke" then
@@ -36,7 +26,7 @@ elseif ARGS.target == "revoke" then
     end
     local e = G.posts[ARGS.key]
     local r = (e and e.revoke) or { author=0, others=0 }
-    print(ext(r.author) .. " " .. ext(r.others))
+    print(r.author .. " " .. r.others)
 elseif ARGS.target == "revokes" then
     -- both revoke channels of all posts, most revoked first
     local T = {}
@@ -52,7 +42,7 @@ elseif ARGS.target == "revokes" then
         end
     end)
     for _, e in ipairs(T) do
-        print(e.k .. " " .. ext(e.a) .. " " .. ext(e.o))
+        print(e.k .. " " .. e.a .. " " .. e.o)
     end
 
 elseif ARGS.target == "author" then
@@ -61,7 +51,7 @@ elseif ARGS.target == "author" then
     end
     local e = G.authors[ARGS.key]
     local v = (e and e.reps) or 0
-    print(ext(v))
+    print(v)
 elseif ARGS.target == "authors" then
     local T = {}
     for k, v in pairs(G.authors) do
@@ -69,7 +59,7 @@ elseif ARGS.target == "authors" then
     end
     table.sort(T, function (a, b) return a.v > b.v end)
     for _, e in ipairs(T) do
-        print(e.k .. " " .. ext(e.v))
+        print(e.k .. " " .. e.v)
     end
 
 else

@@ -115,15 +115,15 @@ FC --root="$B" --now=$((T0+50)) chain '#chat' post inline $'Possibly malicious\n
 FC --root="$A" chain '#chat' reps author "$(awk '{print $1" "$2}' "$KEYS/alice.pub")"
 FC --root="$B" chain '#chat' reps author "$(awk '{print $1" "$2}' "$KEYS/bob.pub")"
 
-# Alice welcomes Bob with 10 reps
-FC --root="$A" --now=$((T0+60)) chain '#chat' like 10 author "$(awk '{print $1" "$2}' "$KEYS/bob.pub")" --sign="$KEYS/alice"
+# Alice welcomes Bob with 10000 reps
+FC --root="$A" --now=$((T0+60)) chain '#chat' like 10000 author "$(awk '{print $1" "$2}' "$KEYS/bob.pub")" --sign="$KEYS/alice"
 FC --root="$B" --now=$((T0+70)) chain '#chat' sync recv localhost:$A_PORT
 FC --root="$B" chain '#chat' reps author "$(awk '{print $1" "$2}' "$KEYS/alice.pub")"
 FC --root="$B" chain '#chat' reps author "$(awk '{print $1" "$2}' "$KEYS/bob.pub")"
 
-# Bob welcomes Charlie with 5 reps
+# Bob welcomes Charlie with 5000 reps
 ssh-keygen -t ed25519 -C '' -N '' -q -f "$KEYS/charlie"
-FC --root="$B" --now=$((T0+80)) chain '#chat' like 5 author "$(awk '{print $1" "$2}' "$KEYS/charlie.pub")" --sign="$KEYS/bob"
+FC --root="$B" --now=$((T0+80)) chain '#chat' like 5000 author "$(awk '{print $1" "$2}' "$KEYS/charlie.pub")" --sign="$KEYS/bob"
 FC --root="$B" chain '#chat' reps author "$(awk '{print $1" "$2}' "$KEYS/charlie.pub")"
 
 echo
@@ -133,8 +133,8 @@ echo
 # Charlie likes and Bob dislikes Alice's first two posts: the target is a
 # post, not an author, so the reps land on the content (half) and on
 # Alice (half)
-FC --root="$B" --now=$((T0+81)) chain '#chat' like    1 post "$HELLO" --sign="$KEYS/charlie"
-FC --root="$B" --now=$((T0+82)) chain '#chat' dislike 1 post "$HERE"  --sign="$KEYS/bob"
+FC --root="$B" --now=$((T0+81)) chain '#chat' like    1000 post "$HELLO" --sign="$KEYS/charlie"
+FC --root="$B" --now=$((T0+82)) chain '#chat' dislike 1000 post "$HERE"  --sign="$KEYS/bob"
 
 # expected: 'Hello World' 1 , 'Sync me' 0 , 'I am here' -1
 FC --root="$B" chain '#chat' reps posts
@@ -151,7 +151,7 @@ BEG=$HASH
 FC --root="$A" chain '#chat' list begs
 
 # Alice likes the beg, which admits both the post and its author
-FC --root="$A" --now=$((T0+84)) chain '#chat' like 4 post "$BEG" --sign="$KEYS/alice"
+FC --root="$A" --now=$((T0+84)) chain '#chat' like 4000 post "$BEG" --sign="$KEYS/alice"
 echo "-- no begs pending anymore:"
 FC --root="$A" chain '#chat' list begs
 
@@ -291,7 +291,7 @@ FCH --root="$A" --now=$((MOD+0)) chain '#chat' post inline $'BUY NOW\n' --sign="
 SPAM=$HASH
 
 # Alice detects the spam and revokes it with 1 rep: the payload vanishes
-FC --root="$A" --now=$((MOD+10)) chain '#chat' revoke 1 "$SPAM" --sign="$KEYS/alice"
+FC --root="$A" --now=$((MOD+10)) chain '#chat' revoke 1000 "$SPAM" --sign="$KEYS/alice"
 echo "-- expected failure (revoked post):"
 FC --root="$A" chain '#chat' get payload "$SPAM" || true
 
@@ -300,7 +300,7 @@ FC --root="$A" chain '#chat' get payload "$SPAM" || true
 FC  --root="$B" --now=$((MOD+15)) chain '#chat' sync recv localhost:$X_PORT
 FCH --root="$B" --now=$((MOD+20)) chain '#chat' post inline $'my address is ...\n' --sign="$KEYS/bob"
 REGRET=$HASH
-FC --root="$B" --now=$((MOD+30)) chain '#chat' revoke 1 "$REGRET" --sign="$KEYS/bob"
+FC --root="$B" --now=$((MOD+30)) chain '#chat' revoke 1000 "$REGRET" --sign="$KEYS/bob"
 
 # a revoke is an ordinary commit, so it propagates to peer A via the hub
 FC --root="$B" --now=$((MOD+40)) chain '#chat' sync send localhost:$X_PORT

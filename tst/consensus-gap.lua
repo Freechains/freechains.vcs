@@ -66,7 +66,7 @@ do
     -- K2 pays 1, 10% burned, half credited to K1 -> K1 > K2
     TEST "KEY2 likes seed (loses reps, KEY1 > KEY2 at fork)"
     local like = exec {
-        cmd = EXE_A .. " --now=1200 chain '#cg2' like 1 post " .. seed .. " --sign " .. KEY2,
+        cmd = EXE_A .. " --now=1200 chain '#cg2' like 1000 post " .. seed .. " --sign " .. KEY2,
     }
 
     -- A: G -- S -- L      B: G -- S -- L      C: G -- S -- L

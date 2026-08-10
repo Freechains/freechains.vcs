@@ -60,7 +60,7 @@ do
     do
         TEST "beg-dislike-rejected"
         FAIL {
-            cmd = ENV_EXE .. " chain '#cli-begs-1' dislike 1 post " .. BEG .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain '#cli-begs-1' dislike 1000 post " .. BEG .. " --sign " .. KEY1,
             err = "ERROR : chain like : invalid target : post not found",
         }
     end
@@ -68,7 +68,7 @@ do
     do
         TEST "beg-revoke-rejected"
         FAIL {
-            cmd = ENV_EXE .. " chain '#cli-begs-1' revoke 1 " .. BEG .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain '#cli-begs-1' revoke 1000 " .. BEG .. " --sign " .. KEY1,
             err = "ERROR : chain revoke : invalid target : post not found",
         }
     end
@@ -185,7 +185,7 @@ do
     do
         TEST "like-beg-succeeds"
         local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-begs-4' like 1 post " .. BEG .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain '#cli-begs-4' like 1000 post " .. BEG .. " --sign " .. KEY1,
         }
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -247,7 +247,7 @@ do
 
         -- KEY3 has 0 reps, should fail to like
         FAIL {
-            cmd = ENV_EXE .. " chain '#cli-begs-4' like 1 post " .. beg .. " --sign " .. KEY3,
+            cmd = ENV_EXE .. " chain '#cli-begs-4' like 1000 post " .. beg .. " --sign " .. KEY3,
             err = "ERROR : chain like : insufficient reputation",
         }
 
@@ -259,7 +259,7 @@ do
         local beg = refs:match("refs/begs/beg%-(%x+)")
 
         FAIL {
-            cmd = ENV_EXE .. " chain '#cli-begs-4' like 1 post " .. beg .. " --sign " .. KEY3,
+            cmd = ENV_EXE .. " chain '#cli-begs-4' like 1000 post " .. beg .. " --sign " .. KEY3,
             err = "ERROR : chain like : insufficient reputation",
         }
     end
@@ -280,7 +280,7 @@ do
         do
             TEST "like-unsigned-beg-succeeds"
             local out, code = exec {
-                cmd = ENV_EXE .. " chain '#cli-begs-4' like 1 post " .. UNSIGNED .. " --sign " .. KEY1,
+                cmd = ENV_EXE .. " chain '#cli-begs-4' like 1000 post " .. UNSIGNED .. " --sign " .. KEY1,
             }
             assert(code == 0, "exit code: " .. tostring(code))
             assert(#out == 40, "hash: " .. out)
@@ -306,7 +306,7 @@ do
 
     -- KEY1 likes the beg (triggers merge)
     exec {
-        cmd = ENV_EXE .. " chain '#cli-begs-5' like 1 post " .. BEG .. " --sign " .. KEY1,
+        cmd = ENV_EXE .. " chain '#cli-begs-5' like 1000 post " .. BEG .. " --sign " .. KEY1,
     }
 
     local MERGE = exec {
@@ -358,7 +358,7 @@ do
 
     -- KEY1 likes the beg (triggers true merge)
     local LIKE = exec {
-        cmd = ENV_EXE .. " chain '#cli-begs-6' like 1 post " .. BEG .. " --sign " .. KEY1,
+        cmd = ENV_EXE .. " chain '#cli-begs-6' like 1000 post " .. BEG .. " --sign " .. KEY1,
     }
 
     do

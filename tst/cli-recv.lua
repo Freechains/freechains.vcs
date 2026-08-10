@@ -263,7 +263,7 @@ do
         assert(bef.post  == 0, "bef.post expected 0, got " .. bef.post)
 
         exec {
-            cmd = EXE_A .. " --now=8000 chain '#test' like 5 post " .. A .. " --sign " .. KEY1,
+            cmd = EXE_A .. " --now=8000 chain '#test' like 5000 post " .. A .. " --sign " .. KEY1,
         }
 
         local aft = {

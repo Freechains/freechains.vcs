@@ -38,7 +38,7 @@ do
         TEST "revoke-community-hides"
         -- KEY2 is not the author: one revoke -> net 1 -> revoked
         exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1 " .. POST .. " --sign " .. KEY2,
+            cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1000 " .. POST .. " --sign " .. KEY2,
         }
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. POST,
@@ -50,7 +50,7 @@ do
         TEST "revoke-community-reversible"
         -- KEY2 unrevoke -> net 0 -> readable
         exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' unrevoke 1 " .. POST .. " --sign " .. KEY2,
+            cmd = ENV_EXE .. " chain '#cli-revoke' unrevoke 1000 " .. POST .. " --sign " .. KEY2,
         }
         local out, code = exec {
             cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. POST,
@@ -70,7 +70,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-revoke' reps author '" .. PUB1 .. "'",
         }
         exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1 " .. POST .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1000 " .. POST .. " --sign " .. KEY1,
         }
         local after = exec {
             cmd = ENV_EXE .. " chain '#cli-revoke' reps author '" .. PUB1 .. "'",
@@ -86,7 +86,7 @@ do
         TEST "revoke-author-above-community"
         -- a community unrevoke cannot restore an author-forgotten post
         exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' unrevoke 1 " .. POST .. " --sign " .. KEY2,
+            cmd = ENV_EXE .. " chain '#cli-revoke' unrevoke 1000 " .. POST .. " --sign " .. KEY2,
         }
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. POST,
@@ -98,7 +98,7 @@ do
         TEST "revoke-author-unrevoke"
         -- only the author can lift their own forget
         exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' unrevoke 1 " .. POST .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain '#cli-revoke' unrevoke 1000 " .. POST .. " --sign " .. KEY1,
         }
         local out, code = exec {
             cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. POST,
@@ -117,16 +117,16 @@ do
         cmd = ENV_EXE .. " chain '#cli-revoke' post inline 'aux' --sign " .. KEY1,
     }
     local L = exec {
-        cmd = ENV_EXE .. " chain '#cli-revoke' like 1 post " .. RP .. " --sign " .. KEY2,
+        cmd = ENV_EXE .. " chain '#cli-revoke' like 1000 post " .. RP .. " --sign " .. KEY2,
     }
     local R = exec {
-        cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1 " .. RP .. " --sign " .. KEY2,
+        cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1000 " .. RP .. " --sign " .. KEY2,
     }
 
     do
         TEST "revoke-a-like-rejected"
         FAIL {
-            cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1 " .. L .. " --sign " .. KEY2,
+            cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1000 " .. L .. " --sign " .. KEY2,
             err = "ERROR : chain revoke : invalid target : post not found",
         }
     end
@@ -134,7 +134,7 @@ do
     do
         TEST "revoke-a-revoke-rejected"
         FAIL {
-            cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1 " .. R .. " --sign " .. KEY2,
+            cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1000 " .. R .. " --sign " .. KEY2,
             err = "ERROR : chain revoke : invalid target : post not found",
         }
     end
@@ -153,14 +153,14 @@ do
     do
         TEST "revoke-like-lifts"
         exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1 " .. P .. " --sign " .. KEY2,
+            cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1000 " .. P .. " --sign " .. KEY2,
         }
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. P,
             err = "ERROR : chain get : revoked post",
         }
         exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' like 1 post " .. P .. " --sign " .. KEY2,
+            cmd = ENV_EXE .. " chain '#cli-revoke' like 1000 post " .. P .. " --sign " .. KEY2,
         }
         local out, code = exec {
             cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. P,
@@ -176,7 +176,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-revoke' reps post " .. P,
         }))
         exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' dislike 1 post " .. P .. " --sign " .. KEY2,
+            cmd = ENV_EXE .. " chain '#cli-revoke' dislike 1000 post " .. P .. " --sign " .. KEY2,
         }
         local after = tonumber((exec {
             cmd = ENV_EXE .. " chain '#cli-revoke' reps post " .. P,
@@ -193,7 +193,7 @@ do
         TEST "revoke-unrevoke-no-reps"
         -- an unrevoke costs the caster, but credits nobody
         exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1 " .. P .. " --sign " .. KEY3,
+            cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1000 " .. P .. " --sign " .. KEY3,
         }
         local post_1 = exec {
             cmd = ENV_EXE .. " chain '#cli-revoke' reps post " .. P,
@@ -202,7 +202,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-revoke' reps author '" .. PUB3 .. "'",
         }))
         exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' unrevoke 1 " .. P .. " --sign " .. KEY3,
+            cmd = ENV_EXE .. " chain '#cli-revoke' unrevoke 1000 " .. P .. " --sign " .. KEY3,
         }
         local post_2 = exec {
             cmd = ENV_EXE .. " chain '#cli-revoke' reps post " .. P,
@@ -224,17 +224,17 @@ do
         -- the author's own like feeds the community channel, so it
         -- cannot lift their absolute self-revoke
         exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1 " .. P .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1000 " .. P .. " --sign " .. KEY1,
         }
         exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' like 1 post " .. P .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain '#cli-revoke' like 1000 post " .. P .. " --sign " .. KEY1,
         }
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. P,
             err = "ERROR : chain get : revoked post",
         }
         exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' unrevoke 1 " .. P .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain '#cli-revoke' unrevoke 1000 " .. P .. " --sign " .. KEY1,
         }
         local out, code = exec {
             cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. P,
@@ -245,13 +245,13 @@ do
 
     do
         TEST "reps-revoke"
-        -- author channel is back to 0, community is +1 (the two likes
+        -- author channel is back to 0, community is +1000 (the two likes
         -- and the unrevoke net against the two revokes)
         local out, code = exec {
             cmd = ENV_EXE .. " chain '#cli-revoke' reps revoke " .. P,
         }
         assert(code == 0,    "exit code: " .. tostring(code))
-        assert(out == "0 1", "channels: " .. out)
+        assert(out == "0 1000", "channels: " .. out)
     end
 
     do

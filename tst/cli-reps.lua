@@ -15,7 +15,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-reps' reps author '" .. PUB1 .. "'",
         }
         assert(code==0, "exit code: " .. tostring(code))
-        assert(out=="30", "reps: " .. out)
+        assert(out=="30000", "reps: " .. out)
     end
 
     do
@@ -34,7 +34,7 @@ do
         }
         assert(code==0,         "exit code: " .. tostring(code))
         assert(out:find(PUB1, 1, true), "PUB1 not listed")
-        assert(out:match("30"), "30 not in output")
+        assert(out:match("30000"), "30000 not in output")
     end
 
     do
@@ -60,7 +60,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-reps' reps author '" .. PUB1 .. "'",
         }
         assert(code == 0, "exit code: " .. tostring(code))
-        assert(out == "29", "reps: " .. out)    -- KEY1: 30 -> post -> 29
+        assert(out == "29000", "reps: " .. out)    -- KEY1: 30000 -> post -> 29000
     end
 
     do
@@ -75,7 +75,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-reps' reps author '" .. PUB1 .. "'",
         }
         assert(code==0, "exit code: " .. tostring(code))
-        assert(out == "29", "reps: " .. out)    -- KEY1: 30 -> posts -> 29 (discount refunds)
+        assert(out == "29000", "reps: " .. out)    -- KEY1: 30000 -> posts -> 29000 (discount refunds)
     end
 
     do
@@ -109,20 +109,20 @@ do
             cmd = ENV_EXE .. " chain '#cli-reps' post inline 'hello'" .. " --sign " .. KEY2,
         }
         exec {
-            cmd = ENV_EXE .. " chain '#cli-reps' like 2 post " .. post .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain '#cli-reps' like 2000 post " .. post .. " --sign " .. KEY1,
         }
 
         local out, code = exec {
             cmd = ENV_EXE .. " chain '#cli-reps' reps author '" .. PUB1 .. "'",
         }
         assert(code==0, "exit code: " .. tostring(code))
-        assert(out == "13", "reps: " .. out)    -- KEY1: 15 -> like -> 13
+        assert(out == "13000", "reps: " .. out)    -- KEY1: 15000 -> like -> 13000
 
         local out, code = exec {
             cmd = ENV_EXE .. " chain '#cli-reps' reps post " .. post,
         }
         assert(code==0, "exit code: " .. tostring(code))
-        assert(out == "1", "reps: " .. out)     -- post: 0 -> like -> 1
+        assert(out == "900", "reps: " .. out)   -- post: 0 -> like 2000*90%/2 -> 900
     end
 
     do
@@ -131,13 +131,13 @@ do
             cmd = ENV_EXE .. " chain '#cli-reps' post inline 'bad'" .. " --sign " .. KEY2,
         }
         exec {
-            cmd = ENV_EXE .. " chain '#cli-reps' dislike 1 post " .. post .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain '#cli-reps' dislike 1000 post " .. post .. " --sign " .. KEY1,
         }
         local out, code = exec {
             cmd = ENV_EXE .. " chain '#cli-reps' reps author '" .. PUB1 .. "'",
         }
         assert(code==0, "exit code: " .. tostring(code))
-        assert(out == "12", "reps: " .. out) -- KEY1: 15 -> like -> 13 -> dislike -> 12
+        assert(out == "12000", "reps: " .. out) -- KEY1: 15000 -> like -> 13000 -> dislike -> 12000
     end
 
     do
@@ -147,15 +147,16 @@ do
             cmd = ENV_EXE .. " chain '#cli-reps' post inline 'disliked'" .. " --sign " .. KEY2,
         }
         exec {
-            cmd = ENV_EXE .. " chain '#cli-reps' dislike 1 post " .. target .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain '#cli-reps' dislike 1000 post " .. target .. " --sign " .. KEY1,
         }
         local out, code = exec {
             cmd = ENV_EXE .. " chain '#cli-reps' reps author '" .. PUB2 .. "'",
         }
         assert(code == 0, "exit code: " .. tostring(code))
-        -- KEY2: 15 - 1(post) - 1(dislike) + refunds = 14
+        -- KEY2: 15000 - 3000 (posts) + 900 (like) - 900 (dislikes)
+        --       + 2000 (refunds) = 14000
         local n = tonumber(out)
-        assert(n == 14, "target should lose reps: " .. out)
+        assert(n == 14000, "target should lose reps: " .. out)
     end
 
     exec {
@@ -178,8 +179,8 @@ do
         local out2 = exec {
             cmd = ENV_EXE .. " chain '#cli-reps' reps author '" .. PUB2 .. "'",
         }
-        assert(out1 == "15", "KEY1 reps: " .. out1)
-        assert(out2 == "15", "KEY2 reps: " .. out2)
+        assert(out1 == "15000", "KEY1 reps: " .. out1)
+        assert(out2 == "15000", "KEY2 reps: " .. out2)
     end
 
     do
@@ -196,7 +197,7 @@ do
         local out = exec {
             cmd = ENV_EXE .. " chain '#cr7' reps author '" .. PUB1 .. "'",
         }
-        assert(out == "10", "KEY1 reps: " .. out)
+        assert(out == "10000", "KEY1 reps: " .. out)
     end
 end
 
@@ -237,7 +238,7 @@ do
         TEST "gate-unblocked-after-like"
         -- KEY1 likes KEY2 (author-targeted) to give reps, then KEY2 can post
         exec {
-            cmd = ENV_EXE .. " chain '#cli-reps' like 1 author '" .. PUB2 .. "'" .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain '#cli-reps' like 1000 author '" .. PUB2 .. "'" .. " --sign " .. KEY1,
         }
         local out2 = exec {
             cmd = ENV_EXE .. " chain '#cli-reps' reps author '" .. PUB2 .. "'",
@@ -348,12 +349,12 @@ do
 
     do
         TEST "debt-overspend-rejected"
-        -- like 100 (ext) is far beyond the 30-ext cap -> always unaffordable
+        -- like 100000 (ext) is far beyond the 30-ext cap -> always unaffordable
         local before = exec {
             cmd = ENV_EXE .. " chain '#cli-reps' reps author '" .. PUB1 .. "'",
         }
         FAIL {
-            cmd = ENV_EXE .. " chain '#cli-reps' like 100 post " .. post .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain '#cli-reps' like 100000 post " .. post .. " --sign " .. KEY1,
             err = "ERROR : chain like : insufficient reputation",
         }
         local after = exec {
@@ -365,7 +366,7 @@ do
     do
         TEST "debt-affordable-ok"
         local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-reps' like 1 post " .. post .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain '#cli-reps' like 1000 post " .. post .. " --sign " .. KEY1,
         }
         assert(code == 0, "affordable like should succeed: " .. tostring(code))
     end

@@ -9,7 +9,7 @@ end
 ARGS.id = ARGS.id:match("^%s*(.-)%s*$")
 
 -- num: dislike and revoke remove reps; like and unrevoke add reps
-local num = ARGS.number * C.reps.unit
+local num = ARGS.number
 if ARGS.dislike or ARGS.revoke then
     num = -num
 end
