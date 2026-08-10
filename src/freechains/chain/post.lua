@@ -56,7 +56,8 @@ end
 
 -- apply BEFORE the commit: a rejected post leaves nothing
 do
-    local ok, err = apply(G, 'post', CMD.now, act, {
+    local ok, err = apply(G, 'post', act, {
+        time    = tonumber(CMD.now),
         aid     = aid,
         sign    = pub,
         parents = { "HEAD" },

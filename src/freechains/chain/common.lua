@@ -236,29 +236,30 @@ end
 -- an action is applied from two sides:
 --  - `act`: what its author CLAIMS -- the action file itself
 --    (`n`, `post`/`author`); extra fields are ignored
---  - `env`: what the chain VERIFIED -- `aid` (the file's own
---    hash, so never inside it), `sign` (the signature's key),
---    `parents` (cids), `beg` (local circumstance)
+--  - `env`: what the chain VERIFIED -- `time` (the commit's
+--    date), `aid` (the file's own hash, so never inside it),
+--    `sign` (the signature's key), `parents` (cids), `beg`
+--    (local circumstance)
 -- identity and time never come from a claim
-function apply (G, kind, time, act, env)
+function apply (G, kind, act, env)
     local mutate = (kind ~= 'reps')
 
     -- TIME: monotonicity, discount, consolidation
     do
-        -- causal freshness: a commit may sit at most `time.diff` below
+        -- causal freshness: a commit may sit at most `env.time.diff` below
         -- everything that precedes it. Read from the DAG, so it does not
         -- depend on the order a replay applies commits in (consensus order
         -- is not chronological order).
         if mutate then
             local up = PEAKS(env.parents)
-            if time < up-C.time.diff then
+            if env.time < up-C.time.diff then
                 return false, "too old"
             end
         end
 
         -- discount scan (maybe signed at same G.now)
         local sign = (mutate and env.sign) or nil
-        if time>G.now or sign then
+        if env.time>G.now or sign then
             for _, hash in ipairs(ordered(G.posts)) do
                 local entry = G.posts[hash]
                 if entry.maturity == "00-12" then
@@ -284,7 +285,7 @@ function apply (G, kind, time, act, env)
                     local ratio = (tot>0 and cur/tot) or 0
                     local discount = C.time.half * math.max(0, 1 - 2*ratio)
 
-                    if time >= entry.time + discount then
+                    if env.time >= entry.time + discount then
                         -- signed beg?
                         if entry.author then
                             G.authors[entry.author].reps = G.authors[entry.author].reps + C.reps.cost
@@ -296,14 +297,14 @@ function apply (G, kind, time, act, env)
         end
 
         -- consolidation scan
-        if time > G.now then
+        if env.time > G.now then
             for _, hash in ipairs(ordered(G.posts)) do
                 local entry = G.posts[hash]
                 if entry.maturity == "12-24" then
-                    if time >= entry.time+C.time.full then
+                    if env.time >= entry.time+C.time.full then
                         if entry.author then
                             local last = G.authors[entry.author].time
-                            if time-last >= C.time.full then
+                            if env.time-last >= C.time.full then
                                 G.authors[entry.author].reps = G.authors[entry.author].reps + C.reps.earn
                                 G.authors[entry.author].time = last + C.time.full
                                 entry.maturity = nil
@@ -319,8 +320,8 @@ function apply (G, kind, time, act, env)
             end
         end
 
-        if time > G.now then
-            G.now = time
+        if env.time > G.now then
+            G.now = env.time
         end
     end
 
@@ -345,7 +346,7 @@ function apply (G, kind, time, act, env)
             -- mutation
             G.posts[env.aid] = {
                 author   = env.sign,
-                time     = time,
+                time     = env.time,
                 maturity = (env.beg and 'beg') or (env.sign and '00-12') or 'beg',
                 reps     = 0,
                 revoke   = { author=0, others=0 },
@@ -354,7 +355,7 @@ function apply (G, kind, time, act, env)
                 G.authors[env.sign] = G.authors[env.sign] or { reps=0 }
                 if not env.beg then
                     G.authors[env.sign].reps = G.authors[env.sign].reps - C.reps.cost
-                    G.authors[env.sign].time = G.authors[env.sign].time or time
+                    G.authors[env.sign].time = G.authors[env.sign].time or env.time
                         -- do not set for beg, bc not available to others
                 end
             end
@@ -428,9 +429,9 @@ function apply (G, kind, time, act, env)
 
                 if env.beg then
                     G.posts[act.post].maturity = "00-12"
-                    G.posts[act.post].time = time
+                    G.posts[act.post].time = env.time
                     if a then
-                        G.authors[a].time = G.authors[a].time or time
+                        G.authors[a].time = G.authors[a].time or env.time
                     end
                 end
             else

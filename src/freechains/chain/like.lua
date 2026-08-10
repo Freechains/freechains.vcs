@@ -105,7 +105,8 @@ local aid = ACTION.pre(act)
 -- apply BEFORE the commit: a rejected vote leaves nothing;
 -- an in-progress beg merge is aborted
 do
-    local ok, err = apply(G, kind, CMD.now, act, {
+    local ok, err = apply(G, kind, act, {
+        time    = tonumber(CMD.now),
         aid     = aid,
         sign    = pub,
         parents = ps,
