@@ -10,8 +10,8 @@ end
 
 if ARGS.sync then
     require "freechains.chain.sync"
-elseif ARGS.destroy then
-    require "freechains.chain.destroy"
+elseif ARGS.abandon then
+    require "freechains.chain.abandon"
 else
     G = STATE.read(true, "HEAD")
 

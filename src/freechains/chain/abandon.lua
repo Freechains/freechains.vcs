@@ -1,6 +1,6 @@
 require "freechains.chain.common"
 
--- Escape hatch for a hard fork: destroy the aid and everything after
+-- Escape hatch for a hard fork: abandon the aid and everything after
 -- it, so the settled remote branch can be received again.
 -- Local only: no signing, no network, no reps.
 -- Chain state lives in local snapshots (`.git/states/`), keyed by
@@ -8,11 +8,11 @@ require "freechains.chain.common"
 
 local cid = ACTION.cid(ARGS.aid)
 if not cid then
-    ERROR("chain destroy : invalid hash")
+    ERROR("chain abandon : invalid hash")
 end
 
 -- a beg is a post outside `main`, alone on its own aid-named ref:
--- nothing follows it, so destroying it is just deleting the ref
+-- nothing follows it, so abandoning it is just deleting the ref
 do
     local ref = "refs/begs/beg-" .. ARGS.aid
     local ok = exec { stderr=false, err=false,
@@ -34,7 +34,7 @@ do
         cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. cid .. " HEAD",
     }
     if not ok then
-        ERROR("chain destroy : invalid hash")
+        ERROR("chain abandon : invalid hash")
     end
 end
 
@@ -44,7 +44,7 @@ local tip = exec {
     cmd = "git -C " .. REPO .. " rev-parse " .. cid .. "^1",
 }
 
--- report what is about to be destroyed: one aid per line, like
+-- report what is about to be abandoned: one aid per line, like
 -- `list` (a beg-like merge is an action too, so merges stay in)
 do
     local out = exec {
@@ -60,16 +60,16 @@ do
     end
 end
 
--- settled posts can be destroyed: the hard-fork rule guards against a
+-- settled posts can be abandoned: the hard-fork rule guards against a
 -- REMOTE reorder, never against a deliberate local escape
 exec {
     cmd = "git -C " .. REPO .. " reset --hard " .. tip,
-    err = "chain destroy : git reset failed",
+    err = "chain abandon : git reset failed",
 }
 
 -- stale-beg cleanup: a beg is one commit (the post) on top of the
 -- `main` it was created from. If that base is gone, the beg can no
--- longer attach to `main`, so destroy it.
+-- longer attach to `main`, so abandon it.
 do
     local out = exec {
         cmd = "git -C " .. REPO .. " for-each-ref refs/begs/ --format='%(refname) %(objectname)'",

@@ -86,7 +86,7 @@ local cmd = {
         dislike = {},
         revoke = {},
         unrevoke = {},
-        destroy = {},
+        abandon = {},
         sync = {
             recv = {},
             send = {},
@@ -198,9 +198,9 @@ do
         cmd.chain[c]._:option("--why")
     end
 
-    -- cmd.chain.destroy : local only (no sign, no network)
-    cmd.chain.destroy._ = cmd.chain._:command("destroy")
-    cmd.chain.destroy._:argument("id"):target("aid")
+    -- cmd.chain.abandon : local only (no sign, no network)
+    cmd.chain.abandon._ = cmd.chain._:command("abandon")
+    cmd.chain.abandon._:argument("id"):target("aid")
 
     -- cmd.chain.sync
     cmd.chain.sync._ = cmd.chain._:command("sync")

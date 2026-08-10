@@ -2,7 +2,7 @@ require "freechains.chain.common"
 
 -- membership: an action of the CURRENT history <=> its file is
 -- in HEAD's tree (mirrored by the worktree): files only ever
--- accumulate, and `destroy`'s reset drops exactly the destroyed
+-- accumulate, and `abandon`'s reset drops exactly the abandoned
 -- ones. One io.open, no git -- and it doubles as the read
 local src
 do

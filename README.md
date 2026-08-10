@@ -83,7 +83,7 @@ Freechains' API is straightforward:
 - `freechains chain (un)revoke ...`: hides or restores post payload
 - `freechains chain reps ...`:       queries reputation
 - `freechains chain sync send/recv`: synchronizes with remote peer
-- `freechains chain destroy ...`:    erases local history after hard fork
+- `freechains chain abandon ...`:    erases local history after hard fork
 
 <!--
 For testing purposes, you may prepend an alternative path to store the chains:
@@ -550,12 +550,12 @@ Nevertheless, the community protects itself from late reorderings.
 To resynchronize, `Alice`'s only option is to revert her local history, receive
 the settled branch, repost the rejected message on top of it, and finally send
 the updated history.
-To revert history, Freechains provides a `destroy` command that permanently
+To revert history, Freechains provides an `abandon` command that permanently
 drops a post along with everything after it:
 
 ```
 # revert local history
-$ freechains chain '#chat' destroy 9d0e1f2
+$ freechains chain '#chat' abandon 9d0e1f2
 9d0e1f2...
 
 # receive settled branch

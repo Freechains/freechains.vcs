@@ -20,7 +20,7 @@ tests:
 	$(L) cli-recv.lua
 	$(L) cli-send.lua
 	$(L) cli-list.lua
-	$(L) cli-destroy.lua
+	$(L) cli-abandon.lua
 	$(L) list-dag-roots.lua
 	$(L) sync.lua
 	$(L) consensus.lua

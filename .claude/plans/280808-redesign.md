@@ -161,13 +161,15 @@
       cost/max constants); guide + tests renumber
     - rationale: exact integers end to end; the x1000 scale
       exists for tax/split integrality and is now visible
-- RENAME: `destroy` -> `abandon`
+- RENAME DONE: `destroy` -> `abandon`
     - mechanism is local (only your repo changes) but the
       meaning is global: resolving a hard fork by abandoning
       your sub-history to become compatible with the settled
       one (and incompatible with the abandoned one)
     - CLI command, destroy.lua -> abandon.lua, error strings,
-      rockspec module, tests
+      rockspec module, tests (cli-destroy -> cli-abandon)
+    - also README + guide.sh (executable `chain abandon` call)
+    - tst/trash/ untouched (parked, pre-redesign)
 - E3: deletion becomes real
     - revoke deletes `refs/payloads/<aid>`; abandon cleans
       orphaned payload refs; gc policy decision

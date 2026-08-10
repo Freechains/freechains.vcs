@@ -15,7 +15,7 @@ FC () {
 }
 
 # same as FC, but also keeps the printed hash in $HASH, for the commands
-# that take a post hash later on (votes, revokes, destroy)
+# that take a post hash later on (votes, revokes, abandon)
 FCH () {
     local out
     out=$(LUA_PATH="src/?.lua;src/?/init.lua;;" lua5.4 src/freechains.lua "$@")
@@ -251,7 +251,7 @@ REJECTED=$(git -C "$A/chains/#chat" rev-parse HEAD^1)
 echo "-- expected failure (the hub is entrenched):"
 FC --root="$A" --now=$((FORK+7*DAY+200)) chain '#chat' sync send localhost:$X_PORT || true
 
-# Alice's escape hatch: destroy the rejected post, receive the settled
+# Alice's escape hatch: abandon the rejected post, receive the settled
 # branch, repost the message on top of it, and send the result
 # DAG (A): untouched since the fork, plus the post the hub refused
 #   like(alice->bob)
@@ -261,13 +261,13 @@ FC --root="$A" --now=$((FORK+7*DAY+200)) chain '#chat' sync send localhost:$X_PO
 #   'Alice takes over'     <-- rejected post ($REJECTED)
 echo "-- Alice's diverging branch (common history + rejected post):"
 FC --root="$A" chain '#chat' list dag
-FC --root="$A" chain '#chat' destroy "$REJECTED"
+FC --root="$A" chain '#chat' abandon "$REJECTED"
 FC --root="$A" --now=$((FORK+7*DAY+300)) chain '#chat' sync recv localhost:$X_PORT
 FC --root="$A" --now=$((FORK+7*DAY+400)) chain '#chat' post inline $'Alice takes over\n' --sign="$KEYS/alice"
 FC --root="$A" --now=$((FORK+7*DAY+500)) chain '#chat' sync send localhost:$X_PORT
 
 # Alice is compatible again: her repost is ordered after the settled branch
-# DAG (A): the destroyed branch is replaced by the hub's settled one
+# DAG (A): the abandoned branch is replaced by the hub's settled one
 #   'Alice was here'   like(bob->charlie)
 #            \                |
 #             \        'Charlie was here'
