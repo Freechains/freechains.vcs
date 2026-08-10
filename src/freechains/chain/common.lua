@@ -233,9 +233,23 @@ function PEAKS (hs)
     return assert(mx)
 end
 
-function advance ()
+-- no author holds more than `max`
+-- applied ONCE at the end of a step
+function cap (G)
+    for _, v in pairs(G.authors) do
+        if v.reps > C.reps.max then
+            v.reps = C.reps.max
+        end
+    end
+end
+
+-- TIME: the scans that run before anything else
+-- discount refunds, consolidation grants, then `now` advances
+-- in a `reps` query nothing happened but time passing (no `sign`, no action)
+function advance (G, env)
+    local sign = env.sign
+
     -- discount scan (maybe signed at same G.now)
-    local sign = (mutate and env.sign) or nil
     if env.time>G.now or sign then
         for _, hash in ipairs(ordered(G.posts)) do
             local entry = G.posts[hash]
@@ -303,31 +317,22 @@ function advance ()
 end
 
 -- an action is applied from two sides:
---  - `act`: what its author CLAIMS -- the action file itself
---    (`n`, `post`/`author`); extra fields are ignored
---  - `env`: what the chain VERIFIED -- `time` (the commit's
---    date), `aid` (the file's own hash, so never inside it),
---    `sign` (the signature's key), `parents` (cids), `beg`
---    (local circumstance)
--- identity and time never come from a claim
+--  - `act`: what its author CLAIMS (n, post, author)
+--  - `env`: what the chain VERIFIED: (time, aid, sign, parents, beg)
 function apply (G, kind, act, env)
-    local mutate = (kind ~= 'reps')
-
-    -- TIME: monotonicity, discount, consolidation
+    -- a commit may sit at most `time.diff` below everything that precedes it
+    -- read from the DAG, so it does not depend on the order a replay applies
+    -- commits in (consensus order is not chronological order)
     do
-        -- causal freshness: a commit may sit at most `env.time.diff` below
-        -- everything that precedes it. Read from the DAG, so it does not
-        -- depend on the order a replay applies commits in (consensus order
-        -- is not chronological order).
-        if mutate then
-            local up = PEAKS(env.parents)
-            if env.time < up-C.time.diff then
-                return false, "too old"
-            end
+        local up = PEAKS(env.parents)
+        if env.time < up-C.time.diff then
+            return false, "too old"
         end
     end
 
-    if mutate then
+    advance(G, env)
+
+    do
         if kind == 'post' then
             -- validation
             assert(env.sign or env.beg)
@@ -443,12 +448,7 @@ function apply (G, kind, act, env)
         end
     end
 
-    -- cap all authors at max
-    for k, v in pairs(G.authors) do
-        if v.reps > C.reps.max then
-            v.reps = C.reps.max
-        end
-    end
+    cap(G)
 
     return true
 end
