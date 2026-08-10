@@ -40,7 +40,7 @@ function exec (t)
 end
 
 function serial (t)
-    local function val (v)
+    local function val (v, spc)
         if type(v) == 'boolean' then
             return tostring(v)
         elseif type(v) == 'number' then
@@ -55,6 +55,7 @@ function serial (t)
             for k in pairs(v) do keys[#keys+1] = k end
             table.sort(keys)
             local out = {"{\n"}
+            local sub = spc .. "    "
             for _, k in ipairs(keys) do
                 local pfx
                 if type(k) == 'number' then
@@ -62,13 +63,13 @@ function serial (t)
                 else
                     pfx = '["' .. k .. '"] = '
                 end
-                out[#out+1] = "    " .. pfx .. val(v[k]) .. ",\n"
+                out[#out+1] = sub .. pfx .. val(v[k], sub) .. ",\n"
             end
-            out[#out+1] = "}"
+            out[#out+1] = spc .. "}"
             return table.concat(out)
         end
     end
-    return "return " .. val(t) .. "\n"
+    return "return " .. val(t, "") .. "\n"
 end
 
 function URL (raw, alias)
