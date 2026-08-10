@@ -233,12 +233,14 @@ function PEAKS (hs)
     return assert(mx)
 end
 
--- `env` is the action as the CHAIN sees it, not as its author
--- claims: `aid` (the file's own hash, so never inside it),
--- `sign` (the signature's key), `parents` (cids), `beg` (local
--- circumstance) come from the envelope; `n`, `post`/`author`
--- are the author's content, carried along for now
-function apply (G, kind, time, env)
+-- an action is applied from two sides:
+--  - `act`: what its author CLAIMS -- the action file itself
+--    (`n`, `post`/`author`); extra fields are ignored
+--  - `env`: what the chain VERIFIED -- `aid` (the file's own
+--    hash, so never inside it), `sign` (the signature's key),
+--    `parents` (cids), `beg` (local circumstance)
+-- identity and time never come from a claim
+function apply (G, kind, time, act, env)
     local mutate = (kind ~= 'reps')
 
     -- TIME: monotonicity, discount, consolidation
@@ -360,80 +362,80 @@ function apply (G, kind, time, env)
         elseif kind=='like' or kind=='revoke' then
             -- validation
             assert(env.sign, "bug found")
-            if math.type(env.n)~='integer' or env.n==0 then
+            if math.type(act.n)~='integer' or act.n==0 then
                 return false, "invalid number : expects non-zero integer"
             end
-            if (env.post and env.author) or (not env.post and not env.author) then
+            if (act.post and act.author) or (not act.post and not act.author) then
                 return false, "invalid target : expects 'post' or 'author'"
             end
             -- revoke/unrevoke are post-only
-            if kind=='revoke' and (not env.post) then
+            if kind=='revoke' and (not act.post) then
                 return false, "invalid target : expects 'post'"
             end
-            if env.post and (not G.posts[env.post]) then
+            if act.post and (not G.posts[act.post]) then
                 return false, "invalid target : post not found"
             end
 
             -- author self-revoke (right to be forgotten) is free and ungated
             local self_revoke = (
-                kind=='revoke' and env.n<0 and G.posts[env.post].author==env.sign
+                kind=='revoke' and act.n<0 and G.posts[act.post].author==env.sign
             )
 
             -- must afford the full vote magnitude (no debt); self-revoke is free
             local reps = (G.authors[env.sign] and G.authors[env.sign].reps) or 0
-            if (not self_revoke) and reps<math.abs(env.n) then
+            if (not self_revoke) and reps<math.abs(act.n) then
                 return false, "insufficient reputation"
             end
 
             -- admission mints future income (a refund at 12h, then
             -- `earn` a day): its price must not be dust
-            if env.beg and env.n<C.reps.cost then
+            if env.beg and act.n<C.reps.cost then
                 return false, "invalid beg like : insufficient reputation"
             end
 
             -- mutation
             if not self_revoke then
-                G.authors[env.sign].reps = reps - math.abs(env.n)
+                G.authors[env.sign].reps = reps - math.abs(act.n)
             end
-            local n = env.n * (100 - C.like.tax) // 100
-            if env.post then
-                local a = G.posts[env.post].author
-                if not (self_revoke or (kind=='revoke' and env.n>0)) then
+            local n = act.n * (100 - C.like.tax) // 100
+            if act.post then
+                local a = G.posts[act.post].author
+                if not (self_revoke or (kind=='revoke' and act.n>0)) then
                     if a then
                         G.authors[a] = G.authors[a] or { reps=0 }
                         G.authors[a].reps = G.authors[a].reps + n//C.like.split
                     else
                         assert(env.beg)
                     end
-                    G.posts[env.post].reps = G.posts[env.post].reps + n//C.like.split
+                    G.posts[act.post].reps = G.posts[act.post].reps + n//C.like.split
                 end
 
-                -- revoke axis: sum the signed magnitude env.n (revoke n<0,
+                -- revoke axis: sum the signed magnitude act.n (revoke n<0,
                 -- unrevoke n>0). A positive `like` also counts as an
                 -- `unrevoke` (the converse is false: a `dislike` never
                 -- revokes). Author self-revoke feeds the absolute
                 -- `author` channel; everyone else the `others` channel.
-                if kind=='revoke' or env.n>0 then
-                    local author = G.posts[env.post].author
-                    local r = G.posts[env.post].revoke or { author=0, others=0 }
-                    G.posts[env.post].revoke = r
+                if kind=='revoke' or act.n>0 then
+                    local author = G.posts[act.post].author
+                    local r = G.posts[act.post].revoke or { author=0, others=0 }
+                    G.posts[act.post].revoke = r
                     if kind=='revoke' and author and env.sign==author then
-                        r.author = r.author + env.n
+                        r.author = r.author + act.n
                     else
-                        r.others = r.others + env.n
+                        r.others = r.others + act.n
                     end
                 end
 
                 if env.beg then
-                    G.posts[env.post].maturity = "00-12"
-                    G.posts[env.post].time = time
+                    G.posts[act.post].maturity = "00-12"
+                    G.posts[act.post].time = time
                     if a then
                         G.authors[a].time = G.authors[a].time or time
                     end
                 end
             else
-                G.authors[env.author] = G.authors[env.author] or { reps=0 }
-                G.authors[env.author].reps = G.authors[env.author].reps + n
+                G.authors[act.author] = G.authors[act.author] or { reps=0 }
+                G.authors[act.author].reps = G.authors[act.author].reps + n
             end
         end
     end

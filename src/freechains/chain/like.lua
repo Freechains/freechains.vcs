@@ -91,7 +91,7 @@ local ps = to_beg and { "HEAD", ref } or { "HEAD" }
 -- action file: self-description; minted BEFORE the commit;
 -- a beg like backs both sides of its merge.
 -- ARGS.id is already the aid (or a pubkey): stored as is
-local aid = ACTION.pre {
+local act = {
     action = kind,
     backs  = ACTION.backs(ps),
     sign   = pub,
@@ -100,20 +100,17 @@ local aid = ACTION.pre {
     [ARGS.target] = ARGS.id,
     n      = num,
 }
+local aid = ACTION.pre(act)
 
 -- apply BEFORE the commit: a rejected vote leaves nothing;
 -- an in-progress beg merge is aborted
 do
-    local env = {
+    local ok, err = apply(G, kind, CMD.now, act, {
         aid     = aid,
         sign    = pub,
         parents = ps,
         beg     = to_beg,
-        --
-        [ARGS.target] = ARGS.id,
-        n       = num,
-    }
-    local ok, err = apply(G, kind, CMD.now, env)
+    })
     if not ok then
         if to_beg then
             exec {

@@ -20,6 +20,7 @@ end
 
 local path = REPO .. ".git/payload-tmp"   -- payload staging file
 
+local act
 local aid
 local blob
 do
@@ -43,24 +44,24 @@ do
 
     -- action file: self-description; minted BEFORE the commit
     -- (`pos` places it only after `apply` accepts)
-    aid = ACTION.pre {
+    act = {
         action = 'post',
         backs  = ACTION.backs { "HEAD" },
         sign   = pub,
         time   = tonumber(CMD.now),
         blob   = blob,
     }
+    aid = ACTION.pre(act)
 end
 
 -- apply BEFORE the commit: a rejected post leaves nothing
 do
-    local env = {
+    local ok, err = apply(G, 'post', CMD.now, act, {
         aid     = aid,
         sign    = pub,
         parents = { "HEAD" },
         beg     = ARGS.beg,
-    }
-    local ok, err = apply(G, 'post', CMD.now, env)
+    })
     if not ok then
         ERROR("chain post : " .. err)
     end

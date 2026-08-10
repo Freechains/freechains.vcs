@@ -187,12 +187,9 @@ function commit (G, hash, beg)
             kind == 'like' and t.n > 0
             and t.post and (G.posts[t.post] and G.posts[t.post].maturity=="beg")
         )
-        local ok, err = apply(G, kind, tonumber(time), {
+        local ok, err = apply(G, kind, tonumber(time), t, {
             hash   = hash,
             sign   = key,
-            n      = t.n,
-            post   = t.post,
-            author = t.author,
             beg    = to_beg,
         })
         if not ok then
@@ -200,7 +197,7 @@ function commit (G, hash, beg)
         end
         G.order[#G.order+1] = hash
     elseif kind == 'post' then
-        local ok, err = apply(G, 'post', tonumber(time), {
+        local ok, err = apply(G, 'post', tonumber(time), {}, {
             hash = hash,
             sign = key,
             beg  = beg or (key == nil),
