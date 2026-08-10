@@ -104,15 +104,16 @@ local aid = ACTION.pre {
 -- apply BEFORE the commit: a rejected vote leaves nothing;
 -- an in-progress beg merge is aborted
 do
-    local T = {
-        [ARGS.target] = ARGS.id,
+    local env = {
         aid     = aid,
-        parents = ps,
         sign    = pub,
-        n       = num,
+        parents = ps,
         beg     = to_beg,
+        --
+        [ARGS.target] = ARGS.id,
+        n       = num,
     }
-    local ok, err = apply(G, kind, CMD.now, T)
+    local ok, err = apply(G, kind, CMD.now, env)
     if not ok then
         if to_beg then
             exec {

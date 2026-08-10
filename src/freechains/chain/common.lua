@@ -233,7 +233,12 @@ function PEAKS (hs)
     return assert(mx)
 end
 
-function apply (G, kind, time, T)
+-- `env` is the action as the CHAIN sees it, not as its author
+-- claims: `aid` (the file's own hash, so never inside it),
+-- `sign` (the signature's key), `parents` (cids), `beg` (local
+-- circumstance) come from the envelope; `n`, `post`/`author`
+-- are the author's content, carried along for now
+function apply (G, kind, time, env)
     local mutate = (kind ~= 'reps')
 
     -- TIME: monotonicity, discount, consolidation
@@ -243,14 +248,14 @@ function apply (G, kind, time, T)
         -- depend on the order a replay applies commits in (consensus order
         -- is not chronological order).
         if mutate then
-            local up = PEAKS(T.parents)
+            local up = PEAKS(env.parents)
             if time < up-C.time.diff then
                 return false, "too old"
             end
         end
 
         -- discount scan (maybe signed at same G.now)
-        local sign = (mutate and T.sign) or nil
+        local sign = (mutate and env.sign) or nil
         if time>G.now or sign then
             for _, hash in ipairs(ordered(G.posts)) do
                 local entry = G.posts[hash]
@@ -320,15 +325,15 @@ function apply (G, kind, time, T)
     if mutate then
         if kind == 'post' then
             -- validation
-            assert(T.sign or T.beg)
-            if T.sign then
-                if T.beg then
-                    local reps = G.authors[T.sign] and G.authors[T.sign].reps or 0
+            assert(env.sign or env.beg)
+            if env.sign then
+                if env.beg then
+                    local reps = G.authors[env.sign] and G.authors[env.sign].reps or 0
                     if reps >= C.reps.cost then
                         return false, "--beg error : author has sufficient reputation"
                     end
                 else
-                    local reps = G.authors[T.sign] and G.authors[T.sign].reps or 0
+                    local reps = G.authors[env.sign] and G.authors[env.sign].reps or 0
                     if reps < C.reps.cost then
                         return false, "insufficient reputation"
                     end
@@ -336,99 +341,99 @@ function apply (G, kind, time, T)
             end
 
             -- mutation
-            G.posts[T.aid] = {
-                author   = T.sign,
+            G.posts[env.aid] = {
+                author   = env.sign,
                 time     = time,
-                maturity = (T.beg and 'beg') or (T.sign and '00-12') or 'beg',
+                maturity = (env.beg and 'beg') or (env.sign and '00-12') or 'beg',
                 reps     = 0,
                 revoke   = { author=0, others=0 },
             }
-            if T.sign then
-                G.authors[T.sign] = G.authors[T.sign] or { reps=0 }
-                if not T.beg then
-                    G.authors[T.sign].reps = G.authors[T.sign].reps - C.reps.cost
-                    G.authors[T.sign].time = G.authors[T.sign].time or time
+            if env.sign then
+                G.authors[env.sign] = G.authors[env.sign] or { reps=0 }
+                if not env.beg then
+                    G.authors[env.sign].reps = G.authors[env.sign].reps - C.reps.cost
+                    G.authors[env.sign].time = G.authors[env.sign].time or time
                         -- do not set for beg, bc not available to others
                 end
             end
 
         elseif kind=='like' or kind=='revoke' then
             -- validation
-            assert(T.sign, "bug found")
-            if math.type(T.n)~='integer' or T.n==0 then
+            assert(env.sign, "bug found")
+            if math.type(env.n)~='integer' or env.n==0 then
                 return false, "invalid number : expects non-zero integer"
             end
-            if (T.post and T.author) or (not T.post and not T.author) then
+            if (env.post and env.author) or (not env.post and not env.author) then
                 return false, "invalid target : expects 'post' or 'author'"
             end
             -- revoke/unrevoke are post-only
-            if kind=='revoke' and (not T.post) then
+            if kind=='revoke' and (not env.post) then
                 return false, "invalid target : expects 'post'"
             end
-            if T.post and (not G.posts[T.post]) then
+            if env.post and (not G.posts[env.post]) then
                 return false, "invalid target : post not found"
             end
 
             -- author self-revoke (right to be forgotten) is free and ungated
             local self_revoke = (
-                kind=='revoke' and T.n<0 and G.posts[T.post].author==T.sign
+                kind=='revoke' and env.n<0 and G.posts[env.post].author==env.sign
             )
 
             -- must afford the full vote magnitude (no debt); self-revoke is free
-            local reps = (G.authors[T.sign] and G.authors[T.sign].reps) or 0
-            if (not self_revoke) and reps<math.abs(T.n) then
+            local reps = (G.authors[env.sign] and G.authors[env.sign].reps) or 0
+            if (not self_revoke) and reps<math.abs(env.n) then
                 return false, "insufficient reputation"
             end
 
             -- admission mints future income (a refund at 12h, then
             -- `earn` a day): its price must not be dust
-            if T.beg and T.n<C.reps.cost then
+            if env.beg and env.n<C.reps.cost then
                 return false, "invalid beg like : insufficient reputation"
             end
 
             -- mutation
             if not self_revoke then
-                G.authors[T.sign].reps = reps - math.abs(T.n)
+                G.authors[env.sign].reps = reps - math.abs(env.n)
             end
-            local n = T.n * (100 - C.like.tax) // 100
-            if T.post then
-                local a = G.posts[T.post].author
-                if not (self_revoke or (kind=='revoke' and T.n>0)) then
+            local n = env.n * (100 - C.like.tax) // 100
+            if env.post then
+                local a = G.posts[env.post].author
+                if not (self_revoke or (kind=='revoke' and env.n>0)) then
                     if a then
                         G.authors[a] = G.authors[a] or { reps=0 }
                         G.authors[a].reps = G.authors[a].reps + n//C.like.split
                     else
-                        assert(T.beg)
+                        assert(env.beg)
                     end
-                    G.posts[T.post].reps = G.posts[T.post].reps + n//C.like.split
+                    G.posts[env.post].reps = G.posts[env.post].reps + n//C.like.split
                 end
 
-                -- revoke axis: sum the signed magnitude T.n (revoke n<0,
+                -- revoke axis: sum the signed magnitude env.n (revoke n<0,
                 -- unrevoke n>0). A positive `like` also counts as an
                 -- `unrevoke` (the converse is false: a `dislike` never
                 -- revokes). Author self-revoke feeds the absolute
                 -- `author` channel; everyone else the `others` channel.
-                if kind=='revoke' or T.n>0 then
-                    local author = G.posts[T.post].author
-                    local r = G.posts[T.post].revoke or { author=0, others=0 }
-                    G.posts[T.post].revoke = r
-                    if kind=='revoke' and author and T.sign==author then
-                        r.author = r.author + T.n
+                if kind=='revoke' or env.n>0 then
+                    local author = G.posts[env.post].author
+                    local r = G.posts[env.post].revoke or { author=0, others=0 }
+                    G.posts[env.post].revoke = r
+                    if kind=='revoke' and author and env.sign==author then
+                        r.author = r.author + env.n
                     else
-                        r.others = r.others + T.n
+                        r.others = r.others + env.n
                     end
                 end
 
-                if T.beg then
-                    G.posts[T.post].maturity = "00-12"
-                    G.posts[T.post].time = time
+                if env.beg then
+                    G.posts[env.post].maturity = "00-12"
+                    G.posts[env.post].time = time
                     if a then
                         G.authors[a].time = G.authors[a].time or time
                     end
                 end
             else
-                G.authors[T.author] = G.authors[T.author] or { reps=0 }
-                G.authors[T.author].reps = G.authors[T.author].reps + n
+                G.authors[env.author] = G.authors[env.author] or { reps=0 }
+                G.authors[env.author].reps = G.authors[env.author].reps + n
             end
         end
     end

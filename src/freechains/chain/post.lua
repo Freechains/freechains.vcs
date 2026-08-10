@@ -54,13 +54,13 @@ end
 
 -- apply BEFORE the commit: a rejected post leaves nothing
 do
-    local T = {
+    local env = {
         aid     = aid,
-        parents = { "HEAD" },
         sign    = pub,
+        parents = { "HEAD" },
         beg     = ARGS.beg,
     }
-    local ok, err = apply(G, 'post', CMD.now, T)
+    local ok, err = apply(G, 'post', CMD.now, env)
     if not ok then
         ERROR("chain post : " .. err)
     end
