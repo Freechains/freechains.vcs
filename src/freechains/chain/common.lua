@@ -1,6 +1,7 @@
 C      = require "freechains.constants"
 ACTION = require "freechains.chain.action"
 STATE  = require "freechains.chain.state"
+require "freechains.chain.rules"
 REPO   = ARGS.root .. "/chains/" .. ARGS.alias .. "/"
 
 -- the git parents of `hash`: one step back in the DAG, no time

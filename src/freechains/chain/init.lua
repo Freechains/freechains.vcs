@@ -18,8 +18,6 @@ else
     if ARGS.list then
         require "freechains.chain.list"
     elseif ARGS.reps then
-        advance(G, { time = tonumber(CMD.now) })
-        cap(G)
         require "freechains.chain.reps"
     elseif ARGS.post then
         require "freechains.chain.post"

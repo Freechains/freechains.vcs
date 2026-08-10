@@ -2,6 +2,9 @@ if ARGS.key then
     ARGS.key = ARGS.key:match("^%s*(.-)%s*$")
 end
 
+advance(G, { time = tonumber(CMD.now) })
+cap(G)
+
 if ARGS.target == "post" then
     if not ARGS.key then
         ERROR("chain reps : post requires a hash")

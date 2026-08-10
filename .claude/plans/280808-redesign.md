@@ -180,9 +180,21 @@
     - read path: revoked -> `chain get : revoked post`; absent
       but not revoked -> `chain get : payload unavailable`;
       never a raw traceback
-    - LOCAL SLICE (this phase): abandon cleans the payload refs
-      of abandoned actions; `get` reports `payload unavailable`;
-      `unrevoke --file` gate. Trigger + refspecs are sync-phase
+    - LOCAL SLICE DONE: abandon drops `refs/payloads/<aid>` for
+      every abandoned action (blob unreachable, next `gc
+      --prune` reclaims); `get payload` reports
+      `payload unavailable` instead of crashing on a missing
+      blob; `unrevoke` is gated -- refuses with
+      `blob unavailable`, accepts `--file` only when its
+      hash-object matches the action file's `blob`, else
+      `blob mismatch`
+        - tests: cli-abandon (ref gone / kept), cli-revoke
+          "Gated unrevoke" (refused, wrong file, right file)
+        - NO automatic `gc`: dropping refs is the policy, the
+          sweep stays the user's (or a later `--prune` step)
+    - STILL SYNC-PHASE: the removal trigger (act once on final
+      sums after a full replay) and the non-resurrection
+      refspec `^refs/payloads/<removed>`
 - S6a DONE: drop `.freechains/` + skel dies (unblocked by E1)
     - tree root = `actions/` (sharded `ab/<aid>.lua`),
       `genesis.lua`, `random`; FC constant dies
