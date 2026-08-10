@@ -12,32 +12,46 @@ prints `15450`, `like 450` transfers 450. No external/
 internal seam, no truncation, no rounding — exact
 integers end to end.
 
-The x1000 scale survives only inside the constants
-(`cost = 1000`, `max = 30000`): it exists so the 10% tax
-and the 50/50 post split stay integral.
+The x1000 scale survives only inside the constants: it
+exists so the 10% tax and the 50/50 post split stay
+integral.
 
-| Constant | Value | Meaning              |
-|----------|-------|----------------------|
-| `cost`   | 1000  | one signed post/file |
-| `max`    | 30000 | cap per author       |
+| Constant | Value | Meaning                        |
+|----------|-------|--------------------------------|
+| `cost`   | 500   | one signed post/file (refunded)|
+| `earn`   | 1000  | minted per author per day      |
+| `max`    | 50000 | cap per author (100 posts)     |
+| `floor`  | 2500  | min pioneer share (5 posts)    |
 
-Parameter review and the pending gate work:
-[260809-reps.md](260809-reps.md).
+`cost` is a deposit (returned at the discount), `earn`
+is income (minted at consolidation): halving one must
+not halve the other.
+
+A like of 1000 therefore costs two posts, and the post
+cost comes back while the like is spent for good: speak
+freely, endorse deliberately.
+
+Parameter review: [260809-reps.md](260809-reps.md).
 
 ## Initial Reputation: Pioneers
 
-Each chain starts with a total of **30000 reputation**
+Each chain starts with a total of **50000 reputation**
 (= `max`) split equally among its pioneers:
 
 | Pioneers | Reps each |
 |----------|-----------|
-| 1        | 30000     |
-| 2        | 15000     |
-| 3        | 10000     |
-| N        | 30000 / N |
+| 1        | 50000     |
+| 2        | 25000     |
+| 3        | 16666     |
+| N        | 50000 / N |
 
-Large N starves pioneers below `cost` — open decision in
-[260809-reps.md](260809-reps.md).
+The split must leave each pioneer at least `floor`
+(2500, five posts), so a genesis may name at most
+`max // floor` = **20 pioneers**; beyond that
+`chains add` fails with "too many pioneers". The
+invariant is that a chain starts with exactly one cap's
+worth of reps -- a 21st founder is admitted by a like
+seconds later.
 
 Pioneers are defined by the `pioneers` list in
 `genesis.lua`. At chain creation/clone, `pioneers()`
@@ -53,7 +67,7 @@ reputation gate at all.
 
 | Type        | Reputation rule                     |
 |-------------|-------------------------------------|
-| `#` public  | Pioneer-based (30000 / N)           |
+| `#` public  | Pioneer-based (50000 / N)           |
 | `$` private | All holders of shared key = infinite|
 | `@` personal| Key holder = infinite               |
 
@@ -62,15 +76,28 @@ reputation gate at all.
 | Rule | Name | Effect                          | Ref             |
 |------|------|---------------------------------|-----------------|
 | 4.a  | min  | Author affords the act's cost   | Sybil gate      |
-| 4.b  | max  | Author capped at `max` (30000)  | Spend incentive |
+| 4.b  | max  | Author capped at `max` (50000)  | Spend incentive |
 | 4.c  | size | Post <= 128 KB                  | DDoS prevention |
 | 5    | ops  | Each file op costs `cost`       | Edit throttle   |
 
-Rule 4.a is affordability, not presence: a voter needs
-the full vote magnitude (shipped,
-[done/260722-bug-reps-debt.md](done/260722-bug-reps-debt.md)),
-an author needs `cost` (NOT SHIPPED — the code still gates
-on `reps > 0`, see [260809-reps.md](260809-reps.md)).
+Rule 4.a is affordability, not presence, and every gate
+is cost-quantized (NO DEBT, shipped):
+
+| Act        | Gate                                  |
+|------------|---------------------------------------|
+| post       | `reps >= cost`                        |
+| beg        | `reps < cost` (the mirror)            |
+| vote       | `reps >= n` (the full magnitude)      |
+| beg like   | `n >= cost` (admission is not dust)   |
+
+Sponsorship prices, from these gates:
+
+| To give a newcomer...      | Sponsor pays | They get |
+|----------------------------|--------------|----------|
+| enough to post now         | author-like 556  | 500  |
+| a beg, speaking at 12h     | beg-like 1000    | 450  |
+| a beg, speaking now        | beg-like 1112    | 500  |
+| the standard gesture       | author-like 1000 | 900  |
 
 No post expiry — posts are permanent.
 
@@ -101,12 +128,12 @@ the post is accepted into the DAG but marked
 
 ### File Operation Costs (Rule 5 — Per-Op Expense)
 
-Each file operation costs **`cost`** (1000).
+Each file operation costs **`cost`** (500).
 Operations: add, modify, delete.
 
-A normal post adds 1 file → 1000.
-An edition touching 3 files → 3000.
-A mass delete of 100 files → 100000 (self-limiting).
+A normal post adds 1 file → 500.
+An edition touching 3 files → 1500.
+A mass delete of 100 files → 50000 (self-limiting).
 
 ```
 post:
@@ -116,7 +143,7 @@ post:
 ```
 
 Discount refunds the full N * `cost`.
-Consolidation still grants +`cost`/day.
+Consolidation still grants +`earn`/day.
 Heavy edits drain rep over time — natural pressure.
 
 #### Validation at Fetch/Merge
@@ -144,11 +171,20 @@ subsequent reputed activity:
 
 ```
 subsequent_reps = sum of reps of authors who posted
-                  after this post
+                  after this post (plus the acting
+                  signer, when an action is applied)
 total_reps      = total reputation in the chain
 ratio           = subsequent_reps / total_reps
 discount_secs   = 43200 * max(0, 1 - 2*ratio)
 ```
+
+The author's own follow-up counts, deliberately: the
+refund is their own deposit returning, and the ratio is
+proportional to reps held, so a majority holder
+unthrottling themselves is the power they already hold
+over consensus and votes. One consequence: a `reps`
+query has no signer, so it can read lower than what the
+same author's next action would see.
 
 | Ratio | Discount | Meaning                    |
 |-------|----------|----------------------------|
@@ -172,7 +208,7 @@ since the post's timestamp:
 ```
 last = authors[author].time
 if NOW - last >= 86400:
-    author.reps += cost
+    author.reps += earn
     authors[author].time = last + 86400
     remove the post entry
 else:
