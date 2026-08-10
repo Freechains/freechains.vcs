@@ -152,8 +152,37 @@
     - also README + guide.sh (executable `chain abandon` call)
     - tst/trash/ untouched (parked, pre-redesign)
 - E3: deletion becomes real
-    - revoke deletes `refs/payloads/<aid>`; abandon cleans
-      orphaned payload refs; gc policy decision
+    - SOURCE: `260802-remove-blob.md` already settled the
+      design; it predates aids (keys refs by blob sha, we key
+      by aid -- refcounting works either way)
+    - NOT "revoke deletes": revoke/unrevoke is reversible,
+      reputation-weighted moderation; deleting bytes is local
+      storage policy ("nobody is forced to relay unwanted
+      content"). The two stay decoupled
+    - removal trigger (sync phase): act ONCE on the final sums
+      after a full replay, never mid-walk (a sum dips negative
+      from ordering alone); mechanics `update-ref -d` then
+      `git gc --prune=now`
+    - non-resurrection (sync phase): negative refspec
+      `^refs/payloads/<removed>` per removed post, else every
+      fetch re-imports the deleted bytes
+    - GATED UNREVOKE: `unrevoke` -- and a `like` that would
+      actually flip `is_revoked` to false -- must materialize
+      the payload FIRST, else
+      `ERROR : chain unrevoke : blob unavailable`
+        - sources: local object store, a peer's
+          `refs/payloads/<aid>`, or the user's own copy via
+          `--file` (hash-object it, accept ONLY if it matches
+          the action file's `blob`; content-addressing makes
+          the check free and forgery-proof)
+        - a self-like that cannot lift an author revoke is
+          NOT gated
+    - read path: revoked -> `chain get : revoked post`; absent
+      but not revoked -> `chain get : payload unavailable`;
+      never a raw traceback
+    - LOCAL SLICE (this phase): abandon cleans the payload refs
+      of abandoned actions; `get` reports `payload unavailable`;
+      `unrevoke --file` gate. Trigger + refspecs are sync-phase
 - S6a DONE: drop `.freechains/` + skel dies (unblocked by E1)
     - tree root = `actions/` (sharded `ab/<aid>.lua`),
       `genesis.lua`, `random`; FC constant dies
