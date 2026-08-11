@@ -111,6 +111,19 @@ do
     end
 
     do
+        TEST "abandoned payloads lose their anchor"
+        -- the ref goes with the action: the blob is unreachable
+        local _, code = exec { err=false, stderr=false,
+            cmd = "git -C " .. DIR1 .. " rev-parse refs/payloads/" .. p2,
+        }
+        assert(code ~= 0, "p2 payload ref should be gone")
+        local _, code1 = exec { err=false, stderr=false,
+            cmd = "git -C " .. DIR1 .. " rev-parse refs/payloads/" .. p1,
+        }
+        assert(code1 == 0, "p1 payload ref should remain")
+    end
+
+    do
         TEST "abandoned posts are out of the order"
         local O, S = ORDER(ENV_EXE, "#cli-abandon-1")
         assert(#O == 1, "expected 1 entry, got " .. #O)

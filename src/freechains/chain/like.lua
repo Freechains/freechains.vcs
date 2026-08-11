@@ -24,9 +24,13 @@ end
 -- from a like/dislike (see the commit block below)
 local kind = (ARGS.revoke or ARGS.unrevoke) and "revoke" or "like"
 
+-- for errors
+local name = (ARGS.unrevoke and "unrevoke") or (ARGS.revoke and "revoke") or
+             (ARGS.dislike and "dislike") or "like"
+
 if ARGS.target == "author" then
     if #ARGS.id~=80 or (not ARGS.id:match("^ssh%-ed25519 %S+$")) then
-        ERROR("chain like : invalid author key")
+        ERROR("chain " .. name .. " : invalid author key")
     end
 end
 
@@ -54,9 +58,6 @@ if to_beg then
         --exec("git -C " .. REPO .. " update-ref -d " .. ref)
         --ERROR("chain like : invalid target : beg post does not exist")
     end
-    exec {
-        cmd = "git -C " .. REPO .. " merge --no-ff --no-commit --no-edit " .. ref,
-    }
     G.order[#G.order+1] = ARGS.id   -- beg post
     G.posts[ARGS.id] = STATE.read(true, ref).posts[ARGS.id]
 end
@@ -65,12 +66,9 @@ end
 -- commit: a bad key fails early, nothing enters the tree
 local pub = ssh.pub.key(ARGS.sign)
 if not pub then
-    ERROR("chain " .. kind .. " : invalid sign key")
+    ERROR("chain " .. name .. " : invalid sign key")
 end
 
--- the vote IS its action file: nothing else enters the commit.
--- `--why` is its OPTIONAL payload: a loose blob outside the
--- tree, deletable like any payload
 local path = REPO .. ".git/payload-tmp"   -- why staging file
 
 local blob
@@ -102,8 +100,11 @@ local act = {
 }
 local aid = ACTION.pre(act)
 
--- apply BEFORE the commit: a rejected vote leaves nothing;
--- an in-progress beg merge is aborted
+-- post/was_revoked used after apply
+local post = (ARGS.target == "post") and G.posts[ARGS.id] or nil
+local was_revoked = post and is_revoked(post)
+
+-- apply BEFORE the commit: a rejected vote leaves nothing
 do
     local ok, err = apply(G, kind, act, {
         time    = tonumber(CMD.now),
@@ -113,14 +114,58 @@ do
         beg     = to_beg,
     })
     if not ok then
-        if to_beg then
-            exec {
-                cmd = "git -C " .. REPO .. " merge --abort",
-            }
-        end
-        ERROR("chain " .. kind .. " : " .. err)
+        ERROR("chain " .. name .. " : " .. err)
     end
     G.order[#G.order+1] = aid
+end
+
+-- the vote landed, so `post` now carries the final sums, and
+-- only a CROSSING matters:
+--  - it entered REVOKED -> the bytes go (REMOVAL)
+--  - it left REVOKED    -> the bytes must be here (LIFT)
+if post then
+    if (not was_revoked) and is_revoked(post) then
+        exec { err=false, stderr=false,
+            cmd = "git -C " .. REPO .. " update-ref -d refs/payloads/" .. ARGS.id,
+        }
+    elseif was_revoked and (not is_revoked(post)) then
+        -- every post carries a payload (only votes may not), so
+        -- the target's `blob` is always there
+        local T = assert(load(exec {
+            cmd = "git -C " .. REPO .. " cat-file blob " .. ARGS.id,
+        }))()
+        local have = exec { err=false, stderr=false,
+            cmd = "git -C " .. REPO .. " cat-file -e " .. T.blob,
+        }
+        if have == false then
+            if not ARGS.file then
+                ERROR("chain " .. name .. " : expected --file")
+            end
+            local blob = exec { err=false, stderr=false,
+                cmd = "git -C " .. REPO .. " hash-object -w '" .. ARGS.file .. "'",
+            }
+            if blob == false then
+                ERROR("chain " .. name .. " : invalid path")
+            end
+            if blob ~= T.blob then
+                ERROR("chain " .. name .. " : blob mismatch")
+            end
+        end
+        -- a standing post always has its anchor: the bytes may
+        -- still be in the store, but unreferenced they are one
+        -- `gc` away from gone
+        exec {
+            cmd = "git -C " .. REPO .. " update-ref refs/payloads/" ..
+                ARGS.id .. " " .. T.blob,
+        }
+    end
+end
+
+-- runs last to avoid --abort on errors
+if to_beg then
+    exec {
+        cmd = "git -C " .. REPO .. " merge --no-ff --no-commit --no-edit " .. ref,
+    }
 end
 
 ACTION.pos(aid)
@@ -140,7 +185,7 @@ do
     local s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=ssh"
     exec { stderr=false,
         cmd = CMD.git .. "git -C " .. REPO .. s1 .. " commit -S --allow-empty-message -m ''",
-        err = "chain " .. kind .. " : invalid sign key",
+        err = "chain " .. name .. " : invalid sign key",
     }
 end
 

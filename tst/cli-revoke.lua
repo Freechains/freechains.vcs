@@ -276,4 +276,124 @@ exec {
     cmd = ENV_EXE .. " chains rem '#cli-revoke'",
 }
 
+-- REMOVAL: crossing into REVOKED drops the payload anchor
+do
+    print("==> Removal on revoke")
+
+    exec {
+        cmd = ENV_EXE .. " chains add '#removal' init file " .. GEN_2,
+    }
+    local DIR = ROOT .. "/chains/#removal/"
+    local POST = exec {
+        cmd = ENV_EXE .. " chain '#removal' post inline 'bytes' --sign " .. KEY1,
+    }
+
+    do
+        TEST "the payload is anchored while the post stands"
+        local _, code = exec { err=false, stderr=false,
+            cmd = "git -C " .. DIR .. " rev-parse refs/payloads/" .. POST,
+        }
+        assert(code == 0, "anchor should exist")
+    end
+
+    do
+        TEST "revoking drops the anchor"
+        exec {
+            cmd = ENV_EXE .. " chain '#removal' revoke 1000 " .. POST .. " --sign " .. KEY2,
+        }
+        local _, code = exec { err=false, stderr=false,
+            cmd = "git -C " .. DIR .. " rev-parse refs/payloads/" .. POST,
+        }
+        assert(code ~= 0, "anchor should be gone")
+    end
+
+    do
+        TEST "unrevoking re-anchors it"
+        exec {
+            cmd = ENV_EXE .. " chain '#removal' unrevoke 1000 " .. POST .. " --sign " .. KEY2,
+        }
+        local pay = exec {
+            cmd = ENV_EXE .. " chain '#removal' get payload " .. POST,
+        }
+        assert(pay == "bytes", "payload: " .. pay)
+        -- a standing post keeps its anchor, or the next gc eats it
+        local _, code = exec { err=false, stderr=false,
+            cmd = "git -C " .. DIR .. " rev-parse refs/payloads/" .. POST,
+        }
+        assert(code == 0, "anchor should be back")
+    end
+end
+
+-- GATED UNREVOKE: a post leaves REVOKED only with its bytes
+do
+    print("==> Gated unrevoke")
+
+    exec {
+        cmd = ENV_EXE .. " chains add '#gated' init file " .. GEN_2,
+    }
+    local POST = exec {
+        cmd = ENV_EXE .. " chain '#gated' post inline 'precious' --sign " .. KEY1,
+    }
+    exec {
+        cmd = ENV_EXE .. " chain '#gated' revoke 1000 " .. POST .. " --sign " .. KEY2,
+    }
+
+    -- drop the bytes the way `abandon` or a sweep would
+    local DIR = ROOT .. "/chains/#gated/"
+    exec {
+        cmd = "git -C " .. DIR .. " update-ref -d refs/payloads/" .. POST,
+    }
+    exec {
+        cmd = "git -C " .. DIR .. " gc --prune=now --quiet",
+    }
+
+    do
+        TEST "unrevoke without the bytes is refused"
+        FAIL {
+            cmd = ENV_EXE .. " chain '#gated' unrevoke 1000 " .. POST .. " --sign " .. KEY2,
+            err = "ERROR : chain unrevoke : expected --file",
+        }
+    end
+
+    do
+        TEST "a wrong --file does not match the pinned hash"
+        local tmp = TMP .. "/wrong.txt"
+        local f = io.open(tmp, "w")
+        f:write("not the original\n")
+        f:close()
+        FAIL {
+            cmd = ENV_EXE .. " chain '#gated' unrevoke 1000 " .. POST ..
+                " --file " .. tmp .. " --sign " .. KEY2,
+            err = "ERROR : chain unrevoke : blob mismatch",
+        }
+    end
+
+    do
+        TEST "a lifting LIKE is gated too"
+        -- a positive like counts as an unrevoke, so it may not
+        -- lift a post whose bytes nobody holds
+        FAIL {
+            cmd = ENV_EXE .. " chain '#gated' like 1000 post " .. POST .. " --sign " .. KEY2,
+            err = "ERROR : chain like : expected --file",
+        }
+    end
+
+    do
+        TEST "the right --file restores the payload"
+        local tmp = TMP .. "/right.txt"
+        local f = io.open(tmp, "w")
+        f:write("precious")
+        f:close()
+        local out, code = exec {
+            cmd = ENV_EXE .. " chain '#gated' unrevoke 1000 " .. POST ..
+                " --file " .. tmp .. " --sign " .. KEY2,
+        }
+        assert(code == 0, "exit code: " .. tostring(code))
+        local pay = exec {
+            cmd = ENV_EXE .. " chain '#gated' get payload " .. POST,
+        }
+        assert(pay == "precious", "payload: " .. pay)
+    end
+end
+
 print("<== ALL PASSED")

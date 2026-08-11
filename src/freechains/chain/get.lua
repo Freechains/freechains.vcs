@@ -25,6 +25,7 @@ if ARGS.payload then
 
     local pay = ""
     if T.blob then
+        -- honest peer musts hold the payload
         pay = exec { trim=false,
             cmd = "git -C " .. REPO .. " cat-file blob " .. T.blob,
         }

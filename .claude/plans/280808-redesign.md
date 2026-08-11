@@ -155,14 +155,18 @@
     - SOURCE: `260802-remove-blob.md` already settled the
       design; it predates aids (keys refs by blob sha, we key
       by aid -- refcounting works either way)
-    - NOT "revoke deletes": revoke/unrevoke is reversible,
-      reputation-weighted moderation; deleting bytes is local
-      storage policy ("nobody is forced to relay unwanted
-      content"). The two stay decoupled
-    - removal trigger (sync phase): act ONCE on the final sums
-      after a full replay, never mid-walk (a sum dips negative
-      from ordering alone); mechanics `update-ref -d` then
+    - REVOKE IS THE TRIGGER: a post whose final sums say
+      REVOKED loses its bytes. What the source decouples is
+      the *display hide* (Phase 1) from the *removal* (Phase
+      2), NOT revocation from deletion
+    - removal (sync phase): act ONCE on the final sums after a
+      full replay, never mid-walk (a sum dips negative from
+      ordering alone); mechanics `update-ref -d` then
       `git gc --prune=now`
+    - restore needs no step: a post that recomputes
+      non-negative is simply back in the set the next sync's
+      refspec asks for -- which is why lifting a revoke is
+      gated on having the bytes NOW (below)
     - non-resurrection (sync phase): negative refspec
       `^refs/payloads/<removed>` per removed post, else every
       fetch re-imports the deleted bytes
@@ -190,8 +194,9 @@
       `blob mismatch`
         - tests: cli-abandon (ref gone / kept), cli-revoke
           "Gated unrevoke" (refused, wrong file, right file)
-        - NO automatic `gc`: dropping refs is the policy, the
-          sweep stays the user's (or a later `--prune` step)
+        - the local slice sweeps nothing on revoke: the
+          trigger fires at the post-replay settle, which does
+          not exist until sync lands
     - STILL SYNC-PHASE: the removal trigger (act once on final
       sums after a full replay) and the non-resurrection
       refspec `^refs/payloads/<removed>`
@@ -222,6 +227,34 @@
       cli-chains "no trailer", cli-now by %at only); TRAILER
       helper deleted
 - B6: receive-side validation -> deferred to sync phase
+
+# Q: revocation targets payloads, not posts
+
+- FOUND while reviewing E2: a vote's `--why` is user-authored
+  text with its own payload blob, but `revoke <vote>` fails
+  with "invalid target : post not found" -- `G.posts` holds
+  only posts, so votes have no revoke axis. The rule predates
+  `--why` being a payload
+    - test asserting the old shape: `cli-revoke.lua`
+      "revoke-a-like-rejected" / "revoke-a-revoke-rejected"
+- the promise to close: moderation says any abusive text can
+  be hidden and removed, wherever it was written
+  (`260802-remove-blob.md`: "no user bytes in the DAG")
+- SHAPE: `revoke <aid>` acts on whatever payload the action
+  carries -- post content or a vote's why
+    - `is_revoked` moves from "post entry" to "action entry":
+      state needs a revoke axis for votes too
+    - reps channels: a vote has no `reps` score, so only the
+      revoke sums apply; the author channel still means "its
+      signer forgot it"
+    - `get payload <vote>` refuses when revoked, like a post
+    - removal (E3) already works by aid: dropping
+      `refs/payloads/<aid>` needs no change
+- consensus rule change: land BEFORE the sync phase freezes
+  behaviour (same argument as the revoke floor)
+- open: does a revoked vote still count for reps/consensus?
+  (yes -- only the bytes are hidden, the action stands, same
+  as a post today)
 
 # Next steps (sync phase)
 

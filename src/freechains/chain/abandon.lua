@@ -58,6 +58,10 @@ do
     for h in out:gmatch("%x+") do
         local a = ACTION.aid(h)
         if a then
+            -- payloads go with them
+            exec { err=false, stderr=false,
+                cmd = "git -C " .. REPO .. " update-ref -d refs/payloads/" .. a,
+            }
             print(a)
         end
     end

@@ -61,7 +61,7 @@ do
         TEST "beg-dislike-rejected"
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-begs-1' dislike 1000 post " .. BEG .. " --sign " .. KEY1,
-            err = "ERROR : chain like : invalid target : post not found",
+            err = "ERROR : chain dislike : invalid target : post not found",
         }
     end
 

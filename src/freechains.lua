@@ -188,6 +188,7 @@ do
         cmd.chain[c]._:option("--sign"):args("?"):count(1):action(sign)
         cmd.chain[c]._:option("--why")
     end
+    cmd.chain.like._:option("--file")
 
     -- cmd.chain.revoke / unrevoke : post only (no target argument)
     for _,c in ipairs { "revoke", "unrevoke" } do
@@ -197,6 +198,7 @@ do
         cmd.chain[c]._:option("--sign"):args("?"):count(1):action(sign)
         cmd.chain[c]._:option("--why")
     end
+    cmd.chain.unrevoke._:option("--file")
 
     -- cmd.chain.abandon : local only (no sign, no network)
     cmd.chain.abandon._ = cmd.chain._:command("abandon")

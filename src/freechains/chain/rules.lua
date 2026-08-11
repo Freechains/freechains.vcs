@@ -1,3 +1,5 @@
+-- the reputation rules: what an action does to `G`
+
 -- REVOKED when either the author's or the community's net revoke sum is negative.
 function is_revoked (p)
     local r = p.revoke or {}
