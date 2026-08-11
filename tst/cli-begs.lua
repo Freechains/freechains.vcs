@@ -51,17 +51,17 @@ do
 
     do
         TEST "beg-not-in-main-posts"
-        local posts = STATE(DIR1).posts
-        assert(not posts[BEG], "beg should not be in main posts")
+        local acts = STATE(DIR1).actions
+        assert(not acts[BEG], "beg should not be in main posts")
     end
 
     -- only a positive `like` accepts a beg; other votes cannot act on
-    -- an unaccepted beg (it is not in main posts) -> post not found
+    -- an unaccepted beg (it is not in main posts) -> action not found
     do
         TEST "beg-dislike-rejected"
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-begs-1' dislike 1000 post " .. BEG .. " --sign " .. KEY1,
-            err = "ERROR : chain dislike : invalid target : post not found",
+            err = "ERROR : chain dislike : invalid target : action not found",
         }
     end
 
@@ -69,7 +69,7 @@ do
         TEST "beg-revoke-rejected"
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-begs-1' revoke 1000 " .. BEG .. " --sign " .. KEY1,
-            err = "ERROR : chain revoke : invalid target : post not found",
+            err = "ERROR : chain revoke : invalid target : action not found",
         }
     end
 end
@@ -219,9 +219,9 @@ do
 
     do
         TEST "like-beg-unblocks"
-        local posts = STATE(DIR4).posts
-        assert(posts[BEG], "post entry not found: " .. BEG)
-        assert(posts[BEG].maturity ~= "beg", "maturity should no longer be beg")
+        local acts = STATE(DIR4).actions
+        assert(acts[BEG], "post entry not found: " .. BEG)
+        assert(acts[BEG].maturity ~= "beg", "maturity should no longer be beg")
     end
 
     do

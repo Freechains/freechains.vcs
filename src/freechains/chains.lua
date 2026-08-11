@@ -130,7 +130,7 @@ if ARGS.add then
         do
             local G = {
                 authors = pioneers(tmp .. "/"),
-                posts   = {},
+                actions = {},
                 order   = {},
                 now     = tonumber(CMD.now),
             }

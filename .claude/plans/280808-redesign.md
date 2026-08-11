@@ -10,8 +10,6 @@
     - E: `freechains gc` (stage 2, needs S1): prune
       `.git/states/` outside the settled window, once a
       missing snapshot can be recomputed
-    - Q: revocation targets payloads, not posts (own section
-      below) -- a vote's `--why` cannot be revoked today
 - the sync phase (own section below): S1 recv, S2 clone,
   S3 send/hook, S4 cleanups, B6 receive validation, E3's
   sync half (removal trigger at the replay settle, the
@@ -288,33 +286,43 @@
       helper deleted
 - B6: receive-side validation -> deferred to sync phase
 
-# Q: revocation targets payloads, not posts
+# Q DONE: revocation targets payloads, not posts
 
 - FOUND while reviewing E2: a vote's `--why` is user-authored
-  text with its own payload blob, but `revoke <vote>` fails
-  with "invalid target : post not found" -- `G.posts` holds
-  only posts, so votes have no revoke axis. The rule predates
+  text with its own payload blob, but `revoke <vote>` failed
+  with "invalid target : post not found" -- `G.posts` held
+  only posts, so votes had no revoke axis. The rule predated
   `--why` being a payload
-    - test asserting the old shape: `cli-revoke.lua`
-      "revoke-a-like-rejected" / "revoke-a-revoke-rejected"
-- the promise to close: moderation says any abusive text can
+- the promise it closes: moderation says any abusive text can
   be hidden and removed, wherever it was written
   (`260802-remove-blob.md`: "no user bytes in the DAG")
-- SHAPE: `revoke <aid>` acts on whatever payload the action
-  carries -- post content or a vote's why
-    - `is_revoked` moves from "post entry" to "action entry":
-      state needs a revoke axis for votes too
-    - reps channels: a vote has no `reps` score, so only the
-      revoke sums apply; the author channel still means "its
-      signer forgot it"
-    - `get payload <vote>` refuses when revoked, like a post
-    - removal (E3) already works by aid: dropping
-      `refs/payloads/<aid>` needs no change
-- consensus rule change: land BEFORE the sync phase freezes
-  behaviour (same argument as the revoke floor)
-- open: does a revoked vote still count for reps/consensus?
-  (yes -- only the bytes are hidden, the action stands, same
-  as a post today)
+- `G.posts` -> `G.actions`: ONE registry, a `kind` field
+  ('post' | 'like' | 'revoke') separating a post (score,
+  maturity, axis) from a vote (author + axis only)
+    - a vote registers itself at the end of its own `apply`
+    - votes stay inert in `advance()`: both scans key on
+      `maturity`, which a vote never has
+    - snapshot facet renamed with it (`serial(G)` is generic)
+- reps flow to POSTS only (`e.kind=='post'`), so voting on a
+  vote moves the axis and credits nobody -- no new earning
+  path from liking likes
+- the author channel is the target's signer either way: "its
+  author forgot it" == "its signer forgot their why"
+- `revoke` still refuses an author target; the wire field is
+  still `post`, now holding any action aid
+- `invalid target : post not found` -> `action not found`
+- `chain get : revoked post` -> `revoked payload` (a vote is
+  not a post; the message is about the bytes)
+- LIFT gate skips an action with no `blob` (a vote without
+  `--why` has nothing to materialize)
+- a revoked vote still counts for reps/consensus: only the
+  bytes hide, the action stands (as with a post)
+- tests: the two "votes are not posts" refusals became a
+  section where a why is read, revoked, self-revoked (free,
+  author channel) and shown to credit nobody; unknown-aid
+  refusal added
+- left alone: `chain get : unknown post` (an unknown aid is
+  not a post either, but that string predates Q)
 
 # Next steps (sync phase)
 
@@ -366,7 +374,7 @@
 
 # Ladder (local-only; all local tests pass after each step; DONE)
 
-- state `G` = `{ authors, posts, order, now }` (4 facets)
+- state `G` = `{ authors, actions, order, now }` (4 facets)
     - snapshot = `serial(G)` in `.git/states/<cid>.lua`
 - L1 DONE: snaps after local actions — dual write
     - `snap(G, is_ref, rev)` in common.lua
@@ -379,7 +387,7 @@
       (missing snapshot = "bug found")
     - `PEAK` = `STATE(hash).now`
     - init.lua startup `G` = `STATE("HEAD")`
-    - like-on-beg entry = `STATE(ref).posts[id]`
+    - like-on-beg entry = `STATE(ref).actions[id]`
     - no backcompat: old chains unsupported; sync recv leaves
       unsnapped tips -> sync tests may fail (accepted)
     - 25 tests early-exit before first clone/recv dependence:

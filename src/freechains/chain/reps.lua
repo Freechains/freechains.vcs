@@ -9,12 +9,12 @@ if ARGS.target == "post" then
     if not ARGS.key then
         ERROR("chain reps : post requires a hash")
     end
-    local e = G.posts[ARGS.key]
+    local e = G.actions[ARGS.key]
     local v = (e and e.reps) or 0
     print(v)
 elseif ARGS.target == "posts" then
     local T = {}
-    for k, v in pairs(G.posts) do
+    for k, v in pairs(G.actions) do
         T[#T+1] = { k=k, v=v.reps }
     end
     table.sort(T, function (a, b) return a.v > b.v end)
@@ -23,17 +23,17 @@ elseif ARGS.target == "posts" then
     end
 
 elseif ARGS.target == "revoke" then
-    -- revoke axis is post-only, so the `post` target is implicit
+    -- the axis is per ACTION (post or vote), so no target argument
     if not ARGS.key then
         ERROR("chain reps : revoke requires a hash")
     end
-    local e = G.posts[ARGS.key]
+    local e = G.actions[ARGS.key]
     local r = (e and e.revoke) or { author=0, others=0 }
     print(r.author .. " " .. r.others)
 elseif ARGS.target == "revokes" then
-    -- both revoke channels of all posts, most revoked first
+    -- both revoke channels of every action, most revoked first
     local T = {}
-    for k, v in pairs(G.posts) do
+    for k, v in pairs(G.actions) do
         local r = v.revoke or { author=0, others=0 }
         T[#T+1] = { k=k, a=r.author, o=r.others }
     end

@@ -607,7 +607,7 @@ And its payload becomes immediately unavailable:
 
 ```
 $ freechains chain '#chat' get payload 4a5b6c7
-ERROR : chain get : revoked post
+ERROR : chain get : revoked payload
 ```
 
 Note that only the payload is hidden, whereas the post metadata remains in the
@@ -628,7 +628,7 @@ $ freechains --root=/tmp/B/ chain '#chat' post inline $'my address is ...\n' --s
 $ freechains --root=/tmp/B/ chain '#chat' revoke 1000 5d6e7f8 --sign=/tmp/bob
 6e7f8a9...
 $ freechains chain '#chat' get payload 5d6e7f8
-ERROR : chain get : revoked post
+ERROR : chain get : revoked payload
 ```
 
 A self-revoke is absolute and other members cannot revert it.

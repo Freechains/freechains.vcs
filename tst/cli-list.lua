@@ -458,9 +458,9 @@ do
     )
 end
 
--- 8. revoked posts: list revokes + ~hash~ in order/dag
+-- 8. revoked payloads: list revokes + ~hash~ in order/dag
 do
-    print("==> Step 8: revoked posts")
+    print("==> Step 8: revoked payloads")
 
     TEST "A creates rev chain + two posts"
     exec {

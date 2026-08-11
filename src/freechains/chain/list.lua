@@ -8,9 +8,9 @@ if ARGS.begs then
     end
 
 elseif ARGS.order then
-    -- consensus order (aids); revoked posts wrapped in ~aid~
+    -- consensus order (aids); revoked payloads wrapped in ~aid~
     for _, aid in ipairs(G.order) do
-        if G.posts[aid] and is_revoked(G.posts[aid]) then
+        if G.actions[aid] and is_revoked(G.actions[aid]) then
             print("~" .. aid .. "~")
         else
             print(aid)
@@ -18,9 +18,9 @@ elseif ARGS.order then
     end
 
 elseif ARGS.revokes then
-    -- revoked posts only, in consensus order (bare aids)
+    -- revoked payloads only, in consensus order (bare aids)
     for _, aid in ipairs(G.order) do
-        if G.posts[aid] and is_revoked(G.posts[aid]) then
+        if G.actions[aid] and is_revoked(G.actions[aid]) then
             print(aid)
         end
     end
@@ -164,9 +164,9 @@ elseif ARGS.dag then
         end
         local t = blank()
         for _, h in ipairs(cur) do
-            -- revoked posts render as ~short~
+            -- revoked payloads render as ~short~
             local lbl = h:sub(1, SHORT)
-            if G.posts[h] and is_revoked(G.posts[h]) then
+            if G.actions[h] and is_revoked(G.actions[h]) then
                 lbl = "~" .. lbl .. "~"
             end
             set_at(t, col[h], lbl)

@@ -292,7 +292,7 @@ SPAM=$HASH
 
 # Alice detects the spam and revokes it with 1000 reps: the payload vanishes
 FC --root="$A" --now=$((MOD+10)) chain '#chat' revoke 1000 "$SPAM" --sign="$KEYS/alice"
-echo "-- expected failure (revoked post):"
+echo "-- expected failure (revoked payload):"
 FC --root="$A" chain '#chat' get payload "$SPAM" || true
 
 # Bob catches up, then posts something he regrets and self-revokes: a

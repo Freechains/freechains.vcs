@@ -190,7 +190,7 @@ do
     end
     cmd.chain.like._:option("--file")
 
-    -- cmd.chain.revoke / unrevoke : post only (no target argument)
+    -- cmd.chain.revoke / unrevoke : any action (no target argument)
     for _,c in ipairs { "revoke", "unrevoke" } do
         cmd.chain[c]._ = cmd.chain._:command(c)
         cmd.chain[c]._:argument("number"):convert(positive)

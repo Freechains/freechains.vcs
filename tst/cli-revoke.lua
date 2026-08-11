@@ -57,7 +57,7 @@ do
         }
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. POST,
-            err = "ERROR : chain get : revoked post",
+            err = "ERROR : chain get : revoked payload",
         }
     end
 
@@ -93,7 +93,7 @@ do
         assert(before == after, "self-revoke must be free: " .. before .. " -> " .. after)
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. POST,
-            err = "ERROR : chain get : revoked post",
+            err = "ERROR : chain get : revoked payload",
         }
     end
 
@@ -105,7 +105,7 @@ do
         }
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. POST,
-            err = "ERROR : chain get : revoked post",
+            err = "ERROR : chain get : revoked payload",
         }
     end
 
@@ -124,33 +124,74 @@ do
 end
 
 do
-    print("==> Revoke: votes (like/revoke) are not posts")
+    print("==> Revoke: a vote's why is a payload too")
 
-    -- a throwaway post + its like and revoke commits, to target;
-    -- revoking those vote commits must fail (they are not posts)
+    -- a `--why` is user-authored text with its own blob, so it is
+    -- revokable exactly like a post's content: the target of the
+    -- axis is any ACTION, not just a post
     local RP = exec {
         cmd = ENV_EXE .. " chain '#cli-revoke' post inline 'aux' --sign " .. KEY1,
     }
     local L = exec {
-        cmd = ENV_EXE .. " chain '#cli-revoke' like 1000 post " .. RP .. " --sign " .. KEY2,
-    }
-    local R = exec {
-        cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1000 " .. RP .. " --sign " .. KEY2,
+        cmd = ENV_EXE .. " chain '#cli-revoke' like 1000 post " .. RP ..
+            " --why 'abusive text' --sign " .. KEY2,
     }
 
     do
-        TEST "revoke-a-like-rejected"
+        TEST "revoke-vote-why-readable"
+        local out, code = exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. L,
+        }
+        assert(code == 0, "exit code: " .. tostring(code))
+        assert(out == "abusive text", "why: " .. out)
+    end
+
+    do
+        TEST "revoke-a-vote-hides-its-why"
+        exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1000 " .. L .. " --sign " .. KEY3,
+        }
         FAIL {
-            cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1000 " .. L .. " --sign " .. KEY2,
-            err = "ERROR : chain revoke : invalid target : post not found",
+            cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. L,
+            err = "ERROR : chain get : revoked payload",
         }
     end
 
     do
-        TEST "revoke-a-revoke-rejected"
+        TEST "revoke-vote-moves-only-the-axis"
+        -- a vote has no score of its own, so nothing was credited
+        assert(exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' reps revoke " .. L,
+        } == "0 -1000")
+        assert(exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' reps post " .. L,
+        } == "0")
+    end
+
+    do
+        TEST "revoke-vote-author-channel"
+        -- the signer forgetting their own why is free and absolute
+        local before = exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' reps author '" .. PUB2 .. "'",
+        }
+        exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1000 " .. L .. " --sign " .. KEY2,
+        }
+        local after = exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' reps author '" .. PUB2 .. "'",
+        }
+        assert(before == after, "self-revoke must be free: " .. before .. " -> " .. after)
+        assert(exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' reps revoke " .. L,
+        } == "-1000 -1000")
+    end
+
+    do
+        TEST "revoke-unknown-action-rejected"
         FAIL {
-            cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1000 " .. R .. " --sign " .. KEY2,
-            err = "ERROR : chain revoke : invalid target : post not found",
+            cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1000 " ..
+                string.rep("0", 40) .. " --sign " .. KEY3,
+            err = "ERROR : chain revoke : invalid target : action not found",
         }
     end
 end
@@ -172,7 +213,7 @@ do
         }
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. P,
-            err = "ERROR : chain get : revoked post",
+            err = "ERROR : chain get : revoked payload",
         }
         exec {
             cmd = ENV_EXE .. " chain '#cli-revoke' like 1000 post " .. P .. " --sign " .. KEY2,
@@ -246,7 +287,7 @@ do
         }
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. P,
-            err = "ERROR : chain get : revoked post",
+            err = "ERROR : chain get : revoked payload",
         }
         exec {
             cmd = ENV_EXE .. " chain '#cli-revoke' unrevoke 1000 " .. P .. " --sign " .. KEY1,

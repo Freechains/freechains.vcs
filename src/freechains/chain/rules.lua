@@ -45,11 +45,11 @@ function advance (G, env)
 
     -- discount scan (maybe signed at same G.now)
     if env.time>G.now or sign then
-        for _, hash in ipairs(ordered(G.posts)) do
-            local entry = G.posts[hash]
+        for _, hash in ipairs(ordered(G.actions)) do
+            local entry = G.actions[hash]
             if entry.maturity == "00-12" then
                 local subs = {}
-                for h2, other in pairs(G.posts) do
+                for h2, other in pairs(G.actions) do
                     if other.author and other.time and other.time>entry.time then
                         subs[other.author] = true
                     end
@@ -83,8 +83,8 @@ function advance (G, env)
 
     -- consolidation scan
     if env.time > G.now then
-        for _, hash in ipairs(ordered(G.posts)) do
-            local entry = G.posts[hash]
+        for _, hash in ipairs(ordered(G.actions)) do
+            local entry = G.actions[hash]
             if entry.maturity == "12-24" then
                 if env.time >= entry.time+C.time.full then
                     if entry.author then
@@ -145,7 +145,7 @@ function apply (G, kind, act, env)
             end
 
             -- mutation
-            G.posts[env.aid] = {
+            G.actions[env.aid] = {
                 author   = env.sign,
                 time     = env.time,
                 maturity = (env.beg and 'beg') or (env.sign and '00-12') or 'beg',
@@ -170,7 +170,7 @@ function apply (G, kind, act, env)
             if (act.post and act.author) or (not act.post and not act.author) then
                 return false, "invalid target : expects 'post' or 'author'"
             end
-            -- revoke/unrevoke are post-only
+            -- revoke/unrevoke never target an author
             if kind=='revoke' and (not act.post) then
                 return false, "invalid target : expects 'post'"
             end

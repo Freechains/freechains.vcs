@@ -17,8 +17,8 @@ do
 end
 
 if ARGS.payload then
-    if G.posts[ARGS.aid] and is_revoked(G.posts[ARGS.aid]) then
-        ERROR("chain get : revoked post")
+    if G.actions[ARGS.aid] and is_revoked(G.actions[ARGS.aid]) then
+        ERROR("chain get : revoked payload")
     end
 
     local T = assert(load(src))()

@@ -1,15 +1,15 @@
 local ssh = require "freechains.chain.ssh"
 
--- revoke/unrevoke are content-removal votes: post target only,
--- so they carry no `target` argument (default it here)
+-- revoke/unrevoke are content-removal votes:
+-- for action payloads, never authors
 if ARGS.revoke or ARGS.unrevoke then
     ARGS.target = "post"
 end
 
 ARGS.id = ARGS.id:match("^%s*(.-)%s*$")
 
--- a post target may be abbreviated (`list dag` prints it so); an
--- author target is a pubkey and passes through untouched
+-- an action target may be abbreviated (`list dag` prints it so);
+-- an author target is a pubkey and passes through untouched
 if ARGS.target == "post" then
     ARGS.id = ACTION.full(ARGS.id)
 end
@@ -59,7 +59,7 @@ if to_beg then
         --ERROR("chain like : invalid target : beg post does not exist")
     end
     G.order[#G.order+1] = ARGS.id   -- beg post
-    G.posts[ARGS.id] = STATE.read(true, ref).posts[ARGS.id]
+    G.actions[ARGS.id] = STATE.read(true, ref).actions[ARGS.id]
 end
 
 -- the writer's own pubkey, read from the `.pub` file BEFORE the
@@ -119,53 +119,56 @@ do
     G.order[#G.order+1] = aid
 end
 
--- the vote landed, so `post` now carries the final sums, and
+-- the vote landed, so `entry` now carries the final sums, and
 -- only a CROSSING matters:
 --  - it entered REVOKED -> the bytes go (REMOVAL)
 --  - it left REVOKED    -> the bytes must be here (LIFT)
-if post then
-    if (not was_revoked) and is_revoked(post) then
+if entry then
+    if (not was_revoked) and is_revoked(entry) then
         exec { err=false, stderr=false,
             cmd = "git -C " .. REPO .. " update-ref -d refs/payloads/" .. ARGS.id,
         }
-    elseif was_revoked and (not is_revoked(post)) then
-        -- every post carries a payload (only votes may not), so
-        -- the target's `blob` is always there
+    elseif was_revoked and (not is_revoked(entry)) then
+        -- every post carries a payload, a vote only with `--why`:
+        -- with no bytes to restore there is nothing to gate
         local T = assert(load(exec {
             cmd = "git -C " .. REPO .. " cat-file blob " .. ARGS.id,
         }))()
-        local have = exec { err=false, stderr=false,
-            cmd = "git -C " .. REPO .. " cat-file -e " .. T.blob,
-        }
-        -- `--file` is a blind fallback: the caller cannot see the
-        -- store, so a redundant one is fine -- a WRONG one is not
-        if ARGS.file then
-            local blob = exec { err=false, stderr=false,
-                cmd = "git -C " .. REPO .. " hash-object '" .. ARGS.file .. "'",
+        if T.blob then
+            local have = exec { err=false, stderr=false,
+                cmd = "git -C " .. REPO .. " cat-file -e " .. T.blob,
             }
-            if blob == false then
-                ERROR("chain " .. name .. " : invalid path")
+            -- `--file` is a blind fallback:
+            -- 	- caller cannot see the store, redundant is fine
+            -- 	- a WRONG one is not
+            if ARGS.file then
+                local blob = exec { err=false, stderr=false,
+                    cmd = "git -C " .. REPO .. " hash-object '" .. ARGS.file .. "'",
+                }
+                if blob == false then
+                    ERROR("chain " .. name .. " : invalid path")
+                end
+                if blob ~= T.blob then
+                    ERROR("chain " .. name .. " : blob mismatch")
+                end
             end
-            if blob ~= T.blob then
-                ERROR("chain " .. name .. " : blob mismatch")
+            if have == false then
+                if not ARGS.file then
+                    ERROR("chain " .. name .. " : expected --file")
+                end
+                -- verified above: only now do the bytes enter the db
+                exec {
+                    cmd = "git -C " .. REPO .. " hash-object -w '" .. ARGS.file .. "'",
+                }
             end
-        end
-        if have == false then
-            if not ARGS.file then
-                ERROR("chain " .. name .. " : expected --file")
-            end
-            -- verified above: only now do the bytes enter the db
+            -- a standing post always has its anchor: the bytes may
+            -- still be in the store, but unreferenced they are one
+            -- `gc` away from gone
             exec {
-                cmd = "git -C " .. REPO .. " hash-object -w '" .. ARGS.file .. "'",
+                cmd = "git -C " .. REPO .. " update-ref refs/payloads/" ..
+                    ARGS.id .. " " .. T.blob,
             }
         end
-        -- a standing post always has its anchor: the bytes may
-        -- still be in the store, but unreferenced they are one
-        -- `gc` away from gone
-        exec {
-            cmd = "git -C " .. REPO .. " update-ref refs/payloads/" ..
-                ARGS.id .. " " .. T.blob,
-        }
     end
 end
 

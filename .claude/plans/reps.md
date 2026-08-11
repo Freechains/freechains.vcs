@@ -310,8 +310,15 @@ in units, never in dust. Without the floor a single unit hid a
 post that cost 500 to write. The floor is the magnitude only —
 the author's self-revoke is still free and still absolute.
 
-(post-only, so no `post`/`author` target argument — unlike
-`like`/`dislike`.)
+(no `post`/`author` target argument — unlike `like`/`dislike`:
+an author is never revoked, only an action's payload.)
+
+The target is any **action**, not just a post: a vote's `--why`
+is user-authored text with its own blob, so it hides the same
+way. State keeps one registry, `G.actions[aid]`, where a `kind`
+field separates a post (score, maturity, revoke axis) from a
+vote (author + revoke axis only). Voting on a vote therefore
+moves the axis and credits nobody.
 
 Stored as a first-class action kind: `action='revoke'` in the
 action file (parallel to `action='like'`). The field marks the

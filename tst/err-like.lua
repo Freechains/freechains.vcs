@@ -278,7 +278,7 @@ do
     TEST "B rejects like with post not found on sync"
     FAIL {
         cmd = EXE_B .. " chain '#err-post' sync recv " .. REPO_A6,
-        err = "ERROR : chain sync : invalid like : invalid target : post not found",
+        err = "ERROR : chain sync : invalid like : invalid target : action not found",
     }
 end
 

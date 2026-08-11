@@ -16,7 +16,7 @@
 | `freechains chain <n> like <N> <target> <id>` | commit adding `actions/ab/<aid>.lua` (`action='like'`, `n=+N`) | 1 | no trailer, no payload in the tree; N is raw reps |
 | `freechains chain <n> dislike <N> <target> <id>` | same, `n=-N` | 1 | same pattern as like |
 | `freechains chain <n> reps <pub_or_aid>` | read `.git/states/<cid>.lua` snapshot | 1 | derived state, never committed; prints raw units |
-| `freechains chain <n> reps revoke <id>` | read the snapshot's `posts[aid].revoke` | 1 | prints the two revoke sums (`author others`); post-only, so no `post` keyword |
+| `freechains chain <n> reps revoke <id>` | read the snapshot's `actions[aid].revoke` | 1 | prints the two revoke sums (`author others`); any action, so no `post` keyword |
 | `freechains chain <n> reps revokes` | read the snapshot's `posts` | 1 | `<aid> <author> <others>` for all posts, most revoked first |
 | `freechains chain <n> consensus` | `git log --date-order` skipping sync commits | 3 | deterministic but not the same rule; sync marker strategy deferred |
 | `freechains chain <n> abandon <id>` | `git reset --hard <cid>^1` | 5 | local only; `<id>` is the first action to abandon and must be an ancestor of HEAD; a beg instead deletes its `refs/begs/*` ref |
