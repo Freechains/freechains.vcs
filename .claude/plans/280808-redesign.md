@@ -2,6 +2,40 @@
 
 - sources: `trash/b803-260802-redesign.md`, `trash/b807-260807-redesign.md`
 
+# PENDING
+
+- small, decided but not written:
+    - A: validate `--file` even when the blob is present
+      (today it is silently ignored)
+    - C: revoke floor -- minimum magnitude 1000 per revoke;
+      zero-crossing threshold unchanged; author channel still
+      absolute (today one unit hides a 500-cost post)
+    - D: `freechains gc` (stage 1): drop orphaned payload refs
+      + `git gc --prune=now`, `--dry-run`, size report
+    - E: `freechains gc` (stage 2, needs S1): prune
+      `.git/states/` outside the settled window, once a
+      missing snapshot can be recomputed
+    - Q: revocation targets payloads, not posts (own section
+      below) -- a vote's `--why` cannot be revoked today
+- the sync phase (own section below): S1 recv, S2 clone,
+  S3 send/hook, S4 cleanups, B6 receive validation, E3's
+  sync half (removal trigger at the replay settle, the
+  `^refs/payloads/<removed>` refspec)
+    - knock-on: 25 early-exited tests, `guide.sh` stops at
+      the clone
+- open questions:
+    - how replay recognizes a SIGNED `--beg` (today
+      `beg or (key == nil)`)
+    - after B6: `kind` from `act.action`, `env` sheds
+      `sign`/`time`
+- plan hygiene: `260802-remove-blob.md` says "absent but not
+  revoked -> payload unavailable"; `get` now ASSERTS instead
+  (an honest peer holds the payload of every post it holds
+  non-revoked). Fix that line when sync lands
+- spec backlog lives in `reps.md`: Rule 5 file-op costs,
+  revocation state (3.b), 128 KB limit, bilateral-sync and
+  tie-breaker tests
+
 # Done (already on main)
 
 - `chain/consensus.lua` extracted from sync.lua
@@ -194,9 +228,21 @@
       `blob mismatch`
         - tests: cli-abandon (ref gone / kept), cli-revoke
           "Gated unrevoke" (refused, wrong file, right file)
-        - the local slice sweeps nothing on revoke: the
-          trigger fires at the post-replay settle, which does
-          not exist until sync lands
+        - removal fires LOCALLY on the crossing: a local vote
+          settles immediately (no replay walk, so no
+          intermediate dip), so a vote that takes a post INTO
+          revoked drops `refs/payloads/<aid>` right there, and
+          one that takes it OUT re-anchors
+        - the decisions read the REAL sums after `apply` (an
+          earlier version simulated the axis and duplicated
+          `apply`'s routing)
+        - errors name the verb typed (`unrevoke`, `dislike`),
+          not the collapsed kind
+        - the beg merge moved past every check, so
+          `merge --abort` disappeared: nothing is written
+          before the last possible refusal
+        - what remains sync-phase is the trigger for histories
+          replayed from a peer, not the local one
     - STILL SYNC-PHASE: the removal trigger (act once on final
       sums after a full replay) and the non-resurrection
       refspec `^refs/payloads/<removed>`
