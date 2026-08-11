@@ -4,6 +4,10 @@
 
 # PENDING
 
+- SUITE: A, C, Q, scored votes and the vocabulary rename are
+  written but the suite has NOT run green end to end since;
+  one miss already surfaced (`cli-like` read `T.post`), so
+  expect the same class if more turn up
 - small, decided but not written:
     - D: `freechains gc` (stage 1): drop orphaned payload refs
       + `git gc --prune=now`, `--dry-run`, size report
@@ -26,8 +30,9 @@
   (an honest peer holds the payload of every post it holds
   non-revoked). Fix that line when sync lands
 - spec backlog lives in `reps.md`: Rule 5 file-op costs,
-  revocation state (3.b), 128 KB limit, bilateral-sync and
-  tie-breaker tests
+  128 KB limit, bilateral-sync and tie-breaker tests
+    - revocation state (3.b) is written: floor, action target,
+      scored votes
 
 # Done (already on main)
 
@@ -344,6 +349,9 @@
   refusal added
 - left alone: `chain get : unknown post` (an unknown aid is
   not a post either, but that string predates Q)
+- the entry's `action` field has NO readers today (the credit
+  gate was its only one, and scoring votes removed it): B6 and
+  any post/vote split are what will want it
 
 # Next steps (sync phase)
 
