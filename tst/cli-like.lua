@@ -83,7 +83,7 @@ do
         local T = load(exec {
             cmd = ENV_EXE .. " chain '#cli-like' get metadata " .. out,
         }, "metadata", "t", {})()
-        assert(T.post == POST, "target should be the full id: " .. tostring(T.post))
+        assert(T.aid == POST, "target should be the full id: " .. tostring(T.aid))
     end
 
     do
@@ -314,7 +314,7 @@ do
         assert(err:match("Error: expected positive integer : got '0'"), "like with 0 should fail")
         TEST "like-non-numeric"
         local err = FAIL {
-            cmd = ENV_EXE .. " chain '#cli-like' like abc post " .. POST .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain '#cli-like' like abc action " .. POST .. " --sign " .. KEY1,
         }
         assert(err:match("Error: expected positive integer : got 'abc'"), "should fail with non-numeric number")
     end

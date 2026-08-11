@@ -240,7 +240,7 @@ end
 
 -- sync rejects like with nonexistent post target
 do
-    print("==> sync rejects like with post not found")
+    print("==> sync rejects like with action not found")
 
     local REPO_A6 = ROOT_A .. "/chains/#err-post/"
     local REPO_B6 = ROOT_B .. "/chains/#err-post/"
@@ -275,7 +275,7 @@ do
         cmd = "git -C " .. REPO_A6 .. " commit -m 'x' --trailer 'Freechains: state' --allow-empty",
     }
 
-    TEST "B rejects like with post not found on sync"
+    TEST "B rejects like with action not found on sync"
     FAIL {
         cmd = EXE_B .. " chain '#err-post' sync recv " .. REPO_A6,
         err = "ERROR : chain sync : invalid like : invalid target : action not found",
