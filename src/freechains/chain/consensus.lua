@@ -185,7 +185,7 @@ function commit (G, hash, beg)
         -- only a positive `like` accepts a beg
         local to_beg = (
             kind == 'like' and t.n > 0
-            and t.post and (G.posts[t.post] and G.posts[t.post].maturity=="beg")
+            and t.aid and (G.actions[t.aid] and G.actions[t.aid].maturity=="beg")
         )
         local ok, err = apply(G, kind, t, {
             time   = tonumber(time),

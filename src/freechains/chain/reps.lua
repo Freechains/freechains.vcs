@@ -5,14 +5,14 @@ end
 advance(G, { time = tonumber(CMD.now) })
 cap(G)
 
-if ARGS.target == "post" then
+if ARGS.target == "action" then
     if not ARGS.key then
-        ERROR("chain reps : post requires a hash")
+        ERROR("chain reps : action requires a hash")
     end
     local e = G.actions[ARGS.key]
     local v = (e and e.reps) or 0
     print(v)
-elseif ARGS.target == "posts" then
+elseif ARGS.target == "actions" then
     local T = {}
     for k, v in pairs(G.actions) do
         T[#T+1] = { k=k, v=v.reps }

@@ -2,15 +2,16 @@ local ssh = require "freechains.chain.ssh"
 
 -- revoke/unrevoke are content-removal votes:
 -- for action payloads, never authors
-if ARGS.revoke or ARGS.unrevoke then
-    ARGS.target = "post"
+-- CLI: action -> aid
+if (ARGS.target == "action") or ARGS.revoke or ARGS.unrevoke then
+    ARGS.target = "aid"
 end
 
 ARGS.id = ARGS.id:match("^%s*(.-)%s*$")
 
 -- an action target may be abbreviated (`list dag` prints it so);
 -- an author target is a pubkey and passes through untouched
-if ARGS.target == "post" then
+if ARGS.target == "aid" then
     ARGS.id = ACTION.full(ARGS.id)
 end
 
@@ -37,7 +38,7 @@ end
 -- detect if a positive `like` targets a beg on refs/begs/
 -- (only `like` accepts begs; dislike/revoke/unrevoke do not)
 local to_beg = (
-    ARGS.like and (ARGS.target == "post") and
+    ARGS.like and (ARGS.target == "aid") and
         exec { err=false,
             cmd = "git -C " .. REPO .. " rev-parse --verify refs/begs/beg-" .. ARGS.id,
         } and true
@@ -100,9 +101,9 @@ local act = {
 }
 local aid = ACTION.pre(act)
 
--- post/was_revoked used after apply
-local post = (ARGS.target == "post") and G.posts[ARGS.id] or nil
-local was_revoked = post and is_revoked(post)
+-- entry/was_revoked used after apply
+local entry = (ARGS.target == "aid") and G.actions[ARGS.id] or nil
+local was_revoked = entry and is_revoked(entry)
 
 -- apply BEFORE the commit: a rejected vote leaves nothing
 do

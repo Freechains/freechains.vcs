@@ -111,7 +111,7 @@ function advance (G, env)
 end
 
 -- an action is applied from two sides:
---  - `act`: what its author CLAIMS (n, post, author)
+--  - `act`: what its author CLAIMS (n, target=aid/author)
 --  - `env`: what the chain VERIFIED: (time, aid, sign, parents, beg)
 function apply (G, kind, act, env)
     -- a commit may sit at most `time.diff` below everything that precedes it
@@ -146,6 +146,7 @@ function apply (G, kind, act, env)
 
             -- mutation
             G.actions[env.aid] = {
+                action   = 'post',
                 author   = env.sign,
                 time     = env.time,
                 maturity = (env.beg and 'beg') or (env.sign and '00-12') or 'beg',
@@ -167,12 +168,12 @@ function apply (G, kind, act, env)
             if math.type(act.n)~='integer' or act.n==0 then
                 return false, "invalid number : expects non-zero integer"
             end
-            if (act.post and act.author) or (not act.post and not act.author) then
-                return false, "invalid target : expects 'post' or 'author'"
+            if (act.aid and act.author) or (not act.aid and not act.author) then
+                return false, "invalid target : expects 'action' or 'author'"
             end
             -- revoke/unrevoke never target an author
-            if kind=='revoke' and (not act.post) then
-                return false, "invalid target : expects 'post'"
+            if kind=='revoke' and (not act.aid) then
+                return false, "invalid target : expects 'action'"
             end
             -- hiding a post must cost at least what a day mints:
             -- one dust unit used to bury a 500-reps post
@@ -180,13 +181,13 @@ function apply (G, kind, act, env)
                 return false,
                     "invalid number : expects at least " .. C.reps.revoke
             end
-            if act.post and (not G.posts[act.post]) then
-                return false, "invalid target : post not found"
+            if act.aid and (not G.actions[act.aid]) then
+                return false, "invalid target : action not found"
             end
 
             -- author self-revoke (right to be forgotten) is free and ungated
             local self_revoke = (
-                kind=='revoke' and act.n<0 and G.posts[act.post].author==env.sign
+                kind=='revoke' and act.n<0 and G.actions[act.aid].author==env.sign
             )
 
             -- must afford the full vote magnitude (no debt); self-revoke is free
@@ -206,8 +207,9 @@ function apply (G, kind, act, env)
                 G.authors[env.sign].reps = reps - math.abs(act.n)
             end
             local n = act.n * (100 - C.like.tax) // 100
-            if act.post then
-                local a = G.posts[act.post].author
+            if act.aid then
+                local e = G.actions[act.aid]
+                local a = e.author
                 if not (self_revoke or (kind=='revoke' and act.n>0)) then
                     if a then
                         G.authors[a] = G.authors[a] or { reps=0 }
@@ -215,7 +217,7 @@ function apply (G, kind, act, env)
                     else
                         assert(env.beg)
                     end
-                    G.posts[act.post].reps = G.posts[act.post].reps + n//C.like.split
+                    e.reps = e.reps + n//C.like.split
                 end
 
                 -- revoke axis: sum the signed magnitude act.n (revoke n<0,
@@ -224,10 +226,8 @@ function apply (G, kind, act, env)
                 -- revokes). Author self-revoke feeds the absolute
                 -- `author` channel; everyone else the `others` channel.
                 if kind=='revoke' or act.n>0 then
-                    local author = G.posts[act.post].author
-                    local r = G.posts[act.post].revoke or { author=0, others=0 }
-                    G.posts[act.post].revoke = r
-                    if kind=='revoke' and author and env.sign==author then
+                    local r = e.revoke
+                    if kind=='revoke' and a and env.sign==a then
                         r.author = r.author + act.n
                     else
                         r.others = r.others + act.n
@@ -235,8 +235,8 @@ function apply (G, kind, act, env)
                 end
 
                 if env.beg then
-                    G.posts[act.post].maturity = "00-12"
-                    G.posts[act.post].time = env.time
+                    e.maturity = "00-12"
+                    e.time = env.time
                     if a then
                         G.authors[a].time = G.authors[a].time or env.time
                     end
@@ -245,6 +245,14 @@ function apply (G, kind, act, env)
                 G.authors[act.author] = G.authors[act.author] or { reps=0 }
                 G.authors[act.author].reps = G.authors[act.author].reps + n
             end
+
+            -- the vote enters the registry as a target of its own:
+            G.actions[env.aid] = {
+                action = kind,
+                author = env.sign,
+                reps   = 0,
+                revoke = { author=0, others=0 },
+            }
         end
     end
 

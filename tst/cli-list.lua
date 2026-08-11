@@ -85,7 +85,7 @@ do
 
     TEST "A likes P1"
     L1 = exec {
-        cmd = EXE_A .. " --now=4000 chain '#test' like 1000 post " .. P1 .. " --sign " .. KEY1,
+        cmd = EXE_A .. " --now=4000 chain '#test' like 1000 action " .. P1 .. " --sign " .. KEY1,
     }
 
     -- git:  ... S2 ── L1 ── S3        (L1 = like on P1)
@@ -333,7 +333,7 @@ do
 
     TEST "KEY1 likes BEG"
     LIKE = exec {
-        cmd = EXE_B .. " --now=8500 chain '#test' like 1000 post " .. BEG .. " --sign " .. KEY1,
+        cmd = EXE_B .. " --now=8500 chain '#test' like 1000 action " .. BEG .. " --sign " .. KEY1,
     }
     assert(#LIKE == 40, "expected hash, got: " .. LIKE)
 

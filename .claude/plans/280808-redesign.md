@@ -296,20 +296,39 @@
 - the promise it closes: moderation says any abusive text can
   be hidden and removed, wherever it was written
   (`260802-remove-blob.md`: "no user bytes in the DAG")
-- `G.posts` -> `G.actions`: ONE registry, a `kind` field
-  ('post' | 'like' | 'revoke') separating a post (score,
-  maturity, axis) from a vote (author + axis only)
+- `G.posts` -> `G.actions`: ONE registry, an `action` field
+  ('post' | 'like' | 'revoke') mirroring the action file's
     - a vote registers itself at the end of its own `apply`
-    - votes stay inert in `advance()`: both scans key on
-      `maturity`, which a vote never has
     - snapshot facet renamed with it (`serial(G)` is generic)
-- reps flow to POSTS only (`e.kind=='post'`), so voting on a
-  vote moves the axis and credits nobody -- no new earning
-  path from liking likes
+- a vote is SCORED like a post (`reps`), so voting on one
+  credits or drains its signer -- same tax and split
+    - what a vote lacks is `maturity`: both time scans key on
+      it, so a vote receives reps and never earns them (no 12h
+      refund, no 24h consolidation)
+    - no farming loop: a like is a taxed transfer, so liking
+      each other's votes loses 10% a round
+    - `reps posts` therefore lists votes too -- hence the
+      rename to `reps actions` below
 - the author channel is the target's signer either way: "its
   author forgot it" == "its signer forgot their why"
-- `revoke` still refuses an author target; the wire field is
-  still `post`, now holding any action aid
+- VOCABULARY (landed with Q, before B6 freezes the wire): the
+  word `post` meant "not an author" in three places, all of
+  which now say what they mean
+    - CLI keyword: `like|dislike <n> action <aid>` (was `post`);
+      `revoke|unrevoke` still take no keyword
+    - action file field: `aid` (was `post`) -- `action` was
+      unavailable, it names the file's own kind; the pair
+      `aid` | `author` still tells the two targets apart BY
+      FIELD NAME, no discriminator needed
+    - `reps action <id>` / `reps actions` (was `post`/`posts`),
+      now that a vote is scored; `reps revoke(s)` unchanged
+    - `like.lua` normalizes the CLI word to the FIELD name at
+      the top, so the rest of the file is unchanged
+    - `expects 'post' or 'author'` -> `expects 'action' or
+      'author'`; `revoke` alone -> `expects 'action'`
+    - trap: `act.aid` (the TARGET) vs `env.aid` (the action's
+      OWN id) are different tables -- noted at `apply`
+- `revoke` still refuses an author target
 - `invalid target : post not found` -> `action not found`
 - `chain get : revoked post` -> `revoked payload` (a vote is
   not a post; the message is about the bytes)
@@ -317,9 +336,11 @@
   `--why` has nothing to materialize)
 - a revoked vote still counts for reps/consensus: only the
   bytes hide, the action stands (as with a post)
+- settled by the score: like/dislike on a vote are meaningful
+  (they weigh its why), so no target restriction was added
 - tests: the two "votes are not posts" refusals became a
-  section where a why is read, revoked, self-revoked (free,
-  author channel) and shown to credit nobody; unknown-aid
+  section where a why is read, revoked (signer drained 450),
+  self-revoked (free, author channel) and scored; unknown-aid
   refusal added
 - left alone: `chain get : unknown post` (an unknown aid is
   not a post either, but that string predates Q)

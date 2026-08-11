@@ -40,7 +40,7 @@ do
     do
         TEST "reps-list-posts-empty"
         local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-reps' reps posts",
+            cmd = ENV_EXE .. " chain '#cli-reps' reps actions",
         }
         assert(code==0, "exit code: " .. tostring(code))
         assert(out == "", "should be empty: " .. out)
@@ -81,7 +81,7 @@ do
     do
         TEST "reps-list-posts-after-3"
         local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-reps' reps posts",
+            cmd = ENV_EXE .. " chain '#cli-reps' reps actions",
         }
         assert(code==0, "exit code: " .. tostring(code))
         -- 3 posts, all with 0 reps (no likes)
@@ -109,7 +109,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-reps' post inline 'hello'" .. " --sign " .. KEY2,
         }
         exec {
-            cmd = ENV_EXE .. " chain '#cli-reps' like 2000 post " .. post .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain '#cli-reps' like 2000 action " .. post .. " --sign " .. KEY1,
         }
 
         local out, code = exec {
@@ -119,7 +119,7 @@ do
         assert(out == "23000", "reps: " .. out)    -- KEY1: 25000 -> like -> 23000
 
         local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-reps' reps post " .. post,
+            cmd = ENV_EXE .. " chain '#cli-reps' reps action " .. post,
         }
         assert(code==0, "exit code: " .. tostring(code))
         assert(out == "900", "reps: " .. out)   -- post: 0 -> like 2000*90%/2 -> 900
@@ -131,7 +131,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-reps' post inline 'bad'" .. " --sign " .. KEY2,
         }
         exec {
-            cmd = ENV_EXE .. " chain '#cli-reps' dislike 1000 post " .. post .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain '#cli-reps' dislike 1000 action " .. post .. " --sign " .. KEY1,
         }
         local out, code = exec {
             cmd = ENV_EXE .. " chain '#cli-reps' reps author '" .. PUB1 .. "'",
@@ -147,7 +147,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-reps' post inline 'disliked'" .. " --sign " .. KEY2,
         }
         exec {
-            cmd = ENV_EXE .. " chain '#cli-reps' dislike 1000 post " .. target .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain '#cli-reps' dislike 1000 action " .. target .. " --sign " .. KEY1,
         }
         local out, code = exec {
             cmd = ENV_EXE .. " chain '#cli-reps' reps author '" .. PUB2 .. "'",
@@ -306,7 +306,7 @@ do
         TEST "dust-beg-like-rejected"
         -- admission mints future income: its price is not dust
         FAIL {
-            cmd = ENV_EXE .. " --now=0 chain '#no-debt' like 499 post " .. BEG .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " --now=0 chain '#no-debt' like 499 action " .. BEG .. " --sign " .. KEY1,
             err = "ERROR : chain like : invalid beg like : insufficient reputation",
         }
     end
@@ -315,14 +315,14 @@ do
         TEST "beg-like admits the post, holds the author"
         -- the vote splits 50/50: 1000 -> 900 -> author 450, post 450
         exec {
-            cmd = ENV_EXE .. " --now=0 chain '#no-debt' like 1000 post " .. BEG .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " --now=0 chain '#no-debt' like 1000 action " .. BEG .. " --sign " .. KEY1,
         }
         local out = exec {
             cmd = ENV_EXE .. " --now=0 chain '#no-debt' reps author '" .. PUB2 .. "'",
         }
         assert(out == "850", "KEY2 reps: " .. out)   -- 400 + 450
         local post = exec {
-            cmd = ENV_EXE .. " --now=0 chain '#no-debt' reps post " .. BEG,
+            cmd = ENV_EXE .. " --now=0 chain '#no-debt' reps action " .. BEG,
         }
         assert(post == "450", "beg post reps: " .. post)
     end
@@ -335,7 +335,7 @@ do
             cmd = ENV_EXE .. " --now=0 chain '#no-debt' post inline 'me too' --beg --sign " .. KEY3,
         }
         exec {
-            cmd = ENV_EXE .. " --now=0 chain '#no-debt' like 1000 post " .. beg3 .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " --now=0 chain '#no-debt' like 1000 action " .. beg3 .. " --sign " .. KEY1,
         }
         local out = exec {
             cmd = ENV_EXE .. " --now=0 chain '#no-debt' reps author '" .. PUB3 .. "'",
@@ -391,15 +391,15 @@ do
     do
         TEST "reps-post-whitespace"
         local posts = exec {
-            cmd = ENV_EXE .. " chain '#cli-reps' reps posts",
+            cmd = ENV_EXE .. " chain '#cli-reps' reps actions",
         }
         local hash = posts:match("(%x+)")
         assert(hash, "no post available")
         local clean = exec {
-            cmd = ENV_EXE .. " chain '#cli-reps' reps post " .. hash,
+            cmd = ENV_EXE .. " chain '#cli-reps' reps action " .. hash,
         }
         local padded = exec {
-            cmd = ENV_EXE .. " chain '#cli-reps' reps post ' " .. hash .. " \n'",
+            cmd = ENV_EXE .. " chain '#cli-reps' reps action ' " .. hash .. " \n'",
         }
         assert(clean == padded, "trimmed post lookup mismatch: " .. clean .. " vs " .. padded)
     end
@@ -412,8 +412,8 @@ do
     do
         TEST "reps-post-requires-hash"
         FAIL {
-            cmd = ENV_EXE .. " chain '#cli-reps' reps post",
-            err = "ERROR : chain reps : post requires a hash",
+            cmd = ENV_EXE .. " chain '#cli-reps' reps action",
+            err = "ERROR : chain reps : action requires a hash",
         }
     end
 
@@ -463,7 +463,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-reps' reps author '" .. PUB1 .. "'",
         }
         FAIL {
-            cmd = ENV_EXE .. " chain '#cli-reps' like 100000 post " .. post .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain '#cli-reps' like 100000 action " .. post .. " --sign " .. KEY1,
             err = "ERROR : chain like : insufficient reputation",
         }
         local after = exec {
@@ -475,7 +475,7 @@ do
     do
         TEST "debt-affordable-ok"
         local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-reps' like 1000 post " .. post .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain '#cli-reps' like 1000 action " .. post .. " --sign " .. KEY1,
         }
         assert(code == 0, "affordable like should succeed: " .. tostring(code))
     end

@@ -79,8 +79,8 @@ Freechains' API is straightforward:
 - `freechains chains add ...`:       creates or clones chain locally
 - `freechains chain post ...`:       posts to chain (signed with SSH)
 - `freechains chain list dag/order`: lists all actions (DAG or consensus order)
-- `freechains chain (dis)like ...`:  rates post or author
-- `freechains chain (un)revoke ...`: hides or restores post payload
+- `freechains chain (dis)like ...`:  rates an action or author
+- `freechains chain (un)revoke ...`: erases or restores an action's payload
 - `freechains chain reps ...`:       queries reputation
 - `freechains chain sync send/recv`: synchronizes with remote peer
 - `freechains chain abandon ...`:    erases local history after hard fork
@@ -344,9 +344,9 @@ As with authors, posts also have associated `reps` and can receive likes and
 dislikes:
 
 ```
-$ freechains --root=/tmp/B/ chain '#chat' like    1000 post b52c62f --sign=/tmp/charlie
+$ freechains --root=/tmp/B/ chain '#chat' like    1000 action b52c62f --sign=/tmp/charlie
 a9b0c1d...
-$ freechains --root=/tmp/B/ chain '#chat' dislike 1000 post d6568e4 --sign=/tmp/bob
+$ freechains --root=/tmp/B/ chain '#chat' dislike 1000 action d6568e4 --sign=/tmp/bob
 b0c1d2e...
 ```
 
@@ -354,7 +354,7 @@ A like transfers `reps` from the caster to the post (half) and to its
 author (half), whereas a dislike drains `reps` from them:
 
 ```
-$ freechains --root=/tmp/B/ chain '#chat' reps posts
+$ freechains --root=/tmp/B/ chain '#chat' reps actions
 b52c62f... 450
 e1f2a3b... 0
 d6568e4... -450
@@ -384,7 +384,7 @@ c7d8e9f...
 `Alice` likes the post and rates it, spending `4000 reps`:
 
 ```
-$ freechains chain '#chat' like 4000 post c7d8e9f --sign=/tmp/alice
+$ freechains chain '#chat' like 4000 action c7d8e9f --sign=/tmp/alice
 d8e9f0a...
 $ freechains chain '#chat' list begs
 # (empty)

@@ -51,7 +51,7 @@ do
         cmd = EXE_A .. " --now=1020 chain '#ek' post inline 'seed\n' --file s.txt --sign " .. KEY1,
     }
     exec {
-        cmd = EXE_A .. " --now=1040 chain '#ek' like 1000 post " .. seed .. " --sign " .. KEY2,
+        cmd = EXE_A .. " --now=1040 chain '#ek' like 1000 action " .. seed .. " --sign " .. KEY2,
     }
 
     TEST "X clones ek"

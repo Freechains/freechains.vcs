@@ -51,7 +51,7 @@ do
     -- K2 pays 1, 10% burned, half credited to K1 -> K1 > K2 (no hash tiebreak)
     TEST "KEY2 likes seed (loses reps, KEY1 > KEY2 at fork)"
     exec {
-        cmd = EXE_A .. " --now=1040 chain '#cu' like 1000 post " .. seed .. " --sign " .. KEY2,
+        cmd = EXE_A .. " --now=1040 chain '#cu' like 1000 action " .. seed .. " --sign " .. KEY2,
     }
 
     -- A: G -- seed -- L      B: G -- seed -- L

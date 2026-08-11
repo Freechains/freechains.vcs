@@ -133,11 +133,11 @@ echo
 # Charlie likes and Bob dislikes Alice's first two posts: the target is a
 # post, not an author, so the reps land on the content (half) and on
 # Alice (half)
-FC --root="$B" --now=$((T0+81)) chain '#chat' like    1000 post "$HELLO" --sign="$KEYS/charlie"
-FC --root="$B" --now=$((T0+82)) chain '#chat' dislike 1000 post "$HERE"  --sign="$KEYS/bob"
+FC --root="$B" --now=$((T0+81)) chain '#chat' like    1000 action "$HELLO" --sign="$KEYS/charlie"
+FC --root="$B" --now=$((T0+82)) chain '#chat' dislike 1000 action "$HERE"  --sign="$KEYS/bob"
 
 # expected: 'Hello World' 450 , 'Sync me' 0 , 'I am here' -450
-FC --root="$B" chain '#chat' reps posts
+FC --root="$B" chain '#chat' reps actions
 
 # expected: alice 40000 (her two received votes cancel out), while bob
 # and charlie each pay in full for the single vote they cast
@@ -151,7 +151,7 @@ BEG=$HASH
 FC --root="$A" chain '#chat' list begs
 
 # Alice likes the beg, which admits both the post and its author
-FC --root="$A" --now=$((T0+84)) chain '#chat' like 4000 post "$BEG" --sign="$KEYS/alice"
+FC --root="$A" --now=$((T0+84)) chain '#chat' like 4000 action "$BEG" --sign="$KEYS/alice"
 echo "-- no begs pending anymore:"
 FC --root="$A" chain '#chat' list begs
 

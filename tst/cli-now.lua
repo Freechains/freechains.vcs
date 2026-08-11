@@ -67,7 +67,7 @@ do
             cmd = ENV_EXE .. " --now=100 chain '#cli-now' post inline 'hello' --sign " .. KEY1,
         }
         exec {
-            cmd = ENV_EXE .. " --now=300 chain '#cli-now' like 1000 post " .. h .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " --now=300 chain '#cli-now' like 1000 action " .. h .. " --sign " .. KEY1,
         }
         local ts = exec {
             cmd = "git -C " .. DIR .. " log -1 --format=%at",
@@ -146,7 +146,7 @@ do
             cmd = ENV_EXE .. " --now=10000 chain '#cli-now' post inline 'base3' --sign " .. KEY1,
         }
         FAIL {
-            cmd = ENV_EXE .. " --now=5000 chain '#cli-now' like 1000 post " .. h .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " --now=5000 chain '#cli-now' like 1000 action " .. h .. " --sign " .. KEY1,
             err = "ERROR : chain like : too old",
         }
     end

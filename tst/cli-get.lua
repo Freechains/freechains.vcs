@@ -12,7 +12,7 @@ local POST = exec {
     cmd = ENV_EXE .. " chain '#cli-get' post inline 'hello world' --sign " .. KEY1,
 }
 local LIKE = exec {
-    cmd = ENV_EXE .. " chain '#cli-get' like 1000 post " .. POST .. " --sign " .. KEY2,
+    cmd = ENV_EXE .. " chain '#cli-get' like 1000 action " .. POST .. " --sign " .. KEY2,
 }
 local GENESIS = exec {
     cmd = "git -C " .. DIR .. " rev-list --max-parents=0 HEAD",
@@ -24,7 +24,7 @@ local UNSIGNED = exec {
     cmd = ENV_EXE .. " chain '#cli-get' post inline 'unsigned content' --beg",
 }
 local MERGE_LIKE = exec {
-    cmd = ENV_EXE .. " chain '#cli-get' like 1000 post " .. UNSIGNED .. " --sign " .. KEY2,
+    cmd = ENV_EXE .. " chain '#cli-get' like 1000 action " .. UNSIGNED .. " --sign " .. KEY2,
 }
 
 -- a separate post + a community revoke of it, to exercise the revoke
@@ -128,7 +128,7 @@ do
         assert(T.action == "post", "action: " .. tostring(T.action))
         assert(math.type(T.time) == "integer", "time: " .. tostring(T.time))
         assert(type(T.blob) == "string" and #T.blob == 40, "blob: " .. tostring(T.blob))
-        assert(T.post == nil, "post metadata has no post key: " .. tostring(T.post))
+        assert(T.aid == nil, "post metadata has no aid key: " .. tostring(T.aid))
         assert(T.n == nil, "post metadata has no n key: " .. tostring(T.n))
         assert(type(T.sign) == "string", "sign type: " .. type(T.sign))
         assert(T.sign:match("^ssh%-ed25519 "), "sign: " .. tostring(T.sign))
@@ -144,7 +144,7 @@ do
         assert(code == 0, "exit code: " .. tostring(code))
         local T = load(out, "metadata", "t", {})()
         assert(T.action == "like", "action: " .. tostring(T.action))
-        assert(T.post == POST, "post: " .. tostring(T.post))
+        assert(T.aid == POST, "aid: " .. tostring(T.aid))
         assert(T.author == nil, "author should be unset")
         assert(math.type(T.n) == "integer", "n: " .. tostring(T.n))
         assert(#T.backs == 1, "expected 1 back, got: " .. #T.backs)
@@ -159,7 +159,7 @@ do
         assert(code == 0, "exit code: " .. tostring(code))
         local T = load(out, "metadata", "t", {})()
         assert(T.action == "revoke", "action: " .. tostring(T.action))
-        assert(T.post == RPOST, "post: " .. tostring(T.post))
+        assert(T.aid == RPOST, "aid: " .. tostring(T.aid))
         assert(math.type(T.n) == "integer", "n: " .. tostring(T.n))
         assert(T.n < 0, "n should be negative: " .. tostring(T.n))
     end

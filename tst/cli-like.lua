@@ -37,7 +37,7 @@ do
     do
         TEST "like-success"
         local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-like' like 1000 post " .. POST .. " --sign " .. KEY2,
+            cmd = ENV_EXE .. " chain '#cli-like' like 1000 action " .. POST .. " --sign " .. KEY2,
         }
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -77,7 +77,7 @@ do
     do
         TEST "like accepts a SHORT target id"
         local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-like' like 1000 post " .. POST:sub(1, 7) .. " --sign " .. KEY2,
+            cmd = ENV_EXE .. " chain '#cli-like' like 1000 action " .. POST:sub(1, 7) .. " --sign " .. KEY2,
         }
         assert(code == 0, "exit code: " .. tostring(code))
         local T = load(exec {
@@ -116,7 +116,7 @@ do
     do
         TEST "dislike-success"
         local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-like' dislike 1000 post " .. TARGET2 .. " --sign " .. KEY2,
+            cmd = ENV_EXE .. " chain '#cli-like' dislike 1000 action " .. TARGET2 .. " --sign " .. KEY2,
         }
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -140,7 +140,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-like' post inline 'bad content' --sign " .. KEY1,
         }
         local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-like' dislike 1000 post " .. TARGET3 .. " --sign " .. KEY2 .. " --why 'spam content'",
+            cmd = ENV_EXE .. " chain '#cli-like' dislike 1000 action " .. TARGET3 .. " --sign " .. KEY2 .. " --why 'spam content'",
         }
         assert(code == 0, "exit code: " .. tostring(code))
 
@@ -271,7 +271,7 @@ do
         TEST "like-nonexistent-post"
         local fake = "0000000000000000000000000000000000000000"
         FAIL {
-            cmd = ENV_EXE .. " chain '#cli-like' like 1000 post " .. fake .. " --sign " .. KEY2,
+            cmd = ENV_EXE .. " chain '#cli-like' like 1000 action " .. fake .. " --sign " .. KEY2,
             err = "ERROR : chain like : invalid target : action not found",
         }
     end
@@ -282,7 +282,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-like' post inline 'self target' --sign " .. KEY1,
         }
         local _, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-like' like 1000 post " .. self_target .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain '#cli-like' like 1000 action " .. self_target .. " --sign " .. KEY1,
         }
         assert(code == 0, "self-like should succeed")
     end
@@ -293,7 +293,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-like' post inline 'self dislike' --sign " .. KEY1,
         }
         local _, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-like' dislike 1000 post " .. self_target .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain '#cli-like' dislike 1000 action " .. self_target .. " --sign " .. KEY1,
         }
         assert(code == 0, "self-dislike should succeed")
     end
@@ -301,7 +301,7 @@ do
     do
         TEST "like-requires-sign"
         local err = FAIL {
-            cmd = ENV_EXE .. " chain '#cli-like' like 1000 post " .. POST,
+            cmd = ENV_EXE .. " chain '#cli-like' like 1000 action " .. POST,
         }
         assert(err and err:match("missing option '%-%-sign'"), "should fail: " .. tostring(err))
     end
@@ -309,7 +309,7 @@ do
     do
         TEST "like-zero-number"
         local err = FAIL {
-            cmd = ENV_EXE .. " chain '#cli-like' like 0 post " .. POST .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain '#cli-like' like 0 action " .. POST .. " --sign " .. KEY1,
         }
         assert(err:match("Error: expected positive integer : got '0'"), "like with 0 should fail")
         TEST "like-non-numeric"
@@ -323,14 +323,14 @@ do
         TEST "like-bad-target-type"
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-like' like 1000 foo " .. POST .. " --sign " .. KEY1,
-            err = "ERROR : chain like : invalid target : expects 'post' or 'author'",
+            err = "ERROR : chain like : invalid target : expects 'action' or 'author'",
         }
     end
 
     do
         TEST "like with invalid sign key fails"
         FAIL {
-            cmd = ENV_EXE .. " chain '#cli-like' like 1000 post " .. POST .. " --sign bad-key",
+            cmd = ENV_EXE .. " chain '#cli-like' like 1000 action " .. POST .. " --sign bad-key",
             err = "ERROR : chain like : invalid sign key",
         }
     end

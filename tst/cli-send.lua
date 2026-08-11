@@ -365,14 +365,14 @@ do
                 cmd = EXE_A .. " --now=8000 chain '#test' reps author '" .. PUB1 .. "'",
             })),
             post = tonumber((exec {
-                cmd = EXE_A .. " --now=8000 chain '#test' reps post " .. A,
+                cmd = EXE_A .. " --now=8000 chain '#test' reps action " .. A,
             })),
         }
         assert(bef.author==29, "bef.author expected 29, got " .. bef.author)
         assert(bef.post  == 0, "bef.post expected 0, got " .. bef.post)
 
         exec {
-            cmd = EXE_A .. " --now=8000 chain '#test' like 5000 post " .. A .. " --sign " .. KEY1,
+            cmd = EXE_A .. " --now=8000 chain '#test' like 5000 action " .. A .. " --sign " .. KEY1,
         }
 
         local aft = {
@@ -380,7 +380,7 @@ do
                 cmd = EXE_A .. " --now=8000 chain '#test' reps author '" .. PUB1 .. "'",
             })),
             post = tonumber((exec {
-                cmd = EXE_A .. " --now=8000 chain '#test' reps post " .. A,
+                cmd = EXE_A .. " --now=8000 chain '#test' reps action " .. A,
             })),
         }
         assert(aft.author == 28, "aft.author expected 28, got " .. aft.author)
@@ -397,7 +397,7 @@ do
                 cmd = EXE_B .. " --now=8500 chain '#test' reps author '" .. PUB1 .. "'",
             })),
             post = tonumber((exec {
-                cmd = EXE_B .. " --now=8500 chain '#test' reps post " .. A,
+                cmd = EXE_B .. " --now=8500 chain '#test' reps action " .. A,
             })),
         }
         assert(b.author == aft.author, "author reps: A=" .. aft.author .. " B=" .. b.author)

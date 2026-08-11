@@ -133,7 +133,7 @@ do
         cmd = ENV_EXE .. " chain '#cli-revoke' post inline 'aux' --sign " .. KEY1,
     }
     local L = exec {
-        cmd = ENV_EXE .. " chain '#cli-revoke' like 1000 post " .. RP ..
+        cmd = ENV_EXE .. " chain '#cli-revoke' like 1000 action " .. RP ..
             " --why 'abusive text' --sign " .. KEY2,
     }
 
@@ -148,6 +148,9 @@ do
 
     do
         TEST "revoke-a-vote-hides-its-why"
+        local before = tonumber((exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' reps author '" .. PUB2 .. "'",
+        }))
         exec {
             cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1000 " .. L .. " --sign " .. KEY3,
         }
@@ -155,17 +158,22 @@ do
             cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. L,
             err = "ERROR : chain get : revoked payload",
         }
+        -- a revoke also dislikes, and a vote is scored like a post:
+        -- its signer pays the 1000, taxed 10% and split 50/50
+        local after = tonumber((exec {
+            cmd = ENV_EXE .. " chain '#cli-revoke' reps author '" .. PUB2 .. "'",
+        }))
+        assert(after == before-450, "signer drain: " .. before .. " -> " .. after)
     end
 
     do
-        TEST "revoke-vote-moves-only-the-axis"
-        -- a vote has no score of its own, so nothing was credited
+        TEST "revoke-vote-is-scored"
         assert(exec {
             cmd = ENV_EXE .. " chain '#cli-revoke' reps revoke " .. L,
         } == "0 -1000")
         assert(exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' reps post " .. L,
-        } == "0")
+            cmd = ENV_EXE .. " chain '#cli-revoke' reps action " .. L,
+        } == "-450")
     end
 
     do
@@ -216,7 +224,7 @@ do
             err = "ERROR : chain get : revoked payload",
         }
         exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' like 1000 post " .. P .. " --sign " .. KEY2,
+            cmd = ENV_EXE .. " chain '#cli-revoke' like 1000 action " .. P .. " --sign " .. KEY2,
         }
         local out, code = exec {
             cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. P,
@@ -229,13 +237,13 @@ do
         TEST "revoke-dislike-keeps"
         -- a dislike drains the post, but never hides it
         local before = tonumber((exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' reps post " .. P,
+            cmd = ENV_EXE .. " chain '#cli-revoke' reps action " .. P,
         }))
         exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' dislike 1000 post " .. P .. " --sign " .. KEY2,
+            cmd = ENV_EXE .. " chain '#cli-revoke' dislike 1000 action " .. P .. " --sign " .. KEY2,
         }
         local after = tonumber((exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' reps post " .. P,
+            cmd = ENV_EXE .. " chain '#cli-revoke' reps action " .. P,
         }))
         assert(after < before, "dislike should drain: " .. before .. " -> " .. after)
         local out, code = exec {
@@ -252,7 +260,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1000 " .. P .. " --sign " .. KEY3,
         }
         local post_1 = exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' reps post " .. P,
+            cmd = ENV_EXE .. " chain '#cli-revoke' reps action " .. P,
         }
         local sign_1 = tonumber((exec {
             cmd = ENV_EXE .. " chain '#cli-revoke' reps author '" .. PUB3 .. "'",
@@ -261,7 +269,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-revoke' unrevoke 1000 " .. P .. " --sign " .. KEY3,
         }
         local post_2 = exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' reps post " .. P,
+            cmd = ENV_EXE .. " chain '#cli-revoke' reps action " .. P,
         }
         local sign_2 = tonumber((exec {
             cmd = ENV_EXE .. " chain '#cli-revoke' reps author '" .. PUB3 .. "'",
@@ -283,7 +291,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1000 " .. P .. " --sign " .. KEY1,
         }
         exec {
-            cmd = ENV_EXE .. " chain '#cli-revoke' like 1000 post " .. P .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain '#cli-revoke' like 1000 action " .. P .. " --sign " .. KEY1,
         }
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-revoke' get payload " .. P,
@@ -444,7 +452,7 @@ do
         -- a positive like counts as an unrevoke, so it may not
         -- lift a post whose bytes nobody holds
         FAIL {
-            cmd = ENV_EXE .. " chain '#gated' like 1000 post " .. POST .. " --sign " .. KEY2,
+            cmd = ENV_EXE .. " chain '#gated' like 1000 action " .. POST .. " --sign " .. KEY2,
             err = "ERROR : chain like : expected --file",
         }
     end

@@ -238,8 +238,8 @@ Internally both produce a like commit — dislike
 negates the number.
 
 ```
-freechains chain <alias> like 1000 post <id> --sign <key>
-freechains chain <alias> dislike 1000 post <id> --sign <key>
+freechains chain <alias> like 1000 action <id> --sign <key>
+freechains chain <alias> dislike 1000 action <id> --sign <key>
 ```
 
 N is raw reps (one post's worth = `cost` = 1000).
@@ -249,10 +249,10 @@ Gate: the liker must **afford the full magnitude** —
 prevents debt (spending more than you hold). The liker pays
 the full N, so the transfer conserves reps.
 
-#### Like targeting a post
+#### Like targeting an action (post or vote)
 
 ```
-Like(+N, post):
+Like(+N, aid):
     liker.reps -= N          (cost = full magnitude)
     tax = N * 10 / 100       (10% burned)
     delivered = N - tax
@@ -310,15 +310,19 @@ in units, never in dust. Without the floor a single unit hid a
 post that cost 500 to write. The floor is the magnitude only —
 the author's self-revoke is still free and still absolute.
 
-(no `post`/`author` target argument — unlike `like`/`dislike`:
+(no `action`/`author` target argument — unlike `like`/`dislike`:
 an author is never revoked, only an action's payload.)
 
 The target is any **action**, not just a post: a vote's `--why`
 is user-authored text with its own blob, so it hides the same
-way. State keeps one registry, `G.actions[aid]`, where a `kind`
-field separates a post (score, maturity, revoke axis) from a
-vote (author + revoke axis only). Voting on a vote therefore
-moves the axis and credits nobody.
+way. State keeps one registry, `G.actions[aid]`, whose `action`
+field ('post' | 'like' | 'revoke') mirrors the action file's.
+
+A vote carries a score like a post — voting on one credits or
+drains its signer, same tax and split — but no `maturity`: both
+time scans key on it, so a vote **receives** reps and never
+**earns** them (no 12h refund, no 24h consolidation). Only a
+post is authored work that mints income.
 
 Stored as a first-class action kind: `action='revoke'` in the
 action file (parallel to `action='like'`). The field marks the
@@ -540,7 +544,7 @@ for each commit after genesis in git log --date-order:
         liker.reps -= abs(act.n)        (full magnitude)
         tax = abs(act.n) * 10 / 100
         delivered = act.n - sign(act.n) * tax
-        if act.post:
+        if act.aid:
             post_author.reps += delivered / 2
             post.reps        += delivered / 2
         elif act.author:

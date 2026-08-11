@@ -48,7 +48,7 @@ do
         cmd = "mkdir -p " .. REPO_A .. ".freechains/likes/",
     }
     local f = io.open(REPO_A .. ".freechains/likes/like-forged.lua", "w")
-    f:write('return { post="'..POST..'", n=1000 }\n')
+    f:write('return { aid="'..POST..'", n=1000 }\n')
     f:close()
     exec {
         cmd = "git -C " .. REPO_A .. " add .freechains/likes/like-forged.lua",
@@ -234,7 +234,7 @@ do
     TEST "B rejects like with bad target type on sync"
     FAIL {
         cmd = EXE_B .. " chain '#err-target' sync recv " .. REPO_A5,
-        err = "ERROR : chain sync : invalid like : invalid target : expects 'post' or 'author'",
+        err = "ERROR : chain sync : invalid like : invalid target : expects 'action' or 'author'",
     }
 end
 
@@ -263,7 +263,7 @@ do
         cmd = "mkdir -p " .. REPO_A6 .. ".freechains/likes/",
     }
     local f = io.open(REPO_A6 .. ".freechains/likes/like-err.lua", "w")
-    f:write('return { post="0000000000000000000000000000000000000000", n=1000 }\n')
+    f:write('return { aid="0000000000000000000000000000000000000000", n=1000 }\n')
     f:close()
     exec {
         cmd = ENV .. " git -C " .. REPO_A6 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " add .freechains/likes/like-err.lua",
@@ -307,7 +307,7 @@ do
         cmd = "mkdir -p " .. REPO_A7 .. ".freechains/likes/",
     }
     local f = io.open(REPO_A7 .. ".freechains/likes/like-err.lua", "w")
-    f:write('return { post="'..post..'", n=1000 }\n')
+    f:write('return { aid="'..post..'", n=1000 }\n')
     f:close()
     exec {
         cmd = ENV .. " git -C " .. REPO_A7 .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh" .. " add .freechains/likes/like-err.lua",
@@ -351,7 +351,7 @@ do
         cmd = "mkdir -p " .. REPO_A8 .. ".freechains/likes/",
     }
     local f = io.open(REPO_A8 .. ".freechains/likes/like-err.lua", "w")
-    f:write('return { post="'..post..'", n=1000 }\n')
+    f:write('return { aid="'..post..'", n=1000 }\n')
     f:close()
     exec {
         cmd = ENV .. " git -C " .. REPO_A8 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " add .freechains/likes/like-err.lua",
@@ -395,7 +395,7 @@ do
         cmd = "mkdir -p " .. REPO_A9 .. ".freechains/likes/",
     }
     local f = io.open(REPO_A9 .. ".freechains/likes/like-err.lua", "w")
-    f:write('return { post="'..post..'", n=0.5 }\n')
+    f:write('return { aid="'..post..'", n=0.5 }\n')
     f:close()
     exec {
         cmd = ENV .. " git -C " .. REPO_A9 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " add .freechains/likes/like-err.lua",
@@ -439,7 +439,7 @@ do
         cmd = "mkdir -p " .. REPO_A10 .. ".freechains/likes/",
     }
     local f = io.open(REPO_A10 .. ".freechains/likes/like-err.lua", "w")
-    f:write('return { post="'..post..'", n=0 }\n')
+    f:write('return { aid="'..post..'", n=0 }\n')
     f:close()
     exec {
         cmd = ENV .. " git -C " .. REPO_A10 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " add .freechains/likes/like-err.lua",

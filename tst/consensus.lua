@@ -35,7 +35,7 @@ do
 
     TEST "KEY2 likes seed (loses reps, KEY1 > KEY2 at fork)"
     exec {
-        cmd = EXE_A .. " --now=1200 chain '#cons-a' like 1000 post " .. seed_a .. " --sign " .. KEY2,
+        cmd = EXE_A .. " --now=1200 chain '#cons-a' like 1000 action " .. seed_a .. " --sign " .. KEY2,
     }
 
     TEST "B clones cons-a"
@@ -92,7 +92,7 @@ do
 
     TEST "KEY2 likes seed (loses reps, KEY1 > KEY2 at fork)"
     exec {
-        cmd = EXE_A .. " --now=1200 chain '#cons-b' like 1000 post " .. seed_b .. " --sign " .. KEY2,
+        cmd = EXE_A .. " --now=1200 chain '#cons-b' like 1000 action " .. seed_b .. " --sign " .. KEY2,
     }
 
     TEST "B clones cons-b"

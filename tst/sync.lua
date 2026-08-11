@@ -160,7 +160,7 @@ do
     TEST "A likes BEG_K2 (promote + prune ref on A)"
     local beg = BEG_K2
     exec {
-        cmd = EXE_A .. " --now=6000 chain '#test' like 1000 post " .. beg .. " --sign " .. KEY1,
+        cmd = EXE_A .. " --now=6000 chain '#test' like 1000 action " .. beg .. " --sign " .. KEY1,
     }
     assert(not begs(REPO_A):match(beg), "A's beg ref should be pruned")
     -- A:  G ── P1 ── S1 ── P2 ── S2 ── [like] L ── [state] S      refs/begs/{BEG2}
@@ -227,7 +227,7 @@ do
 
     TEST "A likes BEG_K3 (promote + prune ref on A)"
     exec {
-        cmd = EXE_A .. " --now=8000 chain '#test' like 1000 post " .. BEG_K3 .. " --sign " .. KEY1,
+        cmd = EXE_A .. " --now=8000 chain '#test' like 1000 action " .. BEG_K3 .. " --sign " .. KEY1,
     }
     assert(not begs(REPO_A):match(BEG_K3), "A's beg ref should be pruned")
     -- A:  ... ── L_K2 ── S ── [like] L_K3 ── [state] S      refs/begs/{}
