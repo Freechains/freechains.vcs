@@ -4,10 +4,13 @@
 
 # PENDING
 
-- SUITE: A, C, Q, scored votes and the vocabulary rename are
-  written but the suite has NOT run green end to end since;
-  one miss already surfaced (`cli-like` read `T.post`), so
-  expect the same class if more turn up
+- STATE: suite GREEN, working tree clean, on `260808-redesign`
+    - shipped this round: A (`--file` always verified), C
+      (revoke floor 1000), Q (revocation targets any action),
+      scored votes, and the `post` -> `action`/`aid` vocabulary
+    - 25 sync tests still early-exit at "280808 : EARLY EXIT";
+      `guide.sh` still stops at the clone. That is expected
+      until S1/S2, NOT a regression
 - small, decided but not written:
     - D: `freechains gc` (stage 1): drop orphaned payload refs
       + `git gc --prune=now`, `--dry-run`, size report
@@ -353,16 +356,65 @@
   gate was its only one, and scoring votes removed it): B6 and
   any post/vote split are what will want it
 
-# Next steps (sync phase)
+# Next steps (in order, cold-start)
+
+- 0: `make tests` (green as of the last commit); `guide.sh`
+  stops at the clone by design, until S2
+
+## 1. D -- `freechains chain <alias> gc [--dry-run]`
+
+- the only self-contained item left; no sync dependency
+- WHAT IT SWEEPS: `refs/payloads/*`, dropping a ref whose aid
+    - is absent from `G.actions` (an abandon that crashed
+      midway, or a hand-edited repo), or
+    - `is_revoked(G.actions[aid])` -- the local writer already
+      drops those at the crossing, but a REPLAYED history will
+      not until E3's sync half, so gc is the catch-up
+- then `git gc --prune=now`: an unreferenced blob is what a
+  crash between `hash-object -w` and `update-ref` leaves
+  (post.lua and like.lua both note the window)
+- REPORT: `git count-objects -vH` before/after (size-pack +
+  size), plus the aids dropped
+- `--dry-run`: print the same report and the would-drop list,
+  change nothing
+- WIRING: `src/freechains/chain/gc.lua`, argparse next to
+  `abandon` in `src/freechains.lua`, dispatch in
+  `chain/init.lua`, module line in the rockspec
+- TEST: `tst/cli-gc.lua` + a line in the Makefile after
+  `cli-abandon.lua` (local-only, so it runs before the sync
+  block)
+- NOT in stage 1: `.git/states/` pruning -- that is E, and it
+  needs a missing snapshot to be recomputable (S1)
+
+## 2. the sync phase
 
 - goal: re-green the 25 early-exited tests, one by one
+- START HERE: `consensus.lua` `commit()` is PRE-B3 and cannot
+  run as written -- it passes `hash=<cid>` where `apply` now
+  wants `env.aid` + `env.parents`, and it classifies by
+  trailer. Rewriting it IS S1's first task, not a side effect
+    - `env` for a replayed commit: `aid` = `ACTION.aid(cid)`,
+      `parents` = the commit's parents, `sign` =
+      `ssh.pub.commit`, `time` = `%at`, `beg` = maturity probe
+    - the action table = `cat-file blob <aid>`, so `kind`
+      comes from `act.action` (the trailer dispatch dies)
 - S1: recv derives state from actions, snaps adopted tips
     - G_oct = snapshot at octopus (recompute region on miss)
+    - `sync.lua` still reads `.freechains/state/*.lua` (three
+      places: G_oct, G_fst, O_snd) -- those paths DIED with
+      S6a, so recv is broken until they become `STATE.read`
     - replay commit(): no state commits arrive; mode check =
       action adds only; PEAK on remote commits via snapshots
       written during replay
-    - drop tree reads: G_fst, O_snd, hardfork order (sync.lua)
     - drop tree writes: write(G), merge state commit, probe
+    - B6 lands here or right after: pin the file to the
+      envelope (signature verified against the file's `sign`,
+      `time` == commit `%at`) BEFORE apply; then `env` can
+      shed `sign`/`time` and `apply(G, act, env)` is the shape
+    - E3's sync half: act ONCE on the final sums after a full
+      replay (never mid-walk, a sum dips from ordering alone),
+      then fetch with `^refs/payloads/<removed>` per removed
+      action so the bytes cannot come back
 - S2: clone = base case of recv
     - replay genesis -> tip, snapshot every commit
     - validate or delete the clone (eager at chains add)
@@ -370,8 +422,9 @@
 - S4: cleanups after sync lands
     - delete write(G); 'state' cases in backs()/trailer walkers
     - genesis trailer rethink; consensus.lua state-path checks
-- later (from b803): payload eviction, action files (aid),
-  commit<->id index, prune/GC of snapshots
+- later (from b803): `.git/index.lua` (commit<->aid), and E
+  (prune/GC of snapshots)
+    - payload eviction and action files ARE done (E1/E2, B1-B5)
 
 # apply's T (why not the action table)
 
