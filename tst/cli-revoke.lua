@@ -338,6 +338,21 @@ do
         cmd = ENV_EXE .. " chain '#gated' revoke 1000 " .. POST .. " --sign " .. KEY2,
     }
 
+    do
+        TEST "a wrong --file is caught even with the bytes here"
+        -- the revoke above dropped the ANCHOR, not the object: the
+        -- fallback is redundant now, which is no excuse to trust it
+        local tmp = TMP .. "/wrong-present.txt"
+        local f = io.open(tmp, "w")
+        f:write("not the original\n")
+        f:close()
+        FAIL {
+            cmd = ENV_EXE .. " chain '#gated' unrevoke 1000 " .. POST ..
+                " --file " .. tmp .. " --sign " .. KEY2,
+            err = "ERROR : chain unrevoke : blob mismatch",
+        }
+    end
+
     -- drop the bytes the way `abandon` or a sweep would
     local DIR = ROOT .. "/chains/#gated/"
     exec {

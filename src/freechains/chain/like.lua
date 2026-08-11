@@ -137,12 +137,11 @@ if post then
         local have = exec { err=false, stderr=false,
             cmd = "git -C " .. REPO .. " cat-file -e " .. T.blob,
         }
-        if have == false then
-            if not ARGS.file then
-                ERROR("chain " .. name .. " : expected --file")
-            end
+        -- `--file` is a blind fallback: the caller cannot see the
+        -- store, so a redundant one is fine -- a WRONG one is not
+        if ARGS.file then
             local blob = exec { err=false, stderr=false,
-                cmd = "git -C " .. REPO .. " hash-object -w '" .. ARGS.file .. "'",
+                cmd = "git -C " .. REPO .. " hash-object '" .. ARGS.file .. "'",
             }
             if blob == false then
                 ERROR("chain " .. name .. " : invalid path")
@@ -150,6 +149,15 @@ if post then
             if blob ~= T.blob then
                 ERROR("chain " .. name .. " : blob mismatch")
             end
+        end
+        if have == false then
+            if not ARGS.file then
+                ERROR("chain " .. name .. " : expected --file")
+            end
+            -- verified above: only now do the bytes enter the db
+            exec {
+                cmd = "git -C " .. REPO .. " hash-object -w '" .. ARGS.file .. "'",
+            }
         end
         -- a standing post always has its anchor: the bytes may
         -- still be in the store, but unreferenced they are one

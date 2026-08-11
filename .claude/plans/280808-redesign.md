@@ -5,8 +5,6 @@
 # PENDING
 
 - small, decided but not written:
-    - A: validate `--file` even when the blob is present
-      (today it is silently ignored)
     - C: revoke floor -- minimum magnitude 1000 per revoke;
       zero-crossing threshold unchanged; author channel still
       absolute (today one unit hides a 500-cost post)
@@ -243,6 +241,15 @@
           before the last possible refusal
         - what remains sync-phase is the trigger for histories
           replayed from a peer, not the local one
+    - A DONE: `--file` is VERIFIED whenever given, not only when
+      the blob is missing (it was silently ignored) -- the caller
+      cannot see the store, so a redundant fallback is fine and a
+      wrong one is an error
+        - check split from the write: plain `hash-object` to
+          compare, `-w` only on the missing branch, so a
+          mismatching file no longer lands a junk blob
+        - errors unchanged (`invalid path`, `blob mismatch`,
+          `expected --file`); new case in cli-revoke
     - STILL SYNC-PHASE: the removal trigger (act once on final
       sums after a full replay) and the non-resurrection
       refspec `^refs/payloads/<removed>`
