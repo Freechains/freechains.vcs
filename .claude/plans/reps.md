@@ -300,9 +300,15 @@ Revocation is an **explicit** vote, separate from dislikes,
 on its own bipolar axis:
 
 ```
-freechains chain <alias> revoke   1 <hash> --sign <key>
-freechains chain <alias> unrevoke 1 <hash> --sign <key>
+freechains chain <alias> revoke   1000 <hash> --sign <key>
+freechains chain <alias> unrevoke 1000 <hash> --sign <key>
 ```
+
+A vote on this axis weighs at least `C.reps.revoke` (1000, a
+day's income): the threshold stays at zero, but the sums move
+in units, never in dust. Without the floor a single unit hid a
+post that cost 500 to write. The floor is the magnitude only —
+the author's self-revoke is still free and still absolute.
 
 (post-only, so no `post`/`author` target argument — unlike
 `like`/`dislike`.)

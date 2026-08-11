@@ -18,6 +18,7 @@ return {
         --pioneer = 50*unit,    -- split among pioneers
         cost    = unit//2,      -- 500 per signed post (refunded at 12h)
         earn    = 1*unit,       -- 1000 minted per author per day
+        revoke  = 1*unit,       -- 1000 minimum per revoke/unrevoke
         max     = 50*unit,      -- 50000 cap per author (100 posts)
     },
     like = {

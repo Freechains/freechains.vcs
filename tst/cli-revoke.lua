@@ -3,8 +3,8 @@
 require "tests"
 
 -- Content revocation, two paths:
---  * community: any single net revoke (min hardcoded to 1) hides the
---    payload; reversible via unrevoke.
+--  * community: any negative net hides the payload, but a vote on the
+--    axis weighs at least 1000; reversible via unrevoke.
 --  * author: self-revoke is absolute (right to be forgotten), applies
 --    regardless of the community net; only the author can unrevoke it.
 -- Phase 1 hides the payload only (metadata stays).
@@ -32,11 +32,26 @@ do
 end
 
 do
-    print("==> Revoke: community single revoke (min 1) + reversible")
+    print("==> Revoke: community single revoke (min 1000) + reversible")
+
+    do
+        TEST "revoke-floor"
+        -- dust may not bury a post: the axis weighs in units
+        FAIL {
+            cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1 " .. POST .. " --sign " .. KEY2,
+            err = "ERROR : chain revoke : invalid number : expects at least 1000",
+        }
+        FAIL {
+            cmd = ENV_EXE .. " chain '#cli-revoke' unrevoke 999 " .. POST .. " --sign " .. KEY2,
+            err = "ERROR : chain unrevoke : invalid number : expects at least 1000",
+        }
+        -- a like/dislike carries no floor (it is not a revoke), so
+        -- nothing here changes the state: both commands died
+    end
 
     do
         TEST "revoke-community-hides"
-        -- KEY2 is not the author: one revoke -> net 1 -> revoked
+        -- KEY2 is not the author: one revoke -> net -1000 -> revoked
         exec {
             cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1000 " .. POST .. " --sign " .. KEY2,
         }

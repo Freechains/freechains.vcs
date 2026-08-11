@@ -5,9 +5,6 @@
 # PENDING
 
 - small, decided but not written:
-    - C: revoke floor -- minimum magnitude 1000 per revoke;
-      zero-crossing threshold unchanged; author channel still
-      absolute (today one unit hides a 500-cost post)
     - D: `freechains gc` (stage 1): drop orphaned payload refs
       + `git gc --prune=now`, `--dry-run`, size report
     - E: `freechains gc` (stage 2, needs S1): prune
@@ -250,6 +247,16 @@
           mismatching file no longer lands a junk blob
         - errors unchanged (`invalid path`, `blob mismatch`,
           `expected --file`); new case in cli-revoke
+    - C DONE: revoke floor -- a vote on the axis weighs at least
+      `C.reps.revoke` (1000); zero-crossing threshold unchanged,
+      author channel still absolute and still free
+        - floor is on `kind=='revoke'` only (revoke AND unrevoke):
+          a like/dislike carries none, so the axis only ever moves
+          negative in units
+        - `invalid number : expects at least 1000`, refused in
+          rules.lua (so replay refuses it too)
+        - every existing call already used 1000; docs updated
+          (reps.md 3.b, README, cli-revoke header)
     - STILL SYNC-PHASE: the removal trigger (act once on final
       sums after a full replay) and the non-resurrection
       refspec `^refs/payloads/<removed>`

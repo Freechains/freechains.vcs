@@ -1,6 +1,7 @@
 -- the reputation rules: what an action does to `G`
 
--- REVOKED when either the author's or the community's net revoke sum is negative.
+-- REVOKED when either the author or the community net revoke is negative
+-- REVOKE votes require 1000s each time, so sums move in units, never in dust
 function is_revoked (p)
     local r = p.revoke or {}
     return ((r.author or 0) < 0) or ((r.others or 0) < 0)
@@ -172,6 +173,12 @@ function apply (G, kind, act, env)
             -- revoke/unrevoke are post-only
             if kind=='revoke' and (not act.post) then
                 return false, "invalid target : expects 'post'"
+            end
+            -- hiding a post must cost at least what a day mints:
+            -- one dust unit used to bury a 500-reps post
+            if kind=='revoke' and math.abs(act.n)<C.reps.revoke then
+                return false,
+                    "invalid number : expects at least " .. C.reps.revoke
             end
             if act.post and (not G.posts[act.post]) then
                 return false, "invalid target : post not found"
