@@ -76,14 +76,15 @@ which freechains
 
 Freechains' API is straightforward:
 
-- `freechains chains add ...`:       creates or clones chain locally
-- `freechains chain post ...`:       posts to chain (signed with SSH)
-- `freechains chain list dag/order`: lists all actions (DAG or consensus order)
-- `freechains chain (dis)like ...`:  rates an action or author
-- `freechains chain (un)revoke ...`: erases or restores an action's payload
-- `freechains chain reps ...`:       queries reputation
-- `freechains chain sync send/recv`: synchronizes with remote peer
-- `freechains chain abandon ...`:    erases local history after hard fork
+- `freechains chains add ...`:       create or clone chain locally
+- `freechains chain post ...`:       post to chain (signed with SSH)
+- `freechains chain list dag/order`: list all actions (DAG or consensus order)
+- `freechains chain (dis)like ...`:  rate an action or author
+- `freechains chain (un)revoke ...`: drop or restore payload
+- `freechains chain reps ...`:       query reputation
+- `freechains chain sync send/recv`: synchronize with remote peer
+- `freechains chain abandon ...`:    drop local history after hard fork
+- `freechains chain sweep`:          erase revoked payloads
 
 <!--
 For testing purposes, you may prepend an alternative path to store the chains:
@@ -134,8 +135,8 @@ d6568e4...
 
 The output is each post's unique identifier.
 
-Each action -- post, like or revoke -- is backed by one Git commit in the
-chain repository.
+Each member action in Freechains -- post, like or revoke -- is backed by a Git
+commit in the chain repository.
 
 We can list all posts in the chain...
 
@@ -148,7 +149,7 @@ $ freechains chain '#chat' list dag
                  d6568e4
 ```
 
-- ...in consensus order:
+- ...or in consensus order:
 
 ```
 $ freechains chain '#chat' list order
@@ -265,7 +266,7 @@ $ ssh-keygen -t ed25519 -C '' -f /tmp/bob
 Since `Bob` has no previous reputation, he cannot yet post on the chain:
 
 ```
-$ freechains --root=/tmp/B/ chain '#chat' post inline $'Possibly malicious\n' --sign=/tmp/bob
+$ freechains --root=/tmp/B/ chain '#chat' post inline $'Possibly SPAM\n' --sign=/tmp/bob
 ERROR : chain post : insufficient reputation
 ```
 
@@ -273,7 +274,7 @@ Reputation is the key aspect that makes Freechains Sybil-resistant.
 
 Note that Git itself provides no reputation mechanism.
 Therefore, Freechains relies on custom Git hooks to validate commits according
-to its reputation rules.
+to its own reputation rules.
 
 Let's query the public keys from both users:
 
@@ -284,17 +285,17 @@ $ cat /tmp/bob.pub
 ssh-ed25519 ...je8+xIa 
 ```
 
-Now, we use their public keys to query their reputations:
+Now, we use the public keys to query their reputations:
 
 ```
 $ freechains chain '#chat' reps author "$(cat /tmp/alice.pub)"
-30000
+49500
 $ freechains chain '#chat' reps author "$(cat /tmp/bob.pub)"
 0
 ```
 
-As the chain pioneer, `Alice` still has `30000 reps` to use, whereas `Bob` has no
-reputation and cannot post on the chain.
+As the chain pioneer, `Alice` still has `49500 reps` to use, whereas `Bob` has
+no reputation and cannot post on the chain.
 
 To welcome new members into the chain, the pioneer needs to redistribute a
 share of its `reps`:
@@ -314,9 +315,60 @@ $ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/bob.pub)"
 9000
 ```
 
-You might have expected `20000` and `10000`, not `23000` and `9000` as `reps`.
-This is due to internal rules that tax transfers and recover `reps` over time,
-which are out of the scope of this guide.
+You might have expected `Alice` to have `39500` (not `40000`) and `Bob` `10000`
+(not `9000`).
+This is due to internal rules that tax transfers and recover `reps` over time.
+
+Let's see how the reputation evolves over time:
+
+- `Alice` creates the chain:
+    - `Alice` from `0` to `50000`
+    - the sole pioneer takes the whole initial share
+- `Alice` posts `Hello World`:
+    - `Alice` from `50000` to `49500`
+    - a post costs `500` (but refunds within 12 hours)
+- `Alice` posts `I am here`:
+    - `Alice` from `49500` to `49500`
+    - first post refunds (`49500` to `50000`)
+        - majority "saw" it (`Alice` is posting on top of it)
+    - second post costs `500` (`50000` to `49500`)
+- `Alice` posts `Sync me`:
+    - `Alice` from `49500` to `49500`
+    - second post refunds (`49500` to `50000`)
+    - third post costs `500` (`50000` to `49500`)
+- `Alice` likes `Bob` with `10000`:
+    - `Alice` from `49500` to `40000` (third post refunds)
+    - `Bob` from `0` to `9000`
+    - likes receive a `10%` tax
+
+A new post has only a temporary cost that refunds within at most 12 hours.
+The goal is to prevent abuse, giving enough time for other members to see and
+react to new content.
+Each new action in the chain is an acknowledgment that gradually refunds old
+content creators.
+In our example, since `Alice` holds the majority of `reps` in the network, the
+full refund is instantaneous.
+
+<!--
+These are the rules of thumb behind every number in this guide:
+
+| Rule                | Value                                        |
+|---------------------|----------------------------------------------|
+| a chain starts with | `50000 reps`, split among its pioneers (<=20)|
+| a post costs        | `500`, returned within 12 hours              |
+| each member earns   | `1000` per day, up to a `50000` cap          |
+| a vote is taxed     | `10%`, burned                                |
+| a like on a post    | splits the rest between post and author      |
+| a like on an author | goes entirely to the author                  |
+
+To welcome a newcomer, the price depends on how soon they may speak:
+
+| To give a newcomer...  | Sponsor pays        | They receive |
+|------------------------|---------------------|--------------|
+| enough to post now     | `like 556 author`   | `500`        |
+| a beg, speaking in 12h | `like 1000 action`  | `450`        |
+| a beg, speaking now    | `like 1112 action`  | `500`        |
+-->
 
 Let's now introduce new member `Charlie`, who is welcomed by `Bob` in peer `B`:
 
