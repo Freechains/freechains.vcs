@@ -76,8 +76,7 @@ do
             cmd = EXE_B .. " chain '#roots' list dag",
         } ==
         -- single-line output: `exec` strips the trailing newline
-        string.format([[
-             %s %s]], fst:sub(1,7), snd:sub(1,7))
+        string.format("%s     %s", fst:sub(1,7), snd:sub(1,7))
     )
 end
 

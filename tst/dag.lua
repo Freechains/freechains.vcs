@@ -154,9 +154,14 @@ local function render (order, ups, revoked)
                         if col[u] < col[n] then
                             local g = hint .. "^"
                             set_at(t, mid + 1 + #g // 2 - #g, g)
-                        else
+                        elseif col[u] > col[n] then
                             local g = "^" .. hint
                             set_at(t, mid + #g // 2, g)
+                        else
+                            -- straight up: one cell right, so the
+                            -- `|` of an immediate parent survives
+                            local g = "^" .. hint
+                            set_at(t, mid + 1 + #g // 2, g)
                         end
                     elseif col[u] < col[n] then
                         set_at(t, mid, "\\")

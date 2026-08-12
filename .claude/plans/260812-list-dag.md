@@ -194,10 +194,23 @@ c7d8e9f     e6d7626
 - roots stacking illusion left as is (cosmetic)
 - files moved to `tst/dag.lua`, `tst/dag2.lua`
 
+# Step 2 DONE: ported into list.lua
+
+- `ARGS.dag` branch replaced wholesale (old group-based
+  renderer gone, TODO note with it)
+- inputs: `order` = `G.order`, `ups[aid]` = action file
+  `backs`, labels = `aid:sub(1,7)`, revoked wrapped `~~`
+- FIX found by the guide: a SAME-COLUMN long edge (beg like
+  whose second back is straight up) collided with the `|`,
+  glyph survival depended on sorted-aid order -- now the hint
+  shifts one cell right: `|^560` (both visible, deterministic)
+- cli-list + list-dag-roots expectations rewritten to the new
+  layouts (derived columns matched the impl on first run)
+- README dags retranscribed (basics, sync, begging, consensus
+  A/B/X); X shows a real two-column fork now
+- suite 38/38; guide.sh end to end
+- `tst/dag.lua` kept as the reference implementation
+
 # Next steps
 
-- 0: confirm A-D shapes and the long-edge option
-- 1: `dag.lua` standalone: table + render() + the two examples
-- 2: port into `list.lua` (`backs` from action files; revoked
-  as `~aid~`)
-- 3: update cli-list, list-dag-roots expectations; README dags
+- move plan to done/ if the shapes are final

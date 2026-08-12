@@ -27,164 +27,196 @@ elseif ARGS.revokes then
 
 elseif ARGS.dag then
     -- TODO: this whole branch is AI-gened and was not properly reviewed
+    -- tst/dag.lua algorithm (plan 260812-list-dag):
+    --  - each node at its depth line; same depth, same line
+    --  - alternate 1 node line, 1 edge line
+    --  - columns: parents centered (root mid, single up
+    --    inherits, forks spread around the up, joins at the
+    --    ups' midpoint); per-row sweep resolves collisions
+    --  - edges: `|` `\` `/` at the midpoint; upper-level
+    --    parents as `abc^`/`^abc` hints on the parent's side
 
-    local WIDTH = 40
-    local MID   = 20
-    local SHORT = 7
-    local SPAN  = 4
-
-    -- G.order is already post/like only (aids)
-    local V = G.order
-    if #V == 0 then
+    local order = G.order
+    if #order == 0 then
         return
     end
 
-    -- ups[h]: the nodes drawn above h, straight from each action
-    -- file's `backs` (the aid IS its blob hash)
+    -- ups from each action file's `backs` (the aid IS its blob
+    -- hash); short labels, revoked wrapped in ~~
     local ups = {}
-    for _, h in ipairs(V) do
+    local lbl = {}
+    for _, h in ipairs(order) do
         ups[h] = assert(load(exec {
             cmd = "git -C " .. REPO .. " cat-file blob " .. h,
         }))().backs
+        local l = h:sub(1, 7)
+        if G.actions[h] and is_revoked(G.actions[h]) then
+            l = "~" .. l .. "~"
+        end
+        lbl[h] = l
     end
 
-    -- group V into rows: consecutive nodes sharing one single up.
-    -- groupOf[h] = row index, used to distinguish immediate vs distant ups.
-    local groups, groupOf = {}, {}
-    do
-        -- siblings share one single up -- and two CONTENT ROOTS (a
-        -- chain whose first posts are concurrent) share the same
-        -- ABSENT up, so they belong on one row too
-        local function siblings (a, b)
-            local ua, ub = ups[a], ups[b]
-            if #ua == 0 and #ub == 0 then
-                return true
-            else
-                return #ua == 1 and #ub == 1 and ua[1] == ub[1]
-            end
+    -- depth: root = 0; else 1 + max over ups
+    local depth = {}
+    local rows  = {}
+    for _, n in ipairs(order) do
+        local d = 0
+        for _, u in ipairs(ups[n]) do
+            d = math.max(d, depth[u] + 1)
         end
-        local cur = { V[1] }
-        for i = 2, #V do
-            if siblings(cur[#cur], V[i]) then
-                cur[#cur+1] = V[i]
-            else
-                groups[#groups+1] = cur
-                cur = { V[i] }
-            end
-        end
-        groups[#groups+1] = cur
-        for g, grp in ipairs(groups) do
-            for _, h in ipairs(grp) do
-                groupOf[h] = g
-            end
+        depth[n] = d
+        rows[d] = rows[d] or {}
+        local r = rows[d]
+        r[#r+1] = n
+    end
+
+    -- hang[u]: the single-up children of u, the ones whose
+    -- column derives from it (joins center on their own ups)
+    local hang = {}
+    for _, n in ipairs(order) do
+        hang[n] = {}
+    end
+    for _, n in ipairs(order) do
+        if #ups[n] == 1 then
+            local h = hang[ups[n][1]]
+            h[#h+1] = n
         end
     end
 
-    -- column assignment: midpoint of the ups, then spread siblings around it
+    -- columns; STEP scales with the widest label, rounded up to
+    -- a multiple of 4 so every column stays EVEN and every edge
+    -- midpoint is an exact integer (no rounding skew)
+    local W = 0
+    for _, n in ipairs(order) do
+        W = math.max(W, #lbl[n])
+    end
+    local STEP = (W + 8) // 4 * 4
+
+    local maxd = 0
+    local idx  = {}
+    for i, n in ipairs(order) do
+        maxd = math.max(maxd, depth[n])
+        idx[n] = i
+    end
+
+    -- assign depth by depth (parents always above), then sweep
+    -- each row left to right enforcing a minimum separation:
+    -- colliding nodes shift right instead of overwriting each
+    -- other (nested forks, criss-cross joins)
+    local SEP = (W + 4) // 2 * 2
     local col = {}
-    for g, group in ipairs(groups) do
-        local uc
-        if g == 1 then
-            uc = MID
-        else
-            -- average only the ups already PLACED: a content root has
-            -- no ups at all, and an up ordered later has no column yet
-            local sum, n = 0, 0
-            for _, u in ipairs(ups[group[1]]) do
-                if col[u] then
+    for d = 0, maxd do
+        for i, n in ipairs(rows[d]) do
+            local us = ups[n]
+            if #us == 0 then
+                col[n] = (2*i - #rows[0] - 1) * STEP // 2
+            elseif #us == 1 then
+                local hs = hang[us[1]]
+                for j, h in ipairs(hs) do
+                    if h == n then
+                        col[n] = col[us[1]] + (2*j - #hs - 1) * STEP // 2
+                    end
+                end
+            else
+                local sum = 0
+                for _, u in ipairs(us) do
                     sum = sum + col[u]
-                    n = n + 1
+                end
+                col[n] = sum // #us
+                -- keep columns even (exact midpoints)
+                if col[n] % 2 ~= 0 then
+                    col[n] = col[n] + 1
                 end
             end
-            uc = (n > 0) and (sum // n) or MID
         end
-        local n = #group
-        for i, h in ipairs(group) do
-            col[h] = uc + (2*(i-1) - (n-1)) * SPAN
+        local row = {}
+        for _, n in ipairs(rows[d]) do
+            row[#row+1] = n
+        end
+        table.sort(row, function (a, b)
+            if col[a] ~= col[b] then
+                return col[a] < col[b]
+            end
+            return idx[a] < idx[b]
+        end)
+        for i = 2, #row do
+            if col[row[i]] - col[row[i-1]] < SEP then
+                col[row[i]] = col[row[i-1]] + SEP
+            end
         end
     end
 
-    -- row helpers
-    local function blank ()
-        local t = {}
-        for i = 1, WIDTH do
-            t[i] = " "
-        end
-        return t
+    -- shift left border to column 1
+    local min = math.huge
+    for _, n in ipairs(order) do
+        min = math.min(min, col[n] - (#lbl[n] // 2))
     end
-    local function set_at (t, c, str)
-        local start = c - (#str // 2)
-        for k = 1, #str do
-            local pos = start + k
-            if pos >= 1 and pos <= WIDTH then
-                t[pos] = str:sub(k, k)
+    for _, n in ipairs(order) do
+        col[n] = col[n] - min
+    end
+
+    -- row helpers: sparse char table, emitted trimmed
+    local function set_at (t, c, s)
+        local start = c - (#s // 2)
+        for k = 1, #s do
+            if start + k >= 1 then
+                t[start + k] = s:sub(k, k)
             end
         end
     end
     local function emit (t)
-        print((table.concat(t):gsub("%s+$", "")))
-    end
-    local function glyph (top, bot)
-        if top < bot then
-            return "\\"
-        elseif top > bot then
-            return "/"
-        else
-            return "|"
+        local max = 0
+        for i in pairs(t) do
+            max = math.max(max, i)
         end
+        local cs = {}
+        for i = 1, max do
+            cs[i] = t[i] or " "
+        end
+        print(table.concat(cs))
     end
 
-    -- render: per group, optional connector row, aid row, optional annotation
-    for g, cur in ipairs(groups) do
-        if g > 1 then
-            local t = blank()
-            if #cur >= 2 then
-                -- fork: N siblings fan out from a single shared up
-                local u1 = ups[cur[1]][1]
-                if u1 and col[u1] then
-                    local uc = col[u1]
-                    for _, h in ipairs(cur) do
-                        set_at(t, (uc + col[h]) // 2, glyph(uc, col[h]))
-                    end
-                end
-            else
-                -- linear / join: a glyph per IMMEDIATE up
-                local h, hc = cur[1], col[cur[1]]
-                for _, u in ipairs(ups[h]) do
-                    if groupOf[u] == g - 1 then
-                        set_at(t, (col[u] + hc) // 2, glyph(col[u], hc))
+    -- render top-down: edge line (glyph above the child, at the
+    -- midpoint of the edge), then node line
+    for d = 0, maxd do
+        if d > 0 then
+            local t = {}
+            for _, n in ipairs(rows[d]) do
+                for _, u in ipairs(ups[n]) do
+                    local mid = (col[u] + col[n]) // 2
+                    if d - depth[u] > 1 then
+                        -- parent in an upper level (long edge):
+                        -- the `^` sits at the midpoint, the
+                        -- parent hint extends to the parent's
+                        -- side (`123^` left, `^123` right)
+                        local hint = u:sub(1, 3)
+                        if col[u] < col[n] then
+                            local g = hint .. "^"
+                            set_at(t, mid + 1 + #g // 2 - #g, g)
+                        elseif col[u] > col[n] then
+                            local g = "^" .. hint
+                            set_at(t, mid + #g // 2, g)
+                        else
+                            -- straight up: one cell right, so the
+                            -- `|` of an immediate parent survives
+                            local g = "^" .. hint
+                            set_at(t, mid + 1 + #g // 2, g)
+                        end
+                    elseif col[u] < col[n] then
+                        set_at(t, mid, "\\")
+                    elseif col[u] > col[n] then
+                        set_at(t, mid, "/")
+                    else
+                        set_at(t, mid, "|")
                     end
                 end
             end
-            -- a row with no glyph connects nothing: drop it rather than
-            -- printing a blank line between two unrelated nodes
-            if table.concat(t):match("%S") then
-                emit(t)
-            end
+            emit(t)
         end
-        local t = blank()
-        for _, h in ipairs(cur) do
-            -- revoked payloads render as ~short~
-            local lbl = h:sub(1, SHORT)
-            if G.actions[h] and is_revoked(G.actions[h]) then
-                lbl = "~" .. lbl .. "~"
-            end
-            set_at(t, col[h], lbl)
+        local t = {}
+        for _, n in ipairs(rows[d]) do
+            set_at(t, col[n], lbl[n])
         end
         emit(t)
-        if #cur == 1 then
-            local h = cur[1]
-            local distant = {}
-            for _, u in ipairs(ups[h]) do
-                if groupOf[u] ~= g - 1 then
-                    distant[#distant+1] = "^" .. u:sub(1, SHORT)
-                end
-            end
-            if #distant > 0 then
-                local s = "(" .. table.concat(distant, " ") .. ")"
-                local lead = math.max(0, col[h] - (#s // 2))
-                print(string.rep(" ", lead) .. s)
-            end
-        end
     end
 end

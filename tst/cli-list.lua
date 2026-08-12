@@ -49,8 +49,7 @@ do
         exec {
             cmd = EXE_A .. " chain '#test' list dag",
         } ==
-        string.format([[
-                 %s]], P1:sub(1,7))
+        P1:sub(1,7)
     )
 
     TEST "A posts P2"
@@ -72,9 +71,9 @@ do
             cmd = EXE_A .. " chain '#test' list dag",
         } ==
         string.format([[
-                 %s
-                    |
-                 %s
+%s
+   |
+%s
 ]], P1:sub(1,7), P2:sub(1,7))
     )
 end
@@ -102,11 +101,11 @@ do
             cmd = EXE_A .. " chain '#test' list dag",
         } ==
         string.format([[
-                 %s
-                    |
-                 %s
-                    |
-                 %s
+%s
+   |
+%s
+   |
+%s
 ]], P1:sub(1,7), P2:sub(1,7), L1:sub(1,7))
     )
 end
@@ -188,13 +187,13 @@ do
             cmd = EXE_A .. " chain '#test' list dag",
         } ==
         string.format([[
-                 %s
-                    |
-                 %s
-                    |
-                 %s
-                    |
-                 %s
+%s
+   |
+%s
+   |
+%s
+   |
+%s
 ]], P1:sub(1,7), P2:sub(1,7), L1:sub(1,7), P3:sub(1,7))
     )
 end
@@ -231,15 +230,15 @@ do
             cmd = EXE_A .. " chain '#test' list dag",
         } ==
         string.format([[
-                 %s
-                    |
-                 %s
-                    |
-                 %s
-                    |
-                 %s
-                    |
-                 %s
+%s
+   |
+%s
+   |
+%s
+   |
+%s
+   |
+%s
 ]], P1:sub(1,7), P2:sub(1,7), L1:sub(1,7), P3:sub(1,7), AP4:sub(1,7))
     )
 
@@ -267,15 +266,15 @@ do
             cmd = EXE_B .. " chain '#test' list dag",
         } ==
         string.format([[
-                 %s
-                    |
-                 %s
-                    |
-                 %s
-                    |
-                 %s
-                  /   \
-             %s %s
+      %s
+         |
+      %s
+         |
+      %s
+         |
+      %s
+      /     \
+%s     %s
 ]], P1:sub(1,7), P2:sub(1,7), L1:sub(1,7), P3:sub(1,7), fst:sub(1,7), snd:sub(1,7))
     )
 end
@@ -360,27 +359,28 @@ do
     assert(lines[7] == BEG,  "expected BEG at 7")
     assert(lines[8] == LIKE, "expected LIKE at 8")
 
-    TEST "B dag: LIKE has immediate parent (|) + distant parents annotated"
+    TEST "B dag: BEG joins the fork; LIKE backs BEG + both upper tips"
+    -- upper-level parents render as side hints: `abc^` (left)
+    -- and `^def` (right), first 3 chars of each parent
     assert(
         exec {
             cmd = EXE_B .. " chain '#test' list dag",
         } ==
         string.format([[
-                 %s
-                    |
-                 %s
-                    |
-                 %s
-                    |
-                 %s
-                  /   \
-             %s %s
-                  \   /
-                 %s
-                    |
-                 %s
-           (^%s ^%s)
-]], P1:sub(1,7), P2:sub(1,7), L1:sub(1,7), P3:sub(1,7), fst:sub(1,7), snd:sub(1,7), BEG:sub(1,7), LIKE:sub(1,7), fst:sub(1,7), snd:sub(1,7))
+      %s
+         |
+      %s
+         |
+      %s
+         |
+      %s
+      /     \
+%s     %s
+      \     /
+      %s
+   %s^  |  ^%s
+      %s
+]], P1:sub(1,7), P2:sub(1,7), L1:sub(1,7), P3:sub(1,7), fst:sub(1,7), snd:sub(1,7), BEG:sub(1,7), fst:sub(1,3), snd:sub(1,3), LIKE:sub(1,7))
     )
 end
 
@@ -451,9 +451,9 @@ do
             cmd = EXE_A .. " chain '#tri' list dag",
         } ==
         string.format([[
-                 %s
-                /   |   \
-         %s %s %s
+            %s
+         /     |     \
+%s     %s     %s
 ]], P0:sub(1,7), lines[2]:sub(1,7), lines[3]:sub(1,7), lines[4]:sub(1,7))
     )
 end
