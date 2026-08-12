@@ -53,28 +53,56 @@ local function render (order, ups, revoked)
     end
     local STEP = (W + 8) // 4 * 4
 
-    local col = {}
-    for i, n in ipairs(rows[0]) do
-        col[n] = (2*i - #rows[0] - 1) * STEP // 2
+    local maxd = 0
+    local idx  = {}
+    for i, n in ipairs(order) do
+        maxd = math.max(maxd, depth[n])
+        idx[n] = i
     end
-    for _, n in ipairs(order) do
-        local us = ups[n]
-        if #us == 1 then
-            local hs = hang[us[1]]
-            for i, h in ipairs(hs) do
-                if h == n then
-                    col[n] = col[us[1]] + (2*i - #hs - 1) * STEP // 2
+
+    -- assign depth by depth (parents always above), then sweep
+    -- each row left to right enforcing a minimum separation:
+    -- colliding nodes shift right instead of overwriting each
+    -- other (nested forks, criss-cross joins)
+    local SEP = (W + 4) // 2 * 2
+    local col = {}
+    for d = 0, maxd do
+        for i, n in ipairs(rows[d]) do
+            local us = ups[n]
+            if #us == 0 then
+                col[n] = (2*i - #rows[0] - 1) * STEP // 2
+            elseif #us == 1 then
+                local hs = hang[us[1]]
+                for j, h in ipairs(hs) do
+                    if h == n then
+                        col[n] = col[us[1]] + (2*j - #hs - 1) * STEP // 2
+                    end
+                end
+            else
+                local sum = 0
+                for _, u in ipairs(us) do
+                    sum = sum + col[u]
+                end
+                col[n] = sum // #us
+                -- keep columns even (exact midpoints)
+                if col[n] % 2 ~= 0 then
+                    col[n] = col[n] + 1
                 end
             end
-        elseif #us >= 2 then
-            local sum = 0
-            for _, u in ipairs(us) do
-                sum = sum + col[u]
+        end
+        local row = {}
+        for _, n in ipairs(rows[d]) do
+            row[#row+1] = n
+        end
+        table.sort(row, function (a, b)
+            if col[a] ~= col[b] then
+                return col[a] < col[b]
             end
-            col[n] = sum // #us
-            -- keep columns even (exact midpoints)
-            if col[n] % 2 ~= 0 then
-                col[n] = col[n] + 1
+            return idx[a] < idx[b]
+        end)
+        for i = 2, #row do
+            if col[row[i]] - col[row[i-1]] < SEP then
+                col[row[i]] = col[row[i-1]] + SEP
             end
         end
     end
@@ -111,10 +139,6 @@ local function render (order, ups, revoked)
 
     -- render top-down: edge line (glyph above the child, at the
     -- midpoint of the edge), then node line
-    local maxd = 0
-    for _, n in ipairs(order) do
-        maxd = math.max(maxd, depth[n])
-    end
     for d = 0, maxd do
         if d > 0 then
             local t = {}

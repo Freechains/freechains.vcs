@@ -187,8 +187,12 @@ c7d8e9f     e6d7626
   midpoint, same depth, J1 LOST
 - roots: join lands under an unrelated root -- misleading
   (reads as its child), nothing lost
-- FIX for the losses (pre-port): per-row sweep, sort by col,
-  enforce min gap (label + 2), shift right on overlap
+- FIX DONE: columns assigned depth by depth, then per-row
+  sweep (sort by col, tie by insertion; shift right to keep
+  SEP = even(W+4)); collisions now slant edges instead of
+  losing nodes; all 9 examples render complete
+- roots stacking illusion left as is (cosmetic)
+- files moved to `tst/dag.lua`, `tst/dag2.lua`
 
 # Next steps
 
