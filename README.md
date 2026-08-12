@@ -144,17 +144,17 @@ We can list all posts in the chain...
 
 ```
 $ freechains chain '#chat' list dag
-                 b52c62f
+                 b52c62f    # 'Hello World'
                     |
-                 d6568e4
+                 d6568e4    # 'I am here'
 ```
 
 - ...or in consensus order:
 
 ```
 $ freechains chain '#chat' list order
-b52c62f...
-d6568e4...
+b52c62f...    # 'Hello World'
+d6568e4...    # 'I am here'
 ```
 
 We can also query each action individually:
@@ -217,9 +217,9 @@ We may now list the posts in peer `B`:
 
 ```
 $ freechains --root=/tmp/B/ chain '#chat' list dag
-                 b52c62f
+                 b52c62f    # 'Hello World'
                     |
-                 d6568e4
+                 d6568e4    # 'I am here'
 ```
 
 To illustrate how peers synchronize over time, let's post again in peer `A`:
@@ -239,11 +239,11 @@ Peer `B` now holds the new post from `A`:
 
 ```
 $ freechains --root=/tmp/B/ chain '#chat' list dag
-                 b52c62f
+                 b52c62f    # 'Hello World'
                     |
-                 d6568e4
+                 d6568e4    # 'I am here'
                     |
-                 e1f2a3b
+                 e1f2a3b    # 'Sync me'
 ```
 
 Note that synchronization in Freechains is always explicitly peer-to-peer,
@@ -423,11 +423,11 @@ $ freechains chain '#chat' list begs
 # (empty)
 $ freechains chain '#chat' list dag
                  ...
-                 560a55c
+                 560a55c    # like: alice -> bob
                     |
-                 c7d8e9f
+                 c7d8e9f    # 'A great post!'
                     |
-                 d8e9f0a
+                 d8e9f0a    # like: alice -> 'A great post!'
                (^560a55c)
 ```
 
@@ -451,7 +451,7 @@ Freechains applies a custom hook to order first branches whose authors hold
 more `reps`.
 
 To illustrate how consensus resolves, let's introduce a neutral peer `X` that
-never posts, acting only as a *hub* to which other peers push their posts:
+never posts, acting only as a hub to which other peers push their posts:
 
 ```
 $ freechains --root=/tmp/X/ chains add '#chat' clone localhost
@@ -461,8 +461,8 @@ $ freechains --root=/tmp/X/ daemon --hub --port=8331
 Serving on port 8331...
 ```
 
-Now `Alice` and `Charlie` post at the same time, from peers `A` and `B`, without
-synchronizing:
+Now `Alice` and `Charlie` post at the same time, from peers `A` and `B`,
+without synchronizing:
 
 ```
 $ freechains chain '#chat' post inline $'Alice was here\n' --sign=/tmp/alice
@@ -470,6 +470,10 @@ a1b2c3d...
 $ freechains --root=/tmp/B/ chain '#chat' post inline $'Charlie was here\n' --sign=/tmp/charlie
 f4e5d6c...
 ```
+
+Although we run the commands in sequence here, they target different peers,
+with independent (and manipulable) clocks.
+Therefore, the posts have no reliable order between them.
 
 Each peer now holds a diverging history with its own exclusive post:
 
