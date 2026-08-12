@@ -644,6 +644,33 @@ timestamp.
 Note also that `Alice` requires no additional `reps`, since the original post
 never happened in the reverted history.
 
+Follows the final state of the chain from `Alice`'s point of view:
+
+```
+$ freechains chain '#chat' list dag
+      b52c62f              # 'Hello World'
+         |
+      d6568e4              # 'I am here'
+         |
+      e1f2a3b              # 'Sync me'
+         |
+      560a55c              # like: alice -> bob
+      /     \
+c7d8e9f     e6d7626        # 'A great post!'  | like: bob -> charlie
+     \  ^560    \
+    d8e9f0a   a9b0c1d      # like on beg      | like: charlie -> 'Hello World'
+       |         |
+    a1b2c3d   b0c1d2e      # 'Alice was here' | dislike: bob -> 'I am here'
+                 |
+              f4e5d6c      #                  | 'Charlie was here'
+       a1b^    /
+          1a2b3c4          # 'day 1'
+             |
+          7d8e9f0          # 'day 7'
+             |
+          3c4d5e6          # 'Alice takes over' (repost)
+```
+
 Hard forks safeguard chains against long-lived network partitions with
 diverging histories.
 Since it is not possible to judge the reasons behind partitions, Freechains
@@ -657,6 +684,8 @@ still subject to abuse, including SPAM, hate speech, and possibly illegal
 content.
 For such cases, Freechains provides an additional revocation mechanism that
 works in conjunction with the reputation system.
+
+TODO: fallback to simpler state
 
 To illustrate moderation, suppose `Dave` posts some spam:
 
@@ -679,8 +708,8 @@ $ freechains chain '#chat' get payload 4a5b6c7
 ERROR : chain get : revoked payload
 ```
 
-Unlike post metadata, payloads live outside the commit DAG, so that bytes of a
-revoked post can be dropped without touching the chain's history.
+Unlike post metadata, payloads live outside the commit DAG, so that the bytes
+of a revoked post can be dropped without touching the chain's history.
 
 Revocation is reversible through the analogous command `unrevoke`.
 They are both accounted to determine if a post is available or not.
