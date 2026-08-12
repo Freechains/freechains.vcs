@@ -568,24 +568,24 @@ the merge is simply refused and the peers are no longer compatible.
 In contrast, peers that remain active and synchronize over time evolve together
 with a stable order.
 
-To illustrate hard forks, let's make peers `X` and `B` with `Bob` and `Charlie`
-to synchronize continuously over time, while peer `A` with `Alice` goes offline
-just after the consensus above.
-
-Over the next days, `Bob` and `Charlie` keep posting and syncing to the hub:
+To illustrate hard forks, let's suppose peers `X` and `B` with `Bob` and
+`Charlie` keep posting over time.
+In the meantime, peer `A` with `Alice` remains offline since the consensus
+above.
+Over the next days, `Bob` and `Charlie` keep posting, now through peer `X`.
+We simulate the passage of time passing `--now` to the commands:
 
 ```
-$ freechains --root=/tmp/B/ chain '#chat' post inline $'day 1\n' --sign=/tmp/bob
+$ DAY=86400             # one day in seconds
+$ NOW=$(date +%s)       # current time in seconds
+$ freechains --root=/tmp/X/ --now=$((NOW+1*DAY)) chain '#chat' post inline $'day 1\n' --sign=/tmp/bob
 1a2b3c4...
-$ freechains --root=/tmp/B/ chain '#chat' sync send localhost:8331
-... # (days go by)
-$ freechains --root=/tmp/B/ chain '#chat' post inline $'day 7\n' --sign=/tmp/charlie
+$ freechains --root=/tmp/X/ --now=$((NOW+7*DAY)) chain '#chat' post inline $'day 7\n' --sign=/tmp/charlie
 7d8e9f0...
-$ freechains --root=/tmp/B/ chain '#chat' sync send localhost:8331
 ```
 
-Their posts on `X` now span over more than seven days, making hub's branch
-settled and refusing reorderings.
+The posts on `X` span over more than seven days, making it settled and refusing
+reorderings.
 
 Then, `Alice` comes back and posts locally in peer `A`, on the same branch she
 left behind:
@@ -604,15 +604,15 @@ remote: ERROR : chain sync : hard fork
 
 Regardless of her strong past reputation, `Alice` cannot affect an active
 community.
-Note that it is impossible to judge whether `Alice` was trying to rewrite
-history or simply became offline for a long time.
+It is not possible to judge whether `Alice` was trying to rewrite history or
+simply became offline for a long time.
 Nevertheless, the community protects itself from late reorderings.
 
 To resynchronize, `Alice`'s only option is to revert her local history, receive
 the settled branch, repost the rejected message on top of it, and finally send
 the updated history.
-To revert history, Freechains provides an `abandon` command that permanently
-drops an action along with everything after it:
+For that matter, Freechains provides an `abandon` command to permanently drop
+an action along with subsequent ones:
 
 ```
 # revert local history
@@ -623,11 +623,18 @@ $ freechains chain '#chat' abandon 9d0e1f2
 $ freechains chain '#chat' sync recv localhost:8331
 
 # repost rejected message
-$ freechains chain '#chat' post inline $'Alice takes over\n' --sign=/tmp/alice
+$ freechains --now=$((NOW+7*DAY)) chain '#chat' post inline $'Alice takes over\n' --sign=/tmp/alice
 3c4d5e6...
 
 # send updated history
-$ freechains chain '#chat' sync send localhost:8331
+$ freechains --now=$((NOW+7*DAY)) chain '#chat' sync send localhost:8331
+
+# show new order (with Alice last)
+$ freechains chain '#chat' list order
+...
+1a2b3c4...    # 'day 1'
+7d8e9f0...    # 'day 7'
+3c4d5e6...    # 'Alice takes over' (repost)
 ```
 
 `Alice` is now compatible with the community again, and her message is ordered
