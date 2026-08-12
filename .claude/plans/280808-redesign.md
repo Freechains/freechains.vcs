@@ -371,28 +371,25 @@
 - 0: `make tests` (green as of the last commit); `guide.sh`
   stops at the clone by design, until S2
 
-## 1. D -- `freechains chain <alias> gc [--dry-run]`
+## 1. D DONE -- `freechains chain <alias> sweep`
 
-- the only self-contained item left; no sync dependency
-- WHAT IT SWEEPS: `refs/payloads/*`, dropping a ref whose aid
-    - is absent from `G.actions` (an abandon that crashed
-      midway, or a hand-edited repo), or
-    - `is_revoked(G.actions[aid])` -- the local writer already
-      drops those at the crossing, but a REPLAYED history will
-      not until E3's sync half, so gc is the catch-up
-- then `git gc --prune=now`: an unreferenced blob is what a
-  crash between `hash-object -w` and `update-ref` leaves
-  (post.lua and like.lua both note the window)
-- REPORT: `git count-objects -vH` before/after (size-pack +
-  size), plus the aids dropped
-- `--dry-run`: print the same report and the would-drop list,
-  change nothing
-- WIRING: `src/freechains/chain/gc.lua`, argparse next to
-  `abandon` in `src/freechains.lua`, dispatch in
-  `chain/init.lua`, module line in the rockspec
-- TEST: `tst/cli-gc.lua` + a line in the Makefile after
-  `cli-abandon.lua` (local-only, so it runs before the sync
-  block)
+- `chain/sweep.lua`: one `git gc --prune=now --quiet`
+- named `sweep`, not `gc`/`trash`: it decides nothing, only
+  reclaims. `revoke` fills the trash, this empties it
+- dropped from the plan as written, and why:
+    - the orphan-ref sweep: removal already drops the anchor
+      (`like` at the crossing, `abandon` per action). A
+      REPLAYED history that leaves a stale anchor is E3's
+      sync half, not sweep's job
+    - `--dry-run` / size report: git prunes by AGE unless
+      told `now`, and removal must be immediate, so there is
+      no choice to preview
+- failure is an ERROR, never `bug found`: `git gc` loses the
+  `.git/gc.pid` race against git's own background `gc --auto`
+- abandoned COMMITS survive in the HEAD reflog until it
+  expires: they carry action files (metadata), never content
+- TEST `tst/cli-sweep.lua` pins the ORDERING: after a revoke
+  the bytes linger until a sweep runs
 - NOT in stage 1: `.git/states/` pruning -- that is E, and it
   needs a missing snapshot to be recomputable (S1)
 
