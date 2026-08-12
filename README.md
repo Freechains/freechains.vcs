@@ -641,8 +641,8 @@ $ freechains chain '#chat' list order
 after their settled branch.
 Note that the repost is a brand new post, with a new identifier and a new
 timestamp.
-Note also that `Alice` requires no additional `reps`, since in reverted history
-the original post never happened.
+Note also that `Alice` requires no additional `reps`, since the original post
+never happened in the reverted history.
 
 Hard forks safeguard chains against long-lived network partitions with
 diverging histories.
@@ -661,27 +661,26 @@ works in conjunction with the reputation system.
 To illustrate moderation, suppose `Dave` posts some spam:
 
 ```
-$ freechains chain '#chat' post inline $'BUY NOW\n' --sign=/tmp/dave
+$ freechains --now=$((NOW+7*DAY)) chain '#chat' post inline $'BUY NOW\n' --sign=/tmp/dave
 4a5b6c7...
 ```
 
 `Alice` detects the SPAM and revokes it:
 
 ```
-$ freechains chain '#chat' revoke 1000 4a5b6c7 --sign=/tmp/alice
+$ freechains --now=$((NOW+7*DAY)) chain '#chat' revoke 1000 4a5b6c7 --sign=/tmp/alice
 8f9a0b1...
 ```
 
-And its payload becomes immediately unavailable:
+The payload of a revoked action becomes immediately unavailable:
 
 ```
 $ freechains chain '#chat' get payload 4a5b6c7
 ERROR : chain get : revoked payload
 ```
 
-Note that only the payload is hidden, whereas the post metadata remains in the
-chain and participates in the consensus.
-`TODO: blob removal`
+Unlike post metadata, payloads live outside the commit DAG, so that bytes of a
+revoked post can be dropped without touching the chain's history.
 
 Revocation is reversible through the analogous command `unrevoke`.
 They are both accounted to determine if a post is available or not.
@@ -692,15 +691,13 @@ free.
 Let's say `Bob` posts something he immediately regrets:
 
 ```
-$ freechains --root=/tmp/B/ chain '#chat' post inline $'my address is ...\n' --sign=/tmp/bob
+$ freechains --root=/tmp/B/ --now=$((NOW+7*DAY)) chain '#chat' post inline $'my address is ...\n' --sign=/tmp/bob
 5d6e7f8...
-$ freechains --root=/tmp/B/ chain '#chat' revoke 1000 5d6e7f8 --sign=/tmp/bob
+$ freechains --root=/tmp/B/ --now=$((NOW+7*DAY)) chain '#chat' revoke 1000 5d6e7f8 --sign=/tmp/bob
 6e7f8a9...
 $ freechains chain '#chat' get payload 5d6e7f8
 ERROR : chain get : revoked payload
 ```
-
-A self-revoke is absolute and other members cannot revert it.
 
 Moderation in Freechains is an extra safety layer to protect the community from
 abuse.
