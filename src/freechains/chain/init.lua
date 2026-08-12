@@ -12,6 +12,8 @@ if ARGS.sync then
     require "freechains.chain.sync"
 elseif ARGS.abandon then
     require "freechains.chain.abandon"
+elseif ARGS.sweep then
+    require "freechains.chain.sweep"
 else
     G = STATE.read(true, "HEAD")
 

@@ -380,7 +380,7 @@ do
             cmd = ENV_EXE .. " chain '#removal' get payload " .. POST,
         }
         assert(pay == "bytes", "payload: " .. pay)
-        -- a standing post keeps its anchor, or the next gc eats it
+        -- a standing post keeps its anchor, or the next sweep eats it
         local _, code = exec { err=false, stderr=false,
             cmd = "git -C " .. DIR .. " rev-parse refs/payloads/" .. POST,
         }

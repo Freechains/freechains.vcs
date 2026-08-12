@@ -164,7 +164,7 @@ if entry then
             end
             -- a standing post always has its anchor: the bytes may
             -- still be in the store, but unreferenced they are one
-            -- `gc` away from gone
+            -- `sweep` away from gone
             exec {
                 cmd = "git -C " .. REPO .. " update-ref refs/payloads/" ..
                     ARGS.id .. " " .. T.blob,

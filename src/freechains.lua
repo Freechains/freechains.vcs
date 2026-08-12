@@ -87,6 +87,7 @@ local cmd = {
         revoke = {},
         unrevoke = {},
         abandon = {},
+        sweep = {},
         sync = {
             recv = {},
             send = {},
@@ -203,6 +204,9 @@ do
     -- cmd.chain.abandon : local only (no sign, no network)
     cmd.chain.abandon._ = cmd.chain._:command("abandon")
     cmd.chain.abandon._:argument("id"):target("aid")
+
+    -- cmd.chain.sweep : local only (no sign, no network)
+    cmd.chain.sweep._ = cmd.chain._:command("sweep")
 
     -- cmd.chain.sync
     cmd.chain.sync._ = cmd.chain._:command("sync")

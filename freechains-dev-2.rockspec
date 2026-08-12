@@ -26,6 +26,7 @@ build = {
         ["freechains.chain.common"]    = "src/freechains/chain/common.lua",
         ["freechains.chain.consensus"] = "src/freechains/chain/consensus.lua",
         ["freechains.chain.abandon"]   = "src/freechains/chain/abandon.lua",
+        ["freechains.chain.sweep"]     = "src/freechains/chain/sweep.lua",
         ["freechains.chain.get"]       = "src/freechains/chain/get.lua",
         ["freechains.chain.like"]      = "src/freechains/chain/like.lua",
         ["freechains.chain.list"]      = "src/freechains/chain/list.lua",

@@ -4,17 +4,18 @@
 
 # PENDING
 
-- STATE: suite GREEN, working tree clean, on `260808-redesign`
+- STATE: suite GREEN, on `260808-redesign`
     - shipped this round: A (`--file` always verified), C
       (revoke floor 1000), Q (revocation targets any action),
-      scored votes, and the `post` -> `action`/`aid` vocabulary
+      scored votes, the `post` -> `action`/`aid` vocabulary,
+      and D (`chain sweep`)
     - 25 sync tests still early-exit at "280808 : EARLY EXIT";
       `guide.sh` still stops at the clone. That is expected
       until S1/S2, NOT a regression
+    - uncommitted: `README.md`, `guide.sh` (doc work, now
+      stale: the CLI says `action`/`aid`)
 - small, decided but not written:
-    - D: `freechains gc` (stage 1): drop orphaned payload refs
-      + `git gc --prune=now`, `--dry-run`, size report
-    - E: `freechains gc` (stage 2, needs S1): prune
+    - E: `chain sweep` (stage 2, needs S1): prune
       `.git/states/` outside the settled window, once a
       missing snapshot can be recomputed
 - the sync phase (own section below): S1 recv, S2 clone,
@@ -23,6 +24,15 @@
   `^refs/payloads/<removed>` refspec)
     - knock-on: 25 early-exited tests, `guide.sh` stops at
       the clone
+- D as built (`chain/sweep.lua`): just `git gc --prune=now`
+    - named `sweep`, not `gc`/`trash`: it decides nothing,
+      only reclaims. `revoke` fills the trash, this empties it
+    - no orphan-ref sweep: removal already drops the anchor
+      (`like` at the revoke crossing, `abandon` per action)
+    - no `--dry-run`: git prunes by age unless told `now`,
+      and removal must be immediate, so there is no choice
+    - abandoned COMMITS survive in the HEAD reflog; only
+      payloads (outside the tree) go. Metadata, not content
 - open questions:
     - how replay recognizes a SIGNED `--beg` (today
       `beg or (key == nil)`)
