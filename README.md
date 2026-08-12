@@ -144,9 +144,9 @@ We can list all posts in the chain...
 
 ```
 $ freechains chain '#chat' list dag
-                 b52c62f    # 'Hello World'
-                    |
-                 d6568e4    # 'I am here'
+b52c62f       # 'Hello World'
+   |
+d6568e4       # 'I am here'
 ```
 
 - ...or in consensus order:
@@ -217,9 +217,9 @@ We may now list the posts in peer `B`:
 
 ```
 $ freechains --root=/tmp/B/ chain '#chat' list dag
-                 b52c62f    # 'Hello World'
-                    |
-                 d6568e4    # 'I am here'
+b52c62f       # 'Hello World'
+   |
+d6568e4       # 'I am here'
 ```
 
 To illustrate how peers synchronize over time, let's post again in peer `A`:
@@ -239,11 +239,11 @@ Peer `B` now holds the new post from `A`:
 
 ```
 $ freechains --root=/tmp/B/ chain '#chat' list dag
-                 b52c62f    # 'Hello World'
-                    |
-                 d6568e4    # 'I am here'
-                    |
-                 e1f2a3b    # 'Sync me'
+b52c62f       # 'Hello World'
+   |
+d6568e4       # 'I am here'
+   |
+e1f2a3b       # 'Sync me'
 ```
 
 Note that synchronization in Freechains is always explicitly peer-to-peer,
@@ -422,19 +422,19 @@ d8e9f0a...
 $ freechains chain '#chat' list begs
 # (empty)
 $ freechains chain '#chat' list dag
-                 ...
-                 560a55c    # like: alice -> bob
-                    |
-                 c7d8e9f    # 'A great post!'
-                    |
-                 d8e9f0a    # like: alice -> 'A great post!'
-               (^560a55c)
+  ...
+   |
+560a55c       # like: alice -> bob
+   |
+c7d8e9f       # 'A great post!'
+   |^560
+d8e9f0a       # like: alice -> 'A great post!'
 ```
 
 The post is now part of the chain and `Dave` becomes a proper member.
 Note that the like `d8e9f0a` links back to two actions:
     the beg `c7d8e9f` just above it, and
-    the previous tip pointed as `(^560a55c)`.
+    the previous tip pointed as `^560`.
 
 In summary, the reputation system of Freechains allows to rate posts and
 members, helping to distinguish quality amid excess.
@@ -479,21 +479,35 @@ Each peer now holds a diverging history with its own exclusive post:
 
 ```
 $ freechains chain '#chat' list dag
-                 ...
-                 560a55c
-                    |
-                 a1b2c3d
+  ...
+   |
+560a55c       # like: alice -> bob (common)
+   |
+c7d8e9f       # 'A great post!'
+   |^560
+d8e9f0a       # like: alice -> 'A great post!'
+   |
+a1b2c3d       # 'Alice was here'
 $ freechains --root=/tmp/B/ chain '#chat' list dag
-                 ...
-                 560a55c
-                    |
-                 9a8b7c6
-                    |
-                 f4e5d6c
+  ...
+   |
+560a55c       # like: alice -> bob (common)
+   |
+e6d7626       # like: bob -> charlie
+   |
+a9b0c1d       # like: charlie -> 'Hello World'
+   |
+b0c1d2e       # dislike: bob -> 'I am here'
+   |
+f4e5d6c       # 'Charlie was here'
 ```
 
-Note that peer `B` also holds `9a8b7c6`, which is Bob's like on Charlie, still
-unknown to peer `A`.
+Note that the histories diverge after `Alice`'s like to `Bob` (`560a55c`),
+which is the last action the peers exchanged.
+Note also that after this action in common, the diverging branches share no
+authors:
+    peer `A` has `Alice` and `Dave`, while
+    peer `B` has `Bob` and `Charlie`.
 
 Then, both peers `A` and `B` send their posts to the neutral hub `X`:
 
@@ -502,16 +516,21 @@ $ freechains chain '#chat' sync send localhost:8331
 $ freechains --root=/tmp/B/ chain '#chat' sync send localhost:8331
 ```
 
-`X` now holds both branches as a fork in its DAG:
+`X` now holds both branches as an actual fork in its DAG:
 
 ```
 $ freechains --root=/tmp/X/ chain '#chat' list dag
-                 ...
-                 560a55c
-                  /   \
-             a1b2c3d  9a8b7c6
-                         |
-                      f4e5d6c
+        ...
+         |
+      560a55c              # like: alice -> bob (common)
+      /     \
+c7d8e9f     e6d7626        # 'A great post!'  | like: bob -> charlie
+     \  ^560    \
+    d8e9f0a   a9b0c1d      # like on beg      | like: charlie -> 'Hello World'
+       |         |
+    a1b2c3d   b0c1d2e      # 'Alice was here' | dislike: bob -> 'I am here'
+                 |
+              f4e5d6c      #                  | 'Charlie was here'
 ```
 
 We can also list the posts in consensus order to see which branch wins:
@@ -519,14 +538,20 @@ We can also list the posts in consensus order to see which branch wins:
 ```
 $ freechains --root=/tmp/X/ chain '#chat' list order
 ...
-a1b2c3d...
-9a8b7c6...
-f4e5d6c...
+560a55c...    # common
+c7d8e9f...    # [A
+d8e9f0a...    # ...
+a1b2c3d...    # A]
+e6d7626...    # [B
+a9b0c1d...    # ...
+b0c1d2e...    # ...
+f4e5d6c...    # B]
 ```
 
-Since `Alice` holds more `reps` than `Bob` and `Charlie` together, the branch
-with her post is ordered first.
-Note that the same order holds for all peers after they synchronize.
+Since `Alice` and `Dave` hold more `reps` than `Bob` and `Charlie`, the branch
+coming from `A` is ordered before `B`'s.
+Note that the same order will eventually hold for all peers after they
+synchronize, including `B`.
 
 Consensus via authoring reputation is the key aspect of Freechains, making all
 peers reach the same state without any central authority.
