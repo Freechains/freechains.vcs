@@ -349,27 +349,6 @@ content creators.
 In our example, since `Alice` holds the majority of `reps` in the network, the
 full refund is instantaneous.
 
-<!--
-These are the rules of thumb behind every number in this guide:
-
-| Rule                | Value                                        |
-|---------------------|----------------------------------------------|
-| a chain starts with | `50000 reps`, split among its pioneers (<=20)|
-| a post costs        | `500`, returned within 12 hours              |
-| each member earns   | `1000` per day, up to a `50000` cap          |
-| a vote is taxed     | `10%`, burned                                |
-| a like on a post    | splits the rest between post and author      |
-| a like on an author | goes entirely to the author                  |
-
-To welcome a newcomer, the price depends on how soon they may speak:
-
-| To give a newcomer...  | Sponsor pays        | They receive |
-|------------------------|---------------------|--------------|
-| enough to post now     | `like 556 author`   | `500`        |
-| a beg, speaking in 12h | `like 1000 action`  | `450`        |
-| a beg, speaking now    | `like 1112 action`  | `500`        |
--->
-
 Let's now introduce new member `Charlie`, who is welcomed by `Bob` in peer `B`:
 
 ```
