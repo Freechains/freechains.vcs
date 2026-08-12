@@ -310,7 +310,7 @@ $ freechains chain '#chat' like 10000 author "$(cat /tmp/bob.pub)" --sign=/tmp/a
 ```
 $ freechains --root=/tmp/B/ chain '#chat' sync recv localhost
 $ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/alice.pub)"
-23000
+40000
 $ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/bob.pub)"
 9000
 ```
@@ -354,8 +354,9 @@ Let's now introduce new member `Charlie`, who is welcomed by `Bob` in peer `B`:
 ```
 $ ssh-keygen -t ed25519 -C '' -f /tmp/charlie
 $ freechains --root=/tmp/B/ chain '#chat' like 5000 author "$(cat /tmp/charlie.pub)" --sign=/tmp/bob
+e6d7626...
 $ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/alice.pub)"
-23000
+40000
 $ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/bob.pub)"
 4000
 $ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/charlie.pub)"
@@ -381,18 +382,19 @@ $ freechains --root=/tmp/B/ chain '#chat' dislike 1000 action d6568e4 --sign=/tm
 b0c1d2e...
 ```
 
-A like transfers `reps` from the caster to the post (half) and to its
-author (half), whereas a dislike drains `reps` from them:
+A like transfers `reps` from the caster to the post and to its author, half
+each after the tax, whereas a dislike drains `reps` from them:
 
 ```
 $ freechains --root=/tmp/B/ chain '#chat' reps actions
-b52c62f... 450
-e1f2a3b... 0
-d6568e4... -450
+b52c62f... 450     # 'Hello World'
+e1f2a3b... 0       # 'Sync me'
+...                # (likes are actions too)
+d6568e4... -450    # 'I am here'
 $ freechains --root=/tmp/B/ chain '#chat' reps authors
-ssh-ed25519 ...vzTc96I 23000   # Alice (unaffected)
-ssh-ed25519 ...je8+xIa ?       # Bob
-ssh-ed25519 ...Ks9pL2v ?       # Charlie
+ssh-ed25519 ...vzTc96I 40000   # Alice (unaffected)
+ssh-ed25519 ...Ks9pL2v 3500    # Charlie (his like cost him 1000)
+ssh-ed25519 ...je8+xIa 3000    # Bob (his dislike cost him 1000)
 ```
 
 As an alternative to welcome new members, Freechains supports begging posts.
@@ -412,7 +414,7 @@ $ freechains chain '#chat' list begs
 c7d8e9f...
 ```
 
-`Alice` likes the post and rates it, spending `4000 reps`:
+`Alice` read the post and likes it, spending `4000 reps`:
 
 ```
 $ freechains chain '#chat' like 4000 action c7d8e9f --sign=/tmp/alice
