@@ -208,7 +208,7 @@ elseif ARGS.recv then
     ::RECV::
 
     -- begs, one pass over refs/begs/*:
-    --  - already in main: stale, drop it
+    --  - already merged into main (someone liked it): drop it
     --  - fetched, so unsnapshotted: a beg's state = its parent's
     --    snapshot + the beg post itself (what the writer saved)
     -- An invalid beg cannot be liked: its ref drops
@@ -217,11 +217,11 @@ elseif ARGS.recv then
             cmd = "git -C " .. REPO .. " for-each-ref refs/begs/ --format='%(refname) %(objectname)'"
         }
         for refname, cid in out:gmatch("(%S+)%s+(%S+)") do
-            local stale = exec { stderr=false, err=false,
+            local merged = exec { stderr=false, err=false,
                 cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. cid .. " main"
             }
             local keep = true
-            if stale then
+            if merged then
                 keep = false
             elseif not STATE.has(false, cid) then
                 local ps = parents(cid)
