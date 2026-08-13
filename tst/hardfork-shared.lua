@@ -82,10 +82,6 @@ do
     }
 
     -- the unrelated earlier fork: it is what drags `oct` below AW
-    -- 280808 : EARLY EXIT : rest needs clone/recv snapshots
-    print("<== PASSED (280808 early exit)")
-    os.exit()
-
     TEST "A posts AW, X posts cw at the same time (unrelated fork)"
     local aw = exec {
         cmd = EXE_A .. " --now=2000 chain '#hs' post inline 'AW\n' --file aw.txt --sign " .. KEY1,

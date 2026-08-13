@@ -59,10 +59,6 @@ do
     -- A:  G ── [post] P1 ── [state] S1
     -- B:  G
 
-    -- 280808 : EARLY EXIT : rest needs clone/recv snapshots
-    print("<== PASSED (280808 early exit)")
-    os.exit()
-
     TEST "B recvs from A"
     exec {
         cmd = EXE_B .. " chain '#test' sync recv " .. REPO_A,

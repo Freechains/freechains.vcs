@@ -89,10 +89,6 @@ do
         cmd = EXE_C .. " chains add '#bca' clone " .. CHAIN(ROOT_A),
     }
 
-    -- 280808 : EARLY EXIT : rest needs clone/recv snapshots
-    print("<== PASSED (280808 early exit)")
-    os.exit()
-
     -- B: G -- n1[K2]
     TEST "B posts n1 (child of G)"
     local n1 = exec {

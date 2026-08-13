@@ -78,10 +78,6 @@ do
         cmd = EXE_C .. " chains add '#cg2' clone " .. ROOT_A .. "/chains/#cg2/",
     }
 
-    -- 280808 : EARLY EXIT : rest needs clone/recv snapshots
-    print("<== PASSED (280808 early exit)")
-    os.exit()
-
     -- B: ... L -- low[K2]        (lower reps, EARLIER)
     TEST "B posts low with KEY2"
     local low = exec {

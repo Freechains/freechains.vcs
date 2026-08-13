@@ -43,10 +43,6 @@ do
         cmd = EXE_B .. " chains add '#roots' clone " .. REPO_A,
     }
 
-    -- 280808 : EARLY EXIT : rest needs clone/recv snapshots
-    print("<== PASSED (280808 early exit)")
-    os.exit()
-
     TEST "A and B post concurrently (both fork at genesis)"
     exec {
         cmd = EXE_A .. " --now=1100 chain '#roots' post inline 'AW' --sign " .. KEY1,

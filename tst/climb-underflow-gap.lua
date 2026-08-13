@@ -84,10 +84,6 @@ do
     }
 
     -- A: ... -- AW[K1]      B: ... -- CW[K2]     (both fork at F1)
-    -- 280808 : EARLY EXIT : rest needs clone/recv snapshots
-    print("<== PASSED (280808 early exit)")
-    os.exit()
-
     TEST "A posts AW (higher reps), B posts CW (fork at F1)"
     exec {
         cmd = EXE_A .. " --now=1100 chain '#cg' post inline 'AW\n' --file aw.txt --sign " .. KEY1,

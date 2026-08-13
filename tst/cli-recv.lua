@@ -64,10 +64,6 @@ do
     -- A:  [state] genesis ── [post] P1 ── [state] S1 ── [post] P2 ── [state] S2
     -- B:  [state] genesis ── [post] P1 ── [state] S1
 
-    -- 280808 : EARLY EXIT : rest needs clone/recv snapshots
-    print("<== PASSED (280808 early exit)")
-    os.exit()
-
     do
         TEST "B recvs from A"
         exec {

@@ -326,10 +326,6 @@ do
         cmd = EXE_A .. " --now=" .. (1200+WEEK) .. " chain '#abandon-fork' post inline 'a2\n' --file a2.txt --sign " .. KEY1,
     }
 
-    -- 280808 : EARLY EXIT : rest needs clone/recv snapshots
-    print("<== PASSED (280808 early exit)")
-    os.exit()
-
     -- B: G -- S -- beta[K2]                (single post: no span)
     TEST "B posts beta"
     local beta = exec {
