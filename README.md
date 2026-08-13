@@ -685,19 +685,27 @@ content.
 For such cases, Freechains provides an additional revocation mechanism that
 works in conjunction with the reputation system.
 
-TODO: fallback to simpler state
-
-To illustrate moderation, suppose `Dave` posts some spam:
+For the sake of simplicity, let's revert the 7-day simulation of the previous
+section:
 
 ```
-$ freechains --now=$((NOW+7*DAY)) chain '#chat' post inline $'BUY NOW\n' --sign=/tmp/dave
+$ freechains chain '#chat' abandon 1a2b3c4
+1a2b3c4...    # 'day 1'
+7d8e9f0...    # 'day 7'
+3c4d5e6...    # 'Alice takes over' (repost)
+```
+
+Now, to illustrate moderation, suppose `Dave` posts some spam:
+
+```
+$ freechains chain '#chat' post inline $'BUY NOW\n' --sign=/tmp/dave
 4a5b6c7...
 ```
 
 `Alice` detects the SPAM and revokes it:
 
 ```
-$ freechains --now=$((NOW+7*DAY)) chain '#chat' revoke 1000 4a5b6c7 --sign=/tmp/alice
+$ freechains chain '#chat' revoke 1000 4a5b6c7 --sign=/tmp/alice
 8f9a0b1...
 ```
 
@@ -708,21 +716,21 @@ $ freechains chain '#chat' get payload 4a5b6c7
 ERROR : chain get : revoked payload
 ```
 
-Unlike post metadata, payloads live outside the commit DAG, so that the bytes
-of a revoked post can be dropped without touching the chain's history.
+Unlike posts metadata, payloads live outside the commit DAG, so that their
+bytes be properly erased without touching the chain's history.
 
 Revocation is reversible through the analogous command `unrevoke`.
-They are both accounted to determine if a post is available or not.
-As with likes and dislike, revocation operations spends `reps` from casters.
+They both account to determine wether a post is available or not.
+As with likes and dislikes, revocation operations require `reps` to cast.
 
 As the "right to be forgotten", members may also revoke their own posts for
 free.
 Let's say `Bob` posts something he immediately regrets:
 
 ```
-$ freechains --root=/tmp/B/ --now=$((NOW+7*DAY)) chain '#chat' post inline $'my address is ...\n' --sign=/tmp/bob
+$ freechains chain '#chat' post inline $'my address is ...\n' --sign=/tmp/bob
 5d6e7f8...
-$ freechains --root=/tmp/B/ --now=$((NOW+7*DAY)) chain '#chat' revoke 1000 5d6e7f8 --sign=/tmp/bob
+$ freechains chain '#chat' revoke 1000 5d6e7f8 --sign=/tmp/bob
 6e7f8a9...
 $ freechains chain '#chat' get payload 5d6e7f8
 ERROR : chain get : revoked payload
