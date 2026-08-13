@@ -22,6 +22,8 @@
     - N: neutral commit dates -- see "Neutral commit dates"
     - R: constant renames -- see "Constant names"
     - P: `cat-file --batch` in `hardfork` -- see "Small cleanups"
+    - S5: loser apply via `climb` -- see its section (2 won't
+      dos recorded there: unified walk, forward pointers)
 - D as built (`chain/sweep.lua`): just `git gc --prune=now`
     - named `sweep`, not `gc`/`trash`: it decides nothing,
       only reclaims. `revoke` fills the trash, this empties it
@@ -81,10 +83,47 @@
 - cost: `git log` ordering stops being meaningful for humans
     - tests that craft raw commits drop their `date` prefix
 
+# S5: loser apply via `climb`
+
+- `sync.lua` 138-205 is a hand-inlined `meet`: the loc/rem fork
+  is just the top-level merge
+- replace the loser apply with a truncating `climb`
+    - `climb(G_fst, oct, snd, false, true)` -> last good cid
+    - `climb` gains a "truncate on failure, return last good"
+      flag (~5 lines in `consensus.lua`)
+- dies: `O_snd`, `keep`, `a2c`, `seq`, the apply loop, and all
+  aid<->cid bridging (~68 lines -> ~15)
+- unchanged: phase A (remote validation), `hardfork`, voided
+  listing, merge + snapshot
+
+- WON'T DO: one unified walk from `oct` (no replay, no
+  loc/rem split), because the split encodes 3 requirements
+    - the merge tip is an OUTPUT: a loser valid in its own
+      order can fail in the merged one, so `merge` is only
+      known after the apply
+    - winner must be wholly valid -> REJECT the push; loser
+      truncates -> ACCEPT the prefix (cf. `tst/sync.lua`
+      "X sends to B: rejected")
+    - our own winning branch is never re-applied: its state
+      is `STATE.read(HEAD)`, not a walk from `oct`
+    - "any causal order" does not hold: nested merges each
+      need their own consensus
+
+- WON'T DO: forward (child) pointers to replace `climb`/`meet`
+    - discovery gets easy (`rev-list --children`), but a fork
+      still needs its join before `consensus`, so the
+      post-order stack stays; ~45 LOC -> ~55
+    - would kill `ancestor()` per commit and `octopus()` per
+      merge, but `commit()` already spawns ~6-8 git calls
+    - not worth rewriting the agreement-critical function
+
 # Small cleanups
 
 - P1: `hardfork` spawns one `git cat-file blob` per window entry
   (up to `fork.posts`) -> one `git cat-file --batch`
+- P2: `ACTION.aid(cid)` shells out per call: cache it, and
+  reuse the `a2c` result instead of recomputing
+  `ACTION.aid(snd)` (dies with S5)
 
 # Constant names (`constants.lua`)
 
