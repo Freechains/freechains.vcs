@@ -24,6 +24,7 @@
     - P: `cat-file --batch` in `hardfork` -- see "Small cleanups"
     - S5 DONE (untested): loser apply via `climb` -- see its
       section (2 won't dos: unified walk, forward pointers)
+    - S6: payload anchors -- see "S6: payload anchors"
 - D as built (`chain/sweep.lua`): just `git gc --prune=now`
     - named `sweep`, not `gc`/`trash`: it decides nothing,
       only reclaims. `revoke` fills the trash, this empties it
@@ -131,6 +132,40 @@
     - would kill `ancestor()` per commit and `octopus()` per
       merge, but `commit()` already spawns ~6-8 git calls
     - not worth rewriting the agreement-critical function
+
+# S6: payload anchors
+
+- today `recv` ends with a whole-world reconcile: fetch
+  `refs/payloads/*` minus the revoked, then scan every action
+
+- S6.1: build `want[aid] = blob` during the replay
+    - `commit()` already holds `act.blob` for every action it
+      applies: recording it is free
+    - fetch that EXPLICIT list, not `refs/payloads/*`
+    - the wildcard makes the server advertise one ref per
+      action ever posted (O(chain), every sync); protocol v2
+      sends `ref-prefix` filters for an explicit list
+    - also kills the negative refspecs, which are argv: many
+      revocations can hit `ARG_MAX`
+    - chunk the list: `git fetch` takes no refspecs on stdin
+
+- KEEP the end-of-sync scan as the authority for deletes
+    - miss a fetch -> I just lack bytes, next sync picks it up
+    - miss a delete -> I keep revoked bytes: the one promise
+      the system makes
+    - the scan is idempotent and self-healing: a crash mid
+      sync, an older version, an unobserved crossing all get
+      fixed on the next run ("the final sums decide ONCE")
+    - it costs NO network: table lookups + `update-ref` on hits
+
+- S6.2 (bigger, later): `apply()` emits anchor events
+    - `like.lua` already names them: REMOVAL (entered revoked)
+      and LIFT (left revoked), same `cat-file -e` probe
+    - `like` consumes one, `sync` batches them: one path
+    - known asymmetry to settle first: local LIFT can
+      `ERROR("expected --file")` when the bytes are gone,
+      while the sync restore silently skips (no user to ask),
+      so a sync can leave a standing post unanchored
 
 # Small cleanups
 
