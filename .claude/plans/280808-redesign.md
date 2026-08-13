@@ -21,6 +21,7 @@
       state walkers were already gone before S1
     - N: neutral commit dates -- see "Neutral commit dates"
     - R: constant renames -- see "Constant names"
+    - P: `cat-file --batch` in `hardfork` -- see "Small cleanups"
 - D as built (`chain/sweep.lua`): just `git gc --prune=now`
     - named `sweep`, not `gc`/`trash`: it decides nothing,
       only reclaims. `revoke` fills the trash, this empties it
@@ -79,6 +80,11 @@
 
 - cost: `git log` ordering stops being meaningful for humans
     - tests that craft raw commits drop their `date` prefix
+
+# Small cleanups
+
+- P1: `hardfork` spawns one `git cat-file blob` per window entry
+  (up to `fork.posts`) -> one `git cat-file --batch`
 
 # Constant names (`constants.lua`)
 
