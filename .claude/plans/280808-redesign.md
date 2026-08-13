@@ -20,6 +20,7 @@
     - S4 leftovers: none found -- `write(G)`, `trailer()`,
       state walkers were already gone before S1
     - N: neutral commit dates -- see "Neutral commit dates"
+    - R: constant renames -- see "Constant names"
 - D as built (`chain/sweep.lua`): just `git gc --prune=now`
     - named `sweep`, not `gc`/`trash`: it decides nothing,
       only reclaims. `revoke` fills the trash, this empties it
@@ -78,6 +79,27 @@
 
 - cost: `git log` ordering stops being meaningful for humans
     - tests that craft raw commits drop their `date` prefix
+
+# Constant names (`constants.lua`)
+
+- R1: `C.fork.posts` -> `C.fork.actions`
+    - it counts `G.order` entries, and `order` takes any kind
+      (`post.lua`, `like.lua` x2, `consensus.lua`)
+    - call sites: `sync.lua` `hardfork` (x2)
+- R2: `C.like.tax` / `C.like.split` -> `C.vote.tax` /
+  `C.vote.split`
+    - `rules.lua` uses them inside the shared
+      `kind=='like' or kind=='revoke'` branch: revokes are
+      taxed and split too
+- R3: `C.time.diff` comment says "max post time diff": `apply`
+  applies it to EVERY kind -> "action"
+    - name could be `skew` (cf. `bug-now-skew.lua`) -- open
+
+- checked, correct as-is
+    - `time.half` / `time.full`: `maturity` only on posts
+    - `reps.cost`: per signed post (beg-like floor reuses it)
+    - `reps.max`: 50000/500 = 100 posts
+    - `fork.time`, `reps.earn`, `reps.revoke`, `post.size`
 
 # Sync phase as built (this round)
 
