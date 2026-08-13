@@ -1,41 +1,43 @@
 require "freechains.chain.common"
 require "freechains.chain.consensus"
 
--- Hard fork protects my ORDER.
--- Walking my order back from the tip, everything older than fork.time
--- (or fork.posts entries back) is SETTLED.
--- `their`: the expected order this sync would leave behind
--- must reproduce that prefix verbatim, or it is a hard fork.
-local function hardfork (their)
-    local our = dofile(FC .. "state/order.lua")
+-- Hard fork protects my current order.
+-- Find `set` as highest settled index crossing fork.time or fork.posts.
+-- Must reproduce that prefix verbatim, or it is a hard fork.
+-- `our`:   cur order, before replay
+-- `their`: new order, after replay
+local function hardfork (our, their)
     if #our == 0 then
         return false
     end
 
+    -- window [low, #our] with at most 100 actions
     local low = math.max(1, #our-C.fork.posts+1)
-    local hs = table.concat(our, " ", low, #our)
 
-    -- ask git for exactly `fork.posts` entries with `--no-walk`
+    -- times from the action files
     local ts = {}
-    local out = exec {
-        cmd = "git -C "..REPO.." log --no-walk --format='%H %at' "..hs
-    }
-    for h, t in out:gmatch("(%x+)%s+(%d+)") do
-        ts[h] = tonumber(t)
+    for i=low, #our do
+        local t = assert(load((exec {
+            cmd = "git -C "..REPO.." cat-file blob "..our[i]
+        })))()
+        ts[our[i]] = t.time
     end
 
-    -- index of the last entry that is already settled
+    -- determine highest settled `set` index, if any
     local set
-    if #our >= C.fork.posts then
-        set = low   -- at least post count, but time may trigger before
-    end
+    do
+        -- index of the last entry that is already settled
+        if #our >= C.fork.posts then
+            set = low   -- at least post count, but time may trigger before
+        end
 
-    -- walk from the tip until first entry older than `fork.time`
-    local new = assert(ts[our[#our]])
-    for i=#our, low, -1 do
-        if (new-assert(ts[our[i]])) >= C.fork.time then
-            set = i
-            break
+        -- walk from the tip until first entry older than `fork.time`
+        local new = assert(ts[our[#our]])
+        for i=#our, low, -1 do
+            if (new-assert(ts[our[i]])) >= C.fork.time then
+                set = i
+                break
+            end
         end
     end
 
