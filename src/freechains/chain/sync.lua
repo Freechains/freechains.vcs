@@ -129,22 +129,8 @@ elseif ARGS.recv then
 
         -- 3. need common ancestor
 
-        local oct, G_oct
-        do
-            oct = octopus(loc, rem)
-            local function F (path)
-                local src = exec {
-                    cmd = "git -C " .. REPO .. " show " .. oct .. ":" .. path
-                }
-                return load(src)()
-            end
-            G_oct = {
-                authors = F(".freechains/state/authors.lua"),
-                posts   = F(".freechains/state/posts.lua"),
-                order   = F(".freechains/state/order.lua"),
-                now     = F(".freechains/state/now.lua"),
-            }
-        end
+        local oct = octopus(loc, rem)
+        local G_oct = STATE.read(false, oct)
 
         -- needs fst/winner - snd/loser (do now b/c replay mutates G_oct)
         local fst, snd = consensus(G_oct, loc, rem)
