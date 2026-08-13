@@ -129,6 +129,9 @@ elseif ARGS.recv then
 
         -- 3. need common ancestor
 
+        -- need 2x read("HEAD") copies: loser apply mutates `G.order`
+        local O_loc = STATE.read(true, "HEAD").order
+
         local oct = octopus(loc, rem)
         local G_oct = STATE.read(false, oct)
 
@@ -149,18 +152,12 @@ elseif ARGS.recv then
         do
             local O_snd
             if fst == loc then
-                G_fst = {
-                    authors = dofile(FC .. "state/authors.lua"),
-                    posts   = dofile(FC .. "state/posts.lua"),
-                    order   = dofile(FC .. "state/order.lua"),
-                    now     = dofile(FC .. "state/now.lua"),
-                }
+                G_fst = STATE.read(true, "HEAD")
                 O_snd = G_rem.order
             else
                 G_fst = G_rem
-                O_snd = dofile(FC .. "state/order.lua")
+                O_snd = O_loc
             end
-            O_snd[#O_snd+1] = snd
 
             -- filter O_snd: keep only commits unreachable from fst
             do
