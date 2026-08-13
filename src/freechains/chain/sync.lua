@@ -129,16 +129,14 @@ elseif ARGS.recv then
 
         -- 3. need common ancestor
 
-        -- need 2x read("HEAD") copies: loser apply mutates `G.order`
-        local O_loc = STATE.read(true, "HEAD").order
-
         local oct = octopus(loc, rem)
         local G_oct = STATE.read(false, oct)
 
         -- needs fst/winner - snd/loser (do now b/c replay mutates G_oct)
         local fst, snd = consensus(G_oct, loc, rem)
 
-        -- remote validation: replay remote branch from G_oct
+        -- remote validation: always replay oct -> rem
+        -- malformed commits reject the whole sync
         local G_rem = G_oct -- (G_oct no longer required)
         do
             local ok, err = pcall(replay, G_rem, oct, rem)
@@ -147,138 +145,66 @@ elseif ARGS.recv then
             end
         end
 
-        -- final state: consensus + replay loser
-        local G_fst, merge
-        do
-            local O_snd
-            if fst == loc then
-                G_fst = STATE.read(true, "HEAD")
-                O_snd = G_rem.order
-            else
-                G_fst = G_rem
-                O_snd = O_loc
+        -- winner state:
+        --  me: as is
+        --  he: the replayed remote
+        local G_fst
+        if fst == loc then
+            G_fst = STATE.read(true, "HEAD")
+        else
+            G_fst = G_rem
+        end
+
+        -- loser state: replay snd from fst.
+        -- The first failure voids the rest: the action is valid in
+        -- its own branch, but not in this order
+        local merge, err = replay(G_fst, fst, snd, true)
+        if err then
+            io.stderr:write("ERROR : " .. err .. "\n")
+        end
+
+        -- only when the remote wins
+        if fst == rem then
+            -- check hardfork
+            local ord = STATE.read(true, "HEAD").order
+            if hardfork(ord, G_fst.order) then
+                ERROR("chain sync : hard fork")
             end
 
-            -- filter O_snd: keep only commits unreachable from fst
-            do
-                local keep = {}
+            -- list voided local commits
+            if merge ~= loc then
+                local from = merge or fst
                 local out = exec {
-                    cmd = "git -C " .. REPO .. " rev-list " .. fst .. ".." .. snd
+                    cmd = "git -C " .. REPO .. " " ..
+                        "log --reverse --no-merges --format='%H' " ..
+                        (from .. ".." .. loc)
                 }
-                for h in out:gmatch("%x+") do
-                    keep[h] = true
-                end
-                local filtered = {}
-                for _, h in ipairs(O_snd) do
-                    if keep[h] then
-                        filtered[#filtered+1] = h
+                for cid in out:gmatch("%x+") do
+                    local a = ACTION.aid(cid)
+                    if a then
+                        print("voided : " .. a)
                     end
                 end
-                O_snd = filtered
             end
 
+            -- reset HEAD to remote tip
+            exec {
+                cmd = "git -C " .. REPO .. " reset --hard " .. rem
+            }
+        end
+
+        -- merge the last non-failing loser
+        if merge then
             exec { stderr=false,
-                cmd = "git -C " .. REPO .. " checkout --detach " .. fst
+                cmd = "git -C " .. REPO .. " merge --no-commit " .. merge
             }
-
-            local ok  = true
-            local err = nil
-
-            for _, hash in ipairs(O_snd) do
-                local kind = trailer(hash)
-
-                if kind~='state' then
-                    ok = exec { stderr=false, err=false,
-                        cmd = "git -C " .. REPO .. " merge --no-commit " .. hash
-                    }
-                    if not ok then
-                        exec { stderr=false, err=false,
-                            cmd = "git -C " .. REPO .. " merge --abort"
-                        }
-                        err = "content conflict"
-                        goto DONE
-                    end
-                    exec { stderr=false,
-                        cmd = "git -C " .. REPO .. " commit -m 'x'"
-                        .. " --trailer 'Freechains: merge'"
-                    }
-                end
-
-                ok, err = pcall(commit, G_fst, hash, nil)
-                if not ok then
-                    goto DONE
-                end
-
-                merge = hash
-            end
-
-            ::DONE::
-
-            exec { stderr=false,
-                cmd = "git -C " .. REPO .. " checkout main"
+            exec {
+                cmd = CMD.git .. "git -C " .. REPO ..
+                    " commit --allow-empty-message -m ''"
             }
-            if not ok then
-                io.stderr:write("ERROR : " .. err .. "\n")
-            end
-        end
-
-        if hardfork(G_fst.order) then
-            ERROR("chain sync : hard fork")
-        end
-
-        -- list voided local commits (only when remote wins)
-        if fst==rem and merge~=loc then
-            local from = merge or fst
-            local out = exec {
-                cmd = "git -C " .. REPO .. " " ..
-                    "log --reverse --no-merges --format='%H' " ..
-                    (from .. ".." .. loc)
-            }
-            for hash in out:gmatch("%x+") do
-                if trailer(hash) ~= 'state' then
-                    print("voided : " .. hash)
-                end
-            end
-        end
-
-        -- reset HEAD to winner tip, merge last non-conflicting loser + state
-        do
-            if fst ~= loc then
-                exec {
-                    cmd = "git -C " .. REPO .. " reset --hard " .. fst
-                }
-            end
-
-            if merge then
-                exec { stderr=false,
-                    cmd = "git -C " .. REPO .. " merge --no-commit " .. merge
-                }
-                G_fst.now = PEAKS { "HEAD", "MERGE_HEAD" }
-                write(G_fst)
-                exec {
-                    cmd = "git -C " .. REPO .. " add .freechains/state/"
-                }
-                exec {
-                    cmd = CMD.git .. "git -C " .. REPO .. " commit -m '(empty message)'"
-                    .. " --no-edit --trailer 'Freechains: state'"
-                }
-            elseif fst ~= loc then
-                -- remote wins and no merge: need to verify state
-                -- 1. FF (remote always wins: case 2 rules out the
-                --    converse, ancestor rule in `consensus` decides)
-                -- 2. failing merge at first commit
-                G_fst.now = PEAKS(parents("HEAD"))
-                write(G_fst)
-                local same = exec { stderr=false, err=false,
-                    cmd = "git -C " .. REPO ..  " diff --quiet HEAD -- .freechains/state/"
-                }
-                if not same then
-                    exec {
-                        cmd = "git -C " .. REPO .. " reset --hard " .. loc
-                    }
-                    ERROR("chain sync : remote state mismatch")
-                end
-            end
+            -- the merge tip is new: snapshot the final state there
+            G_fst.now = PEAKS { "HEAD^1", "HEAD^2" }
+            STATE.write(G_fst, true, "HEAD")
         end
     end
 
