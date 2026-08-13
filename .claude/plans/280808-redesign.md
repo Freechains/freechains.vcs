@@ -22,8 +22,8 @@
     - N: neutral commit dates -- see "Neutral commit dates"
     - R: constant renames -- see "Constant names"
     - P: `cat-file --batch` in `hardfork` -- see "Small cleanups"
-    - S5: loser apply via `climb` -- see its section (2 won't
-      dos recorded there: unified walk, forward pointers)
+    - S5 DONE (untested): loser apply via `climb` -- see its
+      section (2 won't dos: unified walk, forward pointers)
 - D as built (`chain/sweep.lua`): just `git gc --prune=now`
     - named `sweep`, not `gc`/`trash`: it decides nothing,
       only reclaims. `revoke` fills the trash, this empties it
@@ -83,18 +83,33 @@
 - cost: `git log` ordering stops being meaningful for humans
     - tests that craft raw commits drop their `date` prefix
 
-# S5: loser apply via `climb`
+# S5 DONE (untested): loser apply via `climb`
 
-- `sync.lua` 138-205 is a hand-inlined `meet`: the loc/rem fork
+- `sync.lua` 138-205 was a hand-inlined `meet`: the loc/rem fork
   is just the top-level merge
-- replace the loser apply with a truncating `climb`
-    - `climb(G_fst, oct, snd, false, true)` -> last good cid
-    - `climb` gains a "truncate on failure, return last good"
-      flag (~5 lines in `consensus.lua`)
-- dies: `O_snd`, `keep`, `a2c`, `seq`, the apply loop, and all
-  aid<->cid bridging (~68 lines -> ~15)
-- unchanged: phase A (remote validation), `hardfork`, voided
-  listing, merge + snapshot
+- `replay(G, com, tip, trunc)`: `trunc` = the branch is a LOSER,
+  so the first RULE failure voids the rest
+    - returns `last, err` instead of raising; `STOP` sentinel
+      unwinds the climb
+- died: `O_snd`, `keep`, `a2c`, `seq`, the apply loop, and all
+  aid<->cid bridging (-53 lines in `sync.lua`, +18 in
+  `consensus.lua`)
+
+- error kinds split, so phase A folded into the winner:
+    - RULE (`apply` failures: reps, time, target) -> truncate
+    - malformed (sign, action file, mode, time pin) -> reject,
+      wherever it appears
+    - `rule_error()` + `is_rule()`; `RULE` metatable keeps
+      `.. err` and `tostring(err)` working (`chains.lua`)
+- winner state: my snapshot (`fst==loc`) or replay `oct..rem`
+    - the remote is walked ONCE now, not twice, on a local win
+- `hardfork` runs only when `fst==rem`: a local win only
+  appends, so it could never fire
+
+- semantic change: sub-merges inside the loser branch now
+  resolve against the WINNER's state, which is what a peer
+  derives when it replays my merge (was: `G_rem.order`, built
+  from `oct` + remote-only)
 
 - WON'T DO: one unified walk from `oct` (no replay, no
   loc/rem split), because the split encodes 3 requirements

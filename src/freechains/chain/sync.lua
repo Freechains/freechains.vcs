@@ -207,19 +207,87 @@ elseif ARGS.recv then
 
     ::RECV::
 
-    -- stale-beg cleanup: drop refs/begs/* whose post is already in main
+    -- begs, one pass over refs/begs/*:
+    --  - already in main: stale, drop it
+    --  - fetched, so unsnapshotted: a beg's state = its parent's
+    --    snapshot + the beg post itself (what the writer saved)
+    -- An invalid beg cannot be liked: its ref drops
     do
         local out = exec {
             cmd = "git -C " .. REPO .. " for-each-ref refs/begs/ --format='%(refname) %(objectname)'"
         }
-        for refname, post in out:gmatch("(%S+)%s+(%S+)") do
-            local ok = exec { stderr=false, err=false,
-                cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. post .. " main"
+        for refname, cid in out:gmatch("(%S+)%s+(%S+)") do
+            local stale = exec { stderr=false, err=false,
+                cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. cid .. " main"
             }
-            if ok then
+            local keep = true
+            if stale then
+                keep = false
+            elseif not STATE.has(false, cid) then
+                local ps = parents(cid)
+                keep = (#ps == 1) and STATE.has(false, ps[1])
+                if keep then
+                    keep = pcall(commit, STATE.read(false, ps[1]), cid, true)
+                end
+            end
+            if not keep then
                 exec {
                     cmd = "git -C " .. REPO .. " update-ref -d " .. refname
                 }
+            end
+        end
+    end
+
+    -- Payload anchors follow the final sums (fetch + reconcile):
+    -- removed bytes must not return (negative refspecs), lingering
+    -- bytes re-anchor (restore), and a REVOKED action loses its
+    -- anchor. The final sums decide ONCE, here
+    do
+        local G = STATE.read(true, "HEAD")
+
+        local exc = {}
+        for aid, e in pairs(G.actions) do
+            if is_revoked(e) then
+                exc[#exc+1] = " '^refs/payloads/" .. aid .. "'"
+            end
+        end
+        exec { err=false, stderr=false,
+            cmd = "git -C " .. REPO .. " fetch " .. URL(ARGS.remote, ARGS.alias) ..
+                " 'refs/payloads/*:refs/payloads/*'" .. table.concat(exc)
+        }
+
+        local has = {}
+        do
+            local out = exec {
+                cmd = "git -C " .. REPO ..
+                    " for-each-ref refs/payloads/ --format='%(refname)'"
+            }
+            for a in out:gmatch("refs/payloads/(%x+)") do
+                has[a] = true
+            end
+        end
+
+        for aid, e in pairs(G.actions) do
+            if is_revoked(e) then
+                if has[aid] then
+                    exec {
+                        cmd = "git -C " .. REPO ..
+                            " update-ref -d refs/payloads/" .. aid
+                    }
+                end
+            elseif not has[aid] then
+                local t = ACTION.read(false, aid)
+                if t and t.blob then
+                    local have = exec { err=false, stderr=false,
+                        cmd = "git -C " .. REPO .. " cat-file -e " .. t.blob
+                    }
+                    if have then
+                        exec {
+                            cmd = "git -C " .. REPO .. " update-ref refs/payloads/" ..
+                                aid .. " " .. t.blob
+                        }
+                    end
+                end
             end
         end
     end
