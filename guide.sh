@@ -112,19 +112,19 @@ ssh-keygen -t ed25519 -C '' -N '' -q -f "$KEYS/bob"
 echo "-- expected failure:"
 FC --root="$B" --now=$((T0+50)) chain '#chat' post inline $'Possibly malicious\n' --sign="$KEYS/bob" || true
 
-FC --root="$A" chain '#chat' reps author "$(awk '{print $1" "$2}' "$KEYS/alice.pub")"
-FC --root="$B" chain '#chat' reps author "$(awk '{print $1" "$2}' "$KEYS/bob.pub")"
+FC --root="$A" --now=$((T0+50)) chain '#chat' reps author "$(awk '{print $1" "$2}' "$KEYS/alice.pub")"
+FC --root="$B" --now=$((T0+50)) chain '#chat' reps author "$(awk '{print $1" "$2}' "$KEYS/bob.pub")"
 
 # Alice welcomes Bob with 10000 reps
 FC --root="$A" --now=$((T0+60)) chain '#chat' like 10000 author "$(awk '{print $1" "$2}' "$KEYS/bob.pub")" --sign="$KEYS/alice"
 FC --root="$B" --now=$((T0+70)) chain '#chat' sync recv localhost:$A_PORT
-FC --root="$B" chain '#chat' reps author "$(awk '{print $1" "$2}' "$KEYS/alice.pub")"
-FC --root="$B" chain '#chat' reps author "$(awk '{print $1" "$2}' "$KEYS/bob.pub")"
+FC --root="$B" --now=$((T0+70)) chain '#chat' reps author "$(awk '{print $1" "$2}' "$KEYS/alice.pub")"
+FC --root="$B" --now=$((T0+70)) chain '#chat' reps author "$(awk '{print $1" "$2}' "$KEYS/bob.pub")"
 
 # Bob welcomes Charlie with 5000 reps
 ssh-keygen -t ed25519 -C '' -N '' -q -f "$KEYS/charlie"
 FC --root="$B" --now=$((T0+80)) chain '#chat' like 5000 author "$(awk '{print $1" "$2}' "$KEYS/charlie.pub")" --sign="$KEYS/bob"
-FC --root="$B" chain '#chat' reps author "$(awk '{print $1" "$2}' "$KEYS/charlie.pub")"
+FC --root="$B" --now=$((T0+80)) chain '#chat' reps author "$(awk '{print $1" "$2}' "$KEYS/charlie.pub")"
 
 echo
 echo "############ Posts Reputation & Begging ############"
@@ -137,11 +137,11 @@ FC --root="$B" --now=$((T0+81)) chain '#chat' like    1000 action "$HELLO" --sig
 FC --root="$B" --now=$((T0+82)) chain '#chat' dislike 1000 action "$HERE"  --sign="$KEYS/bob"
 
 # expected: 'Hello World' 450 , 'Sync me' 0 , 'I am here' -450
-FC --root="$B" chain '#chat' reps actions
+FC --root="$B" --now=$((T0+82)) chain '#chat' reps actions
 
 # expected: alice 40000 (her two received votes cancel out), while bob
 # and charlie each pay in full for the single vote they cast
-FC --root="$B" chain '#chat' reps authors
+FC --root="$B" --now=$((T0+82)) chain '#chat' reps authors
 
 # Dave holds no reps at all, so he begs: the post is parked on
 # refs/begs/, outside the chain, until someone likes it
@@ -225,15 +225,12 @@ echo
 # fork reference = Alice's last synced post (t = T0+90)
 FORK=$((T0+90))
 
-# Bob and Charlie adopt the canonical order, then keep posting/syncing
-# to the hub over 7 days. Alice (peer A) stays offline the whole time.
-FC --root="$B" --now=$((T0+110)) chain '#chat' sync recv localhost:$X_PORT
-
-FC --root="$B" --now=$((FORK+1*DAY))   chain '#chat' post inline $'day 1\n' --sign="$KEYS/bob"
-FC --root="$B" --now=$((FORK+1*DAY+5)) chain '#chat' sync send localhost:$X_PORT
-# ...                                                    # (days go by)
-FC --root="$B" --now=$((FORK+7*DAY))   chain '#chat' post inline $'day 7\n' --sign="$KEYS/charlie"
-FC --root="$B" --now=$((FORK+7*DAY+5)) chain '#chat' sync send localhost:$X_PORT
+# Bob and Charlie keep posting directly THROUGH the hub peer X (a
+# peer is just a device), which already holds the merged branches.
+# Alice (peer A) stays offline the whole time.
+FCH --root="$X" --now=$((FORK+1*DAY)) chain '#chat' post inline $'day 1\n' --sign="$KEYS/bob"
+DAY1=$HASH
+FC --root="$X" --now=$((FORK+7*DAY)) chain '#chat' post inline $'day 7\n' --sign="$KEYS/charlie"
 
 # the hub is now entrenched: measured back from its newest message, its
 # history reaches 7 days (day 7 vs the fork-era posts), so everything
@@ -242,10 +239,10 @@ echo "-- hub X order (day 1 ... day 7):"
 FC --root="$X" chain '#chat' list order
 
 # Alice comes back and posts on her own branch, which the hub has not seen
-FC --root="$A" --now=$((FORK+7*DAY+100)) chain '#chat' post inline $'Alice takes over\n' --sign="$KEYS/alice"
+FCH --root="$A" --now=$((FORK+7*DAY+100)) chain '#chat' post inline $'Alice takes over\n' --sign="$KEYS/alice"
 
-# the post she just made, one below HEAD (the state commit that follows it)
-REJECTED=$(git -C "$A/chains/#chat" rev-parse HEAD^1)
+# the post she just made (its printed aid)
+REJECTED=$HASH
 
 # A sends to X: the hub is entrenched and REFUSES to merge Alice's fork
 echo "-- expected failure (the hub is entrenched):"
@@ -284,8 +281,14 @@ echo
 echo "############ Moderation ############"
 echo
 
-MOD=$((FORK+7*DAY+600))
+# the 7-day fork was only a simulation: abandon it in A to return to
+# the present, so the next commands need no future clock (here the
+# "present" is the consensus era, right after the fork reference)
+FC --root="$A" chain '#chat' abandon "$DAY1"
 
+MOD=$((FORK+100))
+
+# all members now act through peer A on the current clock
 # Dave still holds the reps from his admitted beg, enough to post spam
 FCH --root="$A" --now=$((MOD+0)) chain '#chat' post inline $'BUY NOW\n' --sign="$KEYS/dave"
 SPAM=$HASH
@@ -295,16 +298,11 @@ FC --root="$A" --now=$((MOD+10)) chain '#chat' revoke 1000 "$SPAM" --sign="$KEYS
 echo "-- expected failure (revoked payload):"
 FC --root="$A" chain '#chat' get payload "$SPAM" || true
 
-# Bob catches up, then posts something he regrets and self-revokes: a
-# self-revoke is free (ungated) and absolute (no community reps lift it)
-FC  --root="$B" --now=$((MOD+15)) chain '#chat' sync recv localhost:$X_PORT
-FCH --root="$B" --now=$((MOD+20)) chain '#chat' post inline $'my address is ...\n' --sign="$KEYS/bob"
+# Bob posts something he regrets and self-revokes: a self-revoke is
+# free (ungated) and absolute (no community reps lift it)
+FCH --root="$A" --now=$((MOD+20)) chain '#chat' post inline $'my address is ...\n' --sign="$KEYS/bob"
 REGRET=$HASH
-FC --root="$B" --now=$((MOD+30)) chain '#chat' revoke 1000 "$REGRET" --sign="$KEYS/bob"
-
-# a revoke is an ordinary commit, so it propagates to peer A via the hub
-FC --root="$B" --now=$((MOD+40)) chain '#chat' sync send localhost:$X_PORT
-FC --root="$A" --now=$((MOD+50)) chain '#chat' sync recv localhost:$X_PORT
+FC --root="$A" --now=$((MOD+30)) chain '#chat' revoke 1000 "$REGRET" --sign="$KEYS/bob"
 echo "-- expected failure (self-revoke is absolute):"
 FC --root="$A" chain '#chat' get payload "$REGRET" || true
 
