@@ -4,26 +4,22 @@
 
 # PENDING
 
-- STATE: suite GREEN, on `260808-redesign`
-    - shipped this round: A (`--file` always verified), C
-      (revoke floor 1000), Q (revocation targets any action),
-      scored votes, the `post` -> `action`/`aid` vocabulary,
-      and D (`chain sweep`)
-    - 25 sync tests still early-exit at "280808 : EARLY EXIT";
-      `guide.sh` still stops at the clone. That is expected
-      until S1/S2, NOT a regression
-    - uncommitted: `README.md`, `guide.sh` (doc work, now
-      stale: the CLI says `action`/`aid`)
+- STATE: FULL suite GREEN (38/38, no early exits), on
+  `260808-redesign`; `guide.sh` runs END TO END
+    - the sync phase LANDED (S1 recv, S2 clone, S3 send/hook,
+      B6 pinning, E3 sync half) -- see "Sync phase as built"
+    - uncommitted: `README.md`, `guide.sh` (doc work; guide.sh
+      got a small fix: `REJECTED` = the post's printed aid,
+      not `rev-parse HEAD^1`)
+    - NOTE: hook tests need the INSTALLED freechains current:
+      `sudo luarocks --lua-version=5.4 make
+      freechains-dev-2.rockspec`
 - small, decided but not written:
-    - E: `chain sweep` (stage 2, needs S1): prune
-      `.git/states/` outside the settled window, once a
-      missing snapshot can be recomputed
-- the sync phase (own section below): S1 recv, S2 clone,
-  S3 send/hook, S4 cleanups, B6 receive validation, E3's
-  sync half (removal trigger at the replay settle, the
-  `^refs/payloads/<removed>` refspec)
-    - knock-on: 25 early-exited tests, `guide.sh` stops at
-      the clone
+    - E: `chain sweep` (stage 2): prune `.git/states/`
+      outside the settled window
+    - S4 leftovers: none found -- `write(G)`, `trailer()`,
+      state walkers were already gone before S1
+    - N: neutral commit dates -- see "Neutral commit dates"
 - D as built (`chain/sweep.lua`): just `git gc --prune=now`
     - named `sweep`, not `gc`/`trash`: it decides nothing,
       only reclaims. `revoke` fills the trash, this empties it
@@ -33,19 +29,137 @@
       and removal must be immediate, so there is no choice
     - abandoned COMMITS survive in the HEAD reflog; only
       payloads (outside the tree) go. Metadata, not content
-- open questions:
-    - how replay recognizes a SIGNED `--beg` (today
-      `beg or (key == nil)`)
-    - after B6: `kind` from `act.action`, `env` sheds
-      `sign`/`time`
-- plan hygiene: `260802-remove-blob.md` says "absent but not
-  revoked -> payload unavailable"; `get` now ASSERTS instead
-  (an honest peer holds the payload of every post it holds
-  non-revoked). Fix that line when sync lands
+- open questions, RESOLVED at S1:
+    - signed `--beg` at replay: begs only enter `main` under a
+      like merge; the beg flag climbs the merge's right branch,
+      so `beg or (key == nil)` needed no new story
+    - B6 landed inside `commit()`: `kind` = `act.action`,
+      file pinned to envelope (`act.sign == key`,
+      `act.time == %at`); `apply(G, kind, act, env)` kept the
+      explicit-T shape (env = time/aid/sign/parents/beg)
 - spec backlog lives in `reps.md`: Rule 5 file-op costs,
   128 KB limit, bilateral-sync and tie-breaker tests
     - revocation state (3.b) is written: floor, action target,
       scored votes
+
+# Neutral commit dates
+
+- goal: one signed source of truth for time (the action file),
+  then zero `GIT_AUTHOR_DATE`/`GIT_COMMITTER_DATE`
+- a commit ends as: tree + parents + signature
+
+- who still reads `%at` today
+    - `freechains.lua` `CMD.git`: stamps every commit we create
+    - `consensus.lua` `commit()`: `time = %at`, B6 checks
+      `act.time ~= time`
+    - `common.lua` `TIME()`: folded by `PEAKS()` into `now`
+    - `chains.lua`: genesis `now` = genesis commit `%at`
+
+- N1: drop the B6 time check
+    - `act.time` is already authenticated: blob -> tree ->
+      commit -> signature; `%at` is a second source of truth
+      that B6 exists only to reconcile
+- N2: `TIME(h)` reads the action blob, not `%at`
+    - action commit: `TIME` = `act.time` (same move the new
+      `hardfork` already made: order entries are aids)
+    - merge/state commit: no action file, but its snapshot
+      records `now`, so `max(TIME, PEAK)` keeps `PEAK`;
+      a merge adds no new time -> `TIME` = 0 is correct
+- N3: genesis `now` from `CMD.now`, not `%at`
+    - `chains.lua` writes the genesis snapshot at creation
+- N4: `CMD.git` becomes a no-op (dates zeroed / unset)
+    - `--now` plumbing loses its reason: `-o now=` push option
+      and the receiver hook date pinning die with it
+
+- already neutral (nothing to do)
+    - author/committer name+email: `'-'` in `git_init`
+    - commit message: `--allow-empty-message -m ''`
+    - `Freechains:` trailers: gone (S11a)
+
+- cost: `git log` ordering stops being meaningful for humans
+    - tests that craft raw commits drop their `date` prefix
+
+# Sync phase as built (this round)
+
+- `consensus.lua` `commit()` rewritten, classification
+  structural:
+    - aid = `ACTION.aid(cid)`; no aid + 1 parent ->
+      `invalid commit : not an action`; no aid + 2 parents =
+      pure-topology merge, `--cc` diff must be EMPTY
+    - name binds content: `rev-parse cid:path` must equal the
+      aid, else `invalid action file` (kills forged paths)
+    - mode check (all-`A`, path == its own action file) runs
+      even for an already-applied aid: a duplicate must still
+      be a clean add, not a tamper (`AA` = one letter per
+      merge parent, so the check is `[^A]`)
+    - dup skip via `G.actions[aid]` (no visited seeding from
+      order: order holds aids, climb walks cids)
+    - snapshot per processed commit, `now` ancestry-accurate
+      (`max(time, PEAKS(ps))` -- replay G.now may hold
+      sibling branches); NEVER overwrites an existing
+      snapshot (a refused sync must not corrupt local state;
+      first write = own-lineage state, as old tree state)
+- `replay`: beg-merge probe = the merge's own action file has
+  `action == 'like'` (trailer probe died)
+- `sync.lua` recv:
+    - `O_loc` (HEAD order) captured BEFORE replay: hardfork
+      compares against it (loser applies would otherwise
+      overwrite the old tip's snapshot -- 2 bugs found by
+      cli-abandon and fork-100-posts)
+    - `G_oct` = `STATE.read(false, oct)` (no recompute path:
+      every commit in history has a snapshot by invariant)
+    - loser walk: aids from loser order -> cids via one
+      rev-list + `ACTION.aid` map; detached-head validation
+      merges DROPPED (add-only distinct files cannot
+      conflict); `commit()` applies directly
+    - final: reset to fst, one empty-message merge commit for
+      the last good loser, snapshot at new HEAD with
+      `PEAKS{HEAD^1, HEAD^2}`
+    - `voided :` prints aids (posts/votes only, merges never)
+- `BEGS()` (consensus.lua): fetched beg refs arrive
+  unsnapshotted -> derive from the parent's snapshot via
+  `commit(Gb, cid, true)`; invalid or unplaceable begs drop
+  their ref
+- `PAYLOADS(G, url)` (consensus.lua): E3's sync half in one
+  pass, called at recv RECV-tail and clone
+    - fetch `refs/payloads/*` with `^refs/payloads/<aid>`
+      negative refspecs for every revoked action (removed
+      bytes never re-imported)
+    - reconcile with final sums: revoked & anchored -> drop
+      ref; standing & unanchored & bytes present -> re-anchor
+- clone (`chains.lua`): genesis G from `pioneers()` +
+  genesis `%at`, genesis snapshot written, `replay(G, gen,
+  head)` snapshots every commit, then `BEGS()` +
+  `PAYLOADS()`; on failure symlink + dir deleted,
+  `ERROR("chains add : <err>")`
+- `STATE.has(is_ref, rev)` added (snapshot existence)
+- send/hook: UNCHANGED (push still rejected by the hook after
+  it runs recv against the sender's url)
+- tests, protocol-visible rewrites:
+    - crafts: trailer commits -> hand-built action files
+      (aid-named, pinned dates, `-S`); forge = append bytes
+      to the empty-message commit (old `(empty message)` gsub
+      matches nothing -- the parked tamper vector)
+    - `.freechains/state/*` dofiles -> `STATE(dir)` snapshot
+      reads; worktree `*.txt` cats -> `get payload`
+    - consensus tests 1/2: content conflict is IMPOSSIBLE now
+      (payloads out of tree); rewritten as pure ordering
+      checks (loser applies AFTER winner, nothing voided)
+    - consensus tests 3/4: dislike 3000 -> 4500 (GEN_4
+      pioneers = 12500 = 50000//4, not 7500: 3x4050 must
+      drain below cost 500)
+    - repl-*: raw fetch + DRY-RUN merge probes stay (git
+      substrate); HEAD moves go through `sync recv` (a raw
+      merge leaves no snapshots, CLI would die); conflict
+      sections inverted (concurrent posts can no longer
+      collide); repl begs: CLI begs BEFORE raw HEAD merges
+    - cli-list: dag distant-backs annotation now in sorted
+      aid order (`ACTION.backs` sorts)
+    - bug-err-kind: two probes (junk commit -> `not an
+      action`; bad `action` field -> `invalid kind`)
+- new recv tamper coverage (cli-recv 6-8): extra file in an
+  action commit -> mode violation; junk commit -> not an
+  action; forged action path -> invalid action file
 
 # Done (already on main)
 
@@ -368,8 +482,12 @@
 
 # Next steps (in order, cold-start)
 
-- 0: `make tests` (green as of the last commit); `guide.sh`
-  stops at the clone by design, until S2
+- 0: `make tests` -- FULL suite green; `guide.sh` runs end
+  to end (reinstall first so the hook matches the source)
+- 1: E stage 2 (`sweep` prunes `.git/states/` outside the
+  settled window); refresh `README.md`/`guide.sh` doc work
+- SECTIONS BELOW ARE HISTORY (the sync phase shipped; kept
+  for rationale -- see "Sync phase as built")
 
 ## 1. D DONE -- `freechains chain <alias> sweep`
 

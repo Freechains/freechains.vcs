@@ -114,10 +114,10 @@ git fetch <peer>
 
 - `get.lua --payload`: read pointer from the tree, then
   `git cat-file blob <sha>`
-- revoked -> `ERROR : chain get : revoked post`
-- absent but not revoked -> `ERROR : chain get : payload
-  unavailable`
-- never a raw Lua traceback
+- revoked -> `ERROR : chain get : revoked payload`
+- absent but not revoked -> ASSERTS (an honest peer holds the
+  payload of every post it holds non-revoked; recv fetches
+  payload anchors and reconciles them with the final sums)
 
 # No user bytes in the DAG
 
