@@ -132,9 +132,7 @@ if entry then
     elseif was_revoked and (not is_revoked(entry)) then
         -- every post carries a payload, a vote only with `--why`:
         -- with no bytes to restore there is nothing to gate
-        local T = assert(load(exec {
-            cmd = "git -C " .. REPO .. " cat-file blob " .. ARGS.id,
-        }))()
+        local T = ACTION.read(true, ARGS.id)
         if T.blob then
             local have = exec { err=false, stderr=false,
                 cmd = "git -C " .. REPO .. " cat-file -e " .. T.blob,

@@ -11,6 +11,39 @@ function M.path (aid)
     return "actions/" .. aid:sub(1, 2) .. "/" .. aid .. ".lua"
 end
 
+-- the action table of `aid`: the aid IS the blob hash, so the
+-- object is the file
+--  - asr = true  : asserts (my own history, so it is a bug)
+--  - asr = false : nil if it does not load (untrusted input)
+
+function M.read (asr, aid)
+    local out = exec { err=false, stderr=false,
+        cmd = "git -C " .. REPO .. " cat-file blob " .. aid
+    }
+    if out then
+        -- "t": text only (a binary chunk can crash the VM)
+        -- {} : no globals (the file is DATA, not a program)
+        local f = load(out, "=action", "t", {})
+        if f then
+            local ok, t = pcall(f)
+            if ok then
+                if type(t) == 'table' then
+                    -- `blob` is the one field no rule checks, and it
+                    -- reaches a shell: a hash, or nothing
+                    local b = t.blob
+                    if b==nil or (type(b)=='string' and b:match("^%x+$")) then
+                        return t
+                    end
+                end
+            end
+        end
+    end
+    if asr then
+        error("bug found : no action : " .. aid)
+    end
+    return nil
+end
+
 -- `pre` expanded to a full aid: ids are printed abbreviated
 -- (`list dag`), so a prefix must resolve, as git does with
 -- commit hashes. Two chars name the bucket, so anything

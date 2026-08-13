@@ -17,10 +17,7 @@ local function hardfork (our, their)
     -- times from the action files
     local ts = {}
     for i=low, #our do
-        local t = assert(load((exec {
-            cmd = "git -C "..REPO.." cat-file blob "..our[i]
-        })))()
-        ts[our[i]] = t.time
+        ts[our[i]] = ACTION.read(true, our[i]).time
     end
 
     -- determine highest settled `set` index, if any

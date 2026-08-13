@@ -46,9 +46,7 @@ elseif ARGS.dag then
     local ups = {}
     local lbl = {}
     for _, h in ipairs(order) do
-        ups[h] = assert(load(exec {
-            cmd = "git -C " .. REPO .. " cat-file blob " .. h,
-        }))().backs
+        ups[h] = ACTION.read(true, h).backs
         local l = h:sub(1, 7)
         if G.actions[h] and is_revoked(G.actions[h]) then
             l = "~" .. l .. "~"
