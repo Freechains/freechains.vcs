@@ -71,7 +71,6 @@ end
 -- REMOTE reorder, never against a deliberate local escape
 exec {
     cmd = "git -C " .. REPO .. " reset --hard " .. tip,
-    err = "chain abandon : git reset failed",
 }
 
 -- stale-beg cleanup: a beg is one commit (the post) on top of the

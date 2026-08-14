@@ -72,7 +72,7 @@ if ARGS.send then
 
 elseif ARGS.recv then
     do
-        exec { stderr=false,
+        exec {
             cmd = "git -C " .. REPO .. " fetch " .. URL(ARGS.remote, ARGS.alias) ..
                 " main refs/begs/*:refs/begs/*",
             err = "chain sync : fetch failed",

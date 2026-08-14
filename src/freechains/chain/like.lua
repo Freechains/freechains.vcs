@@ -193,7 +193,7 @@ end
 
 do
     local s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=ssh"
-    exec { stderr=false,
+    exec {
         cmd = CMD.git .. "git -C " .. REPO .. s1 .. " commit -S --allow-empty-message -m ''",
         err = "chain " .. name .. " : invalid sign key",
     }
