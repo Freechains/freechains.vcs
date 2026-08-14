@@ -31,7 +31,7 @@ do
     else
         assert(ARGS.file)
         -- `cp` runs in the caller's cwd: relative paths just work
-        exec { stderr=false,
+        exec {
             cmd = "cp -- '" .. ARGS.path .. "' " .. path,
             err = "chain post : invalid path",
         }
@@ -88,9 +88,10 @@ do
         s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=ssh"
         s2 = " -S"
     end
-    exec { stderr=false,
+    -- unsigned: only a bug fails
+    exec {
         cmd = CMD.git .. "git -C " .. REPO .. s1 .. " commit" .. s2 .. " --allow-empty-message -m ''",
-        err = "chain post : invalid sign key",
+        err = ARGS.sign and "chain post : invalid sign key" or nil,
     }
 end
 
