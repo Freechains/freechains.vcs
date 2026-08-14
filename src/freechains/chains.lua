@@ -48,6 +48,22 @@ local function pioneers (dir)
     return A
 end
 
+-- genesis snapshot: direct write (no chain context here); `now` =
+-- the genesis commit date, so creator and cloner agree byte for byte
+local function genesis (dir, gen)
+    local G = {
+        authors = pioneers(dir),
+        actions = {},
+        order   = {},
+        now     = tonumber((exec {
+            cmd = "git -C " .. dir .. " log -1 --format=%at " .. gen,
+        })),
+    }
+    local f = io.open(dir .. ".git/states/" .. gen .. ".lua", "w")
+    f:write(serial(G))
+    f:close()
+end
+
 local DIR = ARGS.root .. "/chains/"
 
 if ARGS.add then
@@ -125,18 +141,12 @@ if ARGS.add then
             cmd = "git -C " .. tmp .. " rev-parse HEAD",
         }
 
-        -- genesis snapshot (no chain context here: direct write)
-        do
-            local G = {
-                authors = pioneers(tmp .. "/"),
-                actions = {},
-                order   = {},
-                now     = tonumber(CMD.now),
-            }
-            local f = io.open(tmp .. "/.git/states/" .. gen .. ".lua", "w")
-            f:write(serial(G))
-            f:close()
-        end
+        -- genesis ref: remote clone without whole history
+        exec {
+            cmd = "git -C " .. tmp .. " update-ref refs/genesis " .. gen,
+        }
+
+        genesis(tmp, gen)
 
         local hash = "#" .. gen
         local final = DIR .. "/" .. hash
@@ -155,25 +165,30 @@ if ARGS.add then
         print(hash)
 
     elseif ARGS.clone then
+        -- clone genesis alone: everything else comes later through `recv`
+        -- clone = base case of recv: keep the genesis commit only,
+        -- snapshot it, then let `sync recv` validate the rest.
+        -- On failure the clone is deleted whole
         exec {
             cmd = "mkdir -p " .. DIR,
-            err = "chains add : clone failed",
         }
         local tmp = DIR .. "/_tmp-" .. math.random(0, 9999999999) .. "/"
-        exec { stderr=false,
-            cmd = "git clone " .. URL(ARGS.url, ARGS.alias) .. " " .. tmp,
-            err = "chains add : clone failed",
-        }
-        -- a default clone copies only refs/heads/*: bring pending begs
-        exec { stderr=false,
-            cmd = "git -C " .. tmp .. " fetch " .. URL(ARGS.url, ARGS.alias) ..
-                " refs/begs/*:refs/begs/*",
-            err = "chains add : clone failed",
+        exec {
+            cmd = "git init -b main " .. tmp,
         }
         git_init(tmp)
-        local hash = "#" .. exec {
-            cmd = "git -C " .. tmp .. " rev-list --max-parents=0 HEAD",
+        exec {
+            cmd = "git -C " .. tmp .. " fetch " .. URL(ARGS.url, ARGS.alias) ..
+                " refs/genesis:refs/genesis",
+            err = "chains add : clone failed",
         }
+        local gen = exec {
+            cmd = "git -C " .. tmp .. " rev-parse refs/genesis",
+        }
+        exec {
+            cmd = "git -C " .. tmp .. " reset --hard " .. gen,
+        }
+        local hash = "#" .. gen
         local dir = DIR .. "/" .. hash .. "/"
         if not os.rename(tmp, dir) then
             exec {
@@ -187,6 +202,24 @@ if ARGS.add then
         exec {
             cmd = "ln -s '" .. hash .. "' " .. DIR .. "/" .. ARGS.alias,
         }
+
+        genesis(dir, gen)
+
+        -- re-exec myself: `recv` binds REPO from its own ARGS
+        local now = (ARGS.now and (" --now=" .. CMD.now) or "")
+        local ok, _, out = exec { err=false,
+            cmd = arg[0] .. " --root='" .. ARGS.root .. "'" .. now
+                .. " chain '" .. ARGS.alias .. "'"
+                .. " sync recv '" .. ARGS.url .. "'",
+        }
+        if not ok then
+            os.remove(DIR .. "/" .. ARGS.alias)
+            exec {
+                cmd = "rm -rf '" .. dir .. "'",
+            }
+            ERROR("chains add : clone failed", out)
+        end
+
         print(hash)
     end
 elseif ARGS.rem then
