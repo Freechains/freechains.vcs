@@ -66,7 +66,7 @@ if ARGS.add then
         if ARGS.file then
             -- existing path-based init below
         elseif ARGS.inline then
-            local pub = exec { stderr=false,
+            local pub = exec {
                 cmd = "ssh-keygen -y -f " .. ARGS.sign,
                 err = "chains add : invalid sign key",
             }
@@ -102,9 +102,8 @@ if ARGS.add then
 
         local tmp = DIR .. "/tmp-" .. rand .. "/"
 
-        exec { stderr=false,
+        exec {
             cmd = "git init -b main " .. tmp,
-            err = "chains add : init failed",
         }
         git_init(tmp)
         do
