@@ -1,37 +1,50 @@
--- local state snapshots, one per state commit:
---  - `.git/states/<hash>.lua`
---  - is_ref = true  : rev is a ref (HEAD)
---  - is_ref = false : rev is a hash
+-- local state snapshots, one per commit:
+--  - `.git/states/<cid>.lua`
+--  - is_ref = true  : cid is a ref (HEAD), resolved first
+--  - is_ref = false : cid is a commit hash
 
 local M = {}
 
--- G saved with every new state commit
+-- rev -> cid: resolves a ref (HEAD) to its commit hash
 
-function M.write (G, is_ref, rev)
-    local hash = rev
+local function tocid (is_ref, rev)
     if is_ref then
-        hash = exec {
+        return exec {
             cmd = "git -C " .. REPO .. " rev-parse " .. rev,
         }
     end
+    return rev
+end
+
+-- G saved with every new snapshot
+
+function M.write (G, is_ref, cid)
+    cid = tocid(is_ref, cid)
     -- `.git/states/` is created at repo creation (chains.lua)
-    local f = io.open(REPO .. ".git/states/" .. hash .. ".lua", "w")
+    local f = io.open(REPO .. ".git/states/" .. cid .. ".lua", "w")
     f:write(serial(G))
     f:close()
 end
 
--- the state RECORDED at `rev`
+-- whether `cid` has a snapshot
 
-function M.read (is_ref, rev)
-    local hash = rev
-    if is_ref then
-        hash = exec {
-            cmd = "git -C " .. REPO .. " rev-parse " .. rev,
-        }
+function M.has (is_ref, cid)
+    cid = tocid(is_ref, cid)
+    local f = io.open(REPO .. ".git/states/" .. cid .. ".lua")
+    if f then
+        f:close()
+        return true
     end
+    return false
+end
+
+-- the state RECORDED at `cid`
+
+function M.read (is_ref, cid)
+    cid = tocid(is_ref, cid)
     local f = assert(
-        loadfile(REPO .. ".git/states/" .. hash .. ".lua"),
-        "bug found : no snapshot : " .. hash
+        loadfile(REPO .. ".git/states/" .. cid .. ".lua"),
+        "bug found : no snapshot : " .. cid
     )
     return f()
 end
