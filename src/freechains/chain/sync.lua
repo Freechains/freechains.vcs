@@ -223,9 +223,9 @@ elseif ARGS.recv then
             local keep = true
             if merged then
                 keep = false
-            elseif not STATE.has(false, cid) then
+            elseif not STATE.has(cid) then
                 local ps = parents(cid)
-                keep = (#ps == 1) and STATE.has(false, ps[1])
+                keep = (#ps == 1) and STATE.has(ps[1])
                 if keep then
                     keep = pcall(commit, STATE.read(false, ps[1]), cid, true)
                 end

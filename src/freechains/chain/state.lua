@@ -28,8 +28,7 @@ end
 
 -- whether `cid` has a snapshot
 
-function M.has (is_ref, cid)
-    cid = tocid(is_ref, cid)
+function M.has (cid)
     local f = io.open(REPO .. ".git/states/" .. cid .. ".lua")
     if f then
         f:close()
