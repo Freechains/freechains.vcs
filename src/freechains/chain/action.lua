@@ -1,3 +1,5 @@
+local GIT = require "freechains.chain.git"
+
 -- action files: one per action, inside the action commit itself:
 --  - `actions/ab/<aid>.lua` (256 mechanical buckets: git stores
 --    a tree object whole, so one flat dir would cost O(n^2))
@@ -122,7 +124,7 @@ function M.backs (ps)
                 ret[#ret+1] = a
             end
         else
-            for _, p in ipairs(parents(h)) do
+            for _, p in ipairs(GIT.parents(h)) do
                 rec(p)
             end
         end

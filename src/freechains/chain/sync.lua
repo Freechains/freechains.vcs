@@ -1,4 +1,3 @@
-require "freechains.chain.common"
 require "freechains.chain.consensus"
 
 -- Hard fork protects my current order.
@@ -200,7 +199,7 @@ elseif ARGS.recv then
                     " commit --allow-empty-message -m ''"
             }
             -- the merge tip is new: snapshot the final state there
-            G_fst.now = PEAKS { "HEAD^1", "HEAD^2" }
+            G_fst.now = STATE.peaks { "HEAD^1", "HEAD^2" }
             STATE.write(G_fst, true, "HEAD")
         end
     end
@@ -224,7 +223,7 @@ elseif ARGS.recv then
             if merged then
                 keep = false
             elseif not STATE.has(cid) then
-                local ps = parents(cid)
+                local ps = GIT.parents(cid)
                 keep = (#ps == 1) and STATE.has(ps[1])
                 if keep then
                     keep = pcall(commit, STATE.read(false, ps[1]), cid, true)

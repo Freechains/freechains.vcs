@@ -118,7 +118,7 @@ function apply (G, kind, act, env)
     -- read from the DAG, so it does not depend on the order a replay applies
     -- commits in (consensus order is not chronological order)
     do
-        local up = PEAKS(env.parents)
+        local up = STATE.peaks(env.parents)
         if env.time < up-C.time.diff then
             return false, "too old"
         end

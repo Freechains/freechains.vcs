@@ -1,4 +1,3 @@
-require "freechains.chain.common"
 
 -- Reclaim what removal already unreferenced: a revoked payload
 -- (`like` drops its `refs/payloads/` anchor) or an abandoned commit.

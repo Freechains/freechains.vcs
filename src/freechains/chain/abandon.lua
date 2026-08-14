@@ -1,4 +1,3 @@
-require "freechains.chain.common"
 
 -- Escape hatch for a hard fork: abandon the aid and everything after
 -- it, so the settled remote branch can be received again.

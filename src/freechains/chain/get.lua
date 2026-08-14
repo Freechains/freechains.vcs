@@ -1,4 +1,3 @@
-require "freechains.chain.common"
 
 -- membership: an action of the CURRENT history <=> its file is
 -- in HEAD's tree (mirrored by the worktree): files only ever
