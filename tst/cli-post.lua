@@ -144,10 +144,16 @@ do
 
     do
         TEST "post file copy failed"
-        FAIL {
+        -- the error carries cp's own detail (>>> ... <<<)
+        local err = FAIL {
             cmd = ENV_EXE .. " chain '#cli-post' post file /tmp/nonexistent-file.txt --sign " .. KEY1,
-            err = "ERROR : chain post : invalid path",
         }
+        assert(err == [[
+ERROR : chain post : invalid path
+>>>
+cp: cannot stat '/tmp/nonexistent-file.txt': No such file or directory
+<<<
+]])
     end
 end
 

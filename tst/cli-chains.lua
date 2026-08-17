@@ -121,18 +121,35 @@ do
 
     do
         TEST "git init failed"
-        FAIL {
+        -- the error carries git's own detail (>>> ... <<<)
+        local err = FAIL {
             cmd = ENV .. " ../src/freechains.lua --root /dev/null chains add '#x' init file " .. GEN_0,
-            err = "ERROR : chains add : init failed",
         }
+        err = err:gsub("tmp%-%d+", "tmp-N")     -- random suffix
+        assert(err == [[
+ERROR : chains add : git init failed
+>>>
+fatal: cannot mkdir /dev/null/chains//tmp-N/: File exists
+<<<
+]])
     end
 
     do
         TEST "git clone failed"
-        FAIL {
+        -- the error carries git's own detail (>>> ... <<<)
+        local err = FAIL {
             cmd = EXE .. " chains add '#x' clone /nonexistent/repo",
-            err = "ERROR : chains add : clone failed",
         }
+        assert(err == [[
+ERROR : chains add : clone failed
+>>>
+fatal: '/nonexistent/repo/#x' does not appear to be a git repository
+fatal: Could not read from remote repository.
+
+Please make sure you have the correct access rights
+and the repository exists.
+<<<
+]])
     end
 
     do
@@ -278,10 +295,17 @@ do
 
     do
         TEST "inline with bad --sign fails"
-        FAIL {
+        -- the error carries ssh-keygen's own detail (>>> ... <<<)
+        local err = FAIL {
             cmd = EXE .. " chains add '#inl-badkey' init inline --sign /nonexistent/key",
-            err = "ERROR : chains add : invalid sign key",
         }
+        err = err:gsub("\r\n", "\n")    -- ssh-keygen speaks CRLF
+        assert(err == [[
+ERROR : chains add : invalid sign key
+>>>
+/nonexistent/key: No such file or directory
+<<<
+]])
     end
 end
 

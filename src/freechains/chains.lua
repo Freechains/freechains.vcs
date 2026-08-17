@@ -118,6 +118,7 @@ if ARGS.add then
 
         exec {
             cmd = "git init -b main " .. tmp,
+            err = "chains add : git init failed",
         }
         git_init(tmp)
         do
@@ -173,6 +174,7 @@ if ARGS.add then
         local tmp = DIR .. "/_tmp-" .. math.random(0, 9999999999) .. "/"
         exec {
             cmd = "git init -b main " .. tmp,
+            err = "chains add : clone failed",
         }
         git_init(tmp)
         exec {
