@@ -60,7 +60,7 @@ do
         time    = tonumber(CMD.now),
         aid     = aid,
         sign    = pub,
-        parents = { "HEAD" },
+        parents = { GIT.deref("HEAD") },
         beg     = ARGS.beg,
     })
     if not ok then

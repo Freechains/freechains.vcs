@@ -85,7 +85,8 @@ end
 
 -- the parents of the commit about to be created: `backs` walks
 -- them and `apply` folds its time peak over them
-local ps = to_beg and { "HEAD", ref } or { "HEAD" }
+local ps = to_beg and { GIT.deref("HEAD"), GIT.deref(ref) }
+                   or { GIT.deref("HEAD") }
 
 -- action file: self-description; minted BEFORE the commit;
 -- a beg like backs both sides of its merge.

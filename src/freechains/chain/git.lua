@@ -9,9 +9,10 @@ local MEMO = { parents={}, time={} }
 -- ref (HEAD) -> derefed cid
 
 function M.deref (rev)
-    return exec {
+    -- parenthesized: exec returns (out, code)
+    return (exec {
         cmd = "git -C " .. REPO .. " rev-parse " .. rev,
-    }
+    })
 end
 
 -- the git parents of `cid`: one step back in the DAG, no time
