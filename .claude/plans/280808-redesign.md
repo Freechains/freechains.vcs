@@ -8,12 +8,46 @@
   `260808-redesign`; `guide.sh` runs END TO END
     - the sync phase LANDED (S1 recv, S2 clone, S3 send/hook,
       B6 pinning, E3 sync half) -- see "Sync phase as built"
-    - uncommitted: `README.md`, `guide.sh` (doc work; guide.sh
-      got a small fix: `REJECTED` = the post's printed aid,
-      not `rev-parse HEAD^1`)
     - NOTE: hook tests need the INSTALLED freechains current:
       `sudo luarocks --lua-version=5.4 make
-      freechains-dev-2.rockspec`
+      freechains-dev-2.rockspec` (rockspec CHANGED: chain.git)
+
+# Latest round (uncommitted here; see review workflow below)
+
+- common.lua DISSOLVED (the only git access was parents/TIME):
+    - NEW `chain/git.lua`: `GIT.parents`, `GIT.time` --
+      immutable commit facts; MEMO hash-only guard private
+    - `STATE.peak`/`STATE.peaks` moved into state.lua (the
+      time axis lives beside the snapshots it reads)
+    - context bootstrap (C/ACTION/STATE/GIT/rules/REPO) moved
+      to `chain/init.lua`; dead requires dropped everywhere
+    - rockspec: `chain.common` -> `chain.git`
+- state.lua: sigs speak `cid` (is_ref converts); `tocid` aux;
+  `has(cid)` lost the dead `is_ref`
+- clone via `refs/genesis` (immutable ref, served never
+  pushed): `git init` + fetch ONE commit; no full clone, no
+  root walk; `genesis(dir, gen)` helper shared with init
+- error policy settled: `err=` ONLY for user input or the
+  remote; local env (perms, git version, disk) and
+  concurrency are `bug found`; `stderr=false` never mutes an
+  `err=` (detail shows between >>> <<<)
+    - exceptions: sweep's `git gc` (races git's own auto-gc);
+      post commit `err=` only when signing
+- tests: expectations follow (bug-found / prefix matches)
+
+# Cross-machine review workflow (IMPORTANT)
+
+- this machine COMMITS the round as one bulk commit and
+  PUSHES `260808-redesign`
+- the OTHER machine reviews: `git reset HEAD~1` (mixed) drops
+  the bulk commit but keeps every change unstaged, then
+  re-commits in reviewed pieces and pushes (force if needed)
+- back here: local tip is then SUPERSEDED by the reviewed
+  history -- do NOT merge/pull; verify nothing local-only via
+  `git log origin/..HEAD` and `git diff origin HEAD`, then
+  `git reset --hard origin/260808-redesign`
+- precedent: 215c9d2 vs the 14 review commits (260813) --
+  same dance, now intentional
 - small, decided but not written:
     - E: `chain sweep` (stage 2): prune `.git/states/`
       outside the settled window
