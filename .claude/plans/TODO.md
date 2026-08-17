@@ -5,6 +5,32 @@
 
 # Open
 
+## Perf cleanups P1-P4 (profile first, land measured)
+
+- From done/280808-redesign.md "Small cleanups"; correctness
+  is unaffected, so gated on something actually being slow
+- P1: `hardfork` one `cat-file blob` per window entry ->
+  one `cat-file --batch`
+- P2: memoize `ACTION.aid(cid)` (diff-tree per call;
+  `commit()` and `GIT.time` both shell it per cid)
+- P3: more memos, same shape as GIT.parents/time
+    - `ssh.pub.commit(cid)`: consensus ranges overlap on
+      nested merges
+    - snapshot `now`: `peaks` parses WHOLE G per edge ->
+      number-only cache
+    - TRAP: `STATE.read` itself must NOT be memoized
+      (callers mutate the returned table)
+- P4: batch in-process index (P2+P3 unification)
+    - ONE `git log --format=%H --diff-filter=A --name-only`
+      over the region -> cid<->aid map, one shell
+    - restores replay's visited seeding:
+      `visited[a2c[aid]]` for aid in the replayed G's order
+    - fences: aid->cid NOT 1:1 across branches (dup-skip
+      stays); seed ONLY from the replayed G's own order,
+      NEVER from `STATE.has` (refused syncs also snapshot)
+    - also: memo `ancestor()` per (cur, floor); mark
+      ancestor-true cids visited in the OUTERMOST climb only
+
 ## Hard-prune plan is stale on rule 1
 
 - `260723-hard-prune.md` predates the refuse-semantics rule 1
