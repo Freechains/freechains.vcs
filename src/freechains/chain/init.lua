@@ -1,4 +1,10 @@
-require "freechains.chain.common"
+-- chain context: constants, modules, and the repo path
+C      = require "freechains.constants"
+ACTION = require "freechains.chain.action"
+STATE  = require "freechains.chain.state"
+GIT    = require "freechains.chain.git"
+require "freechains.chain.rules"
+REPO   = ARGS.root .. "/chains/" .. ARGS.alias .. "/"
 
 do
     local f = io.open(REPO .. "genesis.lua")

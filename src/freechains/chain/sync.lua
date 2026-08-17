@@ -133,7 +133,7 @@ elseif ARGS.recv then
         -- malformed commits reject the whole sync
         local G_rem = G_oct -- (G_oct no longer required)
         do
-            local ok, err = pcall(replay, G_rem, oct, rem)
+            local ok, err = pcall(replay, G_rem, oct, rem, false)
             if not ok then
                 ERROR("chain sync : " .. err)
             end
