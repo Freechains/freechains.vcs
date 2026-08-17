@@ -199,7 +199,10 @@ elseif ARGS.recv then
                     " commit --allow-empty-message -m ''"
             }
             -- the merge tip is new: snapshot the final state there
-            G_fst.now = STATE.peaks { "HEAD^1", "HEAD^2" }
+            G_fst.now = STATE.peaks {
+                GIT.deref(true, "HEAD^1"),
+                GIT.deref(true, "HEAD^2"),
+            }
             STATE.write(G_fst, true, "HEAD")
         end
     end

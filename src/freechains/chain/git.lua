@@ -1,13 +1,24 @@
 -- immutable commit facts, straight from git, memoized:
 --  - a commit's parents and date never change
---  - only hashes are cached, never refs (`HEAD^1` moves)
+--  - only derefed cids are accepted (`HEAD^1` moves): deref first
 
 local M = {}
 
 local MEMO = { parents={}, time={} }
 
-local function memo (t, cid)
-    return (cid:match("^%x+$") ~= nil) and t or {}
+-- ref (HEAD) -> derefed cid; a hash passes through untouched
+
+function M.deref (is_ref, rev)
+    if is_ref then
+        return exec {
+            cmd = "git -C " .. REPO .. " rev-parse " .. rev,
+        }
+    end
+    return rev
+end
+
+local function isref (cid)
+    return (cid:match("^%x+$") == nil)
 end
 
 -- the git parents of `cid`: one step back in the DAG, no time
@@ -15,7 +26,8 @@ end
 -- NEVER mutate the result
 
 function M.parents (cid)
-    local m = memo(MEMO.parents, cid)
+    assert(not isref(cid))
+    local m = MEMO.parents
     if m[cid] then
         return m[cid]
     end
@@ -37,7 +49,8 @@ end
 -- ancestors. Memoized: every child asks again through `peaks`
 
 function M.time (cid)
-    local m = memo(MEMO.time, cid)
+    assert(not isref(cid))
+    local m = MEMO.time
     if m[cid] then
         return m[cid]
     end
