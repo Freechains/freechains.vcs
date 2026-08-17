@@ -32,6 +32,12 @@
 - hash -> cid/aid renames (git, rules, consensus, ssh);
   user-facing "hash" errors (reps, abandon) + chains.lua
   dirname var flagged, not renamed
+- malformed-commit catchall: protocol-impossible shapes all
+  say `malformed commit : expected/invalid <X>` (merge shape/
+  purity, aid binding, file, kind, clean-add diff EQUALITY
+  (("A"):rep(#ps) .. TAB .. path), time, signatures, unsigned
+  vote, climb >2 parents); RULE (apply) errors keep
+  `invalid <kind> : <err>`; tests follow
 - clone via `refs/genesis` (immutable ref, served never
   pushed): `git init` + fetch ONE commit; no full clone, no
   root walk; `genesis(dir, gen)` helper shared with init
@@ -42,6 +48,29 @@
     - exceptions: sweep's `git gc` (races git's own auto-gc);
       post commit `err=` only when signing
 - tests: expectations follow (bug-found / prefix matches)
+
+# BACKS: rules speak backs/aids, sync speaks parents/cids
+
+- insight (post-N): merges add no time, so every protocol fact
+  except merge topology lives in the signed action files
+- backs are Merkle-deep: aid hashes the file, whose backs are
+  aids -> an action hash-chains its ENTIRE action ancestry
+- two holes hashing cannot close (harmless while backs are
+  read-only: list dag, get metadata):
+    - envelope consistency: an author can sign a lie --
+      backs that do not match the commit's parents
+    - existence: a backs aid can dangle (not in this chain)
+- B7 (pin, do first): `commit()` checks
+  `act.backs == ACTION.backs(ps)` -- resolution already
+  computed at write time; one equality at replay
+- B8 (flip, after B7 green): action-level now
+    - `now(a) = max(act.time, now over backs)` stored per
+      entry in G at apply; equals peaks(parents) post-N
+    - apply becomes envelope-free (act + backs-now);
+      GIT.time and peaks' snapshot reads die
+    - snapshots still per-cid for sync (G_oct at octopus)
+- NEVER flips: replay order, consensus contribution ranges,
+  octopus/hardfork -- merge topology is envelope-only
 
 # Cross-machine review workflow (IMPORTANT)
 
