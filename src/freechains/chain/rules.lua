@@ -110,18 +110,29 @@ function advance (G, env)
     end
 end
 
+-- the newest time causally preceding a set of actions: each entry
+-- records its own `now` at apply, so the fold is one table walk.
+-- `backs` is trusted: pinned to the envelope parents at replay (B7)
+function NOW (G, backs)
+    local max = 0
+    for _, a in ipairs(backs) do
+        local now = assert(G.actions[a]).now
+        max = math.max(max, now)
+    end
+    return max
+end
+
 -- an action is applied from two sides:
---  - `act`: what its author CLAIMS (n, target=aid/author)
---  - `env`: what the chain VERIFIED: (time, aid, sign, parents, beg)
+--  - `act`: what its author CLAIMS (n, target=aid/author, backs)
+--  - `env`: what the chain VERIFIED: (time, aid, sign, beg)
 function apply (G, kind, act, env)
     -- a commit may sit at most `time.diff` below everything that precedes it
-    -- read from the DAG, so it does not depend on the order a replay applies
-    -- commits in (consensus order is not chronological order)
-    do
-        local up = STATE.peaks(env.parents)
-        if env.time < up-C.time.diff then
-            return false, "too old"
-        end
+    -- read from the action DAG (backs), so it does not depend on the
+    -- order a replay applies commits in (consensus order is not
+    -- chronological order)
+    local up = NOW(G, act.backs)
+    if env.time < up-C.time.diff then
+        return false, "too old"
     end
 
     advance(G, env)
@@ -148,6 +159,7 @@ function apply (G, kind, act, env)
             action   = 'post',
             author   = env.sign,
             time     = env.time,
+            now      = math.max(env.time, up),
             maturity = (env.beg and 'beg') or (env.sign and '00-12') or 'beg',
             reps     = 0,
             revoke   = { author=0, others=0 },
@@ -249,6 +261,7 @@ function apply (G, kind, act, env)
         G.actions[env.aid] = {
             action = kind,
             author = env.sign,
+            now    = math.max(env.time, up),
             reps   = 0,
             revoke = { author=0, others=0 },
         }

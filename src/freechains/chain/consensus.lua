@@ -189,11 +189,10 @@ function commit (G, cid, beg)
 
         if kind == 'post' then
             local ok, err = apply(G, 'post', act, {
-                time    = time,
-                aid     = aid,
-                sign    = key,
-                parents = ps,
-                beg     = beg or (key == nil),
+                time = time,
+                aid  = aid,
+                sign = key,
+                beg  = beg or (key == nil),
             })
             if not ok then
                 error("invalid post : " .. err, 0)
@@ -210,11 +209,10 @@ function commit (G, cid, beg)
                 and (G.actions[act.aid].maturity == "beg")
             ) or false
             local ok, err = apply(G, kind, act, {
-                time    = time,
-                aid     = aid,
-                sign    = key,
-                parents = ps,
-                beg     = to_beg,
+                time = time,
+                aid  = aid,
+                sign = key,
+                beg  = to_beg,
             })
             if not ok then
                 error("invalid " .. kind .. " : " .. err, 0)
@@ -225,14 +223,19 @@ function commit (G, cid, beg)
 
     ::SNAP::
 
-    -- snapshot: descendants PEAK on this commit. `now` is
-    -- ancestry-accurate: the replay's G.now may already include
-    -- sibling branches applied earlier in consensus order.
+    -- snapshot: `now` is ancestry-accurate (the replay's G.now may
+    -- already include sibling branches applied earlier in consensus
+    -- order): an action's own `now` was folded at apply; a merge
+    -- adds nothing, so fold its parents' nearest actions.
     -- NEVER overwrite: the first write is the commit's own-lineage
     -- state, and a refused sync must not corrupt local snapshots
     if not STATE.has(cid) then
         local sav = G.now
-        G.now = math.max(time, STATE.peaks(ps))
+        if aid then
+            G.now = G.actions[aid].now
+        else
+            G.now = NOW(G, ACTION.backs(ps))
+        end
         STATE.write(G, cid)
         G.now = sav
     end

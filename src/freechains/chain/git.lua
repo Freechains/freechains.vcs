@@ -1,10 +1,10 @@
 -- immutable commit facts, straight from git, memoized:
---  - a commit's parents and date never change
+--  - a commit's parents never change
 --  - only derefed cids are accepted (`HEAD^1` moves): deref first
 
 local M = {}
 
-local MEMO = { parents={}, time={} }
+local MEMO = {}
 
 -- ref (HEAD) -> derefed cid
 
@@ -20,9 +20,8 @@ end
 -- NEVER mutate the result
 
 function M.parents (cid)
-    local m = MEMO.parents
-    if m[cid] then
-        return m[cid]
+    if MEMO[cid] then
+        return MEMO[cid]
     end
     local out = exec {
         cmd = "git -C " .. REPO .. " rev-list --parents -1 " .. cid,
@@ -34,25 +33,8 @@ function M.parents (cid)
         ps[#ps+1] = h
     end
     table.remove(ps, 1)
-    m[cid] = ps
+    MEMO[cid] = ps
     return ps
-end
-
--- a commit's OWN stamp: its action's signed time, which says
--- nothing about its ancestors. A merge or the genesis carries no
--- action, so it adds no time (0): commit dates are neutral, the
--- action file is the one source of truth.
--- Memoized: every child asks again through `peaks`
-
-function M.time (cid)
-    local m = MEMO.time
-    if m[cid] then
-        return m[cid]
-    end
-    local aid = ACTION.aid(cid)
-    local t = aid and ACTION.read(true, aid).time or 0
-    m[cid] = t
-    return t
 end
 
 return M

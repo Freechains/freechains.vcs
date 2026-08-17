@@ -109,11 +109,10 @@ local was_revoked = entry and is_revoked(entry)
 -- apply BEFORE the commit: a rejected vote leaves nothing
 do
     local ok, err = apply(G, kind, act, {
-        time    = tonumber(CMD.now),
-        aid     = aid,
-        sign    = pub,
-        parents = ps,
-        beg     = to_beg,
+        time = tonumber(CMD.now),
+        aid  = aid,
+        sign = pub,
+        beg  = to_beg,
     })
     if not ok then
         ERROR("chain " .. name .. " : " .. err)

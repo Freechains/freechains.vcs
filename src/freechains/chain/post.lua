@@ -57,11 +57,10 @@ end
 -- apply BEFORE the commit: a rejected post leaves nothing
 do
     local ok, err = apply(G, 'post', act, {
-        time    = tonumber(CMD.now),
-        aid     = aid,
-        sign    = pub,
-        parents = { GIT.deref("HEAD") },
-        beg     = ARGS.beg,
+        time = tonumber(CMD.now),
+        aid  = aid,
+        sign = pub,
+        beg  = ARGS.beg,
     })
     if not ok then
         ERROR("chain post : " .. err)

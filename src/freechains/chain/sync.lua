@@ -197,10 +197,11 @@ elseif ARGS.recv then
                     " commit --allow-empty-message -m ''"
             }
             -- the merge tip is new: snapshot the final state there
-            G_fst.now = STATE.peaks {
+            -- (a merge adds no time: fold its parents' actions)
+            G_fst.now = NOW(G_fst, ACTION.backs {
                 GIT.deref("HEAD^1"),
                 GIT.deref("HEAD^2"),
-            }
+            })
             STATE.write(G_fst, GIT.deref("HEAD"))
         end
     end

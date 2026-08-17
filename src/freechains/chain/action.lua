@@ -116,22 +116,20 @@ end
 function M.backs (ps)
     local ret = {}
     local see = {}
-    local function rec (h)
-        local a = M.aid(h)
-        if a then
-            if not see[a] then
-                see[a] = true
-                ret[#ret+1] = a
-            end
-        else
-            for _, p in ipairs(GIT.parents(h)) do
-                rec(p)
+    local function rec (hs)
+        for _, h in ipairs(hs) do
+            local a = M.aid(h)
+            if a then
+                if not see[a] then
+                    see[a] = true
+                    ret[#ret+1] = a
+                end
+            else
+                rec(GIT.parents(h))
             end
         end
     end
-    for _, p in ipairs(ps) do
-        rec(p)
-    end
+    rec(ps)
     table.sort(ret)
     return ret
 end
