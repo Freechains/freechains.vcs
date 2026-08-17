@@ -54,11 +54,9 @@ if ARGS.send then
         cmd = "git -C " .. REPO .. " config freechains.url",
         err = "chain sync : freechains.url not set",
     }
-    -- forward --now as push option so receiver hook pin commit dates
-    local now = (ARGS.now and (" -o now=" .. CMD.now) or "")
     local _, Q, err = exec { err=false,
         cmd = "git -C " .. REPO ..  " push -o freechains=true"
-            .. " -o 'url=" .. url .. "'" .. now
+            .. " -o 'url=" .. url .. "'"
             .. " " .. URL(ARGS.remote, ARGS.alias)
             .. " +main +refs/begs/*:refs/begs/*"
     }

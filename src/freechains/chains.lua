@@ -49,15 +49,13 @@ local function pioneers (dir)
 end
 
 -- genesis snapshot: direct write (no chain context here); `now` =
--- the genesis commit date, so creator and cloner agree byte for byte
+-- 0: dates are neutral, so creator and cloner agree byte for byte
 local function genesis (dir, gen)
     local G = {
         authors = pioneers(dir),
         actions = {},
         order   = {},
-        now     = tonumber((exec {
-            cmd = "git -C " .. dir .. " log -1 --format=%at " .. gen,
-        })),
+        now     = 0,
     }
     local f = io.open(dir .. ".git/states/" .. gen .. ".lua", "w")
     f:write(serial(G))
@@ -206,9 +204,8 @@ if ARGS.add then
         genesis(dir, gen)
 
         -- re-exec myself: `recv` binds REPO from its own ARGS
-        local now = (ARGS.now and (" --now=" .. CMD.now) or "")
         local ok, _, out = exec { err=false,
-            cmd = arg[0] .. " --root='" .. ARGS.root .. "'" .. now
+            cmd = arg[0] .. " --root='" .. ARGS.root .. "'"
                 .. " chain '" .. ARGS.alias .. "'"
                 .. " sync recv '" .. ARGS.url .. "'",
         }

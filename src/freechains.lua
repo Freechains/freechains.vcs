@@ -220,13 +220,12 @@ end
 
 ARGS = parser:parse()
 
-local now  = ARGS.now or os.time()
-local date = "date -u -d @" .. now .. " --iso-8601=seconds"
+local now = ARGS.now or os.time()
 CMD = {
     now = now,
-    git = (
-        "GIT_AUTHOR_DATE=$(" .. date .. ") " ..
-        "GIT_COMMITTER_DATE=$(" .. date .. ") "
+    git = (     -- neutral dates: time lives in the action files
+        "GIT_AUTHOR_DATE='@0 +0000' " ..
+        "GIT_COMMITTER_DATE='@0 +0000' "
     ),
 }
 

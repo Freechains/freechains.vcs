@@ -38,17 +38,19 @@ function M.parents (cid)
     return ps
 end
 
--- a commit's OWN author date, which says nothing about its
--- ancestors. Memoized: every child asks again through `peaks`
+-- a commit's OWN stamp: its action's signed time, which says
+-- nothing about its ancestors. A merge or the genesis carries no
+-- action, so it adds no time (0): commit dates are neutral, the
+-- action file is the one source of truth.
+-- Memoized: every child asks again through `peaks`
 
 function M.time (cid)
     local m = MEMO.time
     if m[cid] then
         return m[cid]
     end
-    local t = assert(tonumber((exec {
-        cmd = "git -C " .. REPO .. " log -1 --format=%at " .. cid,
-    })))
+    local aid = ACTION.aid(cid)
+    local t = aid and ACTION.read(true, aid).time or 0
     m[cid] = t
     return t
 end

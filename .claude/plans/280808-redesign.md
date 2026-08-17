@@ -24,6 +24,14 @@
     - rockspec: `chain.common` -> `chain.git`
 - state.lua: sigs speak `cid` (is_ref converts); `tocid` aux;
   `has(cid)` lost the dead `is_ref`
+- is_ref args REMOVED end to end: `GIT.deref(rev)` (ex-tocid,
+  always rev-parse), callers deref refs explicitly;
+  writers' `parents` deref at construction (post, like);
+  `STATE.peak` inlined into `peaks`; deref returns
+  parenthesized (the `{ exec }` (out, code) trap, 4th time)
+- hash -> cid/aid renames (git, rules, consensus, ssh);
+  user-facing "hash" errors (reps, abandon) + chains.lua
+  dirname var flagged, not renamed
 - clone via `refs/genesis` (immutable ref, served never
   pushed): `git init` + fetch ONE commit; no full clone, no
   root walk; `genesis(dir, gen)` helper shared with init
@@ -53,7 +61,7 @@
       outside the settled window
     - S4 leftovers: none found -- `write(G)`, `trailer()`,
       state walkers were already gone before S1
-    - N: neutral commit dates -- see "Neutral commit dates"
+    - N DONE (untested) -- see "Neutral commit dates"
     - R: constant renames -- see "Constant names"
     - P: `cat-file --batch` in `hardfork` -- see "Small cleanups"
     - S5 DONE (untested): loser apply via `climb` -- see its
@@ -81,34 +89,28 @@
     - revocation state (3.b) is written: floor, action target,
       scored votes
 
-# Neutral commit dates
+# Neutral commit dates (DONE, untested)
 
 - goal: one signed source of truth for time (the action file),
   then zero `GIT_AUTHOR_DATE`/`GIT_COMMITTER_DATE`
 - a commit ends as: tree + parents + signature
 
-- who still reads `%at` today
-    - `freechains.lua` `CMD.git`: stamps every commit we create
-    - `consensus.lua` `commit()`: `time = %at`, B6 checks
-      `act.time ~= time`
-    - `common.lua` `TIME()`: folded by `PEAKS()` into `now`
-    - `chains.lua`: genesis `now` = genesis commit `%at`
-
-- N1: drop the B6 time check
-    - `act.time` is already authenticated: blob -> tree ->
-      commit -> signature; `%at` is a second source of truth
-      that B6 exists only to reconcile
-- N2: `TIME(h)` reads the action blob, not `%at`
-    - action commit: `TIME` = `act.time` (same move the new
-      `hardfork` already made: order entries are aids)
-    - merge/state commit: no action file, but its snapshot
-      records `now`, so `max(TIME, PEAK)` keeps `PEAK`;
-      a merge adds no new time -> `TIME` = 0 is correct
-- N3: genesis `now` from `CMD.now`, not `%at`
-    - `chains.lua` writes the genesis snapshot at creation
-- N4: `CMD.git` becomes a no-op (dates zeroed / unset)
-    - `--now` plumbing loses its reason: `-o now=` push option
-      and the receiver hook date pinning die with it
+- N1 DONE: B6 time check dropped; `math.type(act.time)` integer
+  check added instead (act.time now feeds arithmetic directly)
+- N2 DONE: `GIT.time(cid)` reads the action blob
+    - `ACTION.aid(cid)` + `ACTION.read(true, aid).time`;
+      merge/genesis (no aid) -> 0; memo kept
+    - `commit()` (consensus.lua): `time` = `act.time`, set
+      before the dup skip (dup snapshot peaks correctly);
+      merge `time` = 0
+- N3 DONE, CHANGED: genesis `now` = 0, NOT `CMD.now`
+    - the plan's CMD.now broke "creator and cloner agree byte
+      for byte" (cloner cannot reproduce it); with zeroed
+      dates 0 is shared; first-post skew safe (rule only
+      rejects below peak)
+- N4 DONE: `CMD.git` pins `@0 +0000` (zeroed, deterministic);
+  `-o now=` push option, hook `now=` plumbing, clone `--now`
+  re-exec forward all die (`recv` never read CMD.now)
 
 - already neutral (nothing to do)
     - author/committer name+email: `'-'` in `git_init`
@@ -117,6 +119,9 @@
 
 - cost: `git log` ordering stops being meaningful for humans
     - tests that craft raw commits drop their `date` prefix
+    - PENDING: test expectations (%at probes, "invalid time"
+      B6 crafts, cli-now) -- fix on first red run
+    - reinstall before `make tests` (hook changed)
 
 # S5 DONE (untested): loser apply via `climb`
 
