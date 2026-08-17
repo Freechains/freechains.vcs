@@ -18,11 +18,11 @@ function exec (t)
     local redir = (t.stderr == false) and "/dev/null" or "&1"
     local h = io.popen(t.cmd .. " 2>" .. redir)
     local out = h:read("a")
-    if t.trim ~= false then
-        out = out:match("^([^\n]*)\n$") or out
-    end
     local _, _, code = h:close()
     if code == 0 then
+        if t.trim ~= false then
+            out = out:match("^([^\n]*)\n$") or out
+        end
         return out, code
     elseif t.err == false then
         if out == "" then
