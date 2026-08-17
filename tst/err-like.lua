@@ -48,13 +48,15 @@ local function craft (repo, key, content)
 end
 
 -- a like action file: `sign` must match the envelope signature,
--- `time` is the action's own clock (dates are neutral); the
--- target line is passed raw so tests can misname or omit it
-local function like_file (target, n, pub, now)
+-- `time` is the action's own clock (dates are neutral), `backs`
+-- must resolve the envelope parents (the aid of the tip the
+-- craft sits on); the target line is passed raw so tests can
+-- misname or omit it
+local function like_file (target, n, pub, now, backs)
     return 'return {\n'
         .. '    ["action"] = "like",\n'
         .. (target and ('    ' .. target .. ',\n') or '')
-        .. '    ["backs"] = {},\n'     -- B7 will require the real backs
+        .. '    ["backs"] = ' .. backs .. ',\n'
         .. '    ["n"] = ' .. n .. ',\n'
         .. (pub and ('    ["sign"] = "' .. pub .. '",\n') or '')
         .. '    ["time"] = ' .. now .. ',\n'
@@ -88,7 +90,7 @@ end
 do
     TEST "A crafts unsigned like via raw git"
     local now = os.time()
-    craft(REPO_A, nil, like_file('["aid"] = "' .. POST .. '"', 1000, nil, now))
+    craft(REPO_A, nil, like_file('["aid"] = "' .. POST .. '"', 1000, nil, now, '{ "' .. POST .. '" }'))
 
     TEST "B rejects unsigned like on sync"
     FAIL {
@@ -207,7 +209,7 @@ do
 
     TEST "A crafts like with bad target type"
     local now = os.time()
-    craft(REPO_A5, KEY1, like_file('["xxx"] = "' .. post .. '"', 1000, PUB1, now))
+    craft(REPO_A5, KEY1, like_file('["xxx"] = "' .. post .. '"', 1000, PUB1, now, '{ "' .. post .. '" }'))
 
     TEST "B rejects like with bad target type on sync"
     FAIL {
@@ -226,7 +228,7 @@ do
     exec {
         cmd = EXE_A .. " chains add '#err-post' init file " .. GEN_1,
     }
-    exec {
+    local post = exec {
         cmd = EXE_A .. " chain '#err-post' post inline 'legit' --sign " .. KEY1,
     }
 
@@ -237,7 +239,7 @@ do
 
     TEST "A crafts like targeting nonexistent post"
     local now = os.time()
-    craft(REPO_A6, KEY1, like_file('["aid"] = "0000000000000000000000000000000000000000"', 1000, PUB1, now))
+    craft(REPO_A6, KEY1, like_file('["aid"] = "0000000000000000000000000000000000000000"', 1000, PUB1, now, '{ "' .. post .. '" }'))
 
     TEST "B rejects like with action not found on sync"
     FAIL {
@@ -267,7 +269,7 @@ do
 
     TEST "A crafts like signed by non-pioneer (0 reps)"
     local now = os.time()
-    craft(REPO_A7, KEY3, like_file('["aid"] = "' .. post .. '"', 1000, PUB3, now))
+    craft(REPO_A7, KEY3, like_file('["aid"] = "' .. post .. '"', 1000, PUB3, now, '{ "' .. post .. '" }'))
 
     TEST "B rejects like with insufficient reps on sync"
     FAIL {
@@ -296,7 +298,7 @@ do
     }
 
     TEST "A crafts like with old timestamp"
-    craft(REPO_A8, KEY1, like_file('["aid"] = "' .. post .. '"', 1000, PUB1, 1))
+    craft(REPO_A8, KEY1, like_file('["aid"] = "' .. post .. '"', 1000, PUB1, 1, '{ "' .. post .. '" }'))
 
     TEST "B rejects like with old timestamp on sync"
     FAIL {
@@ -326,7 +328,7 @@ do
 
     TEST "A crafts like with fractional number"
     local now = os.time()
-    craft(REPO_A9, KEY1, like_file('["aid"] = "' .. post .. '"', "0.5", PUB1, now))
+    craft(REPO_A9, KEY1, like_file('["aid"] = "' .. post .. '"', "0.5", PUB1, now, '{ "' .. post .. '" }'))
 
     TEST "B rejects like with fractional number on sync"
     FAIL {
@@ -356,12 +358,42 @@ do
 
     TEST "A crafts like with zero number"
     local now = os.time()
-    craft(REPO_A10, KEY1, like_file('["aid"] = "' .. post .. '"', 0, PUB1, now))
+    craft(REPO_A10, KEY1, like_file('["aid"] = "' .. post .. '"', 0, PUB1, now, '{ "' .. post .. '" }'))
 
     TEST "B rejects like with zero number on sync"
     FAIL {
         cmd = EXE_B .. " chain '#err-zero' sync recv " .. REPO_A10,
         err = "ERROR : chain sync : invalid like : invalid number : expects non-zero integer",
+    }
+end
+
+-- sync rejects an action whose backs do not match its parents
+do
+    print("==> sync rejects lying backs")
+
+    local REPO_A12 = ROOT_A .. "/chains/#err-backs/"
+
+    TEST "A creates chain + post"
+    exec {
+        cmd = EXE_A .. " chains add '#err-backs' init file " .. GEN_1,
+    }
+    local post = exec {
+        cmd = EXE_A .. " chain '#err-backs' post inline 'legit' --sign " .. KEY1,
+    }
+
+    TEST "B clones from A"
+    exec {
+        cmd = EXE_B .. " chains add '#err-backs' clone " .. REPO_A12,
+    }
+
+    TEST "A crafts like whose backs deny its parent"
+    local now = os.time()
+    craft(REPO_A12, KEY1, like_file('["aid"] = "' .. post .. '"', 1000, PUB1, now, "{ }"))
+
+    TEST "B rejects lying backs on sync"
+    FAIL {
+        cmd = EXE_B .. " chain '#err-backs' sync recv " .. REPO_A12,
+        err = "ERROR : chain sync : malformed commit : invalid backs",
     }
 end
 

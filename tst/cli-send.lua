@@ -145,7 +145,7 @@ do
     f:write('return {\n'
         .. '    ["action"] = "like",\n'
         .. '    ["author"] = "' .. PUB1 .. '",\n'
-        .. '    ["backs"] = {},\n'     -- B7 will require the real backs
+        .. '    ["backs"] = {},\n'    -- X's tip is the genesis
         .. '    ["n"] = 1000,\n'
         .. '    ["sign"] = "' .. PUB3 .. '",\n'
         .. '    ["time"] = ' .. now .. ',\n'

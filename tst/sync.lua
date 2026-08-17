@@ -46,7 +46,7 @@ local function begs (repo)
     }
 end
 
-local P1, BEG_K2, BEG_K3  -- captured in earlier steps, reused later
+local P1, BEG_K2, BEG_K3, L_K2  -- captured in earlier steps, reused later
 
 -- 1. recv basic
 do
@@ -155,7 +155,7 @@ do
 
     TEST "A likes BEG_K2 (promote + prune ref on A)"
     local beg = BEG_K2
-    exec {
+    L_K2 = exec {
         cmd = EXE_A .. " --now=6000 chain '#test' like 1000 action " .. beg .. " --sign " .. KEY1,
     }
     assert(not begs(REPO_A):match(beg), "A's beg ref should be pruned")
@@ -193,7 +193,7 @@ do
     f:write('return {\n'
         .. '    ["action"] = "like",\n'
         .. '    ["aid"] = "' .. P1 .. '",\n'
-        .. '    ["backs"] = {},\n'     -- B7 will require the real backs
+        .. '    ["backs"] = { "' .. L_K2 .. '" },\n'   -- X's tip is the beg like
         .. '    ["n"] = 1000,\n'
         .. '    ["sign"] = "' .. PUB3 .. '",\n'
         .. '    ["time"] = ' .. now .. ',\n'

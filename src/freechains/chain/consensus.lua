@@ -152,6 +152,19 @@ function commit (G, cid, beg)
             error("malformed commit : expected clean add", 0)
         end
 
+        -- stored `backs` must match calculated here
+        do
+            local backs = ACTION.backs(ps)
+            if type(act.backs)~='table' or #act.backs~=#backs then
+                error("malformed commit : invalid backs", 0)
+            end
+            for i, a in ipairs(backs) do
+                if act.backs[i] ~= a then
+                    error("malformed commit : invalid backs", 0)
+                end
+            end
+        end
+
         if math.type(act.time) ~= 'integer' then
             error("malformed commit : invalid time", 0)
         end

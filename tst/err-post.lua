@@ -17,11 +17,11 @@ exec {
 
 -- craft a post action commit by hand: proper aid path, signed
 -- commit; the file IS the time source (dates are neutral)
-local function craft (repo, key, pub, now)
+local function craft (repo, key, pub, now, back)
     local f = io.open(repo .. "forged.lua", "w")
     f:write('return {\n'
         .. '    ["action"] = "post",\n'
-        .. '    ["backs"] = {},\n'     -- B7 will require the real backs
+        .. '    ["backs"] = { "' .. back .. '" },\n'
         .. '    ["sign"] = "' .. pub .. '",\n'
         .. '    ["time"] = ' .. now .. ',\n'
         .. '}\n')
@@ -56,7 +56,7 @@ do
     exec {
         cmd = EXE_A .. " --now=1000 chains add '#err-reps' init file " .. GEN_1,
     }
-    exec {
+    local legit = exec {
         cmd = EXE_A .. " --now=2000 chain '#err-reps' post inline 'legit' --sign " .. KEY1,
     }
 
@@ -66,7 +66,7 @@ do
     }
 
     TEST "A crafts post signed by non-pioneer (0 reps)"
-    craft(REPO_A1, KEY3, PUB3, 3000)
+    craft(REPO_A1, KEY3, PUB3, 3000, legit)
 
     TEST "B rejects post with insufficient reps on sync"
     FAIL {
@@ -85,7 +85,7 @@ do
     exec {
         cmd = EXE_A .. " --now=10000 chains add '#err-time' init file " .. GEN_1,
     }
-    exec {
+    local legit = exec {
         cmd = EXE_A .. " --now=11000 chain '#err-time' post inline 'legit' --sign " .. KEY1,
     }
 
@@ -95,7 +95,7 @@ do
     }
 
     TEST "A crafts post with old timestamp"
-    craft(REPO_A2, KEY1, PUB1, 1)
+    craft(REPO_A2, KEY1, PUB1, 1, legit)
 
     TEST "B rejects post with old timestamp on sync"
     FAIL {
