@@ -4,15 +4,27 @@
 
 # PENDING
 
-- STATE: FULL suite GREEN (38/38, no early exits), on
-  `260808-redesign`; `guide.sh` runs END TO END
+- STATE: MERGED TO MAIN (260817); FULL suite GREEN
+  (38/38, no early exits); sync phase + N + review round in
     - the sync phase LANDED (S1 recv, S2 clone, S3 send/hook,
       B6 pinning, E3 sync half) -- see "Sync phase as built"
     - NOTE: hook tests need the INSTALLED freechains current:
       `sudo luarocks --lua-version=5.4 make
       freechains-dev-2.rockspec` (rockspec CHANGED: chain.git)
+- NEXT (in rough order):
+    - E stage 2: `sweep` prunes `.git/states/` outside the
+      settled window
+    - README.md / guide.sh refresh (doc work)
+    - R: constant renames -- see "Constant names"
+    - B7/B8: backs pin + action-level now -- see "BACKS"
+    - S6: payload anchors -- see "S6: payload anchors"
+    - P1-P4: perf cleanups -- see "Small cleanups"
+    - user-facing "hash" errors (reps, abandon x2 each) +
+      chains.lua `hash` dirname var: flagged, not renamed
+    - spec backlog in `reps.md` (Rule 5 costs, 128 KB,
+      bilateral-sync, tie-breakers)
 
-# Latest round (uncommitted here; see review workflow below)
+# Review round (COMMITTED + MERGED; was "latest round")
 
 - common.lua DISSOLVED (the only git access was parents/TIME):
     - NEW `chain/git.lua`: `GIT.parents`, `GIT.time` --
@@ -47,7 +59,21 @@
   `err=` (detail shows between >>> <<<)
     - exceptions: sweep's `git gc` (races git's own auto-gc);
       post commit `err=` only when signing
-- tests: expectations follow (bug-found / prefix matches)
+- tests: expectations follow; error DETAILS pinned: `[[...]]`
+  string equality over the full `ERROR + >>> detail <<<` shape
+  (cli-chains x3, cli-post, err-post fetch); FAIL compares
+  `t.err .. "\n"` (failure output stays raw/untrimmed);
+  ssh-keygen CRLF gsub'd; git-init `err=` added (chains.lua
+  x2: was bug-found, but --root is user input)
+- test review round (all 15 modified tests walked):
+    - crafts: `GIT_*_DATE` pins dropped (dead post-N);
+      `backs = {}` marked "B7 will require the real backs"
+      (sync, err-post, err-like, cli-send)
+    - stale `[state]`/`S*` diagrams rewritten to
+      one-commit-per-action (sync, cli-send, cli-recv)
+    - cli-now: envelope neutrality probes (`%an %ae %cn %ce
+      %at %ct` == `- - - - 0 0`); cli-recv: `%at == 0`
+      through sync; err-like craft lost dead `now` param
 
 # BACKS: rules speak backs/aids, sync speaks parents/cids
 
@@ -90,10 +116,10 @@
       outside the settled window
     - S4 leftovers: none found -- `write(G)`, `trailer()`,
       state walkers were already gone before S1
-    - N DONE (untested) -- see "Neutral commit dates"
+    - N DONE, TESTED -- see "Neutral commit dates"
     - R: constant renames -- see "Constant names"
     - P: `cat-file --batch` in `hardfork` -- see "Small cleanups"
-    - S5 DONE (untested): loser apply via `climb` -- see its
+    - S5 DONE, TESTED: loser apply via `climb` -- see its
       section (2 won't dos: unified walk, forward pointers)
     - S6: payload anchors -- see "S6: payload anchors"
 - D as built (`chain/sweep.lua`): just `git gc --prune=now`
@@ -118,7 +144,7 @@
     - revocation state (3.b) is written: floor, action target,
       scored votes
 
-# Neutral commit dates (DONE, untested)
+# Neutral commit dates (DONE, TESTED)
 
 - goal: one signed source of truth for time (the action file),
   then zero `GIT_AUTHOR_DATE`/`GIT_COMMITTER_DATE`
@@ -148,9 +174,8 @@
 
 - cost: `git log` ordering stops being meaningful for humans
     - tests that craft raw commits drop their `date` prefix
-    - PENDING: test expectations (%at probes, "invalid time"
-      B6 crafts, cli-now) -- fix on first red run
-    - reinstall before `make tests` (hook changed)
+    - test expectations DONE (cli-now rewritten around the
+      action blob; crafts undated; suite green)
 
 # S5 DONE (untested): loser apply via `climb`
 
@@ -697,10 +722,10 @@
 
 # Next steps (in order, cold-start)
 
-- 0: `make tests` -- FULL suite green; `guide.sh` runs end
-  to end (reinstall first so the hook matches the source)
+- 0 DONE: suite green, merged to main (260817)
 - 1: E stage 2 (`sweep` prunes `.git/states/` outside the
   settled window); refresh `README.md`/`guide.sh` doc work
+- then: see NEXT under PENDING at the top
 - SECTIONS BELOW ARE HISTORY (the sync phase shipped; kept
   for rationale -- see "Sync phase as built")
 
