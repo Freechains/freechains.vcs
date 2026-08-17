@@ -96,7 +96,7 @@ do
 end
 
 -- snapshot state at the new tip (the action commit itself)
-STATE.write(G, true, "HEAD")
+STATE.write(G, GIT.deref("HEAD"))
 
 if ARGS.beg then
     exec {

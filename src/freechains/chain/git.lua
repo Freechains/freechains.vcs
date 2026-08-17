@@ -6,19 +6,12 @@ local M = {}
 
 local MEMO = { parents={}, time={} }
 
--- ref (HEAD) -> derefed cid; a hash passes through untouched
+-- ref (HEAD) -> derefed cid
 
-function M.deref (is_ref, rev)
-    if is_ref then
-        return exec {
-            cmd = "git -C " .. REPO .. " rev-parse " .. rev,
-        }
-    end
-    return rev
-end
-
-local function isref (cid)
-    return (cid:match("^%x+$") == nil)
+function M.deref (rev)
+    return exec {
+        cmd = "git -C " .. REPO .. " rev-parse " .. rev,
+    }
 end
 
 -- the git parents of `cid`: one step back in the DAG, no time
@@ -26,7 +19,6 @@ end
 -- NEVER mutate the result
 
 function M.parents (cid)
-    assert(not isref(cid))
     local m = MEMO.parents
     if m[cid] then
         return m[cid]
@@ -49,7 +41,6 @@ end
 -- ancestors. Memoized: every child asks again through `peaks`
 
 function M.time (cid)
-    assert(not isref(cid))
     local m = MEMO.time
     if m[cid] then
         return m[cid]

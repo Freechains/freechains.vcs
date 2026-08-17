@@ -2,15 +2,13 @@ local GIT = require "freechains.chain.git"
 
 -- local state snapshots, one per commit:
 --  - `.git/states/<cid>.lua`
---  - is_ref = true  : cid is a ref (HEAD), resolved first
---  - is_ref = false : cid is a commit hash
+--  - keyed by derefed cid: callers resolve refs via GIT.deref
 
 local M = {}
 
 -- G saved with every new snapshot
 
-function M.write (G, is_ref, cid)
-    cid = GIT.deref(is_ref, cid)
+function M.write (G, cid)
     -- `.git/states/` is created at repo creation (chains.lua)
     local f = io.open(REPO .. ".git/states/" .. cid .. ".lua", "w")
     f:write(serial(G))
@@ -30,8 +28,7 @@ end
 
 -- the state RECORDED at `cid`
 
-function M.read (is_ref, cid)
-    cid = GIT.deref(is_ref, cid)
+function M.read (cid)
     local f = assert(
         loadfile(REPO .. ".git/states/" .. cid .. ".lua"),
         "bug found : no snapshot : " .. cid
@@ -39,18 +36,10 @@ function M.read (is_ref, cid)
     return f()
 end
 
--- the peak RECORDED at `cid` (`now`): the newest time among all of
--- its ancestors. Derived, never trusted: `commit` in consensus.lua
--- checks every stored value against its parents' before using it.
--- Takes a derefed cid, no ref resolution.
-
-function M.peak (cid)
-    return M.read(false, cid).now
-end
-
 -- the peak COMPUTED over a set of commits: the peak each one
--- recorded, or its own time if newer (a commit's snapshot holds the
--- PREVIOUS peak, so its own stamp lives nowhere else). The only
+-- recorded (its snapshot `now`, the newest time among its
+-- ancestors), or its own time if newer (a commit's snapshot holds
+-- the PREVIOUS peak, so its own stamp lives nowhere else). The only
 -- place the fold happens: `peaks(GIT.parents(h))` is the newest time
 -- causally preceding `h`, so writer and verifier share the formula.
 -- Asserts on an empty set: only a root has no parents, and no path
@@ -59,7 +48,7 @@ end
 function M.peaks (cids)
     local mx = nil
     for _, h in ipairs(cids) do
-        local t = math.max(GIT.time(h), M.peak(h))
+        local t = math.max(GIT.time(h), M.read(h).now)
         mx = math.max(mx or t, t)
     end
     return assert(mx)

@@ -126,7 +126,7 @@ elseif ARGS.recv then
         -- 3. need common ancestor
 
         local oct = octopus(loc, rem)
-        local G_oct = STATE.read(false, oct)
+        local G_oct = STATE.read(oct)
 
         -- needs fst/winner - snd/loser (do now b/c replay mutates G_oct)
         local fst, snd = consensus(G_oct, loc, rem)
@@ -146,7 +146,7 @@ elseif ARGS.recv then
         --  he: the replayed remote
         local G_fst
         if fst == loc then
-            G_fst = STATE.read(true, "HEAD")
+            G_fst = STATE.read(GIT.deref("HEAD"))
         else
             G_fst = G_rem
         end
@@ -162,7 +162,7 @@ elseif ARGS.recv then
         -- only when the remote wins
         if fst == rem then
             -- check hardfork
-            local ord = STATE.read(true, "HEAD").order
+            local ord = STATE.read(GIT.deref("HEAD")).order
             if hardfork(ord, G_fst.order) then
                 ERROR("chain sync : hard fork")
             end
@@ -200,10 +200,10 @@ elseif ARGS.recv then
             }
             -- the merge tip is new: snapshot the final state there
             G_fst.now = STATE.peaks {
-                GIT.deref(true, "HEAD^1"),
-                GIT.deref(true, "HEAD^2"),
+                GIT.deref("HEAD^1"),
+                GIT.deref("HEAD^2"),
             }
-            STATE.write(G_fst, true, "HEAD")
+            STATE.write(G_fst, GIT.deref("HEAD"))
         end
     end
 
@@ -229,7 +229,7 @@ elseif ARGS.recv then
                 local ps = GIT.parents(cid)
                 keep = (#ps == 1) and STATE.has(ps[1])
                 if keep then
-                    keep = pcall(commit, STATE.read(false, ps[1]), cid, true)
+                    keep = pcall(commit, STATE.read(ps[1]), cid, true)
                 end
             end
             if not keep then
@@ -245,7 +245,7 @@ elseif ARGS.recv then
     -- bytes re-anchor (restore), and a REVOKED action loses its
     -- anchor. The final sums decide ONCE, here
     do
-        local G = STATE.read(true, "HEAD")
+        local G = STATE.read(GIT.deref("HEAD"))
 
         local exc = {}
         for aid, e in pairs(G.actions) do

@@ -60,7 +60,7 @@ if to_beg then
         --ERROR("chain like : invalid target : beg post does not exist")
     end
     G.order[#G.order+1] = ARGS.id   -- beg post
-    G.actions[ARGS.id] = STATE.read(true, ref).actions[ARGS.id]
+    G.actions[ARGS.id] = STATE.read(GIT.deref(ref)).actions[ARGS.id]
 end
 
 -- the writer's own pubkey, read from the `.pub` file BEFORE the
@@ -200,7 +200,7 @@ do
 end
 
 -- snapshot state at the new tip (the action commit itself)
-STATE.write(G, true, "HEAD")
+STATE.write(G, GIT.deref("HEAD"))
 
 if to_beg then
     exec {

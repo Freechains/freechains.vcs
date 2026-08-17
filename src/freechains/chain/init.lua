@@ -15,7 +15,7 @@ elseif ARGS.abandon then
 elseif ARGS.sweep then
     require "freechains.chain.sweep"
 else
-    G = STATE.read(true, "HEAD")
+    G = STATE.read(GIT.deref("HEAD"))
 
     if ARGS.list then
         require "freechains.chain.list"
