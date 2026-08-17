@@ -7,8 +7,8 @@ function is_revoked (p)
     return ((r.author or 0) < 0) or ((r.others or 0) < 0)
 end
 
--- posts hashes in a stable order: (time, hash); consolidated posts
--- (time == nil) sort last, then lexicographically by hash. Makes the
+-- action aids in a stable order: (time, aid); consolidated actions
+-- (time == nil) sort last, then lexicographically by aid. Makes the
 -- discount/consolidation scans deterministic across OS processes.
 local function ordered (posts)
     local hs = {}
@@ -45,8 +45,8 @@ function advance (G, env)
 
     -- discount scan (maybe signed at same G.now)
     if env.time>G.now or sign then
-        for _, hash in ipairs(ordered(G.actions)) do
-            local entry = G.actions[hash]
+        for _, aid in ipairs(ordered(G.actions)) do
+            local entry = G.actions[aid]
             if entry.maturity == "00-12" then
                 local subs = {}
                 for h2, other in pairs(G.actions) do
@@ -83,8 +83,8 @@ function advance (G, env)
 
     -- consolidation scan
     if env.time > G.now then
-        for _, hash in ipairs(ordered(G.actions)) do
-            local entry = G.actions[hash]
+        for _, aid in ipairs(ordered(G.actions)) do
+            local entry = G.actions[aid]
             if entry.maturity == "12-24" then
                 if env.time >= entry.time+C.time.full then
                     if entry.author then
