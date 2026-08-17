@@ -126,134 +126,132 @@ function apply (G, kind, act, env)
 
     advance(G, env)
 
-    do
-        if kind == 'post' then
-            -- validation
-            assert(env.sign or env.beg)
-            if env.sign then
-                if env.beg then
-                    local reps = G.authors[env.sign] and G.authors[env.sign].reps or 0
-                    if reps >= C.reps.cost then
-                        return false, "--beg error : author has sufficient reputation"
-                    end
-                else
-                    local reps = G.authors[env.sign] and G.authors[env.sign].reps or 0
-                    if reps < C.reps.cost then
-                        return false, "insufficient reputation"
-                    end
-                end
-            end
-
-            -- mutation
-            G.actions[env.aid] = {
-                action   = 'post',
-                author   = env.sign,
-                time     = env.time,
-                maturity = (env.beg and 'beg') or (env.sign and '00-12') or 'beg',
-                reps     = 0,
-                revoke   = { author=0, others=0 },
-            }
-            if env.sign then
-                G.authors[env.sign] = G.authors[env.sign] or { reps=0 }
-                if not env.beg then
-                    G.authors[env.sign].reps = G.authors[env.sign].reps - C.reps.cost
-                    G.authors[env.sign].time = G.authors[env.sign].time or env.time
-                        -- do not set for beg, bc not available to others
-                end
-            end
-
-        elseif kind=='like' or kind=='revoke' then
-            -- validation
-            assert(env.sign, "bug found")
-            if math.type(act.n)~='integer' or act.n==0 then
-                return false, "invalid number : expects non-zero integer"
-            end
-            if (act.aid and act.author) or (not act.aid and not act.author) then
-                return false, "invalid target : expects 'action' or 'author'"
-            end
-            -- revoke/unrevoke never target an author
-            if kind=='revoke' and (not act.aid) then
-                return false, "invalid target : expects 'action'"
-            end
-            -- hiding a post must cost at least what a day mints:
-            -- one dust unit used to bury a 500-reps post
-            if kind=='revoke' and math.abs(act.n)<C.reps.revoke then
-                return false,
-                    "invalid number : expects at least " .. C.reps.revoke
-            end
-            if act.aid and (not G.actions[act.aid]) then
-                return false, "invalid target : action not found"
-            end
-
-            -- author self-revoke (right to be forgotten) is free and ungated
-            local self_revoke = (
-                kind=='revoke' and act.n<0 and G.actions[act.aid].author==env.sign
-            )
-
-            -- must afford the full vote magnitude (no debt); self-revoke is free
-            local reps = (G.authors[env.sign] and G.authors[env.sign].reps) or 0
-            if (not self_revoke) and reps<math.abs(act.n) then
-                return false, "insufficient reputation"
-            end
-
-            -- admission mints future income (a refund at 12h, then
-            -- `earn` a day): its price must not be dust
-            if env.beg and act.n<C.reps.cost then
-                return false, "invalid beg like : insufficient reputation"
-            end
-
-            -- mutation
-            if not self_revoke then
-                G.authors[env.sign].reps = reps - math.abs(act.n)
-            end
-            local n = act.n * (100 - C.like.tax) // 100
-            if act.aid then
-                local e = G.actions[act.aid]
-                local a = e.author
-                if not (self_revoke or (kind=='revoke' and act.n>0)) then
-                    if a then
-                        G.authors[a] = G.authors[a] or { reps=0 }
-                        G.authors[a].reps = G.authors[a].reps + n//C.like.split
-                    else
-                        assert(env.beg)
-                    end
-                    e.reps = e.reps + n//C.like.split
-                end
-
-                -- revoke axis: sum the signed magnitude act.n (revoke n<0,
-                -- unrevoke n>0). A positive `like` also counts as an
-                -- `unrevoke` (the converse is false: a `dislike` never
-                -- revokes). Author self-revoke feeds the absolute
-                -- `author` channel; everyone else the `others` channel.
-                if kind=='revoke' or act.n>0 then
-                    local r = e.revoke
-                    if kind=='revoke' and a and env.sign==a then
-                        r.author = r.author + act.n
-                    else
-                        r.others = r.others + act.n
-                    end
-                end
-
-                if env.beg then
-                    e.maturity = "00-12"
-                    e.time = env.time
-                    if a then
-                        G.authors[a].time = G.authors[a].time or env.time
-                    end
+    if kind == 'post' then
+        -- validation
+        assert(env.sign or env.beg)
+        if env.sign then
+            if env.beg then
+                local reps = G.authors[env.sign] and G.authors[env.sign].reps or 0
+                if reps >= C.reps.cost then
+                    return false, "--beg error : author has sufficient reputation"
                 end
             else
-                G.authors[act.author] = G.authors[act.author] or { reps=0 }
-                G.authors[act.author].reps = G.authors[act.author].reps + n
+                local reps = G.authors[env.sign] and G.authors[env.sign].reps or 0
+                if reps < C.reps.cost then
+                    return false, "insufficient reputation"
+                end
+            end
+        end
+
+        -- mutation
+        G.actions[env.aid] = {
+            action   = 'post',
+            author   = env.sign,
+            time     = env.time,
+            maturity = (env.beg and 'beg') or (env.sign and '00-12') or 'beg',
+            reps     = 0,
+            revoke   = { author=0, others=0 },
+        }
+        if env.sign then
+            G.authors[env.sign] = G.authors[env.sign] or { reps=0 }
+            if not env.beg then
+                G.authors[env.sign].reps = G.authors[env.sign].reps - C.reps.cost
+                G.authors[env.sign].time = G.authors[env.sign].time or env.time
+                    -- do not set for beg, bc not available to others
+            end
+        end
+
+    elseif kind=='like' or kind=='revoke' then
+        -- validation
+        assert(env.sign, "bug found")
+        if math.type(act.n)~='integer' or act.n==0 then
+            return false, "invalid number : expects non-zero integer"
+        end
+        if (act.aid and act.author) or (not act.aid and not act.author) then
+            return false, "invalid target : expects 'action' or 'author'"
+        end
+        -- revoke/unrevoke never target an author
+        if kind=='revoke' and (not act.aid) then
+            return false, "invalid target : expects 'action'"
+        end
+        -- hiding a post must cost at least what a day mints:
+        -- one dust unit used to bury a 500-reps post
+        if kind=='revoke' and math.abs(act.n)<C.reps.revoke then
+            return false,
+                "invalid number : expects at least " .. C.reps.revoke
+        end
+        if act.aid and (not G.actions[act.aid]) then
+            return false, "invalid target : action not found"
+        end
+
+        -- author self-revoke (right to be forgotten) is free and ungated
+        local self_revoke = (
+            kind=='revoke' and act.n<0 and G.actions[act.aid].author==env.sign
+        )
+
+        -- must afford the full vote magnitude (no debt); self-revoke is free
+        local reps = (G.authors[env.sign] and G.authors[env.sign].reps) or 0
+        if (not self_revoke) and reps<math.abs(act.n) then
+            return false, "insufficient reputation"
+        end
+
+        -- admission mints future income (a refund at 12h, then
+        -- `earn` a day): its price must not be dust
+        if env.beg and act.n<C.reps.cost then
+            return false, "invalid beg like : insufficient reputation"
+        end
+
+        -- mutation
+        if not self_revoke then
+            G.authors[env.sign].reps = reps - math.abs(act.n)
+        end
+        local n = act.n * (100 - C.like.tax) // 100
+        if act.aid then
+            local e = G.actions[act.aid]
+            local a = e.author
+            if not (self_revoke or (kind=='revoke' and act.n>0)) then
+                if a then
+                    G.authors[a] = G.authors[a] or { reps=0 }
+                    G.authors[a].reps = G.authors[a].reps + n//C.like.split
+                else
+                    assert(env.beg)
+                end
+                e.reps = e.reps + n//C.like.split
             end
 
-            -- the vote enters the registry as a target of its own:
-            G.actions[env.aid] = {
-                action = kind,
-                author = env.sign,
-                reps   = 0,
-                revoke = { author=0, others=0 },
-            }
+            -- revoke axis: sum the signed magnitude act.n (revoke n<0,
+            -- unrevoke n>0). A positive `like` also counts as an
+            -- `unrevoke` (the converse is false: a `dislike` never
+            -- revokes). Author self-revoke feeds the absolute
+            -- `author` channel; everyone else the `others` channel.
+            if kind=='revoke' or act.n>0 then
+                local r = e.revoke
+                if kind=='revoke' and a and env.sign==a then
+                    r.author = r.author + act.n
+                else
+                    r.others = r.others + act.n
+                end
+            end
+
+            if env.beg then
+                e.maturity = "00-12"
+                e.time = env.time
+                if a then
+                    G.authors[a].time = G.authors[a].time or env.time
+                end
+            end
+        else
+            G.authors[act.author] = G.authors[act.author] or { reps=0 }
+            G.authors[act.author].reps = G.authors[act.author].reps + n
         end
+
+        -- the vote enters the registry as a target of its own:
+        G.actions[env.aid] = {
+            action = kind,
+            author = env.sign,
+            reps   = 0,
+            revoke = { author=0, others=0 },
+        }
     end
 
     cap(G)
