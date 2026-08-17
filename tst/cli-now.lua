@@ -4,113 +4,80 @@ require "tests"
 
 local DIR = ROOT .. "/chains/#cli-now/"
 
--- GENESIS TIMESTAMP
+-- reads the signed time of action `aid` (the one source of truth)
+local function TIME (aid)
+    local act = exec {
+        cmd = "git -C " .. DIR .. " cat-file blob " .. aid,
+    }
+    return act:match('%["time"%] = (%d+)')
+end
+
+-- NEUTRAL COMMIT DATES
 do
-    print("==> Genesis timestamp")
+    print("==> Neutral commit dates")
 
     do
-        TEST "genesis with --now=0"
+        TEST "genesis envelope is neutral (identity + dates)"
         exec {
             cmd = "HOME=" .. SSH .. "home " .. ENV_EXE .. " --now=0 chains add '#cli-now' init inline --sign",
         }
         local ts = exec {
-            cmd = "git -C " .. DIR .. " log -1 --format=%at",
+            cmd = "git -C " .. DIR .. " log -1 --format='%an %ae %cn %ce %at %ct'",
         }
-        assert(ts == "0", "genesis timestamp: " .. ts)
+        assert(ts == "- - - - 0 0", "genesis envelope: " .. ts)
     end
 
     do
-        TEST "committer date also set"
-        local ts = exec {
-            cmd = "git -C " .. DIR .. " log -1 --format=%ct",
-        }
-        assert(ts == "0", "committer timestamp: " .. ts)
-    end
-end
-
--- POST TIMESTAMP
-do
-    print("==> Post timestamp")
-
-    do
-        TEST "post with --now=100"
+        TEST "post envelope is neutral regardless of --now"
         local out = exec {
             cmd = ENV_EXE .. " --now=100 chain '#cli-now' post inline 'hello' --sign " .. KEY1,
         }
         assert(#out == 40, "hash: " .. out)
         local ts = exec {
-            cmd = "git -C " .. DIR .. " log -1 --format=%at",
+            cmd = "git -C " .. DIR .. " log -1 --format='%an %ae %cn %ce %at %ct'",
         }
-        assert(ts == "100", "post timestamp: " .. ts)
-    end
-
-    do
-        TEST "post with --now=200"
-        local out = exec {
-            cmd = ENV_EXE .. " --now=200 chain '#cli-now' post inline 'world' --sign " .. KEY1,
-        }
-        assert(#out == 40, "hash: " .. out)
-        local ts = exec {
-            cmd = "git -C " .. DIR .. " log -1 --format=%at",
-        }
-        assert(ts == "200", "post timestamp: " .. ts)
+        assert(ts == "- - - - 0 0", "post envelope: " .. ts)
     end
 end
 
--- LIKE TIMESTAMP
+-- ACTION TIME
 do
-    print("==> Like timestamp")
+    print("==> Action time")
+
+    do
+        TEST "post with --now=200"
+        local h = exec {
+            cmd = ENV_EXE .. " --now=200 chain '#cli-now' post inline 'world' --sign " .. KEY1,
+        }
+        assert(#h == 40, "hash: " .. h)
+        local ts = TIME(h)
+        assert(ts == "200", "post time: " .. ts)
+    end
 
     do
         TEST "like with --now=300"
         local h = exec {
-            cmd = ENV_EXE .. " --now=100 chain '#cli-now' post inline 'hello' --sign " .. KEY1,
+            cmd = ENV_EXE .. " --now=100 chain '#cli-now' post inline 'hello2' --sign " .. KEY1,
         }
-        exec {
+        local l = exec {
             cmd = ENV_EXE .. " --now=300 chain '#cli-now' like 1000 action " .. h .. " --sign " .. KEY1,
         }
-        local ts = exec {
-            cmd = "git -C " .. DIR .. " log -1 --format=%at",
-        }
-        assert(ts == "300", "like timestamp: " .. ts)
+        local ts = TIME(l)
+        assert(ts == "300", "like time: " .. ts)
     end
-end
-
--- INCREASING TIMESTAMPS
-do
-    print("==> Increasing timestamps in log")
 
     do
-        TEST "all commits have expected timestamps"
-        exec {
-            cmd = ENV_EXE .. " --now=0   chain '#cli-now' post inline 0 --sign " .. KEY1,
-        }
-        exec {
-            cmd = ENV_EXE .. " --now=100 chain '#cli-now' post inline 1 --sign " .. KEY1,
-        }
-        exec {
-            cmd = ENV_EXE .. " --now=200 chain '#cli-now' post inline 2 --sign " .. KEY1,
-        }
-        exec {
-            cmd = ENV_EXE .. " --now=300 chain '#cli-now' post inline 3 --sign " .. KEY1,
-        }
-
-        -- newest first; every commit but the genesis is a post
-        local logs = exec {
-            cmd = "git -C " .. DIR .. " log --format='%at'",
-        }
-        local ts = {}
-        for t in logs:gmatch("(%d+)") do
-            ts[#ts+1] = tonumber(t)
-            if #ts == 4 then
-                break
-            end
+        TEST "each post records its own --now"
+        local hs = {}
+        for i, now in ipairs { 0, 100, 200, 300 } do
+            hs[i] = exec {
+                cmd = ENV_EXE .. " --now=" .. now .. " chain '#cli-now' post inline t" .. i .. " --sign " .. KEY1,
+            }
         end
-        assert(#ts == 4, "expected 4 post commits: " .. #ts)
-        assert(ts[1] == 300, "t[1]: " .. ts[1])
-        assert(ts[2] == 200, "t[2]: " .. ts[2])
-        assert(ts[3] == 100, "t[3]: " .. ts[3])
-        assert(ts[4] == 0,   "t[4]: " .. ts[4])
+        for i, now in ipairs { 0, 100, 200, 300 } do
+            local ts = TIME(hs[i])
+            assert(ts == tostring(now), "t[" .. i .. "]: " .. ts)
+        end
     end
 end
 
@@ -160,9 +127,7 @@ do
     }
     local after = os.time()
     assert(#out == 40, "hash: " .. out)
-    local ts = tonumber((exec {
-        cmd = "git -C " .. DIR .. " log -1 --format=%at",
-    }))
+    local ts = tonumber(TIME(out))
     assert(ts>=before and ts<=after, "timestamp not in range: " .. ts)
 end
 

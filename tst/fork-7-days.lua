@@ -117,11 +117,11 @@ do
     end
 
     TEST "A keeps its own payloads"
-    for file, text in pairs { ["a1.txt"]="a1", ["a2.txt"]="a2" } do
-        local h = io.open(ROOT_A .. "/chains/#fork-7d/" .. file)
-        local content = h:read("a")
-        h:close()
-        assert(content:match(text), text .. " missing: " .. content)
+    for aid,text in pairs { [a1]="a1", [a2]="a2" } do
+        local v = exec {
+            cmd = EXE_A .. " chain '#fork-7d' get payload " .. aid,
+        }
+        assert(v:match(text))
     end
 end
 

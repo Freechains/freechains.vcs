@@ -66,7 +66,8 @@ function FAIL (t)
     }
     assert(code ~= 0, "should fail: " .. tostring(err))
     if t.err then
-        assert(err == t.err, "should fail with: " .. tostring(err))
+        -- failure output is raw (untrimmed): trailing newline
+        assert(err == t.err .. "\n", "should fail with: " .. tostring(err))
     end
     return err
 end

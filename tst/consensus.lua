@@ -22,19 +22,21 @@ exec {
 -- A posts with KEY1 (higher), B posts with KEY2 (lower)
 -- B sends to A → A's hook recvs from B → A wins
 -- B's main is not a fast-forward of A's main (non-ff push)
+-- payloads live outside the tree: no conflict, the loser is
+-- APPLIED AFTER the winner (consensus decides order, not survival)
 do
     print("==> Test 1: local wins by prefix reps")
 
-    TEST "A creates chain + seeds seed.txt"
+    TEST "A creates chain + seeds"
     exec {
         cmd = EXE_A .. " --now=1000 chains add '#cons-a' init file " .. GEN_2,
     }
     local seed_a = exec {
-        cmd = EXE_A .. " --now=1100 chain '#cons-a' post inline 'seed\n' --file seed.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1100 chain '#cons-a' post inline 'seed\n' --sign " .. KEY1,
     }
 
     TEST "KEY2 likes seed (loses reps, KEY1 > KEY2 at fork)"
-    exec {
+    local like_a = exec {
         cmd = EXE_A .. " --now=1200 chain '#cons-a' like 1000 action " .. seed_a .. " --sign " .. KEY2,
     }
 
@@ -43,18 +45,14 @@ do
         cmd = EXE_B .. " chains add '#cons-a' clone " .. ROOT_A .. "/chains/#cons-a/",
     }
 
-    TEST "A posts alpha to common.txt with KEY1 (higher prefix reps)"
-    exec {
-        cmd = EXE_A .. " --now=2000 chain '#cons-a' post inline 'alpha\n' --file common.txt --sign " .. KEY1,
+    TEST "A posts alpha with KEY1 (higher prefix reps)"
+    local alpha = exec {
+        cmd = EXE_A .. " --now=2000 chain '#cons-a' post inline 'alpha\n' --sign " .. KEY1,
     }
 
-    -- 280808 : EARLY EXIT : rest needs clone/recv snapshots
-    print("<== PASSED (280808 early exit)")
-    os.exit()
-
-    TEST "B posts beta to common.txt with KEY2 (lower prefix reps)"
-    exec {
-        cmd = EXE_B .. " --now=2000 chain '#cons-a' post inline 'beta\n' --file common.txt --sign " .. KEY2,
+    TEST "B posts beta with KEY2 (lower prefix reps)"
+    local beta = exec {
+        cmd = EXE_B .. " --now=2000 chain '#cons-a' post inline 'beta\n' --sign " .. KEY2,
     }
 
     TEST "B sends to A, non-ff (A wins by prefix reps)"
@@ -62,18 +60,25 @@ do
         cmd = EXE_B .. " --now=3000 chain '#cons-a' sync send " .. ROOT_A .. "/chains/#cons-a/",
     }
 
-    TEST "A's common.txt has alpha, not beta"
-    local h = io.open(ROOT_A .. "/chains/#cons-a/common.txt")
-    local content = h:read("a")
-    h:close()
-    assert(content:match("alpha"), "alpha missing: " .. content)
-    assert(not content:match("beta"), "beta should be discarded: " .. content)
+    TEST "A's order: alpha before beta"
+    do
+        local O = ORDER(EXE_A, "#cons-a")
+        assert(#O == 4, "expected 4 entries, got " .. #O)
+        assert(O[1] == seed_a, "seed should be first")
+        assert(O[2] == like_a, "like should be second")
+        assert(O[3] == alpha,  "alpha should win")
+        assert(O[4] == beta,   "beta should lose")
+    end
 
-    TEST "A's posts.lua has only the winning post"
-    local posts = dofile(ROOT_A .. "/chains/#cons-a/.freechains/state/posts.lua")
-    local n = 0
-    for _ in pairs(posts) do n = n + 1 end
-    assert(n == 2, "expected 2 posts (seed+alpha), got " .. n)
+    TEST "A holds both payloads"
+    local pa = exec {
+        cmd = EXE_A .. " chain '#cons-a' get payload " .. alpha,
+    }
+    local pb = exec {
+        cmd = EXE_A .. " chain '#cons-a' get payload " .. beta,
+    }
+    assert(pa == "alpha", "alpha payload missing")
+    assert(pb == "beta", "beta payload missing")
 end
 
 -- 2. remote wins by prefix reps
@@ -82,16 +87,16 @@ end
 do
     print("==> Test 2: remote wins by prefix reps")
 
-    TEST "A creates chain + seeds seed.txt"
+    TEST "A creates chain + seeds"
     exec {
         cmd = EXE_A .. " --now=1000 chains add '#cons-b' init file " .. GEN_2,
     }
     local seed_b = exec {
-        cmd = EXE_A .. " --now=1100 chain '#cons-b' post inline 'seed\n' --file seed.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1100 chain '#cons-b' post inline 'seed\n' --sign " .. KEY1,
     }
 
     TEST "KEY2 likes seed (loses reps, KEY1 > KEY2 at fork)"
-    exec {
+    local like_b = exec {
         cmd = EXE_A .. " --now=1200 chain '#cons-b' like 1000 action " .. seed_b .. " --sign " .. KEY2,
     }
 
@@ -100,41 +105,49 @@ do
         cmd = EXE_B .. " chains add '#cons-b' clone " .. ROOT_A .. "/chains/#cons-b/",
     }
 
-    TEST "A posts alpha to common.txt with KEY2 (lower prefix reps)"
-    exec {
-        cmd = EXE_A .. " --now=2000 chain '#cons-b' post inline 'alpha\n' --file common.txt --sign " .. KEY2,
+    TEST "A posts alpha with KEY2 (lower prefix reps)"
+    local alpha = exec {
+        cmd = EXE_A .. " --now=2000 chain '#cons-b' post inline 'alpha\n' --sign " .. KEY2,
     }
 
-    TEST "B posts beta to common.txt with KEY1 (higher prefix reps)"
-    exec {
-        cmd = EXE_B .. " --now=2000 chain '#cons-b' post inline 'beta\n' --file common.txt --sign " .. KEY1,
+    TEST "B posts beta with KEY1 (higher prefix reps)"
+    local beta = exec {
+        cmd = EXE_B .. " --now=2000 chain '#cons-b' post inline 'beta\n' --sign " .. KEY1,
     }
 
     TEST "A recvs from B (B wins by prefix reps)"
     local out = exec {
         cmd = EXE_A .. " --now=3000 chain '#cons-b' sync recv " .. ROOT_B .. "/chains/#cons-b/",
     }
-    assert(out:match "ERROR : content conflict\nvoided : %S+\n")
+    assert(not out:match("voided"), "loser applies cleanly: " .. out)
 
-    TEST "A's common.txt has beta, not alpha"
-    local h = io.open(ROOT_A .. "/chains/#cons-b/common.txt")
-    local content = h:read("a")
-    h:close()
-    assert(content:match("beta"), "beta missing: " .. content)
-    assert(not content:match("alpha"), "alpha should be discarded: " .. content)
+    TEST "A's order: beta before alpha"
+    do
+        local O = ORDER(EXE_A, "#cons-b")
+        assert(#O == 4, "expected 4 entries, got " .. #O)
+        assert(O[1] == seed_b, "seed should be first")
+        assert(O[2] == like_b, "like should be second")
+        assert(O[3] == beta,   "beta should win")
+        assert(O[4] == alpha,  "alpha should lose")
+    end
 
-    TEST "A's posts.lua has only the winning post"
-    local posts = dofile(ROOT_A .. "/chains/#cons-b/.freechains/state/posts.lua")
-    local n = 0
-    for _ in pairs(posts) do n = n + 1 end
-    assert(n == 2, "expected 2 posts (seed+beta), got " .. n)
+    TEST "A holds both payloads"
+    local pa = exec {
+        cmd = EXE_A .. " chain '#cons-b' get payload " .. alpha,
+    }
+    local pb = exec {
+        cmd = EXE_A .. " chain '#cons-b' get payload " .. beta,
+    }
+    assert(pa == "alpha", "alpha payload missing")
+    assert(pb == "beta", "beta payload missing")
 end
 
 -- 3. loser invalidated by winner context
--- GEN_4: KEY1=7500, KEY2=7500, KEY3=7500, KEY4=7500
--- Remote: KEY1,KEY2,KEY3 each dislike KEY4 author by 3 → KEY4 ≤ 0
+-- GEN_4: KEY1..KEY4 = 12500 each
+-- Remote: KEY1,KEY2,KEY3 each dislike KEY4 author by 4500
+--   → KEY4 = 12500 - 3*4050 = 350 < cost
 -- Local: KEY4 posts P1, KEY2 posts P2
--- Remote wins (22500 > 15000)
+-- Remote wins (37500 > 25000)
 -- Loser replay: P1 by KEY4 fails → P2 by KEY2 also voided (cascade)
 do
     print("==> Test 3: loser invalidated by winner context")
@@ -149,19 +162,19 @@ do
         cmd = EXE_B .. " chains add '#cons-c' clone " .. ROOT_A .. "/chains/#cons-c/",
     }
 
-    TEST "B: KEY1 dislikes KEY4 author by 3"
+    TEST "B: KEY1 dislikes KEY4 author by 4500"
     local X1 = exec {
-        cmd = EXE_B .. " --now=2000 chain '#cons-c' dislike 3000 author '" .. PUB4 .. "' --sign " .. KEY1,
+        cmd = EXE_B .. " --now=2000 chain '#cons-c' dislike 4500 author '" .. PUB4 .. "' --sign " .. KEY1,
     }
 
-    TEST "B: KEY2 dislikes KEY4 author by 3"
+    TEST "B: KEY2 dislikes KEY4 author by 4500"
     local X2 = exec {
-        cmd = EXE_B .. " --now=2000 chain '#cons-c' dislike 3000 author '" .. PUB4 .. "' --sign " .. KEY2,
+        cmd = EXE_B .. " --now=2000 chain '#cons-c' dislike 4500 author '" .. PUB4 .. "' --sign " .. KEY2,
     }
 
-    TEST "B: KEY3 dislikes KEY4 author by 3"
+    TEST "B: KEY3 dislikes KEY4 author by 4500"
     local X3 = exec {
-        cmd = EXE_B .. " --now=2000 chain '#cons-c' dislike 3000 author '" .. PUB4 .. "' --sign " .. KEY3,
+        cmd = EXE_B .. " --now=2000 chain '#cons-c' dislike 4500 author '" .. PUB4 .. "' --sign " .. KEY3,
     }
 
     TEST "A: KEY2 posts P1 (survives)"
@@ -196,10 +209,12 @@ do
     for _ in out:gmatch("voided") do voided = voided + 1 end
     assert(voided == 2, "expected 2 voided, got " .. voided)
 
-    TEST "A's posts.lua has 1 post (P1 survived)"
-    local posts = dofile(ROOT_A .. "/chains/#cons-c/.freechains/state/posts.lua")
+    TEST "A's snapshot has 1 post (P1 survived)"
+    local acts = STATE(ROOT_A .. "/chains/#cons-c/").actions
     local n = 0
-    for _ in pairs(posts) do n = n + 1 end
+    for _, v in pairs(acts) do
+        if v.action == 'post' then n = n + 1 end
+    end
     assert(n == 1, "expected 1 post (P1), got " .. n)
 
     TEST "A order after merge: X1,X2,X3,P1 present; P2,P3 revoked"
@@ -231,9 +246,9 @@ do
 end
 
 -- 4. nested cascade (fails under flat replay, passes under recursive)
--- GEN_4: KEY1..KEY4 = 7500 each.
--- A side (inner winner): KEY1+KEY2+KEY3 dislike KEY4 by 3 (sum 22500).
--- B side (inner loser):  KEY4 posts P_c (sum 7500).
+-- GEN_4: KEY1..KEY4 = 12500 each.
+-- A side (inner winner): KEY1+KEY2+KEY3 dislike KEY4 by 4500 (sum 37500).
+-- B side (inner loser):  KEY4 posts P_c (sum 12500).
 -- A recvs B → inner merge M1 on A. A wins. P_c voided.
 -- C clones A (gets M1). C's replay_remote walks com..A_tip,
 --   which contains M1.
@@ -263,26 +278,26 @@ do
 
     -- A: G -- D1
     -- B: G
-    -- K4: 7500 - 2700 = 4800
-    TEST "A: KEY1 dislikes KEY4 author by 3"
+    -- K4: 12500 - 4050 = 8450
+    TEST "A: KEY1 dislikes KEY4 author by 4500"
     exec {
-        cmd = EXE_A .. " --now=2000 chain '#cons-d' dislike 3000 author '" .. PUB4 .. "' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=2000 chain '#cons-d' dislike 4500 author '" .. PUB4 .. "' --sign " .. KEY1,
     }
 
     -- A: G -- D1 -- D2
     -- B: G
-    -- K4: 4800 - 2700 = 2100
-    TEST "A: KEY2 dislikes KEY4 author by 3"
+    -- K4: 8450 - 4050 = 4400
+    TEST "A: KEY2 dislikes KEY4 author by 4500"
     exec {
-        cmd = EXE_A .. " --now=2000 chain '#cons-d' dislike 3000 author '" .. PUB4 .. "' --sign " .. KEY2,
+        cmd = EXE_A .. " --now=2000 chain '#cons-d' dislike 4500 author '" .. PUB4 .. "' --sign " .. KEY2,
     }
 
     -- A: G -- D1 -- D2 -- D3
     -- B: G
-    -- K4: 2100 - 2700 = -600
-    TEST "A: KEY3 dislikes KEY4 author by 3"
+    -- K4: 4400 - 4050 = 350 < cost
+    TEST "A: KEY3 dislikes KEY4 author by 4500"
     exec {
-        cmd = EXE_A .. " --now=2000 chain '#cons-d' dislike 3000 author '" .. PUB4 .. "' --sign " .. KEY3,
+        cmd = EXE_A .. " --now=2000 chain '#cons-d' dislike 4500 author '" .. PUB4 .. "' --sign " .. KEY3,
     }
 
     -- A: G -- D1 -- D2 -- D3
@@ -312,12 +327,10 @@ do
         cmd = EXE_C .. " chains add '#cons-d' clone " .. ROOT_A .. "/chains/#cons-d/",
     }
 
-    TEST "C's posts.lua should not contain P_c"
-    local posts = dofile (
-        ROOT_C .. "/chains/#cons-d/.freechains/state/posts.lua"
-    )
+    TEST "C's snapshot should not contain P_c"
+    local acts = STATE(ROOT_C .. "/chains/#cons-d/").actions
     assert (
-        posts[P_c] == nil,
+        acts[P_c] == nil,
         "P_c should be voided by nested cascade"
     )
 

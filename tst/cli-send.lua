@@ -140,25 +140,33 @@ do
     }
 
     TEST "X crafts malicious like signed by non-pioneer (0 reps)"
-    exec {
-        cmd = "mkdir -p " .. REPO_X .. ".freechains/likes/",
-    }
-    local f = io.open(REPO_X .. ".freechains/likes/like-err.lua", "w")
-    f:write('return { author="'..PUB1..'", n=1000 }\n')
+    local now = 1500
+    local f = io.open(REPO_X .. "like-err.lua", "w")
+    f:write('return {\n'
+        .. '    ["action"] = "like",\n'
+        .. '    ["author"] = "' .. PUB1 .. '",\n'
+        .. '    ["backs"] = {},\n'     -- B7 will require the real backs
+        .. '    ["n"] = 1000,\n'
+        .. '    ["sign"] = "' .. PUB3 .. '",\n'
+        .. '    ["time"] = ' .. now .. ',\n'
+        .. '}\n')
     f:close()
-    exec {
-        cmd = ENV .. " git -C " .. REPO_X .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh" .. " add .freechains/likes/like-err.lua",
+    local aid = exec {
+        cmd = "git -C " .. REPO_X .. " hash-object like-err.lua",
     }
     exec {
-        cmd = ENV .. " git -C " .. REPO_X .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh" .. " commit -S -m 'x' --trailer 'Freechains: like'",
+        cmd = "mkdir -p " .. REPO_X .. "actions/" .. aid:sub(1,2),
     }
     exec {
-        cmd = "git -C " .. REPO_X .. " commit -m 'x' --trailer 'Freechains: state' --allow-empty",
+        cmd = "mv " .. REPO_X .. "like-err.lua " ..
+            REPO_X .. "actions/" .. aid:sub(1,2) .. "/" .. aid .. ".lua",
     }
-
-    -- 280808 : EARLY EXIT : rest needs clone/recv snapshots
-    print("<== PASSED (280808 early exit)")
-    os.exit()
+    exec {
+        cmd = "git -C " .. REPO_X .. " add actions/",
+    }
+    exec {
+        cmd = ENV .. " git -C " .. REPO_X .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh" .. " commit -S --allow-empty-message -m ''",
+    }
 
     TEST "X sends to B: push should be rejected"
     local err = FAIL {
@@ -176,8 +184,8 @@ do
         cmd = EXE_A .. " --now=2000 chain '#test' post inline 'post from A' --sign " .. KEY1,
     }
     assert(#out == 40, "hash: " .. out)
-    -- A:  [state] genesis ── [post] P1 ── [state] S1
-    -- B:  [state] genesis
+    -- A:  genesis ── [post] P1
+    -- B:  genesis
 
     TEST "A sends to B"
     exec {
@@ -194,8 +202,8 @@ do
     assert (A == B,
         "heads should be equal: " .. A .. " vs " .. B
     )
-    -- A:  [state] genesis ── [post] P1 ── [state] S1
-    -- B:  [state] genesis ── [post] P1 ── [state] S1
+    -- A:  genesis ── [post] P1
+    -- B:  genesis ── [post] P1
 end
 
 -- 4. send bidirectional
@@ -214,8 +222,8 @@ do
             cmd = EXE_A .. " --now=4500 chain '#test' sync send " .. REPO_B,
         }
     end
-    -- A:  genesis ── P1 ── S1 ── P2 ── S2 ── [post] P3 ── [state] S3
-    -- B:  genesis ── P1 ── S1 ── P2 ── S2 ── [post] P3 ── [state] S3
+    -- A:  genesis ── P1 ── P2 ── [post] P3
+    -- B:  genesis ── P1 ── P2 ── [post] P3
 
     do
         TEST "B posts"
@@ -229,8 +237,8 @@ do
             cmd = EXE_B .. " --now=5500 chain '#test' sync send " .. REPO_A,
         }
     end
-    -- A:  genesis ── ... ── S3 ── [post] P4 ── [state] S4
-    -- B:  genesis ── ... ── S3 ── [post] P4 ── [state] S4
+    -- A:  genesis ── ... ── P3 ── [post] P4
+    -- B:  genesis ── ... ── P3 ── [post] P4
 
     do
         TEST "A and B are equal"
@@ -239,8 +247,8 @@ do
         }
         assert(ok == 0, "A and B should not differ")
     end
-    -- A:  genesis ── ... ── S3 ── [post] P4 ── [state] S4
-    -- B:  genesis ── ... ── S3 ── [post] P4 ── [state] S4
+    -- A:  genesis ── ... ── P3 ── [post] P4
+    -- B:  genesis ── ... ── P3 ── [post] P4
 end
 
 -- 5. recv divergent + consensus
@@ -263,8 +271,8 @@ do
         }
         assert(#B == 40, "hash: " .. B)
     end
-    -- A:  genesis ── ... ── S4 ── [post] P5 ── [state] S5
-    -- B:  genesis ── ... ── S4 ── [post] P6 ── [state] S6
+    -- A:  genesis ── ... ── P4 ── [post] P5
+    -- B:  genesis ── ... ── P4 ── [post] P6
 
     -- A <-- B
     do
@@ -281,22 +289,25 @@ do
             assert(tonumber(ts) <= 10000, "wall-clock leak: " .. ts)
         end
 
-        TEST "A has both post files"
-        local h = io.popen("cat " .. REPO_A .. "*.txt")
-        local all = h:read("a")
-        h:close()
-        assert(all:match("fourth from A"), "A's post missing")
-        assert(all:match("second from B"), "B's post missing")
+        TEST "A has both payloads"
+        local pa = exec {
+            cmd = EXE_A .. " chain '#test' get payload " .. A,
+        }
+        local pb = exec {
+            cmd = EXE_A .. " chain '#test' get payload " .. B,
+        }
+        assert(pa == "fourth from A", "A's payload missing")
+        assert(pb == "second from B", "B's payload missing")
 
-        TEST "A's posts.lua has both entries"
-        local posts = dofile(REPO_A .. ".freechains/state/posts.lua")
-        assert(posts[A], "A's should be in posts.lua")
-        assert(posts[B], "B's should be in posts.lua")
+        TEST "A's snapshot has both actions"
+        local acts = STATE(REPO_A).actions
+        assert(acts[A], "A's should be in actions")
+        assert(acts[B], "B's should be in actions")
     end
-    --                             ┌── [post] P5 ── [state] S5
-    -- A:  genesis ── ... ── S4 ── [merge] (amend w/ state)
-    --                             └── [post] P6 ── [state] S6
-    -- B:  genesis ── ... ── S4 ── [post] P6 ── [state] S6
+    --                             ┌── [post] P5
+    -- A:  genesis ── ... ── P4 ── [merge]
+    --                             └── [post] P6
+    -- B:  genesis ── ... ── P4 ── [post] P6
 
     -- B <-- A
     do
@@ -305,30 +316,33 @@ do
             cmd = EXE_B .. " --now=7500 chain '#test' sync recv " .. REPO_A,
         }
 
-        TEST "B has both post files"
-        local h = io.popen("cat " .. REPO_B .. "*.txt")
-        local all = h:read("a")
-        h:close()
-        assert(all:match("fourth from A"), "A's post missing in B")
-        assert(all:match("second from B"), "B's post missing in B")
+        TEST "B has both payloads"
+        local pa = exec {
+            cmd = EXE_B .. " chain '#test' get payload " .. A,
+        }
+        local pb = exec {
+            cmd = EXE_B .. " chain '#test' get payload " .. B,
+        }
+        assert(pa == "fourth from A", "A's payload missing in B")
+        assert(pb == "second from B", "B's payload missing in B")
 
-        TEST "A and B have same authors.lua"
-        local aa = dofile(REPO_A .. ".freechains/state/authors.lua")
-        local ab = dofile(REPO_B .. ".freechains/state/authors.lua")
+        TEST "A and B have same authors"
+        local aa = STATE(REPO_A).authors
+        local ab = STATE(REPO_B).authors
         for k, v in pairs(aa) do
             assert(ab[k], "author missing in B: " .. k)
             assert(ab[k].reps == v.reps, "reps mismatch for " .. k)
         end
 
-        TEST "A and B have same posts.lua"
-        local pa = dofile(REPO_A .. ".freechains/state/posts.lua")
-        local pb = dofile(REPO_B .. ".freechains/state/posts.lua")
+        TEST "A and B have same actions"
+        local pa = STATE(REPO_A).actions
+        local pb = STATE(REPO_B).actions
         for k, v in pairs(pa) do
-            assert(pb[k], "post missing in B: " .. k)
+            assert(pb[k], "action missing in B: " .. k)
             assert(pb[k].maturity == v.maturity, "maturity mismatch for " .. k)
         end
         for k, v in pairs(pb) do
-            assert(pa[k], "post missing in A: " .. k)
+            assert(pa[k], "action missing in A: " .. k)
         end
 
         TEST "A and B are bit-equal"
@@ -337,9 +351,9 @@ do
         }
         assert(ok == 0, "A and B should not differ")
     end
-    --                             ┌── [post] P5 ── [state] S5
-    -- A:  genesis ── ... ── S4 ── [merge] (amend w/ state)
-    --                             └── [post] P6 ── [state] S6
+    --                             ┌── [post] P5
+    -- A:  genesis ── ... ── P4 ── [merge]
+    --                             └── [post] P6
     -- B:  same as A (FF recv)
 end
 
@@ -349,12 +363,14 @@ do
 
     local A
     do
-        local posts = dofile(REPO_A .. ".freechains/state/posts.lua")
-        for k in pairs(posts) do
-            A = k
-            break
+        local acts = STATE(REPO_A).actions
+        for k, v in pairs(acts) do
+            if v.action == 'post' then
+                A = k
+                break
+            end
         end
-        assert(A, "need a post hash from previous steps")
+        assert(A, "need a post aid from previous steps")
     end
 
     do
@@ -368,7 +384,7 @@ do
                 cmd = EXE_A .. " --now=8000 chain '#test' reps action " .. A,
             })),
         }
-        assert(bef.author==29, "bef.author expected 29, got " .. bef.author)
+        assert(bef.author==49500, "bef.author expected 49500, got " .. bef.author)
         assert(bef.post  == 0, "bef.post expected 0, got " .. bef.post)
 
         exec {
@@ -383,8 +399,8 @@ do
                 cmd = EXE_A .. " --now=8000 chain '#test' reps action " .. A,
             })),
         }
-        assert(aft.author == 28, "aft.author expected 28, got " .. aft.author)
-        assert(aft.post   == 3,  "aft.post expected 3, got " .. aft.post)
+        assert(aft.author == 47250, "aft.author expected 47250, got " .. aft.author)
+        assert(aft.post   == 2250,  "aft.post expected 2250, got " .. aft.post)
 
         TEST "B recvs from A (with like)"
         exec {

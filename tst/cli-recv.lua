@@ -44,8 +44,8 @@ do
             cmd = EXE_B .. " chains add '#test' clone " .. REPO_A,
         }
     end
-    -- A:  [state] genesis ── [post] P1 ── [state] S1
-    -- B:  [state] genesis ── [post] P1 ── [state] S1
+    -- A:  genesis ── [post] P1
+    -- B:  genesis ── [post] P1
 
     do
         TEST "A posts again"
@@ -61,8 +61,8 @@ do
         local pk = ssh.verify(REPO_A, hash)
         assert(pk == PUB1, "pubkey mismatch: [" .. tostring(pk) .. "] vs [" .. PUB1 .. "]")
     end
-    -- A:  [state] genesis ── [post] P1 ── [state] S1 ── [post] P2 ── [state] S2
-    -- B:  [state] genesis ── [post] P1 ── [state] S1
+    -- A:  genesis ── [post] P1 ── [post] P2
+    -- B:  genesis ── [post] P1
 
     do
         TEST "B recvs from A"
@@ -81,8 +81,8 @@ do
             "heads should be equal: " .. A .. " vs " .. B
         )
     end
-    -- A:  [state] genesis ── [post] P1 ── [state] S1 ── [post] P2 ── [state] S2
-    -- B:  [state] genesis ── [post] P1 ── [state] S1 ── [post] P2 ── [state] S2
+    -- A:  genesis ── [post] P1 ── [post] P2
+    -- B:  genesis ── [post] P1 ── [post] P2
 end
 
 -- 2. recv bidirectional
@@ -101,8 +101,8 @@ do
             cmd = EXE_B .. " --now=4500 chain '#test' sync recv " .. REPO_A,
         }
     end
-    -- A:  genesis ── P1 ── S1 ── P2 ── S2 ── [post] P3 ── [state] S3
-    -- B:  genesis ── P1 ── S1 ── P2 ── S2 ── [post] P3 ── [state] S3
+    -- A:  genesis ── P1 ── P2 ── [post] P3
+    -- B:  genesis ── P1 ── P2 ── [post] P3
 
     do
         TEST "B posts"
@@ -116,8 +116,8 @@ do
             cmd = EXE_A .. " --now=5500 chain '#test' sync recv " .. REPO_B,
         }
     end
-    -- A:  genesis ── ... ── S3 ── [post] P4 ── [state] S4
-    -- B:  genesis ── ... ── S3 ── [post] P4 ── [state] S4
+    -- A:  genesis ── ... ── P3 ── [post] P4
+    -- B:  genesis ── ... ── P3 ── [post] P4
 
     do
         TEST "A and B are equal"
@@ -126,8 +126,8 @@ do
         }
         assert(ok == 0, "A and B should not differ")
     end
-    -- A:  genesis ── ... ── S3 ── [post] P4 ── [state] S4
-    -- B:  genesis ── ... ── S3 ── [post] P4 ── [state] S4
+    -- A:  genesis ── ... ── P3 ── [post] P4
+    -- B:  genesis ── ... ── P3 ── [post] P4
 end
 
 -- 3. recv divergent + consensus
@@ -150,8 +150,8 @@ do
         }
         assert(#B == 40, "hash: " .. B)
     end
-    -- A:  genesis ── ... ── S4 ── [post] P5 ── [state] S5
-    -- B:  genesis ── ... ── S4 ── [post] P6 ── [state] S6
+    -- A:  genesis ── ... ── P4 ── [post] P5
+    -- B:  genesis ── ... ── P4 ── [post] P6
 
     -- A <-- B
     do
@@ -160,30 +160,33 @@ do
             cmd = EXE_A .. " --now=7500 chain '#test' sync recv " .. REPO_B,
         }
 
-        TEST "no wall-clock timestamps"
+        TEST "dates neutral through sync (all zero)"
         local out = exec {
             cmd = "git -C " .. REPO_A .. " log --format=%at",
         }
         for ts in out:gmatch("%d+") do
-            assert(tonumber(ts) <= 10000, "wall-clock leak: " .. ts)
+            assert(tonumber(ts) == 0, "date leak: " .. ts)
         end
 
-        TEST "A has both post files"
-        local h = io.popen("cat " .. REPO_A .. "*.txt")
-        local all = h:read("a")
-        h:close()
-        assert(all:match("fourth from A"), "A's post missing")
-        assert(all:match("second from B"), "B's post missing")
+        TEST "A has both payloads"
+        local pa = exec {
+            cmd = EXE_A .. " chain '#test' get payload " .. A,
+        }
+        local pb = exec {
+            cmd = EXE_A .. " chain '#test' get payload " .. B,
+        }
+        assert(pa == "fourth from A", "A's payload missing")
+        assert(pb == "second from B", "B's payload missing")
 
-        TEST "A's posts.lua has both entries"
-        local posts = dofile(REPO_A .. ".freechains/state/posts.lua")
-        assert(posts[A], "A's should be in posts.lua")
-        assert(posts[B], "B's should be in posts.lua")
+        TEST "A's snapshot has both actions"
+        local acts = STATE(REPO_A).actions
+        assert(acts[A], "A's should be in actions")
+        assert(acts[B], "B's should be in actions")
     end
-    --                             ┌── [post] P5 ── [state] S5
-    -- A:  genesis ── ... ── S4 ── [merge] (amend w/ state)
-    --                             └── [post] P6 ── [state] S6
-    -- B:  genesis ── ... ── S4 ── [post] P6 ── [state] S6
+    --                             ┌── [post] P5
+    -- A:  genesis ── ... ── P4 ── [merge]
+    --                             └── [post] P6
+    -- B:  genesis ── ... ── P4 ── [post] P6
 
     -- B <-- A
     do
@@ -192,30 +195,33 @@ do
             cmd = EXE_B .. " --now=7500 chain '#test' sync recv " .. REPO_A,
         }
 
-        TEST "B has both post files"
-        local h = io.popen("cat " .. REPO_B .. "*.txt")
-        local all = h:read("a")
-        h:close()
-        assert(all:match("fourth from A"), "A's post missing in B")
-        assert(all:match("second from B"), "B's post missing in B")
+        TEST "B has both payloads"
+        local pa = exec {
+            cmd = EXE_B .. " chain '#test' get payload " .. A,
+        }
+        local pb = exec {
+            cmd = EXE_B .. " chain '#test' get payload " .. B,
+        }
+        assert(pa == "fourth from A", "A's payload missing in B")
+        assert(pb == "second from B", "B's payload missing in B")
 
-        TEST "A and B have same authors.lua"
-        local aa = dofile(REPO_A .. ".freechains/state/authors.lua")
-        local ab = dofile(REPO_B .. ".freechains/state/authors.lua")
+        TEST "A and B have same authors"
+        local aa = STATE(REPO_A).authors
+        local ab = STATE(REPO_B).authors
         for k, v in pairs(aa) do
             assert(ab[k], "author missing in B: " .. k)
             assert(ab[k].reps == v.reps, "reps mismatch for " .. k)
         end
 
-        TEST "A and B have same posts.lua"
-        local pa = dofile(REPO_A .. ".freechains/state/posts.lua")
-        local pb = dofile(REPO_B .. ".freechains/state/posts.lua")
+        TEST "A and B have same actions"
+        local pa = STATE(REPO_A).actions
+        local pb = STATE(REPO_B).actions
         for k, v in pairs(pa) do
-            assert(pb[k], "post missing in B: " .. k)
+            assert(pb[k], "action missing in B: " .. k)
             assert(pb[k].maturity == v.maturity, "maturity mismatch for " .. k)
         end
         for k, v in pairs(pb) do
-            assert(pa[k], "post missing in A: " .. k)
+            assert(pa[k], "action missing in A: " .. k)
         end
 
         TEST "A and B are bit-equal"
@@ -224,9 +230,9 @@ do
         }
         assert(ok == 0, "A and B should not differ")
     end
-    --                             ┌── [post] P5 ── [state] S5
-    -- A:  genesis ── ... ── S4 ── [merge] (amend w/ state)
-    --                             └── [post] P6 ── [state] S6
+    --                             ┌── [post] P5
+    -- A:  genesis ── ... ── P4 ── [merge]
+    --                             └── [post] P6
     -- B:  same as A (FF recv)
 end
 
@@ -236,12 +242,14 @@ do
 
     local A
     do
-        local posts = dofile(REPO_A .. ".freechains/state/posts.lua")
-        for k in pairs(posts) do
-            A = k
-            break
+        local acts = STATE(REPO_A).actions
+        for k, v in pairs(acts) do
+            if v.action == 'post' then
+                A = k
+                break
+            end
         end
-        assert(A, "need a post hash from previous steps")
+        assert(A, "need a post aid from previous steps")
     end
 
     do
@@ -255,7 +263,7 @@ do
                 cmd = EXE_A .. " --now=8000 chain '#test' reps action " .. A,
             })),
         }
-        assert(bef.author==29, "bef.author expected 29, got " .. bef.author)
+        assert(bef.author==49500, "bef.author expected 49500, got " .. bef.author)
         assert(bef.post  == 0, "bef.post expected 0, got " .. bef.post)
 
         exec {
@@ -270,8 +278,8 @@ do
                 cmd = EXE_A .. " --now=8000 chain '#test' reps action " .. A,
             })),
         }
-        assert(aft.author == 28, "aft.author expected 28, got " .. aft.author)
-        assert(aft.post   == 3,  "aft.post expected 3, got " .. aft.post)
+        assert(aft.author == 47250, "aft.author expected 47250, got " .. aft.author)
+        assert(aft.post   == 2250,  "aft.post expected 2250, got " .. aft.post)
 
         TEST "B recvs from A (with like)"
         exec {
@@ -322,19 +330,32 @@ do
     assert(before == after, "B's HEAD changed: " .. before .. " vs " .. after)
 end
 
--- 6. recv FF with tampered remote state
+-- 6. recv action commit smuggling an extra file
 do
-    print("==> Step 6: recv FF tampered state")
+    print("==> Step 6: recv action commit with extra file")
 
-    TEST "A writes tampered state commit"
-    local f = io.open(REPO_A .. ".freechains/state/authors.lua", "w")
-    f:write("return {}\n")
+    TEST "A commits an action file plus a smuggled file"
+    local f = io.open(REPO_A .. "/smuggle.lua", "w")
+    f:write("return { action='post' }\n")
     f:close()
-    exec {
-        cmd = "git -C " .. REPO_A .. " add .freechains/state/authors.lua",
+    local aid = exec {
+        cmd = "git -C " .. REPO_A .. " hash-object smuggle.lua",
     }
     exec {
-        cmd = "git -C " .. REPO_A .. " commit -m '(empty message)'" .. " --no-edit --trailer 'Freechains: state'",
+        cmd = "mkdir -p " .. REPO_A .. "actions/" .. aid:sub(1,2),
+    }
+    exec {
+        cmd = "mv " .. REPO_A .. "smuggle.lua " ..
+            REPO_A .. "actions/" .. aid:sub(1,2) .. "/" .. aid .. ".lua",
+    }
+    local f = io.open(REPO_A .. "/evil2.txt", "w")
+    f:write("smuggled\n")
+    f:close()
+    exec {
+        cmd = "git -C " .. REPO_A .. " add actions/ evil2.txt",
+    }
+    exec {
+        cmd = "git -C " .. REPO_A .. " commit --allow-empty-message -m ''",
     }
 
     TEST "B's HEAD before recv"
@@ -342,50 +363,11 @@ do
         cmd = "git -C " .. REPO_B .. " rev-parse HEAD",
     }
 
-    TEST "B recvs from A fails with state mismatch"
-    FAIL {
-        cmd = EXE_B .. " --now=10000 chain '#test' sync recv " .. REPO_A,
-        err = "ERROR : chain sync : remote state mismatch",
-    }
-
-    TEST "B's HEAD unchanged"
-    local after = exec {
-        cmd = "git -C " .. REPO_B .. " rev-parse HEAD",
-    }
-    assert(before == after,
-        "B's HEAD changed: " .. before .. " vs " .. after
-    )
-end
-
--- 7. recv FF with create-mode violation
-do
-    print("==> Step 7: recv FF create-mode violation")
-
-    TEST "A overwrites tracked post via raw git"
-    local file = exec {
-        cmd = "ls " .. REPO_A .. "*.txt | head -1",
-    }
-    local base = file:match("([^/]+)$")
-    local f = io.open(file, "w")
-    f:write("tampered\n")
-    f:close()
-    exec {
-        cmd = "git -C " .. REPO_A .. " add " .. base,
-    }
-    exec {
-        cmd = "git -C " .. REPO_A .. " commit -m '(empty message)'" .. " --no-edit --trailer 'Freechains: post'",
-    }
-
-    TEST "B's HEAD before recv"
-    local before = exec {
-        cmd = "git -C " .. REPO_B .. " rev-parse HEAD",
-    }
-
-    TEST "B recvs from A fails with create-mode violation"
+    TEST "B recvs from A fails with mode violation"
     local err = FAIL {
-        cmd = EXE_B .. " --now=11000 chain '#test' sync recv " .. REPO_A,
+        cmd = EXE_B .. " --now=10000 chain '#test' sync recv " .. REPO_A,
     }
-    assert(err and err:match("invalid post : mode violation"), "should fail with create-mode violation: " .. tostring(err))
+    assert(err and err:match("malformed commit : expected clean add"), "should fail: " .. tostring(err))
 
     TEST "B's HEAD unchanged"
     local after = exec {
@@ -396,9 +378,9 @@ do
     )
 end
 
--- 8. recv state commit with forbidden path
+-- 7. recv commit that is not an action
 do
-    print("==> Step 8: recv state commit with forbidden path")
+    print("==> Step 7: recv non-action commit")
 
     TEST "A resets to last good state (B's HEAD)"
     local b_head = exec {
@@ -408,7 +390,7 @@ do
         cmd = "git -C " .. REPO_A .. " reset --hard " .. b_head,
     }
 
-    TEST "A creates state-trailer commit with forbidden path"
+    TEST "A commits a junk file"
     local f = io.open(REPO_A .. "/evil.txt", "w")
     f:write("smuggled\n")
     f:close()
@@ -416,7 +398,7 @@ do
         cmd = "git -C " .. REPO_A .. " add evil.txt",
     }
     exec {
-        cmd = "git -C " .. REPO_A .. " commit -m '(empty message)'" .. " --no-edit --trailer 'Freechains: state'",
+        cmd = "git -C " .. REPO_A .. " commit --allow-empty-message -m ''",
     }
 
     TEST "B's HEAD before recv"
@@ -424,11 +406,58 @@ do
         cmd = "git -C " .. REPO_B .. " rev-parse HEAD",
     }
 
-    TEST "B recvs from A fails with forbidden path"
+    TEST "B recvs from A fails with not an action"
+    local err = FAIL {
+        cmd = EXE_B .. " --now=11000 chain '#test' sync recv " .. REPO_A,
+    }
+    assert(err and err:match("malformed commit : expected 2%-parent merge"), "should fail: " .. tostring(err))
+
+    TEST "B's HEAD unchanged"
+    local after = exec {
+        cmd = "git -C " .. REPO_B .. " rev-parse HEAD",
+    }
+    assert(before == after,
+        "B's HEAD changed: " .. before .. " vs " .. after
+    )
+end
+
+-- 8. recv action file whose name is not its own hash
+do
+    print("==> Step 8: recv forged action path")
+
+    TEST "A resets to last good state (B's HEAD)"
+    local b_head = exec {
+        cmd = "git -C " .. REPO_B .. " rev-parse HEAD",
+    }
+    exec {
+        cmd = "git -C " .. REPO_A .. " reset --hard " .. b_head,
+    }
+
+    TEST "A commits a forged action path"
+    local fake = string.rep("ab", 20)
+    exec {
+        cmd = "mkdir -p " .. REPO_A .. "actions/" .. fake:sub(1,2),
+    }
+    local f = io.open(REPO_A .. "actions/" .. fake:sub(1,2) .. "/" .. fake .. ".lua", "w")
+    f:write("return { action='post' }\n")
+    f:close()
+    exec {
+        cmd = "git -C " .. REPO_A .. " add actions/",
+    }
+    exec {
+        cmd = "git -C " .. REPO_A .. " commit --allow-empty-message -m ''",
+    }
+
+    TEST "B's HEAD before recv"
+    local before = exec {
+        cmd = "git -C " .. REPO_B .. " rev-parse HEAD",
+    }
+
+    TEST "B recvs from A fails with invalid action file"
     local err = FAIL {
         cmd = EXE_B .. " --now=12000 chain '#test' sync recv " .. REPO_A,
     }
-    assert(err and err:match("invalid state"), "should fail with forbidden path: " .. tostring(err))
+    assert(err and err:match("malformed commit : invalid action filename"), "should fail: " .. tostring(err))
 
     TEST "B's HEAD unchanged"
     local after = exec {

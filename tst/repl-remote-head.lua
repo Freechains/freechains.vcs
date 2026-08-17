@@ -1,5 +1,10 @@
 #!/usr/bin/env lua5.4
 
+-- git as the replication layer, over git-daemon: fetches and DRY-RUN
+-- merges probe the substrate directly (no HEAD move), while actual
+-- convergence goes through `sync recv` (state lives in local
+-- snapshots, so a raw merge alone cannot produce an operable replica)
+
 require "tests"
 
 local ROOT_A = ROOT .. "/repl-remote-head/A/"
@@ -66,6 +71,7 @@ end})
 
 -- HOST A: create chain + post
 local CHAIN_HASH
+local P1
 
 do
     print("==> Host A: create chain + post")
@@ -81,15 +87,17 @@ do
 
     do
         TEST "post on A"
-        local out = exec {
+        P1 = exec {
             cmd = EXE_A .. " chain '#test' post inline 'post from A' --sign " .. KEY1,
         }
-        assert(#out == 40, "hash: " .. out)
-        assert(out:match("^%x+$"), "not hex")
+        assert(#P1 == 40, "hash: " .. P1)
+        assert(P1:match("^%x+$"), "not hex")
     end
 end
 
 -- HOST B: clone chain + post
+local P2
+
 do
     print("==> Host B: clone chain + post")
 
@@ -119,34 +127,27 @@ do
         assert(count == "2", "count: " .. count)
     end
 
-    -- 280808 : EARLY EXIT : rest needs clone/recv snapshots
-    daemon_stop(PID_A)
-    daemon_stop(PID_B)
-    daemon_stop(PID_C)
-    print("<== PASSED (280808 early exit)")
-    os.exit()
-
     do
         TEST "post on B"
-        local out = exec {
+        P2 = exec {
             cmd = EXE_B .. " chain '#test' post inline 'post from B' --sign " .. KEY1,
         }
-        assert(#out == 40, "hash: " .. out)
-        assert(out:match("^%x+$"), "not hex")
+        assert(#P2 == 40, "hash: " .. P2)
+        assert(P2:match("^%x+$"), "not hex")
     end
 
     do
-        TEST "B has 5 commits (genesis + A post/state + B post/state)"
+        TEST "B has 3 commits (genesis + A post + B post)"
         local count = exec {
             cmd = "git -C " .. REPO_B .. " rev-list --count HEAD",
         }
-        assert(count == "5", "count: " .. count)
+        assert(count == "3", "count: " .. count)
     end
 end
 
--- HOST A: fetch+merge from B
+-- HOST A: raw fetch probes the substrate, recv converges
 do
-    print("==> Host A: fetch+merge from B")
+    print("==> Host A: fetch from B + recv")
 
     do
         TEST "fetch from B"
@@ -165,39 +166,42 @@ do
         }
         assert(code == 0, "abort failed")
 
-        TEST "merge from B"
+        TEST "A recvs from B (fast-forward)"
         exec {
-            cmd = "git -C " .. REPO_A .. " merge --no-edit FETCH_HEAD",
+            cmd = EXE_A .. " chain '#test' sync recv '" .. URL_B .. "#test/'",
         }
     end
 
     do
-        TEST "A has 5 commits (genesis + A post/state + B post/state, fast-forward)"
+        TEST "A has 3 commits (fast-forward)"
         local count = exec {
             cmd = "git -C " .. REPO_A .. " rev-list --count HEAD",
         }
-        assert(count == "5", "count: " .. count)
+        assert(count == "3", "count: " .. count)
     end
 
     do
-        TEST "both post files present in A"
-        local h = io.popen("cat " .. REPO_A .. "*.txt")
-        local all = h:read("a")
-        h:close()
-        assert(all:match("post from A"), "A's post missing")
-        assert(all:match("post from B"), "B's post missing")
+        TEST "both payloads present in A"
+        local pa = exec {
+            cmd = EXE_A .. " chain '#test' get payload " .. P1,
+        }
+        local pb = exec {
+            cmd = EXE_A .. " chain '#test' get payload " .. P2,
+        }
+        assert(pa == "post from A", "A's post missing")
+        assert(pb == "post from B", "B's post missing")
     end
 
     do
         TEST "A and B are equal"
-        local _,ok = exec {
-            cmd = "diff -r --exclude=.git --exclude=now.lua --exclude=authors.lua --exclude=posts.lua " .. REPO_A .. " " .. REPO_B,
+        local _,ok = exec { err=false,
+            cmd = "diff -r --exclude=.git " .. REPO_A .. " " .. REPO_B,
         }
         assert(ok==0, "A and B differ")
     end
 end
 
--- BIDIRECTIONAL SYNC: both post, A merges B, B merges A
+-- BIDIRECTIONAL SYNC: both post, A recvs B, B recvs A
 do
     print("==> Bidirectional sync")
 
@@ -232,51 +236,35 @@ do
         }
         assert(code == 0, "abort failed")
 
-        TEST "A merges B (true merge)"
+        TEST "A recvs B (true merge)"
         exec {
-            cmd = "git -C " .. REPO_A .. " merge --no-edit FETCH_HEAD",
+            cmd = EXE_A .. " chain '#test' sync recv '" .. URL_B .. "#test/'",
         }
 
-        TEST "A has 10 commits"
+        TEST "A has 6 commits (3 shared + 2 posts + merge)"
         local count = exec {
             cmd = "git -C " .. REPO_A .. " rev-list --count HEAD",
         }
-        assert(count == "10", "count: " .. count)
+        assert(count == "6", "count: " .. count)
     end
 
     do
-        TEST "B fetches from A"
-        local _, code = exec {
-            cmd = "git -C " .. REPO_B .. " fetch '" .. URL_A .. "#test/' main",
-        }
-        assert(code == 0, "fetch failed")
-
-        TEST "B dry-run merge ok"
-        local _, code = exec {
-            cmd = "git -C " .. REPO_B .. " merge --no-commit --no-ff FETCH_HEAD",
-        }
-        assert(code == 0, "dry-run merge failed")
-        local _, code = exec {
-            cmd = "git -C " .. REPO_B .. " merge --abort",
-        }
-        assert(code == 0, "abort failed")
-
-        TEST "B merges A (fast-forward)"
+        TEST "B recvs A (fast-forward)"
         exec {
-            cmd = "git -C " .. REPO_B .. " merge --no-edit FETCH_HEAD",
+            cmd = EXE_B .. " chain '#test' sync recv '" .. URL_A .. "#test/'",
         }
 
-        TEST "B has 10 commits"
+        TEST "B has 6 commits"
         local count = exec {
             cmd = "git -C " .. REPO_B .. " rev-list --count HEAD",
         }
-        assert(count == "10", "count: " .. count)
+        assert(count == "6", "count: " .. count)
     end
 
     do
         TEST "A and B are equal after bidirectional sync"
-        local _, ok = exec {
-            cmd = "diff -r --exclude=.git --exclude=now.lua --exclude=authors.lua --exclude=posts.lua " .. REPO_A .. " " .. REPO_B,
+        local _, ok = exec { err=false,
+            cmd = "diff -r --exclude=.git " .. REPO_A .. " " .. REPO_B,
         }
         assert(ok == 0, "A and B differ")
     end
@@ -305,24 +293,27 @@ do
     end
 end
 
--- CONFLICT: both post to same file independently
+-- NO CONFLICT: payloads live outside the tree, so concurrent posts
+-- can never collide on a path (the old shared-file conflict is gone)
 do
-    print("==> Conflict: both post to log.txt")
+    print("==> Concurrent posts do not conflict")
+
+    local PA, PB
 
     do
-        TEST "A posts to log.txt"
-        local out = exec {
-            cmd = EXE_A .. " chain '#test' post" .. " inline 'from A\n' --file log.txt --sign " .. KEY1,
+        TEST "A posts concurrently"
+        PA = exec {
+            cmd = EXE_A .. " chain '#test' post" .. " inline 'from A\n' --sign " .. KEY1,
         }
-        assert(#out == 40, "hash: " .. out)
+        assert(#PA == 40, "hash: " .. PA)
     end
 
     do
-        TEST "B posts to log.txt"
-        local out = exec {
-            cmd = EXE_B .. " chain '#test' post" .. " inline 'from B\n' --file log.txt --sign " .. KEY1,
+        TEST "B posts concurrently"
+        PB = exec {
+            cmd = EXE_B .. " chain '#test' post" .. " inline 'from B\n' --sign " .. KEY1,
         }
-        assert(#out == 40, "hash: " .. out)
+        assert(#PB == 40, "hash: " .. PB)
     end
 
     do
@@ -332,45 +323,32 @@ do
         }
         assert(code == 0, "fetch should succeed")
 
-        TEST "dry-run merge fails with conflict"
-        FAIL {
+        TEST "dry-run merge succeeds (no shared paths)"
+        local _, code = exec {
             cmd = "git -C " .. REPO_A .. " merge --no-commit --no-ff FETCH_HEAD",
         }
+        assert(code == 0, "merge should not conflict")
         local _, code = exec {
             cmd = "git -C " .. REPO_A .. " merge --abort",
         }
         assert(code == 0, "abort failed")
 
-        TEST "merge fails with conflict"
-        FAIL {
-            cmd = "git -C " .. REPO_A .. " merge --no-edit FETCH_HEAD",
+        TEST "A recvs B (converges)"
+        exec {
+            cmd = EXE_A .. " chain '#test' sync recv '" .. URL_B .. "#test/'",
         }
     end
 
     do
-        TEST "log.txt has conflict markers"
-        local h = io.open(REPO_A .. "log.txt")
-        local content = h:read("a")
-        h:close()
-        assert(
-            content:match("<<<<<<<"),
-            "no conflict markers"
-        )
-    end
-
-    do
-        TEST "abort merge restores clean state"
-        local _, code = exec {
-            cmd = "git -C " .. REPO_A .. " merge --abort",
+        TEST "A holds both concurrent payloads"
+        local pa = exec {
+            cmd = EXE_A .. " chain '#test' get payload " .. PA,
         }
-        assert(code == 0, "abort failed")
-        local h = io.open(REPO_A .. "log.txt")
-        local content = h:read("a")
-        h:close()
-        assert(
-            content == "from A\n",
-            "content: " .. content
-        )
+        local pb = exec {
+            cmd = EXE_A .. " chain '#test' get payload " .. PB,
+        }
+        assert(pa == "from A", "A's payload missing")
+        assert(pb == "from B", "B's payload missing")
     end
 end
 

@@ -1,5 +1,10 @@
 #!/usr/bin/env lua5.4
 
+-- begs over raw git: refs/begs/* are plain commits fetched by
+-- refspec and merged with stock git. CLI begs happen while HEAD
+-- still has snapshots (raw merges leave none), so the raw merge
+-- mechanics run LAST.
+
 require "tests"
 
 local ROOT_A = ROOT .. "/repl-local-begs/A/"
@@ -93,100 +98,9 @@ do
     end
 end
 
--- HOST A: fetch begs from B, merge into HEAD
-do
-    print("==> Host A: fetch begs from B + merge")
-
-    do
-        TEST "fetch begs from B"
-        local _, code = exec {
-            cmd = "git -C " .. REPO_A .. " fetch " .. REPO_B .. " refs/begs/*:refs/begs/*",
-        }
-        assert(code == 0, "fetch failed")
-    end
-
-    do
-        TEST "A has 2 beg refs"
-        local out = exec {
-            cmd = "git -C " .. REPO_A .. " for-each-ref refs/begs/ --format='%(refname)'",
-        }
-        local count = 0
-        for _ in out:gmatch("[^\n]+") do count = count + 1 end
-        assert(count == 2, "expected 2 beg refs, got: " .. count)
-    end
-
-    -- merge 1st/2nd beg into HEAD
-    do
-        local refs = exec {
-            cmd = "git -C " .. REPO_A .. " for-each-ref refs/begs/ --sort=refname --format='%(refname)'",
-        }
-        do
-            local ref1 = refs:match("[^\n]+")
-            TEST "merge beg into HEAD (fast-forward)"
-            exec {
-                cmd = "git -C " .. REPO_A .. " merge --no-edit " .. ref1,
-            }
-            local count = exec {
-                cmd = "git -C " .. REPO_A .. " rev-list --count HEAD",
-            }
-            assert(count == "3", "count: " .. count)
-
-            TEST "remove merged beg ref"
-            exec {
-                cmd = "git -C " .. REPO_A .. " update-ref -d " .. ref1,
-            }
-        end
-        do
-            local ref2 = refs:match("[^\n]*\n([^\n]+)")
-            TEST "merge second beg into HEAD (true merge)"
-            exec {
-                cmd = "git -C " .. REPO_A .. " merge --no-edit " .. ref2,
-            }
-            local count = exec {
-                cmd = "git -C " .. REPO_A .. " rev-list --count HEAD",
-            }
-            assert(count == "6", "count: " .. count)
-
-            TEST "remove merged beg ref"
-            exec {
-                cmd = "git -C " .. REPO_A .. " update-ref -d " .. ref2,
-            }
-        end
-        do
-            TEST "no beg refs remain"
-            local out = exec {
-                cmd = "git -C " .. REPO_A .. " for-each-ref refs/begs/ --format='%(refname)'",
-            }
-            assert(out == "", "stale refs: " .. out)
-        end
-        do
-            TEST "both post files present in A"
-            local h = io.popen("cat " .. REPO_A .. "*.txt")
-            local all = h:read("a")
-            h:close()
-            assert(all:match("post from A"), "A's post missing")
-            assert(all:match("post from B"), "B's post missing")
-        end
-    end
-end
-
--- BIDIRECTIONAL SYNC: both beg, fetch begs, merge
+-- BIDIRECTIONAL: exchange beg refs by raw fetch
 do
     print("==> Bidirectional beg sync")
-
-    do
-        TEST "A begs again"
-        local out = exec {
-            cmd = EXE_A .. " chain '#test' post inline 'second from A' --beg",
-        }
-        assert(#out == 40, "hash: " .. out)
-
-        TEST "B begs again"
-        local out = exec {
-            cmd = EXE_B .. " chain '#test' post inline 'second from B' --beg",
-        }
-        assert(#out == 40, "hash: " .. out)
-    end
 
     do
         TEST "A fetches begs from B"
@@ -213,7 +127,136 @@ do
         assert(a == b, "beg refs differ")
     end
 
-    -- B pulls HEAD from A, then prunes merged begs
+    do
+        TEST "A begs again"
+        local out = exec {
+            cmd = EXE_A .. " chain '#test' post inline 'second from A' --beg",
+        }
+        assert(#out == 40, "hash: " .. out)
+
+        TEST "B begs again"
+        local out = exec {
+            cmd = EXE_B .. " chain '#test' post inline 'second from B' --beg",
+        }
+        assert(#out == 40, "hash: " .. out)
+    end
+
+    do
+        TEST "exchange again: 4 beg refs each, equal"
+        exec {
+            cmd = "git -C " .. REPO_A .. " fetch " .. REPO_B .. " refs/begs/*:refs/begs/*",
+        }
+        exec {
+            cmd = "git -C " .. REPO_B .. " fetch " .. REPO_A .. " refs/begs/*:refs/begs/*",
+        }
+        local a = exec {
+            cmd = "git -C " .. REPO_A .. " for-each-ref refs/begs/ --sort=refname --format='%(refname) %(objectname)'",
+        }
+        local b = exec {
+            cmd = "git -C " .. REPO_B .. " for-each-ref refs/begs/ --sort=refname --format='%(refname) %(objectname)'",
+        }
+        assert(a == b, "beg refs differ")
+        local count = 0
+        for _ in a:gmatch("[^\n]+") do count = count + 1 end
+        assert(count == 4, "expected 4 beg refs, got: " .. count)
+    end
+end
+
+-- UNRELATED HISTORIES: independent chain, fetch beg, merge fails
+do
+    print("==> Unrelated histories rejected")
+
+    local h = exec {
+        cmd = EXE_C .. " chains add '#test' init file " .. GEN_0,
+    }
+    assert(h ~= CHAIN_HASH, "should differ")
+
+    do
+        TEST "fetch begs from A succeeds"
+        local _, code = exec {
+            cmd = "git -C " .. REPO_C .. " fetch " .. REPO_A .. " refs/begs/*:refs/begs/*",
+        }
+        assert(code == 0, "fetch should succeed")
+    end
+
+    do
+        TEST "merge beg into unrelated HEAD fails"
+        local ref = exec {
+            cmd = "git -C " .. REPO_C .. " for-each-ref refs/begs/ --sort=refname --format='%(refname)'",
+        }
+        local first = ref:match("[^\n]+")
+        FAIL {
+            cmd = "git -C " .. REPO_C .. " merge --no-commit --no-ff " .. first,
+        }
+    end
+end
+
+-- MERGE MECHANICS (raw git, last: no CLI after these HEAD moves):
+-- begs are ordinary commits; distinct action files never conflict
+do
+    print("==> Host A: merge begs into HEAD (raw git)")
+
+    local refs = exec {
+        cmd = "git -C " .. REPO_A .. " for-each-ref refs/begs/ --sort=refname --format='%(refname)'",
+    }
+    local ref1 = refs:match("[^\n]+")
+    local ref2 = refs:match("[^\n]*\n([^\n]+)")
+
+    do
+        TEST "merge beg into HEAD (fast-forward)"
+        exec {
+            cmd = "git -C " .. REPO_A .. " merge --no-edit " .. ref1,
+        }
+        local count = exec {
+            cmd = "git -C " .. REPO_A .. " rev-list --count HEAD",
+        }
+        assert(count == "2", "count: " .. count)
+
+        TEST "remove merged beg ref"
+        exec {
+            cmd = "git -C " .. REPO_A .. " update-ref -d " .. ref1,
+        }
+    end
+
+    do
+        TEST "merge second beg into HEAD (true merge, no conflict)"
+        exec {
+            cmd = "git -C " .. REPO_A .. " merge --no-edit " .. ref2,
+        }
+        local count = exec {
+            cmd = "git -C " .. REPO_A .. " rev-list --count HEAD",
+        }
+        assert(count == "4", "count: " .. count)
+
+        TEST "remove merged beg ref"
+        exec {
+            cmd = "git -C " .. REPO_A .. " update-ref -d " .. ref2,
+        }
+    end
+
+    do
+        TEST "2 beg refs remain on A"
+        local out = exec {
+            cmd = "git -C " .. REPO_A .. " for-each-ref refs/begs/ --format='%(refname)'",
+        }
+        local count = 0
+        for _ in out:gmatch("[^\n]+") do count = count + 1 end
+        assert(count == 2, "expected 2 beg refs, got: " .. count)
+    end
+
+    do
+        TEST "both merged action files present in A"
+        local count = exec {
+            cmd = "ls " .. REPO_A .. "actions/*/*.lua | wc -l",
+        }
+        assert(count == "2", "expected 2 action files, got: " .. count)
+    end
+end
+
+-- B pulls A's HEAD raw, then prunes begs already merged there
+do
+    print("==> Host B: pull + prune merged begs (raw git)")
+
     do
         TEST "B fetches HEAD from A"
         local _, code = exec {
@@ -250,123 +293,6 @@ do
         local count = 0
         for _ in out:gmatch("[^\n]+") do count = count + 1 end
         assert(count == 2, "expected 2 beg refs, got: " .. count)
-    end
-end
-
--- UNRELATED HISTORIES: independent chain, fetch beg, merge fails
-do
-    print("==> Unrelated histories rejected")
-
-    local h = exec {
-        cmd = EXE_C .. " chains add '#test' init file " .. GEN_0,
-    }
-    assert(h ~= CHAIN_HASH, "should differ")
-
-    do
-        TEST "fetch begs from A succeeds"
-        local _, code = exec {
-            cmd = "git -C " .. REPO_C .. " fetch " .. REPO_A .. " refs/begs/*:refs/begs/*",
-        }
-        assert(code == 0, "fetch should succeed")
-    end
-
-    do
-        TEST "merge beg into unrelated HEAD fails"
-        local ref = exec {
-            cmd = "git -C " .. REPO_C .. " for-each-ref refs/begs/ --sort=refname --format='%(refname)'",
-        }
-        local first = ref:match("[^\n]+")
-        FAIL {
-            cmd = "git -C " .. REPO_C .. " merge --no-commit --no-ff " .. first,
-        }
-    end
-end
-
--- CONFLICT: both beg to same file, merge both into HEAD
-do
-    print("==> Conflict: both beg to log.txt")
-
-    exec {
-        cmd = "rm -rf " .. TMP,
-    }
-    exec {
-        cmd = "mkdir -p " .. ROOT_A,
-    }
-    exec {
-        cmd = "mkdir -p " .. ROOT_B,
-    }
-    exec {
-        cmd = EXE_A .. " chains add '#test' init file " .. GEN_0,
-    }
-
-    -- clone A to B
-    exec {
-        cmd = EXE_B .. " chains add '#test' clone " .. REPO_A,
-    }
-
-    do
-        TEST "A begs to log.txt"
-        local out = exec {
-            cmd = EXE_A .. " chain '#test' post inline 'from A' --file log.txt --beg",
-        }
-        assert(#out == 40, "hash: " .. out)
-    end
-
-    do
-        TEST "B begs to log.txt"
-        local out = exec {
-            cmd = EXE_B .. " chain '#test' post inline 'from B' --file log.txt --beg",
-        }
-        assert(#out == 40, "hash: " .. out)
-    end
-
-    do
-        TEST "A fetches begs from B"
-        local _, code = exec {
-            cmd = "git -C " .. REPO_A .. " fetch " .. REPO_B .. " refs/begs/*:refs/begs/*",
-        }
-        assert(code == 0, "fetch should succeed")
-    end
-
-    -- merge first beg (fast-forward)
-    local refs = exec {
-        cmd = "git -C " .. REPO_A .. " for-each-ref refs/begs/ --sort=refname --format='%(refname)'",
-    }
-    local ref1 = refs:match("[^\n]+")
-    local ref2 = refs:match("[^\n]*\n([^\n]+)")
-
-    exec {
-        cmd = "git -C " .. REPO_A .. " merge --no-edit " .. ref1,
-    }
-
-    -- record content after first merge (order is non-deterministic)
-    local clean = io.open(REPO_A .. "log.txt"):read("a")
-
-    do
-        TEST "merge second beg fails with conflict"
-        FAIL {
-            cmd = "git -C " .. REPO_A .. " merge --no-edit " .. ref2,
-        }
-    end
-
-    do
-        TEST "log.txt has conflict markers"
-        local h = io.open(REPO_A .. "log.txt")
-        local content = h:read("a")
-        h:close()
-        assert(content:match("<<<<<<<"), "no conflict markers")
-    end
-
-    do
-        TEST "abort merge restores clean state"
-        local _, code = exec {
-            cmd = "git -C " .. REPO_A .. " merge --abort",
-        }
-        assert(code == 0, "abort failed")
-        local h = io.open(REPO_A .. "log.txt")
-        local content = h:read("a")
-        h:close()
-        assert(content == clean, "content: " .. content)
     end
 end
 
