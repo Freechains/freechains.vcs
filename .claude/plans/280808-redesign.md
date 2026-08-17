@@ -213,6 +213,23 @@
 - P2: `ACTION.aid(cid)` shells out per call: cache it, and
   reuse the `a2c` result instead of recomputing
   `ACTION.aid(snd)` (dies with S5)
+- P3: more memos, same shape as GIT.parents/time (immutable
+  fact, re-asked per edge in replay); land together, measured
+    - `ssh.pub.commit(cid)`: `consensus()` walks `com..tip`
+      per merge; nested merges overlap ranges
+    - snapshot `now`: `peaks` does `STATE.read(h)` per edge,
+      parsing the WHOLE G for one number -> number-only cache
+    - TRAP: `STATE.read` itself must NOT be memoized (callers
+      mutate the returned table -- aliasing)
+- INDEX reconsidered (with P3): keep in-process memos, NO
+  persistent `.git/index.lua`
+    - stored index = second source of truth: must invalidate
+      on abandon/prune/gc; stale = silent corruption
+    - memos correct by construction (process-lifetime,
+      immutable facts); aid->cid only `abandon` needs (rare,
+      one walk -- accepted, cf. B4 demoted)
+    - revisit only if cross-invocation re-derivation is shown
+      to hurt (profile first)
 
 # Constant names (`constants.lua`)
 
