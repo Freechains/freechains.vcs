@@ -221,6 +221,19 @@
       parsing the WHOLE G for one number -> number-only cache
     - TRAP: `STATE.read` itself must NOT be memoized (callers
       mutate the returned table -- aliasing)
+- P4: batch in-process index (P2+P3 unification)
+    - ONE `git log --format=%H --diff-filter=A --name-only`
+      over the region -> cid->aid (and aid->cid) map, one shell
+    - serves: `ACTION.aid` memo (P2), `GIT.time` aid lookup,
+      and RESTORES replay's visited seeding:
+      `visited[a2c[aid]]` for aid in the replayed G's order
+    - fences (correctness):
+        - aid->cid NOT 1:1 across branches (same aid, other
+          cid): dup-skip in `commit()` stays regardless
+        - seed ONLY from the replayed G's own order; NEVER
+          from `STATE.has` (refused syncs also snapshot)
+    - also: memo `ancestor()` per (cur, floor); mark
+      ancestor-true cids visited in the OUTERMOST climb only
 - INDEX reconsidered (with P3): keep in-process memos, NO
   persistent `.git/index.lua`
     - stored index = second source of truth: must invalidate
