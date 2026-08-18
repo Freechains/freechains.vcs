@@ -7,7 +7,7 @@ cap(G)
 
 if ARGS.target == "action" then
     if not ARGS.key then
-        ERROR("chain reps : action requires a hash")
+        ERROR("chain reps : action requires id")
     end
     local e = G.actions[ARGS.key]
     local v = (e and e.reps) or 0
@@ -25,7 +25,7 @@ elseif ARGS.target == "actions" then
 elseif ARGS.target == "revoke" then
     -- the axis is per ACTION (post or vote), so no target argument
     if not ARGS.key then
-        ERROR("chain reps : revoke requires a hash")
+        ERROR("chain reps : revoke requires id")
     end
     local e = G.actions[ARGS.key]
     local r = (e and e.revoke) or { author=0, others=0 }

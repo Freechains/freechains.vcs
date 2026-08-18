@@ -210,7 +210,7 @@ do
         TEST "unknown hash rejects"
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-abandon-2' abandon nohash",
-            err = "ERROR : chain abandon : invalid hash",
+            err = "ERROR : chain abandon : invalid action",
         }
     end
 
@@ -219,7 +219,7 @@ do
         TEST "genesis rejects"
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-abandon-2' abandon " .. gen,
-            err = "ERROR : chain abandon : invalid hash",
+            err = "ERROR : chain abandon : invalid action",
         }
     end
 

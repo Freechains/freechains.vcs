@@ -10,7 +10,7 @@ ARGS.aid = ACTION.full(ARGS.aid)
 
 local cid = ACTION.cid(ARGS.aid)
 if not cid then
-    ERROR("chain abandon : invalid hash")
+    ERROR("chain abandon : invalid action")
 end
 
 -- a beg is a post outside `main`, alone on its own aid-named ref:
@@ -36,7 +36,7 @@ do
         cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. cid .. " HEAD",
     }
     if not ok then
-        ERROR("chain abandon : invalid hash")
+        ERROR("chain abandon : invalid action")
     end
 end
 

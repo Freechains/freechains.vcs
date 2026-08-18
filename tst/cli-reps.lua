@@ -413,7 +413,7 @@ do
         TEST "reps-post-requires-hash"
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-reps' reps action",
-            err = "ERROR : chain reps : action requires a hash",
+            err = "ERROR : chain reps : action requires id",
         }
     end
 

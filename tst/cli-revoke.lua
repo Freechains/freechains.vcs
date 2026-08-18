@@ -331,7 +331,7 @@ do
         TEST "reps-revoke-no-hash"
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-revoke' reps revoke",
-            err = "ERROR : chain reps : revoke requires a hash",
+            err = "ERROR : chain reps : revoke requires id",
         }
     end
 end

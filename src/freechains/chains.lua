@@ -147,8 +147,8 @@ if ARGS.add then
 
         genesis(tmp, gen)
 
-        local hash = "#" .. gen
-        local final = DIR .. "/" .. hash
+        local id = "#" .. gen
+        local final = DIR .. "/" .. id
         if not os.rename(tmp, final) then
             exec {
                 cmd = "rm -rf " .. tmp,
@@ -159,9 +159,9 @@ if ARGS.add then
             cmd = "git -C '" .. final .. "' config freechains.url '" .. final .. "'",
         }
         exec {
-            cmd = "ln -s '" .. hash .. "/' " .. DIR .. "/" .. ARGS.alias,
+            cmd = "ln -s '" .. id .. "/' " .. DIR .. "/" .. ARGS.alias,
         }
-        print(hash)
+        print(id)
 
     elseif ARGS.clone then
         -- clone genesis alone: everything else comes later through `recv`
@@ -188,8 +188,8 @@ if ARGS.add then
         exec {
             cmd = "git -C " .. tmp .. " reset --hard " .. gen,
         }
-        local hash = "#" .. gen
-        local dir = DIR .. "/" .. hash .. "/"
+        local id = "#" .. gen
+        local dir = DIR .. "/" .. id .. "/"
         if not os.rename(tmp, dir) then
             exec {
                 cmd = "rm -rf " .. tmp,
@@ -200,7 +200,7 @@ if ARGS.add then
             cmd = "git -C '" .. dir .. "' config freechains.url '" .. dir .. "'",
         }
         exec {
-            cmd = "ln -s '" .. hash .. "' " .. DIR .. "/" .. ARGS.alias,
+            cmd = "ln -s '" .. id .. "' " .. DIR .. "/" .. ARGS.alias,
         }
 
         genesis(dir, gen)
@@ -219,7 +219,7 @@ if ARGS.add then
             ERROR("chains add : clone failed", out)
         end
 
-        print(hash)
+        print(id)
     end
 elseif ARGS.rem then
     local alias = DIR .. "/" .. ARGS.alias
