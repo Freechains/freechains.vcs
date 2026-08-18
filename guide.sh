@@ -156,7 +156,7 @@ echo "-- no begs pending anymore:"
 FC --root="$A" chain '#chat' list begs
 
 # DAG (A): the beg merges in line (same column), and the like backs two
-# posts, so the older one shows up as a (^hash) annotation row
+# posts, so the older one shows up as a (^aid) annotation row
 #   like(alice->bob)
 #         |
 #   'A great post!'
@@ -273,7 +273,7 @@ FC --root="$A" --now=$((FORK+7*DAY+500)) chain '#chat' sync send localhost:$X_PO
 #                    |
 #                 'day 7'
 #                    |
-#           'Alice takes over'    <-- repost (new hash, new time)
+#           'Alice takes over'    <-- repost (new aid, new time)
 FC --root="$A" chain '#chat' list dag
 FC --root="$A" chain '#chat' list order
 
