@@ -1,7 +1,7 @@
 require "freechains.chain.consensus"
 
 -- Hard fork protects my current order.
--- Find `set` as highest settled index crossing fork.time or fork.posts.
+-- Find `set` as highest settled index crossing fork.time or fork.actions.
 -- Must reproduce that prefix verbatim, or it is a hard fork.
 -- `our`:   cur order, before replay
 -- `their`: new order, after replay
@@ -11,7 +11,7 @@ local function hardfork (our, their)
     end
 
     -- window [low, #our] with at most 100 actions
-    local low = math.max(1, #our-C.fork.posts+1)
+    local low = math.max(1, #our-C.fork.actions+1)
 
     -- times from the action files
     local ts = {}
@@ -23,8 +23,8 @@ local function hardfork (our, their)
     local set
     do
         -- index of the last entry that is already settled
-        if #our >= C.fork.posts then
-            set = low   -- at least post count, but time may trigger before
+        if #our >= C.fork.actions then
+            set = low   -- at least action count, but time may trigger before
         end
 
         -- walk from the tip until first entry older than `fork.time`

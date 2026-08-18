@@ -217,18 +217,18 @@ function apply (G, kind, act, env)
         if not self_revoke then
             G.authors[env.sign].reps = reps - math.abs(act.n)
         end
-        local n = act.n * (100 - C.like.tax) // 100
+        local n = act.n * (100 - C.vote.tax) // 100
         if act.aid then
             local e = G.actions[act.aid]
             local a = e.author
             if not (self_revoke or (kind=='revoke' and act.n>0)) then
                 if a then
                     G.authors[a] = G.authors[a] or { reps=0 }
-                    G.authors[a].reps = G.authors[a].reps + n//C.like.split
+                    G.authors[a].reps = G.authors[a].reps + n//C.vote.split
                 else
                     assert(env.beg)
                 end
-                e.reps = e.reps + n//C.like.split
+                e.reps = e.reps + n//C.vote.split
             end
 
             -- revoke axis: sum the signed magnitude act.n (revoke n<0,

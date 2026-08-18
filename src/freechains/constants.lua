@@ -6,13 +6,13 @@ local unit = 1000
 
 return {
     time = {
-        diff    = 1*h,          -- max post time diff tolerance (clock drift)
+        diff    = 1*h,          -- max action time diff tolerance (clock drift)
         half    = 12*h,         -- halfway post discount period
         full    = 24*h,         -- fullway post consolidation period
     },
     fork = {
         time    = 7*24*h,       -- span of my settled order (hard fork)
-        posts   = 100,          -- entries of my settled order (hard fork)
+        actions = 100,          -- entries of my settled order (hard fork)
     },
     reps = {
         --pioneer = 50*unit,    -- split among pioneers
@@ -21,8 +21,8 @@ return {
         revoke  = 1*unit,       -- 1000 minimum per revoke/unrevoke
         max     = 50*unit,      -- 50000 cap per author (100 posts)
     },
-    like = {
-        tax     = 10,           -- 10% burned on likes
+    vote = {
+        tax     = 10,           -- 10% burned on votes
         split   = 2,            -- 50/50 split (divisor)
     },
     --post = {
