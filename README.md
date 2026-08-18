@@ -78,12 +78,12 @@ Freechains' API is straightforward:
 
 - `freechains chains add ...`:       create or clone chain locally
 - `freechains chain post ...`:       post to chain (signed with SSH)
-- `freechains chain list dag/order`: list all actions (DAG or consensus order)
+- `freechains chain list ...`:       list actions (dag, order, begs, revokes)
 - `freechains chain (dis)like ...`:  rate an action or author
 - `freechains chain (un)revoke ...`: drop or restore payload
 - `freechains chain reps ...`:       query reputation
 - `freechains chain sync send/recv`: synchronize with remote peer
-- `freechains chain abandon ...`:    drop local history after hard fork
+- `freechains chain abandon ...`:    drop action and everything after it
 - `freechains chain sweep`:          erase revoked payloads
 
 <!--
@@ -115,8 +115,8 @@ The output is the chain's unique identifier across all peers.
 A chain is backed by a Git repository, with an independent commit history from
 other chains.
 
-Note that the exact hash identifiers depend on local creation time and thus
-will differ throughout this guide.
+Note that most identifiers depend on local creation time and thus will differ
+throughout this guide.
 
 All application data resides in `~/.freechains/`:
 
