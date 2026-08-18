@@ -1,22 +1,12 @@
-# 260817-storage
+# 260818-payloads
 
-- source: done/280808-redesign.md, sections "S6" and E stage 2
-- theme: what bytes live where, and when they die
-- order revised 26/08/18 after measuring: E stage 2 first,
-  S6.1 postponed, the refspec cliff split out as S6.0
+- source: 260817-storage.md (split 26/08/18), section "S6"
+- theme: `refs/payloads/`, what recv fetches and what it drops
+- the postponed half, except S6.0
 
 # Measured 26/08/18
 
 - scripts kept outside the repo (scratchpad, `--root` only)
-- snapshots are QUADRATIC: one per commit, each serializing
-  the whole `G`, so total ~= 0.26 * N^2 KB
-    - 25 posts: 228 KB, 14% of `.git`
-    - 50 posts: 756 KB, 24%
-    - 100 posts: 2740 KB, 40%
-    - 200 posts: 10416 KB, 60%
-    - x3.3, x3.6, x3.8 per doubling -> converging on x4
-    - newest snapshot 12 -> 98 KB (linear in N)
-    - extrapolated: 1k actions ~260 MB, 10k ~26 GB
 - payload ref advertisement is LINEAR, and small
     - exactly 2*(payloads)+2 refs per incremental recv
     - the payload refs are advertised TWICE (two fetches)
@@ -30,38 +20,7 @@
     - 58 bytes per negative refspec -> breaks at 2259
       revoked actions (E2BIG, a hard failure)
 
-# E stage 2: prune `.git/states/` (do first)
-
-- `sweep` (stage 1 = `git gc --prune=now`) gains stage 2:
-  delete snapshots outside the settled window
-- settled = below the hardfork window (fork.time/fork.actions)
-- keep: window snapshots + the tips sync reads (HEAD, oct
-  candidates); a missing interior snapshot must be
-  recomputable or unreachable
-- payoff: O(N^2) -> O(W*N), since each kept snapshot is still
-  O(N); a ~100x cut, not constant space
-
-## BLOCKER: `STATE.read` asserts on a miss
-
-- `state.lua:31` -> `"bug found : no snapshot"`, no recompute
-- tolerant readers (pruning is already safe for them):
-    - `sync.lua:227` replay seeding just replays instead
-    - `consensus.lua:232` writes what is missing
-- fatal readers:
-    - `init.lua:24` loads HEAD's snapshot for EVERY
-      non-sync command
-    - `abandon.lua` resets HEAD onto an arbitrary old
-      commit ("lands on a tip whose snapshot already
-      exists") -> every later command dies
-
-## E0: snapshots become a true cache (before any delete)
-
-- `STATE.read` falls back to replaying forward from the
-  nearest ancestor snapshot
-- self-contained, testable alone
-- makes the stage 2 deletion trivially safe
-
-# S6.0: chunk the negative refspecs (split out)
+# S6.0: chunk the negative refspecs (do first)
 
 - the only item with a failure behind it today
 - chunk `sync.lua:249-258` at ~1500 refspecs per `git fetch`
