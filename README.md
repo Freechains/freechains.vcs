@@ -4,15 +4,16 @@
 
 - Local-first publish-subscribe topic-based model
 - Unstructured peer-to-peer gossip dissemination
-<!--
-- **Multiple flavors of public and private communication** (`1->N`, `1<-N`, `N<->N`, `1<-`)
--->
 - **Permissionless and Sybil-resistant**
 - **Per-topic reputation system for posts and authors**
 - **Consensus via authoring reputation (human work)**
 - **Revocation of abusive content (SPAM, hate speech)**
 - Built on top of Git
 - Free in all senses
+
+<!--
+- **Multiple flavors of public and private communication** (`1->N`, `1<-N`, `N<->N`, `1<-`)
+-->
 
 *(In bold we highlight what we believe is particular to Freechains.)*
 
