@@ -35,7 +35,7 @@
 ## Option O2: restrict to a linear suffix
 
 - refuse when `tip..HEAD` holds a commit without an aid
-  (a sync merge); error: `chain abandon : crosses a merge`
+  (a sync merge); error: `chain abandon : unexpected merge`
 - landing ON a merge is fine; crossing one is not
 - beg-attach likes have aids: still abandonable
 - covers C1-C4: unsent tails are linear by construction;
@@ -101,7 +101,7 @@
   resurrects on recv (proven by tests 2 and 3)
 - `abandon <aid>` (O2): refuse when `cid^1..HEAD` holds a
   commit without an aid (a sync merge)
-    - error: `chain abandon : crosses a merge`
+    - error: `chain abandon : unexpected merge`
     - landing ON a merge stays legal (test 4)
     - beg-attach likes stay abandonable (test 5)
 - `abandon --keep <aid>` (O3): cid becomes HEAD, all above
@@ -126,5 +126,4 @@
   (tip no-op; --keep on a beg invalid; beg default form)
 - won't do README: user reworded the list meanwhile
   ("drop history branch" covers both forms)
-- pending: full suite run (cli-abandon.lua must stay green;
-  its abandons are all linear or land ON a merge)
+- DONE: full suite green (26/08/19)
