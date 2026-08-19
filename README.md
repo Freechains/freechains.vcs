@@ -102,18 +102,17 @@ To operate on the chains, `Alice` first needs to create an SSH keypair:
 $ ssh-keygen -t ed25519 -C '' -f /tmp/alice
 ```
 
-`Alice` can now create a chain locally:
+`Alice` can now create a chain `#chat` locally:
 
 ```
 $ freechains chains add '#chat' init inline --sign=/tmp/alice
 #461cfb4...
 ```
 
-This creates the public chain `#chat`, with `Alice` as the sole pioneer.
+This creates the chain with `Alice` as the sole pioneer.
 The output is the chain's unique identifier across all peers.
 
-A chain is backed by a Git repository, with an independent commit history from
-other chains.
+A chain is backed by a Git repository, with an independent commit history.
 
 Note that most identifiers depend on local creation time and thus will differ
 throughout this guide.
@@ -188,7 +187,7 @@ and read content locally.
 
 ### Synchronization
 
-We can share the chains with other peers over the Internet.
+Peers can share chains over the Internet.
 
 We first need to start a daemon to serve synchronization requests:
 
@@ -203,8 +202,7 @@ As peer `A`, we now listen for requests on default port `8330`.
 To simulate a remote peer `B`, we will use a separate `--root` as the prefix of
 all commands.
 
-Now, as peer `B`, we clone the chain `#chat` served by peer `A` at `localhost`
-(default port `8330`):
+Now, as peer `B`, we clone the chain `#chat` served by peer `A` at `localhost`:
 
 ```
 $ freechains --root=/tmp/B/ chains add '#chat' clone localhost
@@ -276,7 +274,7 @@ Note that Git itself provides no reputation mechanism.
 Therefore, Freechains relies on custom Git hooks to validate commits according
 to its own reputation rules.
 
-Let's query the public keys from both users:
+Let's read the public keys from both users:
 
 ```
 $ cat /tmp/alice.pub
