@@ -320,24 +320,23 @@ This is due to internal rules that tax transfers and recover `reps` over time.
 Let's see how the reputation evolves over time:
 
 - `Alice` creates the chain:
-    - `Alice`: `0` `->` `50000`
     - `Alice: 0 -> 50000`
     - the sole pioneer takes the whole initial share
 - `Alice` posts `Hello World`:
-    - `Alice` from `50000` to `49500`
-    - a post costs `500` (but refunds within 12 hours)
+    - `Alice: 50000 -> 49500`
+    - a post costs `500`, and refunds within at most 12 hours
 - `Alice` posts `I am here`:
-    - `Alice` from `49500` to `49500`
-    - first post refunds (`49500` to `50000`)
+    - `Alice: 49500 -> 49500`
+    - first post refunds (`49500 -> 50000`)
         - majority "saw" it (`Alice` is posting on top of it)
-    - second post costs `500` (`50000` to `49500`)
+    - second post costs `500` (`50000 -> 49500`)
 - `Alice` posts `Sync me`:
-    - `Alice` from `49500` to `49500`
-    - second post refunds (`49500` to `50000`)
-    - third post costs `500` (`50000` to `49500`)
+    - `Alice: 49500 -> 49500`
+    - second post refunds (`49500 -> 50000`)
+    - third post costs `500` (`50000 -> 49500`)
 - `Alice` likes `Bob` with `10000`:
-    - `Alice` from `49500` to `40000` (third post refunds)
-    - `Bob` from `0` to `9000`
+    - `Alice: 49500 -> 40000` (third post refunds)
+    - `Bob: 0 -> 9000`
     - likes receive a `10%` tax
 
 A new post has only a temporary cost that refunds within at most 12 hours.
