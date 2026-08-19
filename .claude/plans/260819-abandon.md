@@ -95,10 +95,31 @@
 - `--keep` the tip itself (no-op?), `--keep` across nested
   forks, `--keep` where the wanted landing is a sync merge
 
-# Phase 3: settle
+# Phase 3: SETTLED (26/08/19)
 
-- decide O1 vs O2 from the tests
-- decide error strings
-- update 260818-prune.md P1 if the rule changes
+- O1 rejected: powers only received-history carving, which
+  resurrects on recv (proven by tests 2 and 3)
+- `abandon <aid>` (O2): refuse when `cid^1..HEAD` holds a
+  commit without an aid (a sync merge)
+    - error: `chain abandon : crosses a merge`
+    - landing ON a merge stays legal (test 4)
+    - beg-attach likes stay abandonable (test 5)
+- `abandon --keep <aid>` (O3): cid becomes HEAD, all above
+  drops; collateral explicit, no crossing rule
+    - `--keep` HEAD's own aid: no-op, allowed
+    - a sync-merge landing point has no aid: name an
+      action below it (documented hole)
+- both forms: landing commit must pass `STATE.has`
+    - error: `chain abandon : settled action`
+    - subsumes 260818-prune.md P1 (updated there)
+- begs, genesis, unknown aid: unchanged
 
 # Phase 4: implement
+
+- abandon.lua: crossing check (log tip..HEAD, any commit
+  without an action file -> error)
+- abandon.lua: `--keep` form (tip = cid, skip crossing)
+- freechains.lua: argparse `--keep` flag
+- tests: extend abandon-strange.lua (refusals, --keep);
+  keep cli-abandon.lua green
+- README/guide: `--keep` one-liner in API list
