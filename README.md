@@ -1,18 +1,17 @@
-# Freechains: Permissionless Reputation Consensus over Git
+# Freechains: A peer-to-peer reputation-based social media protocol
 
 [![Tests](https://github.com/Freechains/freechains.vcs/actions/workflows/tests.yml/badge.svg)](https://github.com/Freechains/freechains.vcs/actions/workflows/tests.yml)
-
-Freechains is a peer-to-peer permissionless Sybil-resistant social media
-protocol with integrated reputation designed on top of Git:
 
 - Local-first publish-subscribe topic-based model
 - Unstructured peer-to-peer gossip dissemination
 <!--
 - **Multiple flavors of public and private communication** (`1->N`, `1<-N`, `N<->N`, `1<-`)
 -->
+- **Permissionless and Sybil-resistant**
 - **Per-topic reputation system for posts and authors**
 - **Consensus via authoring reputation (human work)**
 - **Revocation of abusive content (SPAM, hate speech)**
+- Built on top of Git
 - Free in all senses
 
 *(In bold we highlight what we believe is particular to Freechains.)*
