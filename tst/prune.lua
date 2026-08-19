@@ -19,7 +19,7 @@
 --
 -- P500 forks at a1: depth 500, `500 > 500` false -> ACCEPTED (green
 --   before AND after P2: the over-refusal guard at the boundary).
--- P501 forks at welcome: depth 501 -> REFUSED `settled fork` (RED
+-- P501 forks at welcome: depth 501 -> REFUSED `pruned state` (RED
 --   until P2 lands; today recv accepts, so it fails on purpose).
 
 require "tests"
@@ -109,10 +109,10 @@ exec {
 
 -- boundary REFUSE: depth 501 > keep. RED until P2 lands (today recv
 -- accepts, so this FAIL fails on purpose).
-TEST "A recvs P501 (depth 501): REFUSED (settled fork)"
+TEST "A recvs P501 (depth 501): REFUSED (pruned state)"
 FAIL {
     cmd = EXE_A .. " --now=9001 chain '" .. CHAIN .. "' sync recv " .. D501,
-    err = "ERROR : chain sync : prunned state",
+    err = "ERROR : chain sync : pruned state",
 }
 
 print("<== ALL PASSED")

@@ -133,7 +133,7 @@ elseif ARGS.recv then
                 " | head -" .. (C.prune.actions+1) .. " | wc -l",
         }))
         if deep > C.prune.actions then
-            ERROR("chain sync : prunned state")
+            ERROR("chain sync : pruned state")
         end
 
         local G_oct = STATE.read(oct)
