@@ -320,7 +320,8 @@ This is due to internal rules that tax transfers and recover `reps` over time.
 Let's see how the reputation evolves over time:
 
 - `Alice` creates the chain:
-    - `Alice` from `0` to `50000`
+    - `Alice`: `0` `->` `50000`
+    - `Alice: 0 -> 50000`
     - the sole pioneer takes the whole initial share
 - `Alice` posts `Hello World`:
     - `Alice` from `50000` to `49500`
