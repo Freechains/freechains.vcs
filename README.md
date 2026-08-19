@@ -412,7 +412,7 @@ $ freechains chain '#chat' list begs
 c7d8e9f...
 ```
 
-`Alice` read the post and likes it, spending `4000 reps`:
+`Alice` reads the post and likes it, spending `4000 reps`:
 
 ```
 $ freechains chain '#chat' like 4000 action c7d8e9f --sign=/tmp/alice
@@ -502,8 +502,10 @@ f4e5d6c       # 'Charlie was here'
 
 Note that the histories diverge after `Alice`'s like to `Bob` (`560a55c`),
 which is the last action the peers exchanged.
-Note also that after this action in common, the diverging branches share no
-authors:
+
+The important aspect to resolve consensus is to determine exclusive authors in
+diverging branches.
+In our example, after the action in common (`560a55c`),
     peer `A` has `Alice` and `Dave`, while
     peer `B` has `Bob` and `Charlie`.
 
