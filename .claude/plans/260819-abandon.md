@@ -105,21 +105,26 @@
     - landing ON a merge stays legal (test 4)
     - beg-attach likes stay abandonable (test 5)
 - `abandon --keep <aid>` (O3): cid becomes HEAD, all above
-  drops; collateral explicit, no crossing rule
+  drops; SAME crossing rule (revised 26/08/19)
+    - convenience only: name the survivor, not its child
     - `--keep` HEAD's own aid: no-op, allowed
-    - a sync-merge landing point has no aid: name an
-      action below it (documented hole)
+    - won't do: crossing under --keep; reverting below a
+      merge is illusory (resurrection) -> re-clone instead
 - both forms: landing commit must pass `STATE.has`
     - error: `chain abandon : settled action`
-    - subsumes 260818-prune.md P1 (updated there)
+    - DEFERRED to 260818-prune.md P1: inert until snapshots
+      are actually pruned, so it lands with prune
 - begs, genesis, unknown aid: unchanged
 
-# Phase 4: implement
+# Phase 4: DONE (26/08/19)
 
-- abandon.lua: crossing check (log tip..HEAD, any commit
-  without an action file -> error)
-- abandon.lua: `--keep` form (tip = cid, skip crossing)
-- freechains.lua: argparse `--keep` flag
-- tests: extend abandon-strange.lua (refusals, --keep);
-  keep cli-abandon.lua green
-- README/guide: `--keep` one-liner in API list
+- DONE abandon.lua: crossing check + `--keep` form
+- reverted: `STATE.has(tip)` boundary -> prune P1 (with a
+  test that hides the landing snapshot, proven to work)
+- DONE freechains.lua: argparse `--keep` flag
+- DONE abandon-strange.lua: refusal + --keep + edges
+  (tip no-op; --keep on a beg invalid; beg default form)
+- won't do README: user reworded the list meanwhile
+  ("drop history branch" covers both forms)
+- pending: full suite run (cli-abandon.lua must stay green;
+  its abandons are all linear or land ON a merge)

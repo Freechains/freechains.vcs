@@ -1,28 +1,26 @@
 #!/usr/bin/env lua5.4
 
--- Strange abandon cases (plan 260819-abandon, phase 2).
--- These tests DOCUMENT today's behavior to settle the design:
--- each assert states what happens now, not what should happen.
+-- Strange abandon cases (plan 260819-abandon, phases 2 and 4).
 --
--- 1. Collateral: abandon inside a merged fork drops the sibling branch
+-- 1. Crossing a merge refuses, in BOTH forms: the sibling branch
+--    would be collateral (and would resurrect on recv anyway)
 --
---            S[K1]
+--            S[K1]           <-- abandon --keep S refuses too
 --            /   \
---       a1[K1]   b1[K2]
+--       a1[K1]   b1[K2]      <-- abandon a1 refuses (crosses M)
 --          |       |
 --       a2[K1]   b2[K2]
 --            \   /
---              M               <-- A's HEAD after recv
+--              M             <-- A's HEAD after recv
 --
--- `abandon a1` at A: lands on S, drops a1 a2 AND b1 b2 M.
+-- 2. Resurrection: my OWN abandoned action returns on the next
+--    recv, once it was sent (durable abandon = unsent only)
 --
--- 2. Resurrection: the dropped received branch returns on next recv
+-- 3. Landing ON a merge is fine (the README `day 1` rewind)
 --
--- 3. Resurrection of my OWN action, once it was sent
+-- 4. Beg-attach like: a merge WITH an aid is abandonable
 --
--- 4. Landing ON a merge is fine (the README `day 1` rewind)
---
--- 5. Beg-attach like: a merge WITH an aid is abandonable
+-- 5. `--keep` edges: linear drop; tip no-op; beg invalid
 
 require "tests"
 
@@ -81,57 +79,33 @@ do
     assert(n == 2, "HEAD should be a 2-parent merge, got " .. n)
 end
 
--- 1. collateral: abandon a1 drops the b's and M too
+-- 1. crossing a merge refuses, in both forms; nothing is mutated
 do
-    TEST "abandon a1 drops sibling branch b1 b2 (collateral)"
-    local out = exec {
+    TEST "abandon a1 refuses: range crosses the sync merge"
+    FAIL {
         cmd = EXE_A .. " chain '" .. CHAIN .. "' abandon " .. a1,
+        err = "ERROR : chain abandon : unexpected merge",
     }
-    local S = {}
-    local n = 0
-    for h in out:gmatch("[^\n]+") do
-        S[h] = true
-        n = n + 1
-    end
-    -- M has no aid, so 4 actions are listed: a1 a2 b1 b2
-    assert(n == 4, "expected 4 dropped, got " .. n)
-    assert(S[a1] and S[a2], "a1 a2 dropped")
-    assert(S[b1] and S[b2], "b1 b2 dropped: COLLATERAL")
 
-    TEST "HEAD lands on the fork point S"
+    TEST "abandon --keep seed refuses too (both forms linear)"
+    FAIL {
+        cmd = EXE_A .. " chain '" .. CHAIN .. "' abandon --keep " .. seed,
+        err = "ERROR : chain abandon : unexpected merge",
+    }
+
+    TEST "the refusals mutated nothing"
     local head = exec {
         cmd = "git -C " .. DIR_A .. " rev-parse HEAD",
     }
-    assert(head == CID(DIR_A, seed), "HEAD should be seed")
-
-    TEST "collateral payload anchors are gone too"
-    local _, code = exec { err=false, stderr=false,
-        cmd = "git -C " .. DIR_A .. " rev-parse refs/payloads/" .. b1,
-    }
-    assert(code ~= 0, "b1 payload ref should be gone")
-end
-
--- 2. the received branch resurrects on the next recv
-do
-    TEST "recv B again: b1 b2 return (abandon of received = illusory)"
+    assert(head == M, "HEAD should still be the merge")
     exec {
-        cmd = EXE_A .. " --now=1500 chain '" .. CHAIN .. "' sync recv " .. DIR_B,
+        cmd = "git -C " .. DIR_A .. " rev-parse refs/payloads/" .. b1,
     }
     local _, S = ORDER(EXE_A, CHAIN)
-    assert(S[b1] and S[b2], "b1 b2 should be back")
-    assert(not (S[a1] or S[a2]), "a1 a2 stay gone (never sent)")
-
-    TEST "resurrected payload anchors are restored"
-    exec {
-        cmd = "git -C " .. DIR_A .. " rev-parse refs/payloads/" .. b1,
-    }
-    local v = exec {
-        cmd = EXE_A .. " chain '" .. CHAIN .. "' get payload " .. b1,
-    }
-    assert(v == "b1", "b1 payload should read: " .. v)
+    assert(S[a1] and S[a2] and S[b1] and S[b2], "order intact")
 end
 
--- 3. my OWN action resurrects too, once it was sent
+-- 2. my OWN action resurrects, once it was sent
 do
     TEST "A posts c1; B recvs it; A abandons c1; A recvs: c1 is back"
     local c1 = exec {
@@ -152,7 +126,7 @@ do
     assert(S1[c1], "c1 is back: sent abandon = illusory")
 end
 
--- 4. landing ON a merge: abandon the first action after a sync merge
+-- 3. landing ON a merge: abandon the first action after a sync merge
 do
     TEST "abandon d1 lands ON the sync merge below it"
     -- fresh divergence so A's next recv really merges
@@ -193,7 +167,7 @@ do
     }
 end
 
--- 5. a beg-attach like is a merge WITH an aid: abandonable
+-- 4. a beg-attach like is a merge WITH an aid: abandonable
 do
     TEST "beg + like: the like commit is a 2-parent action"
     local beg = exec {
@@ -224,6 +198,57 @@ do
         cmd = "git -C " .. DIR_A .. " rev-parse HEAD",
     }
     assert(head == before, "HEAD should be the pre-like tip")
+end
+
+-- 5. --keep edge cases
+do
+    TEST "--keep the tip itself is a no-op"
+    local e1 = exec {
+        cmd = EXE_A .. " --now=2300 chain '" .. CHAIN .. "' post inline 'e1\n' --file e1.txt --sign " .. KEY1,
+    }
+    local head = exec {
+        cmd = "git -C " .. DIR_A .. " rev-parse HEAD",
+    }
+    local out = exec {
+        cmd = EXE_A .. " chain '" .. CHAIN .. "' abandon --keep " .. e1,
+    }
+    assert(out == "", "nothing dropped: " .. out)
+    local now = exec {
+        cmd = "git -C " .. DIR_A .. " rev-parse HEAD",
+    }
+    assert(now == head, "HEAD should not move")
+
+    TEST "--keep drops the linear stretch above the survivor"
+    local e2 = exec {
+        cmd = EXE_A .. " --now=2350 chain '" .. CHAIN .. "' post inline 'e2\n' --file e2.txt --sign " .. KEY1,
+    }
+    local out2 = exec {
+        cmd = EXE_A .. " chain '" .. CHAIN .. "' abandon --keep " .. e1,
+    }
+    assert(out2 == e2, "e2 dropped: " .. out2)
+    local h2 = exec {
+        cmd = "git -C " .. DIR_A .. " rev-parse HEAD",
+    }
+    assert(h2 == head, "HEAD should be back on e1")
+
+    TEST "--keep on a beg is invalid (not in main)"
+    local bg = exec {
+        cmd = EXE_A .. " --now=2400 chain '" .. CHAIN .. "' post inline 'bg\n' --file bg.txt --beg --sign " .. KEY4,
+    }
+    FAIL {
+        cmd = EXE_A .. " chain '" .. CHAIN .. "' abandon --keep " .. bg,
+        err = "ERROR : chain abandon : invalid action",
+    }
+    -- the beg ref must survive the refused --keep
+    exec {
+        cmd = "git -C " .. DIR_A .. " show-ref --verify --quiet refs/begs/beg-" .. bg,
+    }
+
+    TEST "default form still abandons the beg"
+    local out2 = exec {
+        cmd = EXE_A .. " chain '" .. CHAIN .. "' abandon " .. bg,
+    }
+    assert(out2 == bg, "beg dropped alone: " .. out2)
 end
 
 print("<== ALL PASSED")

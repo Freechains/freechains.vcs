@@ -4,6 +4,12 @@
 -- Local only: no signing, no network, no reps.
 -- Chain state lives in local snapshots (`.git/states/`), keyed by
 -- commit: the reset lands on a tip whose snapshot already exists.
+--
+-- Two forms:
+--  - `abandon <aid>`: aid is first DROPPED
+--  - `abandon --keep <aid>`: aid is the last KEPT
+-- In both cases, only a linear suffix may go (crossing a sync merge would also
+-- drop sibling branch).
 
 -- the aid may be abbreviated (`list dag` prints it so)
 ARGS.aid = ACTION.full(ARGS.aid)
@@ -21,6 +27,10 @@ do
         cmd = "git -C " .. REPO .. " show-ref --verify --quiet " .. ref,
     }
     if ok then
+        -- a beg is not in `main`: there is nothing to keep up to
+        if ARGS.keep then
+            ERROR("chain abandon : invalid action")
+        end
         exec {
             cmd = "git -C " .. REPO .. " update-ref -d " .. ref,
         }
@@ -40,14 +50,19 @@ do
     end
 end
 
--- a post is always committed on top of a valid tip: an action commit,
--- a merge, or the genesis. So its parent is where we land, no search
-local tip = exec {
-    cmd = "git -C " .. REPO .. " rev-parse " .. cid .. "^1",
-}
+-- where we land: the kept aid itself, or the dropped aid's parent
+-- (a post is always committed on top of a valid tip, no search)
+local tip
+if ARGS.keep then
+    tip = cid
+else
+    tip = exec {
+        cmd = "git -C " .. REPO .. " rev-parse " .. cid .. "^1",
+    }
+end
 
--- report what is about to be abandoned: one aid per line, like
--- `list` (a beg-like merge is an action too, so merges stay in)
+-- the dropped range, oldest first
+local range = {}
 do
     local out = exec {
         cmd = "git -C " .. REPO .. " " ..
@@ -55,14 +70,30 @@ do
             (tip .. "..HEAD"),
     }
     for h in out:gmatch("%x+") do
-        local a = ACTION.aid(h)
-        if a then
-            -- payloads go with them
-            exec { err=false, stderr=false,
-                cmd = "git -C " .. REPO .. " update-ref -d refs/payloads/" .. a,
-            }
-            print(a)
-        end
+        range[#range+1] = h
+    end
+end
+
+-- only a LINEAR suffix may go: a commit without an aid is a sync
+-- merge, and crossing it would also drop the sibling branch
+local aids = {}
+for _, h in ipairs(range) do
+    aids[h] = ACTION.aid(h)
+    if not aids[h] then
+        ERROR("chain abandon : unexpected merge")
+    end
+end
+
+-- report what is about to be abandoned: one aid per line, like
+-- `list` (a beg-like merge is an action too, so merges stay in)
+for _, h in ipairs(range) do
+    local a = aids[h]
+    if a then
+        -- payloads go with them
+        exec { err=false, stderr=false,
+            cmd = "git -C " .. REPO .. " update-ref -d refs/payloads/" .. a,
+        }
+        print(a)
     end
 end
 
