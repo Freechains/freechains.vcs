@@ -92,7 +92,7 @@ FC --root="$B" chains add '#chat' clone localhost:$A_PORT
 FC --root="$B" chain '#chat' list dag
 
 FC --root="$A" --now=$((T0+30)) chain '#chat' post inline $'Sync me\n' --sign="$KEYS/alice"
-FC --root="$B" --now=$((T0+40)) chain '#chat' sync recv localhost:$A_PORT
+FC --root="$B" chain '#chat' sync recv localhost:$A_PORT
 
 # DAG (B): grows with the received post
 #   'Hello World'
@@ -117,7 +117,7 @@ FC --root="$B" --now=$((T0+50)) chain '#chat' reps author "$(awk '{print $1" "$2
 
 # Alice welcomes Bob with 10000 reps
 FC --root="$A" --now=$((T0+60)) chain '#chat' like 10000 author "$(awk '{print $1" "$2}' "$KEYS/bob.pub")" --sign="$KEYS/alice"
-FC --root="$B" --now=$((T0+70)) chain '#chat' sync recv localhost:$A_PORT
+FC --root="$B" chain '#chat' sync recv localhost:$A_PORT
 FC --root="$B" --now=$((T0+70)) chain '#chat' reps author "$(awk '{print $1" "$2}' "$KEYS/alice.pub")"
 FC --root="$B" --now=$((T0+70)) chain '#chat' reps author "$(awk '{print $1" "$2}' "$KEYS/bob.pub")"
 
@@ -201,8 +201,8 @@ FC --root="$A" chain '#chat' list dag
 FC --root="$B" chain '#chat' list dag
 
 # both send to the hub, which merges the fork by reps (Alice first)
-FC --root="$A" --now=$((T0+100)) chain '#chat' sync send localhost:$X_PORT
-FC --root="$B" --now=$((T0+100)) chain '#chat' sync send localhost:$X_PORT
+FC --root="$A" chain '#chat' sync send localhost:$X_PORT
+FC --root="$B" chain '#chat' sync send localhost:$X_PORT
 
 # DAG (X): both branches arrive and the DAG forks at the like on Bob,
 # which is where B last synced from A
@@ -246,7 +246,7 @@ REJECTED=$HASH
 
 # A sends to X: the hub is entrenched and REFUSES to merge Alice's fork
 echo "-- expected failure (the hub is entrenched):"
-FC --root="$A" --now=$((FORK+7*DAY+200)) chain '#chat' sync send localhost:$X_PORT || true
+FC --root="$A" chain '#chat' sync send localhost:$X_PORT || true
 
 # Alice's escape hatch: abandon the rejected post, receive the settled
 # branch, repost the message on top of it, and send the result
@@ -259,9 +259,9 @@ FC --root="$A" --now=$((FORK+7*DAY+200)) chain '#chat' sync send localhost:$X_PO
 echo "-- Alice's diverging branch (common history + rejected post):"
 FC --root="$A" chain '#chat' list dag
 FC --root="$A" chain '#chat' abandon "$REJECTED"
-FC --root="$A" --now=$((FORK+7*DAY+300)) chain '#chat' sync recv localhost:$X_PORT
+FC --root="$A" chain '#chat' sync recv localhost:$X_PORT
 FC --root="$A" --now=$((FORK+7*DAY+400)) chain '#chat' post inline $'Alice takes over\n' --sign="$KEYS/alice"
-FC --root="$A" --now=$((FORK+7*DAY+500)) chain '#chat' sync send localhost:$X_PORT
+FC --root="$A" chain '#chat' sync send localhost:$X_PORT
 
 # Alice is compatible again: her repost is ordered after the settled branch
 # DAG (A): the abandoned branch is replaced by the hub's settled one

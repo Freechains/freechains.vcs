@@ -560,11 +560,11 @@ peers reach the same state without any central authority.
 
 As a measure against malicious members with strong past reputation, Freechains
 protects settled local branches from unexpected consensus reorderings.
-A settled branch is a branch with at least *100 actions* or *7 days* between
-oldest and newest actions.
+A settled branch contains at least *100 actions* or *7 days* between oldest and
+newest actions.
 Posts older than this window are frozen and cannot be reordered.
-So, if a `sync` operation would reorder frozen posts in a settled branch, then
-the merge is simply refused and the peers are no longer compatible.
+So, if a `sync` operation would reorder local frozen posts, then the merge is
+simply refused and the peers are no longer compatible.
 In contrast, peers that remain active and synchronize over time evolve together
 with a stable order.
 
@@ -584,7 +584,7 @@ $ freechains --root=/tmp/X/ --now=$((NOW+7*DAY)) chain '#chat' post inline $'day
 7d8e9f0...
 ```
 
-The posts on `X` span over more than seven days, making it settled and refusing
+Here, the posts on `X` span over more than seven days, making it settled and refusing
 reorderings.
 
 Then, `Alice` comes back and posts locally in peer `A`, on the same branch she
@@ -604,9 +604,10 @@ remote: ERROR : chain sync : hard fork
 
 Regardless of her strong past reputation, `Alice` cannot affect an active
 community.
-It is not possible to judge whether `Alice` was trying to rewrite history or
-simply became offline for a long time.
-Nevertheless, the community protects itself from late reorderings.
+
+Note that it is not possible to judge whether `Alice` was trying to rewrite
+history or simply became offline for a long time.
+Nevertheless, the community protects itself from such late reorderings.
 
 To resynchronize, `Alice`'s only option is to revert her local history, receive
 the settled branch, repost the rejected message on top of it, and finally send
@@ -627,7 +628,7 @@ $ freechains --now=$((NOW+7*DAY)) chain '#chat' post inline $'Alice takes over\n
 3c4d5e6...
 
 # send updated history
-$ freechains --now=$((NOW+7*DAY)) chain '#chat' sync send localhost:8331
+$ freechains chain '#chat' sync send localhost:8331
 
 # show new order (with Alice last)
 $ freechains chain '#chat' list order
