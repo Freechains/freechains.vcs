@@ -22,7 +22,6 @@ tests:
 	$(L) cli-list.lua
 	$(L) cli-abandon.lua
 	$(L) abandon-strange.lua
-	$(L) prune-fork.lua
 	$(L) cli-sweep.lua
 	$(L) list-dag-roots.lua
 	$(L) sync.lua
@@ -45,7 +44,7 @@ tests:
 	# slow tests last (many posts / big chains)
 	$(L) consensus.lua
 	$(L) fork-100-posts.lua
-	$(L) prune-fork-deep.lua
+	$(L) prune.lua
 	@rm -Rf /tmp/freechains/
 
 test:
