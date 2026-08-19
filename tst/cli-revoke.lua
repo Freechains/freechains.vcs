@@ -87,6 +87,12 @@ do
         exec {
             cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1000 " .. POST .. " --sign " .. KEY1,
         }
+        -- T7 guard: a second self-revoke on the already forgotten post
+        -- is a redundant free-commit faucet and must be rejected
+        FAIL {
+            cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1000 " .. POST .. " --sign " .. KEY1,
+            err = "ERROR : chain revoke : already revoked",
+        }
         local after = exec {
             cmd = ENV_EXE .. " chain '#cli-revoke' reps author '" .. PUB1 .. "'",
         }

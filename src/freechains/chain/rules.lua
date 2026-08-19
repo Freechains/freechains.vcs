@@ -201,6 +201,13 @@ function apply (G, kind, act, env)
             kind=='revoke' and act.n<0 and G.actions[act.aid].author==env.sign
         )
 
+        -- since self-revoke is free, check its not a "flooding attack"
+        if self_revoke then
+            if G.actions[act.aid].revoke.author<0 then
+                return false, "already revoked"
+            end
+        end
+
         -- must afford the full vote magnitude (no debt); self-revoke is free
         local reps = (G.authors[env.sign] and G.authors[env.sign].reps) or 0
         if (not self_revoke) and reps<math.abs(act.n) then
