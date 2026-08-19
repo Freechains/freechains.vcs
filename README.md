@@ -718,7 +718,7 @@ ERROR : chain get : revoked payload
 ```
 
 Unlike posts metadata, payloads live outside the commit DAG, so that their
-bytes be properly erased without touching the chain's history.
+bytes can be properly erased without touching the chain's history.
 
 Revocation is reversible through the analogous command `unrevoke`.
 They both account to determine wether a post is available or not.

@@ -449,6 +449,38 @@ is correct by design.
 
 ---
 
+## T7. Free Self-Revoke Faucet
+
+**Mechanism**: An author's self-revoke is free and ungated
+(`rules.lua`: skips the reps gate and the cost, works at 0
+reps). Nothing dedups it, so the author can re-revoke an
+already-revoked action without limit. Each cast is a new
+commit — unbounded free DAG growth that every peer must
+store and relay. A `--why` blob rides along for free
+payload bytes, and free actions count toward the 100-action
+settling window (feeds T1b).
+
+**Resources**: One admitted post (or beg) to become an
+author; then zero reps thereafter.
+
+**Real threat**: Medium — cheap, unmetered write
+amplification. Distinct from T3 (rep economy) and T6a
+(fetch-side): the commits are locally authored and valid.
+
+Note: the post/revoke/post/revoke cycle is NOT a rep
+attack — each post still costs and is reps-gated, and a
+self-revoked post still refunds and consolidates normally
+(the maturity clock ignores `is_revoked`). The faucet is
+the free revoke commit itself, not the pairing.
+
+**Mitigation**: A free self-revoke must change state — it
+is rejected once the action's `revoke.author` sum is
+already negative. One absolute right-to-be-forgotten cast
+per action stands; an author who wants to toggle again
+pays via `unrevoke` (which costs). Guarded in `rules.lua`.
+
+---
+
 ## Threat Summary Matrix
 
 | ID   | Threat                        | Severity | Likelihood | Implemented? |
@@ -469,6 +501,7 @@ is correct by design.
 | T5b  | Personal key theft            | High     | Low        | No defense   |
 | T6a  | Disk exhaustion via fetch      | Medium   | Medium     | Planned      |
 | T6b  | Ref manipulation              | Low      | Low        | By design    |
+| T7   | Free self-revoke faucet       | Medium   | Medium     | Guard (dedup)|
 
 ---
 
