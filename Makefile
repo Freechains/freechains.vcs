@@ -22,10 +22,10 @@ tests:
 	$(L) cli-list.lua
 	$(L) cli-abandon.lua
 	$(L) abandon-strange.lua
+	$(L) prune-fork.lua
 	$(L) cli-sweep.lua
 	$(L) list-dag-roots.lua
 	$(L) sync.lua
-	$(L) consensus.lua
 	$(L) consensus-gap.lua
 	$(L) reorder-ancient.lua
 	$(L) climb-underflow.lua
@@ -34,7 +34,6 @@ tests:
 	$(L) hardfork-shared.lua
 	$(L) hardfork-ff.lua
 	$(L) fork-7-days.lua
-	$(L) fork-100-posts.lua
 	$(L) err-post.lua
 	$(L) err-like.lua
 	$(L) bug-err-kind.lua
@@ -43,6 +42,10 @@ tests:
 	$(L) repl-local-begs.lua
 	$(L) repl-remote-begs.lua
 	$(L) bug-now-skew.lua
+	# slow tests last (many posts / big chains)
+	$(L) consensus.lua
+	$(L) fork-100-posts.lua
+	$(L) prune-fork-deep.lua
 	@rm -Rf /tmp/freechains/
 
 test:
