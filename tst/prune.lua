@@ -79,8 +79,9 @@ exec {
 
 -- A extends to N total exclusive actions (instant refund: majority)
 TEST ("A posts up to " .. N .. " exclusive actions (slow)")
+local aN
 for i = 2, N do
-    exec {
+    aN = exec {
         cmd = EXE_A .. " --now=" .. (1200+i) ..
             " chain '" .. CHAIN .. "' post inline 'a" .. i .. "\n'" ..
             " --file a" .. i .. ".txt --sign " .. KEY1,
@@ -113,6 +114,34 @@ TEST "A recvs P501 (depth 501): REFUSED (pruned state)"
 FAIL {
     cmd = EXE_A .. " --now=9001 chain '" .. CHAIN .. "' sync recv " .. D501,
     err = "ERROR : chain sync : pruned state",
+}
+
+-- P3: sweep deletes snapshots below the boundary, keeps recent + HEAD
+local function has_snap (cid)
+    local f = io.open(DIR_A .. ".git/states/" .. cid .. ".lua")
+    if f then f:close() return true end
+    return false
+end
+
+TEST "before sweep: the deep snapshot (welcome) still exists"
+assert(has_snap(CID(DIR_A, welcome)), "welcome snapshot should exist")
+
+TEST "sweep prunes below the boundary"
+exec {
+    cmd = EXE_A .. " chain '" .. CHAIN .. "' sweep",
+}
+
+TEST "deep snapshot pruned, HEAD + recent action kept"
+do
+    local head = exec { cmd = "git -C " .. DIR_A .. " rev-parse HEAD" }
+    assert(not has_snap(CID(DIR_A, welcome)), "welcome (>500) must be pruned")
+    assert(has_snap(head), "HEAD snapshot must survive")
+    assert(has_snap(CID(DIR_A, aN)), "aN (newest, within 500) must survive")
+end
+
+TEST "the chain still works after sweep"
+exec {
+    cmd = EXE_A .. " chain '" .. CHAIN .. "' reps authors",
 }
 
 print("<== ALL PASSED")
