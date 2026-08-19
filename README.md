@@ -326,16 +326,16 @@ Let's see how the reputation evolves over time:
     - `Alice: 50000 -> 49500`
     - a post costs `500`, and refunds within at most 12 hours
 - `Alice` posts `I am here`:
-    - `Alice: 49500 -> 49500`
+    - `Alice: 49500 -> 50000 -> 49500`
     - first post refunds (`49500 -> 50000`)
         - majority "saw" it (`Alice` is posting on top of it)
     - second post costs `500` (`50000 -> 49500`)
 - `Alice` posts `Sync me`:
-    - `Alice: 49500 -> 49500`
+    - `Alice: 49500 -> 50000 -> 49500`
     - second post refunds (`49500 -> 50000`)
     - third post costs `500` (`50000 -> 49500`)
 - `Alice` likes `Bob` with `10000`:
-    - `Alice: 49500 -> 40000` (third post refunds)
+    - `Alice: 49500 -> 50000 -> 40000` (third post refunds)
     - `Bob: 0 -> 9000`
     - likes receive a `10%` tax
 
@@ -365,8 +365,8 @@ After a few interactions, we already have `Alice`, `Bob`, and `Charlie` with
 non-zero reputations in the chain.
 
 In summary, the reputation system makes Freechains
-    Sybil-resistant (write operations require and spend `reps`) and
-    permissionless (any insider can welcome any outsider transferring `reps`).
+    (a) Sybil-resistant: write operations require and spend `reps`; and
+    (b) permissionless: any insider can transfer `reps` to welcome any outsider.
 
 ### Posts Reputation & Begging
 
