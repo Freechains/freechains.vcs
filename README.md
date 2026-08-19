@@ -2,6 +2,13 @@
 
 [![Tests](https://github.com/Freechains/freechains.vcs/actions/workflows/tests.yml/badge.svg)](https://github.com/Freechains/freechains.vcs/actions/workflows/tests.yml)
 
+A member posts a message to a chain (a topic) and other members in the same
+chain eventually receive the message.
+Members spend reputation tokens, known as `reps`, to post new messages and gain
+`reps` as they consolidate.
+Members can like and dislike messages from other members, which transfer `reps`
+between them.
+
 - Local-first publish-subscribe topic-based model
 - Unstructured peer-to-peer gossip dissemination
 - **Permissionless and Sybil-resistant**
@@ -16,13 +23,6 @@
 -->
 
 *(In bold we highlight what we believe is particular to Freechains.)*
-
-A member posts a message to a chain (a topic) and other members in the same
-chain eventually receive the message.
-Members spend reputation tokens, known as `reps`, to post new messages and gain
-`reps` as they consolidate.
-Members can like and dislike messages from other members, which transfer `reps`
-between them.
 
 By "Sybil-resistant", we mean that extra identities grant no power:
     a fresh key holds zero `reps` and cannot post in a chain.
@@ -74,16 +74,16 @@ which freechains
 
 ## Guide
 
-Freechains' API is straightforward:
+The command-line API of Freechains is straightforward:
 
 - `freechains chains add ...`:       create or clone chain locally
-- `freechains chain post ...`:       post to chain (signed with SSH)
-- `freechains chain list ...`:       list actions (dag, order, begs, revokes)
+- `freechains chain post ...`:       post to chain
+- `freechains chain list ...`:       list actions
 - `freechains chain (dis)like ...`:  rate an action or author
-- `freechains chain (un)revoke ...`: drop or restore payload
+- `freechains chain (un)revoke ...`: remove or restore payload
 - `freechains chain reps ...`:       query reputation
 - `freechains chain sync send/recv`: synchronize with remote peer
-- `freechains chain abandon ...`:    drop action and everything after it
+- `freechains chain abandon ...`:    drop history branch
 - `freechains chain sweep`:          erase revoked payloads
 
 <!--
