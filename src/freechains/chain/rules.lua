@@ -127,7 +127,7 @@ end
 --  - `env`: what the chain VERIFIED: (time, aid, sign, beg)
 function apply (G, kind, act, env)
     -- time sits within reasonable interval `time.diff`:
-    --  max(backs)-diff < me < max(all)+diff
+    --  max(backs)-diff <= me <= now+diff
     local up = NOW(G, act.backs)
     do
         if env.time < up-C.time.diff then
