@@ -5,15 +5,6 @@
 
 # Open
 
-## Dictators field: keys with infinite reps
-
-- a per-chain `dictators` field listing public keys
-- listed keys have infinite reps
-    - never spend, never mature, never run out
-    - likes/dislikes from them always apply
-- open: where stored? genesis field vs config
-- open: can dictators be added/removed after genesis?
-
 ## Per-chain configurable constants
 
 - move `constants.lua` values into a per-chain file
