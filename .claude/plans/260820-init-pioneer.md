@@ -20,12 +20,20 @@ freechains chains add <alias> init [--pioneer=<key>]...
 
 # Resolution rule
 
-- Existence first, so a file named `ssh-x` is never ambiguous
-- `io.open(v)` opens: it is a FILE
-    - first line starts with `ssh-`: public key file, take it
+- Prefix first: only a key STRING starts with `ssh-`
+- `v:match("^ssh%-")`: literal key STRING, take it
+- else `<v>` is a PATH
+    - opens and first line starts with `ssh-`: public key file
     - else: private key, `ssh-keygen -y -f <v>`
-- else starts with `ssh-`: literal key STRING
-- else: `ERROR : chains add : invalid pioneer : <v>`
+        - its failure is the ONLY error path
+        - `invalid pioneer` plus ssh-keygen's own `>>> <<<`
+        - a missing file reports `No such file or directory`
+- Rejected: existence first
+    - `io.open` before the prefix test disambiguates a file
+      named `ssh-x`, but swallows ssh-keygen's detail on the
+      commonest mistake, a mistyped path
+    - the collision needs a BARE relative path named `ssh-*`
+    - `./ssh-key` already works, so document it and move on
 - Normalize with the `^(%S+ %S+)` match already in `chains.lua`
     - drops the trailing comment
 - Dedup before the `reps.max // #pioneers` split
@@ -43,8 +51,10 @@ freechains chains add <alias> init [--pioneer=<key>]...
     - `name`: the `<alias>`
     - `pioneers`: the resolved keys
 - LOST: no way to set `name`, `descr`, `type`, `version`
-    - `descr` is stored but never read by the code
-    - see open questions
+    - DECIDED: drop both `descr` and a human `name`
+    - `descr` was stored but never read by the code
+    - `name` is the alias, which is local: peers may disagree
+    - the chain id stays the only real name
 
 # Steps
 
@@ -100,28 +110,22 @@ freechains chains add <alias> init [--pioneer=<key>]...
 - `inline uses default --sign` (l.283) -> bare `--pioneer`
 - `inline with bad --sign` (l.300)
     - today it carries ssh-keygen's own detail
-    - `/nonexistent/key` now fails the existence test first
-    - keep the ssh-keygen detail only for a file that EXISTS
-      and is not a key
+    - prefix-first keeps it: only the head line changes,
+      from `invalid sign key` to `invalid pioneer`
 - pioneer limit (l.317, l.340): 101 and 100 fake keys
     - they were written to a temp genesis file
     - now 101 `--pioneer='ssh-ed25519 111...'` flags
     - ~6 KB of argv, far under any limit
 
-# Open questions
+# Decided
 
-- Is losing `descr` acceptable?
-    - never read, only carried in the commit
-    - if it must stay: `--descr=<text>`, one more option
-- Is losing a human `name` acceptable?
-    - `name` becomes the alias, always
-    - the alias is local, so peers may disagree on it
-- Should `init` with no `--pioneer` be legal?
-    - it is legal today via a fixture with no `pioneers`
-    - a chain nobody can post to, until someone is liked
-    - keep it: the tests use it (`GEN_0`) and it costs nothing
-- Public key files: accept a `.pub` with a comment?
-    - yes, the `%S+ %S+` match already drops it
+- Drop `descr`: never read, no `--descr` option
+- Drop the human `name`: it becomes the `<alias>`
+- `init` with no `--pioneer` stays LEGAL
+    - a chain where nobody holds reps
+    - the tests already use it (`GEN_0`)
+- Errors: prefix first, ssh-keygen keeps reporting the detail
+- Public key files keep their comment, `%S+ %S+` drops it
 
 # Won't do
 
