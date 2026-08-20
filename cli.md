@@ -7,7 +7,7 @@ Usage:
     freechains daemon start [--port=<port>] [--hub] [-- <git-opts>...]
     freechains daemon stop
 
-    freechains chains add <alias> init [--pioneer=<key>]...
+    freechains chains add <alias> init [--pioneer=<pub>]...
     freechains chains add <alias> clone <url>
     freechains chains rem <alias>
     freechains chains dir
@@ -40,7 +40,7 @@ Options:
     -v --version                   displays software version
     --root=<dir>    [all]          data directory [default: ~/.freechains/]
     --now=<secs>    [all]          overrides current time [default: clock]
-    --sign=<key>    [actions]      signs with given key [default: ~/.ssh/id_ed25519]
+    --sign=<pvt>    [actions]      signs with given key [default: ~/.ssh/id_ed25519]
     --why=<text>    [votes]        explains reason for the vote
 
 Chain URLs:
@@ -52,10 +52,10 @@ Chain URLs:
     Optional trailing `/#<chain>` to specify remote chain
     (defaults to the local `<alias>`).
 
-Public Keys:
-    ssh-<...>                      a key STRING
-    <path>                         a key FILE, private or public
-    <none>                         `$HOME/.ssh/id_ed25519`
+Keys:
+    ssh-<...>       [pub]          a key STRING
+    <path>          [pub|pvt]      a key FILE, public or private (+ `.pub`)
+    <none>          [pub|pvt]      `$HOME/.ssh/id_ed25519`
 
 More Information:
 
@@ -110,13 +110,13 @@ Creates a chain locally, either from scratch (`init`) or from a remote peer
 (`clone`).
 
 ```
-freechains chains add <alias> init [--pioneer=<key>]...
+freechains chains add <alias> init [--pioneer=<pub>]...
 freechains chains add <alias> clone <url>
 ```
 
 - `<alias>`: local name of the chain
 - `init`: creates new chain
-    - `--pioneer=<key>`: repeat for each pioneer key
+    - `--pioneer=<pub>`: repeat for each pioneer key
 - `clone <url>`: fetches existing chain from peer
 
 Displays the chain id, unique across all peers.
@@ -192,10 +192,7 @@ freechains chain <alias> get (metadata | payload) <id>
 - `metadata`: the action file, serialized as a Lua table
     - fields: `action`, `backs`, `blob`, `sign`, `time`
 - `payload`: the actual content bytes
-    - fails with `revoked payload` if the action is revoked
-
-Payloads live outside the history, so their bytes can be erased
-without affecting it.
+    - fails action is revoked
 
 - Examples:
 
@@ -209,44 +206,38 @@ freechains chain '#chat' get metadata b52c62f
 Posts a new action in the chain.
 
 ```
-freechains chain <alias> post (file <path> | inline <text>) --sign=<key>
-freechains chain <alias> post (file <path> | inline <text>) --beg
+freechains chain <alias> post (file <path> | inline <text>) [--sign=<pvt>] [--beg]
 ```
 
-- `file <path>`: posts the contents of the given file
-- `inline <text>`: posts the given text
-- `--sign=<key>`: ssh private key of the author
-    - defaults to `$HOME/.ssh/id_ed25519` when given no value
+- `file <path>`: posts contents of given file
+- `inline <text>`: posts given text
+- `--sign=<pvt>`: private key file of author (defaults to `$HOME/.ssh/id_ed25519`)
 - `--beg`: posts without spending reps
-    - the post is parked apart from the chain, awaiting a like
-    - requires no `--sign`
+    - post needs a like to become part of the chain
 
-A post spends reps, refunded within at most 12 hours.
 Either `--sign` or `--beg` is required.
 
 - Examples:
 
 ```
-freechains chain '#chat' post inline $'Hello World\n' --sign=/tmp/alice
 freechains chain '#chat' post file ./pic.jpg --sign=/tmp/alice
 freechains chain '#chat' post inline $'A great post!\n' --beg
 ```
 
 ## chain like / dislike
 
-Likes or dislikes an action or an author in the chain.
+Likes or dislikes an action or author in the chain.
 
 ```
-freechains chain <alias> (like | dislike) <n> action <id> --sign=<key>
-freechains chain <alias> (like | dislike) <n> author <pub> --sign=<key>
+freechains chain <alias> like <n> (action <id> | author <pub>) [--why=<text>] [--file=<path>]
+freechains chain <alias> dislike <n> (action <id> | author <pub>) [--why=<text>]
 ```
 
 - `<n>`: amount of reps to spend, a positive integer
-- `action <id>`: rates a post or a vote
-    - a positive `like` on a beg admits it into the chain
-- `author <pub>`: rates an author by public key
-    - welcomes a newcomer holding no reps
-- `--why=<text>`: reason for the vote
+- target:
+    - `action <id>`: rates action
+    - `author <pub>`: rates author
+- `--why=<text>`: justify the action
 - `--file=<path>`: supplies the payload bytes when liking a beg
   whose content is not held locally
     - refused unless it hashes to the expected blob
@@ -267,12 +258,13 @@ freechains chain '#chat' dislike 1000 action d6568e4 --sign=/tmp/bob --why='SPAM
 Removes or restores the payload of an action.
 
 ```
-freechains chain <alias> (revoke | unrevoke) <n> <id> --sign=<key>
+freechains chain <alias> revoke <n> <id> [--why=<text>]
+freechains chain <alias> unrevoke <n> <id> [--why=<text>] [--file=<path>]
 ```
 
 - `<n>`: amount of reps to spend, a positive integer
 - `<id>`: action whose payload to remove or restore
-- `--why=<text>`: reason for the vote
+- `--why=<text>`: justify the action
 - `--file=<path>`: supplies the payload bytes on `unrevoke`,
   when they were already erased by `sweep`
 
