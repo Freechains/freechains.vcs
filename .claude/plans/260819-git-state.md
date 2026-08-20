@@ -103,11 +103,42 @@
       read); transient with gc.auto 256 from the start;
       aid-hash vs G.order ordering (may shrink the floor)
 
-# Conclusion (26/08/19)
+# S4 SECOND RUN (26/08/20): gc.auto 256 from the START
 
-- item 4 VALIDATED: automatic git packing makes state disk
-  ~28 MB at 6541 actions, no sweep, no prune. Beats prune by
-  ~50x and needs no manual step. Prune stays retired.
+- fresh install, gc.auto 256 all along, full 9580-msg run:
+    - END: git 2249 MB (pack 10.3, LOOSE 2398.9) -- a 2.4 GB
+      loose tail; auto-gc did NOT hold the floor
+    - runtime 53 min vs 48 min file-based (same chat sim) =
+      ~+10%: the extra hash-object + update-ref per action,
+      NOT a doubling (my earlier "2x" mis-compared to grow.sh)
+- WHY auto-gc fails to maintain it:
+    - each `gc --auto` is O(N); git's gc lock SKIPS a trigger
+      while one is running -> past some N, triggers are
+      always skipped and loose grows unbounded
+    - gc.auto 256 may be COUNTERPRODUCTIVE: so frequent the
+      gc's never finish. A bigger threshold, or auto off +
+      explicit gc, may pack MORE
+- the floor is only reached by an EXPLICIT `git gc`:
+    - this from-start run: `git gc` -> 32.2 MiB, loose 0
+      (2.4 GB tail fully reclaimed; ~matches the 28.6 earlier,
+      variance = delta selection). Floor is ~30 MB either way.
+    - so the tail is purely TRANSIENT; one gc always recovers
+
+# Conclusion (26/08/20) -- REVISED
+
+- item 4 wins on DISK FLOOR: 28.6 MB vs prune's 1.5 GB, and
+  no P1/P2/P3 logic -- but NOT zero-maintenance:
+    - needs an explicit `git gc` (sweep keeps stage-1 gc);
+      auto-gc alone leaves a multi-GB loose tail
+    - write latency ~+10% (two extra git spawns per action;
+      53 vs 48 min on the chat sim) -- modest
+- still simpler than prune (sweep = just `git gc`, no
+  boundary/delete logic) and prune stays retired
+- OPEN before shipping:
+    - tune/settle packing: gc.auto value, or auto off +
+      sweep-driven gc; measure loose tail vs threshold
+    - write latency: batch hash-object/update-ref? keep a
+      flat HEAD cache and only blob older states?
 - S5: confirm prune stays out (already reverted); update
   260818-prune as SUPERSEDED
 
