@@ -219,21 +219,35 @@ as the effective time, not the author's claimed timestamp.
 
 ### T2b. Future-Dating Posts
 
-**Mechanism**: Set a post's timestamp into the future.
-The post appears in `--date-order` traversal at a later
-position than it should, affecting consensus ordering
-and reputation flow.
+**Mechanism**: `--now` is a public flag. `post.lua:51`
+writes it straight into the action file and the commit is
+properly signed, so the result is a well-formed action that
+no peer can tell from an honest one. On replay, `advance`
+raises the receiver's own clock to it (`rules.lua:108`) and
+never lowers it again.
 
-**Resources**: None beyond posting ability (1 rep).
+**Resources**: The attacker's own peer. No crafted bytes and
+no access to anyone else's machine.
 
-**Real threat**: Medium — bounded by the 1-hour future
-tolerance (`commit.timestamp <= receiver.local_time + 1h`).
-At most ~1 hour of manipulation, which is < 9% of the
-12h maturation window.
+**Real threat**: was High. `G.now` is a running maximum, so
+one action stamped far ahead ratchets every peer replaying
+it:
 
-**Mitigation**: Future tolerance rule rejects commits
-with timestamps more than 1 hour ahead of the receiver's
-local clock.
+1. every outstanding post matures at once (`rules.lua:73`),
+   refunding costs before anyone can react — the 12h
+   reaction window stops existing, network-wide
+2. the hard-fork span inflates, entrenching honest peers
+   into refusing each other
+
+The ratchet is permanent: `abandon` is the only exit.
+
+**Mitigation**: `too new` refuses `env.time > CMD.now +
+time.diff`. It is the only bound a sender cannot set: the
+causal past is in the DAG, the future is not. Read-time, so
+a rejection means "not yet" and the same action passes once
+the clock catches up. Residual: 1h of legal gaming, a
+bounded stall for slow clocks, and an admission boundary
+two peers may straddle by a second.
 
 ### T2c. Timestamp Manipulation of `--date-order`
 
@@ -272,6 +286,31 @@ measures.
 structural and easy to break by accident: any future kind
 appended to `G.order` must have a date the receiver derives,
 not one the sender supplies.
+
+---
+
+### T2e. Switching Off Rule 1 with a Backdated Entry
+
+**Mechanism**: `hardfork` read the span from the LAST entry
+of the consensus order (`ts[our[#our]]`). But consensus
+order is not chronological: a low-rep author sorts last, and
+`--now` sets the stamp. Fork off an old tip, post backdated,
+and the victim measures its window against an ancient
+reference, so no entry is ever 7 days older than it.
+
+**Resources**: The attacker's own peer and enough reps to
+post. LOWER reps make it easier — a weaker branch sorts
+later, which is exactly what the attack wants.
+
+**Real threat**: was High. It does not abuse rule 1, it
+disables it: the settled prefix stops being frozen and the
+victim accepts reorderings of its own history. Only the
+100-action axis kept working.
+
+**Mitigation**: `new` is now folded as the max over the
+window rather than read from the last entry. The inverse is
+possible in principle — a future-dated entry over-freezes —
+but that is bounded by T2b's `too new`.
 
 ---
 
@@ -515,9 +554,10 @@ pays via `unrevoke` (which costs). Guarded in `rules.lua`.
 | T1a  | Boundary attack (timing)      | High     | Low        | Span rule    |
 | T1b  | Equivocation (100-post)       | High     | Low        | No defense   |
 | T2a  | Backdating offline branches   | Medium   | Medium     | Consensus    |
-| T2b  | Future-dating posts           | Medium   | Medium     | Tolerance    |
+| T2b  | Future-dating posts           | High     | Medium     | Yes (too new)|
 | T2c  | Timestamp ordering            | Medium   | Medium     | Planned      |
 | T2d  | Settled line via merge/state  | Low      | Low        | Order kinds  |
+| T2e  | Rule 1 off via backdated last | High     | Low        | Yes (max)    |
 | T3a  | Sockpuppet farming            | Low      | Low        | By design    |
 | T3b  | Rep cycling                   | Low      | Low        | Yes (tax)    |
 | T3c  | Retroactive BLOCKED→LINKED    | Low      | Medium     | By design    |
@@ -534,17 +574,15 @@ pays via `unrevoke` (which costs). Guarded in `rules.lua`.
 
 ## Priority Recommendations
 
-1. **CRITICAL: Implement timestamp validation** (T2a,
-   T2b, T2c) — This is the most dangerous open threat.
-   T2a costs nothing, requires no collusion, and
-   completely bypasses the 12h maturation rule. Without
-   timestamp validation, the entire reputation system
-   is hollow: an attacker backdates a like to 12h+ ago,
-   the like appears already matured, and reputation
-   inflates instantly. Every other defense (10% tax,
-   12h maturation, post cost) assumes timestamps are
-   honest. Monotonic parent rule + 1h future tolerance
-   must be the first implementation priority.
+1. **DONE: timestamp validation** (T2b, T2c) — both
+   bounds now run in `apply`, so post and replay share
+   them: `too old` against the DAG (`backs`) and `too
+   new` against the receiver's clock. What remains open
+   is T2a: backdating on an offline branch is bounded
+   only relative to the causal past, so a stale-enough
+   parent still buys a matured-looking post. Its real
+   defenses stay consensus ordering and reactive
+   dislikes, not the clock.
 
 2. **Add deterministic tiebreaker for same-timestamp
    commits** (T4a) — e.g., lexicographic commit hash.
