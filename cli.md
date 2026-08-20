@@ -5,7 +5,7 @@ freechains v0.20.0
 
 Usage:
     freechains daemon start [--port=<port>] [--hub] [-- <git-opts>...]
-    freechains daemon stop [--port=<port>]
+    freechains daemon stop
 
     freechains chains add <alias> init [--pioneer=<key>]...
     freechains chains add <alias> clone <url>
@@ -17,8 +17,9 @@ Usage:
     # queries
     freechains chain <alias> list (order | dag | begs | revokes)
     freechains chain <alias> get (metadata | payload) <id>
-    freechains chain <alias> reps (action | actions | author | authors)
-    freechains chain <alias> reps (revoke | revokes) [<id>]
+    freechains chain <alias> reps (action <id> | author <pub>)
+    freechains chain <alias> reps (actions | authors)
+    freechains chain <alias> reps (revoke <id> | revokes)
 
     # actions
     freechains chain <alias> post (file <path> | inline <text>) [--beg]
@@ -42,6 +43,20 @@ Options:
     --sign=<key>    [actions]      signs with given key [default: ~/.ssh/id_ed25519]
     --why=<text>    [votes]        explains reason for the vote
 
+Chain URLs:
+    <host>                         port defaults to 8330
+    <host>:<port>                  explicit port
+    <path>                         local path (starts with / ~ .)
+    <scheme>://<...>               full url
+
+    Optional trailing `/#<chain>` to specify remote chain
+    (defaults to the local `<alias>`).
+
+Public Keys:
+    ssh-<...>                      a key STRING
+    <path>                         a key FILE, private or public
+    <none>                         `$HOME/.ssh/id_ed25519`
+
 More Information:
 
     https://www.freechains.org/
@@ -53,29 +68,23 @@ More Information:
 
 ## daemon start / stop
 
-Starts or stops the local daemon.
+Starts (or stops) daemon to serve local chains.
 
 ```
 freechains daemon start [--port=<port>] [--hub] [-- <git-opts>...]
-freechains daemon stop [--port=<port>]
+freechains daemon stop
 ```
 
 - `--port=<port>`: port to listen [default: 8330]
-- `--hub`: accept `sync send` from peers
+- `--hub`: accepts `sync send` from peers
 - `<git-opts>...`: extra options forwarded to `git daemon`
-
-`start` blocks, so background it with `&`.
-It writes `<root>/daemon-<port>.pid`, which is how `stop` finds it.
-
-`stop` kills the daemon serving `<port>` and removes its pid file.
-A pid that no longer serves this root is refused as stale.
 
 - Examples:
 
 ```
 freechains daemon start
 freechains --root=/tmp/X/ daemon start --hub --port=8331 &
-freechains --root=/tmp/X/ daemon stop --port=8331
+freechains --root=/tmp/X/ daemon stop
 ```
 
 # Chains
@@ -84,62 +93,28 @@ Operations over the set of local chains.
 
 ## chains add
 
-Creates a chain locally, from scratch or from a remote peer.
+Creates a chain locally, either from scratch (`init`) or from a remote peer
+(`clone`).
 
 ```
 freechains chains add <alias> init [--pioneer=<key>]...
 freechains chains add <alias> clone <url>
 ```
 
-- `<alias>`: local name of the chain, must start with `#`
-- `init`: creates a brand new chain
-    - `--pioneer=<key>`: repeat once per pioneer
-        - a key STRING, starting with `ssh-`
-        - or a key FILE, private or public
-        - with no value: `$HOME/.ssh/id_ed25519`
-    - with no `--pioneer`, nobody holds reps
-- `clone <url>`: fetches an existing chain from a peer
+- `<alias>`: local name of the chain
+- `init`: creates new chain
+    - `--pioneer=<key>`: repeat for each pioneer key
+- `clone <url>`: fetches existing chain from peer
 
-The genesis file is always generated, never supplied:
-
-- `version`: the running version
-- `pioneers`: the resolved keys, duplicates dropped
-
-These are the only two fields any code reads back.
-
-The output is the chain id, unique across all peers.
-Two `init` calls with identical parameters still yield
-different chains.
-
-The genesis is a Lua chunk returning a table:
-
-```lua
-return {
-    version  = {0, 20, 0},
-    pioneers = { "ssh-ed25519 ..." },    -- share the initial reps
-}
-```
-
-The pioneers share `reps.max`, so too many of them is refused.
-
-The `<url>` of `clone` accepts:
-
-- `<host>`: port defaults to `8330`
-- `<host>:<port>`
-- a local path (starting with `/`, `~` or `.`)
-- a full `<scheme>://` url
-
-The alias is appended to the url unless it already names a chain
-with `#`.
+Displays the chain id, unique across all peers.
 
 - Examples:
 
 ```
-freechains chains add '#chat' init --pioneer=/tmp/alice
-freechains chains add '#chat' init --pioneer=/tmp/alice.pub --pioneer="$(cat /tmp/bob.pub)"
-freechains chains add '#chat' init
+freechains chains add '#chat' init --pioneer
+freechains chains add '#chat' init --pioneer=alice.pub --pioneer=bob.pub
 freechains chains add '#chat' clone localhost
-freechains --root=/tmp/B/ chains add '#chat' clone localhost:8331
+freechains chains add '#chat' clone localhost:8331/#talks
 ```
 
 ## chains rem
@@ -166,10 +141,10 @@ freechains chains dir
 
 # Chain
 
-Operations inside a single chain.
-All take the chain `<alias>` (or its `#<id>`) as first argument.
+Operations inside a single chain:
 
-Action ids may be abbreviated, as printed by `list dag`.
+- All take the chain `<alias>` (or `#<id>`) as first argument.
+- Action ids may be abbreviated, as printed by `list dag`.
 
 ## chain list
 
@@ -220,8 +195,8 @@ freechains chain '#chat' get metadata b52c62f
 Posts a new action in the chain.
 
 ```
-freechains chain <alias> post file <path>   --sign=<key>
-freechains chain <alias> post inline <text> --sign=<key>
+freechains chain <alias> post (file <path> | inline <text>) --sign=<key>
+freechains chain <alias> post (file <path> | inline <text>) --beg
 ```
 
 - `file <path>`: posts the contents of the given file
