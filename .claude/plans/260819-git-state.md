@@ -76,12 +76,14 @@
     - S4 to weigh: actions sort by AID (hash) -> a new one
       inserts mid-file; serializing by `G.order` instead
       would be pure-APPEND -> tighter deltas. Optional.
-- S3 DONE (26/08/19): `git config gc.auto 256` in git_init
-    - one large loose blob per action; default 6700 would let
-      the loose pile balloon (O(N) each). 256 packs often,
-      backgrounded (autoDetach), fired by `commit`'s gc --auto
-    - verified: refs/states/* are `blob` refs keyed by cid;
-      state reads/writes work; value to be tuned in S4
+- S3 REVERTED (26/08/20): tried `gc.auto 256`, then removed
+  it. The S4 second run proved auto-gc can't hold the floor
+  (2.4 GB loose tail) and only adds churn -> rely on sweep's
+  explicit gc instead. `git_init` sets no gc.auto.
+- CLEANUP (26/08/20): abandon deletes `refs/states/<cid>`
+  for dropped commits (symmetric with refs/payloads), so gc
+  can reclaim orphaned state blobs. sweep.lua doc now names
+  the state-pack role of its `git gc`.
 - S4 DISK DONE (26/08/19): chat sim, 9580 msgs / 6541
   actions (reinstalled with gc.auto 256 midway):
     - file-based baseline .......... 15.3 GB (states)

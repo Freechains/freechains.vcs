@@ -87,6 +87,11 @@ end
 -- report what is about to be abandoned: one aid per line, like
 -- `list` (a beg-like merge is an action too, so merges stay in)
 for _, h in ipairs(range) do
+    -- the dropped commit's state blob loses its anchor, so gc can
+    -- reclaim it (state lives in refs/states/<cid>, keyed by commit)
+    exec { err=false, stderr=false,
+        cmd = "git -C " .. REPO .. " update-ref -d refs/states/" .. h,
+    }
     local a = aids[h]
     if a then
         -- payloads go with them

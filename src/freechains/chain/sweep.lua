@@ -1,13 +1,17 @@
 
--- Reclaim what removal already unreferenced: a revoked payload
--- (`like` drops its `refs/payloads/` anchor) or an abandoned commit.
+-- Reclaim what removal already unreferenced, and PACK the state.
 -- Local only: no signing, no network, no reps.
 -- Never run against a concurrent writer: `post` writes the payload
 -- blob before anchoring it, so it is briefly unreferenced.
--- Payloads live outside the tree, anchored only by `refs/payloads/`,
--- so dropping the anchor is enough for the bytes to go here.
--- The abandoned COMMITS survive in the HEAD reflog until it expires:
--- they carry action files (metadata), never content.
+--
+-- Two kinds of bytes go here:
+--  - revoked payloads (`like` drops the `refs/payloads/` anchor) and
+--    abandoned commits' payloads/state -- once unanchored, gc reaps
+--  - per-action STATE blobs (`refs/states/*`): each is a full loose
+--    blob until packed, so this gc DELTA-compresses the near-
+--    identical versions into O(N). It is the reclaim step -- git's
+--    auto-gc is incremental/skippable and leaves a loose tail, so
+--    the explicit gc here is what reaches the packed floor.
 
 exec {
     cmd = "git -C " .. REPO .. " gc --prune=now --quiet",

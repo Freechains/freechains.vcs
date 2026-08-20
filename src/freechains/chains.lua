@@ -21,14 +21,6 @@ local function git_init (dir)
         cmd = "git -C " .. dir .. " config receive.advertisePushOptions true"
     }
 
-    -- state lives in git blobs (refs/states/*): one large loose blob
-    -- per action. Pack often so the O(N)-each loose pile stays small
-    -- -- git's default gc.auto (6700 objects) would let it balloon.
-    -- gc --auto fires after `commit`, backgrounded (autoDetach).
-    exec {
-        cmd = "git -C " .. dir .. " config gc.auto 256"
-    }
-
     exec {
         cmd = "cp " .. HERE .. "/hooks/pre-receive " .. dir .. "/.git/hooks/pre-receive"
     }
