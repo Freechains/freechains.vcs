@@ -2,7 +2,7 @@
 require "tests"
 
 exec {
-    cmd = ENV_EXE .. " --now=0 chains add '#cli-time' init file " .. GEN_1,
+    cmd = ENV_EXE .. " --now=0 chains add '#cli-time' init " .. GEN_1,
 }
 
 -- DISCOUNT
@@ -39,7 +39,7 @@ do
     print("==> Consolidation")
 
     exec {
-        cmd = ENV_EXE .. " --now=0 chains add '#cli-time' init file " .. GEN_1,
+        cmd = ENV_EXE .. " --now=0 chains add '#cli-time' init " .. GEN_1,
     }
 
     do
@@ -67,7 +67,7 @@ do
     }
 
     exec {
-        cmd = ENV_EXE .. " --now=0 chains add '#cli-time' init file " .. GEN_1,
+        cmd = ENV_EXE .. " --now=0 chains add '#cli-time' init " .. GEN_1,
     }
 
     do
@@ -106,7 +106,7 @@ do
     print("==> Reps query")
 
     exec {
-        cmd = ENV_EXE .. " --now=0 chains add '#cli-time' init file " .. GEN_1,
+        cmd = ENV_EXE .. " --now=0 chains add '#cli-time' init " .. GEN_1,
     }
 
     do

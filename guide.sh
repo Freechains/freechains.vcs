@@ -55,7 +55,7 @@ echo
 
 ssh-keygen -t ed25519 -C '' -N '' -q -f "$KEYS/alice"
 
-FC --root="$A" --now=$((T0+0))  chains add '#chat' init inline --sign="$KEYS/alice"
+FC --root="$A" --now=$((T0+0))  chains add '#chat' init --pioneer="$KEYS/alice"
 FCH --root="$A" --now=$((T0+10)) chain '#chat' post inline $'Hello World\n' --sign="$KEYS/alice"
 HELLO=$HASH
 FCH --root="$A" --now=$((T0+20)) chain '#chat' post inline $'I am here\n'   --sign="$KEYS/alice"

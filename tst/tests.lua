@@ -1,11 +1,6 @@
 require "freechains.common"
 
 TMP   = "/tmp/freechains/"
-GEN_0 = "genesis-0.lua"
-GEN_1 = "genesis-1.lua"
-GEN_2 = "genesis-2.lua"
-GEN_3 = "genesis-3.lua"
-GEN_4 = "genesis-4.lua"
 ROOT  = TMP .. "/root/"
 EXE   = "../src/freechains.lua --root " .. ROOT
 
@@ -30,6 +25,13 @@ PUB4    = exec {
 }
 ENV     = ""
 ENV_EXE = EXE
+
+-- pioneer flags: GEN_N holds the first N keys
+GEN_0   = ""
+GEN_1   = "--pioneer='" .. PUB1 .. "'"
+GEN_2   = GEN_1 .. " --pioneer='" .. PUB2 .. "'"
+GEN_3   = GEN_2 .. " --pioneer='" .. PUB3 .. "'"
+GEN_4   = GEN_3 .. " --pioneer='" .. PUB4 .. "'"
 
 function TEST (name)
     print("  - " .. name .. "... ")

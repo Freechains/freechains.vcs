@@ -47,7 +47,7 @@ do
     -- everything runs on the REAL clock: no --now anywhere
     TEST "A creates chain + seeds s.txt"
     exec {
-        cmd = EXE_A .. " chains add '#ns' init file " .. GEN_2,
+        cmd = EXE_A .. " chains add '#ns' init " .. GEN_2,
     }
     exec {
         cmd = EXE_A .. " chain '#ns' post inline 'seed\n' --sign " .. KEY1,

@@ -30,7 +30,7 @@ do
     -- A: G -- seed[K1] -- like[K2]
     TEST "A creates chain + seeds"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#ek' init file " .. GEN_2,
+        cmd = EXE_A .. " --now=1000 chains add '#ek' init " .. GEN_2,
     }
     local seed = exec {
         cmd = EXE_A .. " --now=1020 chain '#ek' post inline 'seed\n' --sign " .. KEY1,

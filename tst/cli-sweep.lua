@@ -8,7 +8,7 @@ require "tests"
 -- A standing post keeps its anchor, so its bytes must survive.
 
 exec {
-    cmd = ENV_EXE .. " chains add '#cli-sweep' init file " .. GEN_3,
+    cmd = ENV_EXE .. " chains add '#cli-sweep' init " .. GEN_3,
 }
 
 local DIR = ROOT .. "/chains/#cli-sweep/"

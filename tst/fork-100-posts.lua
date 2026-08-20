@@ -40,7 +40,7 @@ do
     -- A: G
     TEST "A creates chain"
     exec {
-        cmd = EXE_A .. " --now=" .. FORK .. " chains add '#fork-100' init file " .. GEN_3,
+        cmd = EXE_A .. " --now=" .. FORK .. " chains add '#fork-100' init " .. GEN_3,
     }
 
     -- A: G

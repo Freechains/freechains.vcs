@@ -57,7 +57,7 @@ do
     -- A: G -- S[K1]
     TEST "A creates chain + seeds seed.txt"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#cg2' init file " .. GEN_2,
+        cmd = EXE_A .. " --now=1000 chains add '#cg2' init " .. GEN_2,
     }
     local seed = exec {
         cmd = EXE_A .. " --now=1100 chain '#cg2' post inline 'seed\n' --sign " .. KEY1,

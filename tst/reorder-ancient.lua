@@ -28,7 +28,7 @@ do
     -- A: G
     TEST "A creates chain"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#anc' init file " .. GEN_2,
+        cmd = EXE_A .. " --now=1000 chains add '#anc' init " .. GEN_2,
     }
 
     -- A: G -- S[K1]

@@ -35,7 +35,7 @@ do
     -- A: G
     TEST "A creates chain"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#fork-7d' init file " .. GEN_2,
+        cmd = EXE_A .. " --now=1000 chains add '#fork-7d' init " .. GEN_2,
     }
 
     -- A: G -- S[K1]
@@ -148,7 +148,7 @@ do
     -- W welcomes KEY3, so KEY3 posts with the LOWEST reps of all
     TEST "A creates chain, seeds, KEY2 likes, KEY1 welcomes KEY3"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#fork-back' init file " .. GEN_2,
+        cmd = EXE_A .. " --now=1000 chains add '#fork-back' init " .. GEN_2,
     }
     local seed = exec {
         cmd = EXE_A .. " --now=1100 chain '#fork-back' post inline 'seed\n' --sign " .. KEY1,

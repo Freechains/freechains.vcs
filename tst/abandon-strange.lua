@@ -39,7 +39,7 @@ exec {
 -- common base: S, cloned by B
 TEST "A creates chain + seed; B clones"
 exec {
-    cmd = EXE_A .. " --now=1000 chains add '" .. CHAIN .. "' init file " .. GEN_2,
+    cmd = EXE_A .. " --now=1000 chains add '" .. CHAIN .. "' init " .. GEN_2,
 }
 local seed = exec {
     cmd = EXE_A .. " --now=1100 chain '" .. CHAIN .. "' post inline 'seed\n' --sign " .. KEY1,

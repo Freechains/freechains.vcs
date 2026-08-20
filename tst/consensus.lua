@@ -29,7 +29,7 @@ do
 
     TEST "A creates chain + seeds"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#cons-a' init file " .. GEN_2,
+        cmd = EXE_A .. " --now=1000 chains add '#cons-a' init " .. GEN_2,
     }
     local seed_a = exec {
         cmd = EXE_A .. " --now=1100 chain '#cons-a' post inline 'seed\n' --sign " .. KEY1,
@@ -89,7 +89,7 @@ do
 
     TEST "A creates chain + seeds"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#cons-b' init file " .. GEN_2,
+        cmd = EXE_A .. " --now=1000 chains add '#cons-b' init " .. GEN_2,
     }
     local seed_b = exec {
         cmd = EXE_A .. " --now=1100 chain '#cons-b' post inline 'seed\n' --sign " .. KEY1,
@@ -154,7 +154,7 @@ do
 
     TEST "A creates chain"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#cons-c' init file " .. GEN_4,
+        cmd = EXE_A .. " --now=1000 chains add '#cons-c' init " .. GEN_4,
     }
 
     TEST "B clones cons-c"
@@ -266,7 +266,7 @@ do
     -- A: G
     TEST "A creates chain"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#cons-d' init file " .. GEN_4,
+        cmd = EXE_A .. " --now=1000 chains add '#cons-d' init " .. GEN_4,
     }
 
     -- A: G

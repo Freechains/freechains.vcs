@@ -14,7 +14,7 @@ local DIR6 = ROOT .. "/chains/#cli-begs-6/"
 do
     print("==> Simple beg")
     exec {
-        cmd = ENV_EXE .. " chains add '#cli-begs-1' init file " .. GEN_1,
+        cmd = ENV_EXE .. " chains add '#cli-begs-1' init " .. GEN_1,
     }
 
     local HEAD = exec {
@@ -78,7 +78,7 @@ end
 do
     print("==> Multiple begs from HEAD")
     exec {
-        cmd = ENV_EXE .. " chains add '#cli-begs-2' init file " .. GEN_1,
+        cmd = ENV_EXE .. " chains add '#cli-begs-2' init " .. GEN_1,
     }
 
     local HEAD = exec {
@@ -116,7 +116,7 @@ end
 do
     print("==> Multiple begs from different heads")
     exec {
-        cmd = ENV_EXE .. " chains add '#cli-begs-3' init file " .. GEN_1,
+        cmd = ENV_EXE .. " chains add '#cli-begs-3' init " .. GEN_1,
     }
 
     -- KEY1 posts normally (advances HEAD)
@@ -164,7 +164,7 @@ do
     print("==> Likes on begs")
 
     exec {
-        cmd = ENV_EXE .. " chains add '#cli-begs-4' init file " .. GEN_1,
+        cmd = ENV_EXE .. " chains add '#cli-begs-4' init " .. GEN_1,
     }
 
     -- KEY2 begs
@@ -295,7 +295,7 @@ do
     print("==> Merge structure (always 2-parent)")
 
     exec {
-        cmd = ENV_EXE .. " chains add '#cli-begs-5' init file " .. GEN_1,
+        cmd = ENV_EXE .. " chains add '#cli-begs-5' init " .. GEN_1,
     }
 
     -- KEY2 begs
@@ -342,7 +342,7 @@ do
     print("==> Merge structure (true merge)")
 
     exec {
-        cmd = ENV_EXE .. " chains add '#cli-begs-6' init file " .. GEN_1,
+        cmd = ENV_EXE .. " chains add '#cli-begs-6' init " .. GEN_1,
     }
 
     -- KEY2 begs

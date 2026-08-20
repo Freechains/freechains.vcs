@@ -6,7 +6,7 @@ local ssh = require "freechains.chain.ssh"
 local DIR = ROOT .. "/chains/#cli-sign/"
 
 exec {
-    cmd = "HOME=" .. SSH .. "home " .. ENV_EXE .. " chains add '#cli-sign' init inline --sign",
+    cmd = "HOME=" .. SSH .. "home " .. ENV_EXE .. " chains add '#cli-sign' init --pioneer",
 }
 
 -- SIGNED POST

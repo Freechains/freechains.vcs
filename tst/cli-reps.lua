@@ -2,7 +2,7 @@
 require "tests"
 
 exec {
-    cmd = ENV_EXE .. " chains add '#cli-reps' init file " .. GEN_1,
+    cmd = ENV_EXE .. " chains add '#cli-reps' init " .. GEN_1,
 }
 
 -- BASIC QUERY
@@ -100,7 +100,7 @@ do
     print("==> After like/dislike")
 
     exec {
-        cmd = ENV_EXE .. " chains add '#cli-reps' init file " .. GEN_2,
+        cmd = ENV_EXE .. " chains add '#cli-reps' init " .. GEN_2,
     }
 
     do
@@ -171,7 +171,7 @@ do
     do
         TEST "reps-2-pioneers"
         exec {
-            cmd = ENV_EXE .. " chains add '#cli-reps' init file " .. GEN_2,
+            cmd = ENV_EXE .. " chains add '#cli-reps' init " .. GEN_2,
         }
         local out1 = exec {
             cmd = ENV_EXE .. " chain '#cli-reps' reps author '" .. PUB1 .. "'",
@@ -192,7 +192,7 @@ do
             cmd = "mkdir -p " .. ROOT,
         }
         exec {
-            cmd = ENV_EXE .. " chains add '#cr7' init file " .. GEN_3,
+            cmd = ENV_EXE .. " chains add '#cr7' init " .. GEN_3,
         }
         local out = exec {
             cmd = ENV_EXE .. " chain '#cr7' reps author '" .. PUB1 .. "'",
@@ -212,7 +212,7 @@ do
         cmd = "mkdir -p " .. ROOT,
     }
     exec {
-        cmd = ENV_EXE .. " chains add '#cli-reps' init file " .. GEN_1,
+        cmd = ENV_EXE .. " chains add '#cli-reps' init " .. GEN_1,
     }
 
     do
@@ -272,7 +272,7 @@ do
     print("==> No debt")
 
     exec {
-        cmd = ENV_EXE .. " --now=0 chains add '#no-debt' init file " .. GEN_1,
+        cmd = ENV_EXE .. " --now=0 chains add '#no-debt' init " .. GEN_1,
     }
 
     -- KEY1 grants KEY2 dust: 445 -> 90% -> 400 (below the 500 cost)
@@ -449,7 +449,7 @@ do
         cmd = "mkdir -p " .. ROOT,
     }
     exec {
-        cmd = ENV_EXE .. " chains add '#cli-reps' init file " .. GEN_1,
+        cmd = ENV_EXE .. " chains add '#cli-reps' init " .. GEN_1,
     }
     -- KEY1 pioneer starts at the 50000 cap; a post to target
     local post = exec {

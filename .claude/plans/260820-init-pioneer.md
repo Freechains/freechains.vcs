@@ -45,20 +45,23 @@ freechains chains add <alias> init [--pioneer=<key>]...
     - it is the content of the genesis commit
     - it is now ALWAYS generated, never user-supplied
 - The test fixtures `tst/genesis-{0..4}.lua` GO
-- Generated fields, as `init inline` does today
-    - `version`: the running `VERSION`
-    - `type`: `"#"`
-    - `name`: the `<alias>`
+- Generated fields, ONLY the two that are read back
+    - `version`: the running `VERSION`, the compat hook
     - `pioneers`: the resolved keys
+- `type` and `name` are GONE, nothing ever read them
+    - `type` returns if `$`/`@` chains land (`260820-cli.md`)
 - LOST: no way to set `name`, `descr`, `type`, `version`
-    - DECIDED: drop both `descr` and a human `name`
+    - DECIDED: drop `descr`, the human `name`, and `type`
     - `descr` was stored but never read by the code
     - `name` is the alias, which is local: peers may disagree
     - the chain id stays the only real name
 
 # Steps
 
-## 1. parser (`src/freechains.lua`)
+- ALL DONE, `make tests` GREEN (39/39)
+- `guide.sh` NOT run yet
+
+## 1. parser (`src/freechains.lua`) -- DONE
 
 - Drop `cmd.chains.add.init.file` and `.inline`
 - `init` becomes a leaf command
@@ -67,16 +70,17 @@ freechains chains add <alias> init [--pioneer=<key>]...
 - `--sign` disappears from `chains add`
     - it never signed anything there
 
-## 2. `src/freechains/chains.lua`
+## 2. `src/freechains/chains.lua` -- DONE
 
 - Drop the `ARGS.file or ARGS.inline` branch (~20 lines)
 - Drop the `loadfile(ARGS.path)` validation
     - `invalid genesis` becomes unreachable, remove it
 - Build the table from the resolved `--pioneer` list
-- Keep `cp genesis.lua` writing the GENERATED file
+- Write `genesis.lua` in place, the `cp` is gone
+- Guard `pioneers()`: `#T.pioneers > 0`, else `// 0` raises
 - Keep the `too many pioneers` check untouched
 
-## 3. tests
+## 3. tests -- DONE
 
 - Mechanical for 40+ files: `init file ` -> `init `
 - `tst/tests.lua`: `GEN_N` stop being paths, become flags
@@ -88,14 +92,20 @@ freechains chains add <alias> init [--pioneer=<key>]...
 - Delete `tst/genesis-{0..4}.lua`
 - `tst/trash/bug-forged-state.lua` too, if still run
 
-## 4. docs
+## 4. docs -- DONE
 
 - `cli.md`: usage block, `chains add` section, examples
 - `README.md:108`: the `init inline --sign=` line
 - `guide.sh:58`: same line
 - `.claude/plans/commands.md`, `genesis.md`: check for the forms
 
-# Tests needing real work, all in `cli-chains.lua`
+# Tests needing real work, all in `cli-chains.lua` -- DONE
+
+- Landed as planned, with two deviations
+    - `init missing subcommand` is GONE, not re-anchored:
+      bare `init` is now the legal zero-pioneer case
+    - `pioneer file is not a key` matches the head line only,
+      since ssh-keygen's detail is not stable
 
 - `genesis file` (l.20): no `diff` against a fixture any more
     - assert the GENERATED fields instead
@@ -120,12 +130,20 @@ freechains chains add <alias> init [--pioneer=<key>]...
 # Decided
 
 - Drop `descr`: never read, no `--descr` option
-- Drop the human `name`: it becomes the `<alias>`
+- Drop the human `name` and `type`: unread, so unwritten
 - `init` with no `--pioneer` stays LEGAL
     - a chain where nobody holds reps
     - the tests already use it (`GEN_0`)
 - Errors: prefix first, ssh-keygen keeps reporting the detail
 - Public key files keep their comment, `%S+ %S+` drops it
+
+# Found on the way
+
+- `pioneers()` runs `dofile` on the CLONED `genesis.lua`
+    - remote Lua executes locally on `chains add clone`
+    - predates this change, the dropped validation was
+      only on the `init` path
+    - deserves a `threats.md` entry and a sandboxed load
 
 # Won't do
 

@@ -24,7 +24,7 @@ exec {
 
 -- A creates chain (KEY1 pioneer)
 exec {
-    cmd = EXE_A .. " --now=1000 chains add '#test' init inline --sign " .. KEY1,
+    cmd = EXE_A .. " --now=1000 chains add '#test' init --pioneer=" .. KEY1,
 }
 
 -- B clones

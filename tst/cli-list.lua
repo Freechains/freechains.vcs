@@ -31,7 +31,7 @@ do
 
     TEST "A creates chain"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#test' init inline --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1000 chains add '#test' init --pioneer=" .. KEY1,
     }
 
     TEST "A posts P1"
@@ -390,7 +390,7 @@ do
 
     TEST "A creates tri + shared post P0"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#tri' init inline --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1000 chains add '#tri' init --pioneer=" .. KEY1,
     }
     local P0 = exec {
         cmd = EXE_A .. " --now=2000 chain '#tri' post inline 'shared' --sign " .. KEY1,
@@ -460,7 +460,7 @@ do
 
     TEST "A creates rev chain + two posts"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#rev' init inline --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1000 chains add '#rev' init --pioneer=" .. KEY1,
     }
     local RP1 = exec {
         cmd = EXE_A .. " --now=2000 chain '#rev' post inline 'keep' --sign " .. KEY1,

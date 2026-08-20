@@ -26,7 +26,7 @@ exec {
 
 -- shared setup: A creates chain, B clones
 exec {
-    cmd = EXE_A .. " --now=1000 chains add '#test' init file " .. GEN_1,
+    cmd = EXE_A .. " --now=1000 chains add '#test' init " .. GEN_1,
 }
 exec {
     cmd = EXE_B .. " chains add '#test' clone " .. REPO_A,

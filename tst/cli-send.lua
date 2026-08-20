@@ -38,7 +38,7 @@ do
 
     TEST "A creates chain"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#test' init file " .. GEN_1,
+        cmd = EXE_A .. " --now=1000 chains add '#test' init " .. GEN_1,
     }
 
     TEST "B clones"
@@ -427,7 +427,7 @@ do
 
     TEST "C creates independent chain"
     exec {
-        cmd = EXE_C .. " --now=1000 chains add '#test' init file " .. GEN_1,
+        cmd = EXE_C .. " --now=1000 chains add '#test' init " .. GEN_1,
     }
     exec {
         cmd = EXE_C .. " --now=2000 chain '#test' post inline 'post from C' --sign " .. KEY1,

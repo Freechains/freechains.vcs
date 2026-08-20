@@ -10,7 +10,7 @@ require "tests"
 -- Phase 1 hides the payload only (metadata stays).
 
 exec {
-    cmd = ENV_EXE .. " chains add '#cli-revoke' init file " .. GEN_3,
+    cmd = ENV_EXE .. " chains add '#cli-revoke' init " .. GEN_3,
 }
 
 -- KEY1 posts the target (author = KEY1)
@@ -351,7 +351,7 @@ do
     print("==> Removal on revoke")
 
     exec {
-        cmd = ENV_EXE .. " chains add '#removal' init file " .. GEN_2,
+        cmd = ENV_EXE .. " chains add '#removal' init " .. GEN_2,
     }
     local DIR = ROOT .. "/chains/#removal/"
     local POST = exec {
@@ -399,7 +399,7 @@ do
     print("==> Gated unrevoke")
 
     exec {
-        cmd = ENV_EXE .. " chains add '#gated' init file " .. GEN_2,
+        cmd = ENV_EXE .. " chains add '#gated' init " .. GEN_2,
     }
     local POST = exec {
         cmd = ENV_EXE .. " chain '#gated' post inline 'precious' --sign " .. KEY1,

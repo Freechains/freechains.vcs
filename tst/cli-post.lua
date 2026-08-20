@@ -5,7 +5,7 @@ require "tests"
 local DIR = ROOT .. "/chains/#cli-post/"
 
 exec {
-    cmd = ENV_EXE .. " chains add '#cli-post' init inline --sign " .. KEY1,
+    cmd = ENV_EXE .. " chains add '#cli-post' init --pioneer=" .. KEY1,
 }
 
 -- POST FILE

@@ -38,7 +38,7 @@ do
     do
         TEST "chain created"
         CHAIN_HASH = exec {
-            cmd = EXE_A .. " chains add '#test' init file " .. GEN_0,
+            cmd = EXE_A .. " chains add '#test' init " .. GEN_0,
         }
         assert(#CHAIN_HASH == 41, "hash: " .. CHAIN_HASH)
         assert(CHAIN_HASH:match("^#%x+$"), "not hex")
@@ -167,7 +167,7 @@ do
     print("==> Unrelated histories rejected")
 
     local h = exec {
-        cmd = EXE_C .. " chains add '#test' init file " .. GEN_0,
+        cmd = EXE_C .. " chains add '#test' init " .. GEN_0,
     }
     assert(h ~= CHAIN_HASH, "should differ")
 

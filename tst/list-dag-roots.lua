@@ -35,7 +35,7 @@ do
 
     TEST "A creates chain (no post yet)"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#roots' init inline --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1000 chains add '#roots' init --pioneer=" .. KEY1,
     }
 
     TEST "B clones before any post exists"

@@ -56,7 +56,7 @@ do
     -- A: G -- seed[K1]
     TEST "A creates chain + seeds s.txt"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#fs' init file " .. GEN_2,
+        cmd = EXE_A .. " --now=1000 chains add '#fs' init " .. GEN_2,
     }
     exec {
         cmd = EXE_A .. " --now=1020 chain '#fs' post inline 'seed\n' --file s.txt --sign " .. KEY1,
@@ -170,7 +170,7 @@ do
 
     TEST "C creates chain + seeds s.txt"
     exec {
-        cmd = EXE_C .. " --now=1000 chains add '#fi' init file " .. GEN_2,
+        cmd = EXE_C .. " --now=1000 chains add '#fi' init " .. GEN_2,
     }
     exec {
         cmd = EXE_C .. " --now=1020 chain '#fi' post inline 'seed\n' --file s.txt --sign " .. KEY1,
@@ -305,7 +305,7 @@ do
 
     TEST "E creates chain + seeds s.txt"
     exec {
-        cmd = EXE_E .. " --now=1000 chains add '#ms' init file " .. GEN_1,
+        cmd = EXE_E .. " --now=1000 chains add '#ms' init " .. GEN_1,
     }
     exec {
         cmd = EXE_E .. " --now=1020 chain '#ms' post inline 'seed\n' --file s.txt --sign " .. KEY1,
@@ -432,7 +432,7 @@ do
 
     TEST "F creates chain + seeds s.txt"
     exec {
-        cmd = EXE_F .. " --now=1000 chains add '#fc' init file " .. GEN_2,
+        cmd = EXE_F .. " --now=1000 chains add '#fc' init " .. GEN_2,
     }
     exec {
         cmd = EXE_F .. " --now=1020 chain '#fc' post inline 'seed\n' --file s.txt --sign " .. KEY1,

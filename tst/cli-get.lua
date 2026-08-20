@@ -6,7 +6,7 @@ local DIR = ROOT .. "/chains/#cli-get/"
 local UNKNOWN = "0000000000000000000000000000000000000000"
 
 exec {
-    cmd = ENV_EXE .. " chains add '#cli-get' init file " .. GEN_2,
+    cmd = ENV_EXE .. " chains add '#cli-get' init " .. GEN_2,
 }
 local POST = exec {
     cmd = ENV_EXE .. " chain '#cli-get' post inline 'hello world' --sign " .. KEY1,

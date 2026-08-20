@@ -23,6 +23,26 @@ local function sign (T, k, vs)
     T[k] = v
 end
 
+-- appends one resolved key path or string to ARGS.pioneer
+local function pioneer (T, k, vs)
+    local v = os.getenv("HOME") .. "/.ssh/id_ed25519"
+    if vs == nil then
+        -- default
+    elseif type(vs) == "table" then
+        assert(#vs <= 1, "bug found")
+        if #vs == 0 then
+            -- default
+        else
+            v = vs[1]
+        end
+    else
+        assert(type(vs) == 'string')
+        v = vs
+    end
+    T[k] = T[k] or {}
+    table.insert(T[k], v)
+end
+
 local parser = argparse()
 
 parser
@@ -56,10 +76,7 @@ local cmd = {
     chains = {
         _ = parser:command("chains"),
         add = {
-            init  = {
-                file   = {},
-                inline = {},
-            },
+            init  = {},
             clone = {},
         },
         rem = {},
@@ -109,13 +126,7 @@ do
     do
         cmd.chains.add._:argument("alias")
         cmd.chains.add.init._ = cmd.chains.add._:command("init")
-        do
-            cmd.chains.add.init.file._ = cmd.chains.add.init._:command("file")
-            cmd.chains.add.init.file._:argument("path")
-
-            cmd.chains.add.init.inline._ = cmd.chains.add.init._:command("inline")
-            cmd.chains.add.init.inline._:option("--sign"):args("?"):count(1):action(sign)
-        end
+        cmd.chains.add.init._:option("--pioneer"):args("?"):count("*"):action(pioneer)
         cmd.chains.add.clone._ = cmd.chains.add._:command("clone")
         cmd.chains.add.clone._:argument("url")
     end

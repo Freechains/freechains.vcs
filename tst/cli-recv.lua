@@ -32,7 +32,7 @@ do
     do
         TEST "A creates chain + posts"
         exec {
-            cmd = EXE_A .. " --now=1000 chains add '#test' init file " .. GEN_1,
+            cmd = EXE_A .. " --now=1000 chains add '#test' init " .. GEN_1,
         }
         local out = exec {
             cmd = EXE_A .. " --now=2000 chain '#test' post inline 'post from A' --sign " .. KEY1,
@@ -306,7 +306,7 @@ do
 
     TEST "C creates independent chain"
     exec {
-        cmd = EXE_C .. " --now=1000 chains add '#test' init file " .. GEN_1,
+        cmd = EXE_C .. " --now=1000 chains add '#test' init " .. GEN_1,
     }
     exec {
         cmd = EXE_C .. " --now=2000 chain '#test' post inline 'post from C' --sign " .. KEY1,

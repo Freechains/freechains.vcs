@@ -42,7 +42,7 @@ do
     -- A: G -- seed[K1]
     TEST "A creates chain + seeds seed.txt"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#cu' init file " .. GEN_2,
+        cmd = EXE_A .. " --now=1000 chains add '#cu' init " .. GEN_2,
     }
     local seed = exec {
         cmd = EXE_A .. " --now=1020 chain '#cu' post inline 'seed\n' --sign " .. KEY1,

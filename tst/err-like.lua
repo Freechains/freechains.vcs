@@ -72,7 +72,7 @@ local POST
 do
     TEST "A creates chain"
     exec {
-        cmd = EXE_A .. " chains add '#err-sign' init file " .. GEN_1,
+        cmd = EXE_A .. " chains add '#err-sign' init " .. GEN_1,
     }
 
     TEST "A posts signed"
@@ -107,7 +107,7 @@ do
 
     TEST "A creates chain + post"
     exec {
-        cmd = EXE_A .. " chains add '#err-payload' init file " .. GEN_1,
+        cmd = EXE_A .. " chains add '#err-payload' init " .. GEN_1,
     }
     exec {
         cmd = EXE_A .. " chain '#err-payload' post inline 'legit' --sign " .. KEY1,
@@ -138,7 +138,7 @@ do
 
     TEST "A creates chain + post"
     exec {
-        cmd = EXE_A .. " chains add '#err-lua' init file " .. GEN_1,
+        cmd = EXE_A .. " chains add '#err-lua' init " .. GEN_1,
     }
     exec {
         cmd = EXE_A .. " chain '#err-lua' post inline 'legit' --sign " .. KEY1,
@@ -167,7 +167,7 @@ do
 
     TEST "A creates chain + post"
     exec {
-        cmd = EXE_A .. " chains add '#err-table' init file " .. GEN_1,
+        cmd = EXE_A .. " chains add '#err-table' init " .. GEN_1,
     }
     exec {
         cmd = EXE_A .. " chain '#err-table' post inline 'legit' --sign " .. KEY1,
@@ -196,7 +196,7 @@ do
 
     TEST "A creates chain + post"
     exec {
-        cmd = EXE_A .. " chains add '#err-target' init file " .. GEN_1,
+        cmd = EXE_A .. " chains add '#err-target' init " .. GEN_1,
     }
     local post = exec {
         cmd = EXE_A .. " chain '#err-target' post inline 'legit' --sign " .. KEY1,
@@ -226,7 +226,7 @@ do
 
     TEST "A creates chain + post"
     exec {
-        cmd = EXE_A .. " chains add '#err-post' init file " .. GEN_1,
+        cmd = EXE_A .. " chains add '#err-post' init " .. GEN_1,
     }
     local post = exec {
         cmd = EXE_A .. " chain '#err-post' post inline 'legit' --sign " .. KEY1,
@@ -256,7 +256,7 @@ do
 
     TEST "A creates chain + post"
     exec {
-        cmd = EXE_A .. " chains add '#err-reps' init file " .. GEN_1,
+        cmd = EXE_A .. " chains add '#err-reps' init " .. GEN_1,
     }
     local post = exec {
         cmd = EXE_A .. " chain '#err-reps' post inline 'legit' --sign " .. KEY1,
@@ -286,7 +286,7 @@ do
 
     TEST "A creates chain + post"
     exec {
-        cmd = EXE_A .. " --now=10000 chains add '#err-time' init file " .. GEN_1,
+        cmd = EXE_A .. " --now=10000 chains add '#err-time' init " .. GEN_1,
     }
     local post = exec {
         cmd = EXE_A .. " --now=11000 chain '#err-time' post inline 'legit' --sign " .. KEY1,
@@ -315,7 +315,7 @@ do
 
     TEST "A creates chain + post"
     exec {
-        cmd = EXE_A .. " chains add '#err-frac' init file " .. GEN_1,
+        cmd = EXE_A .. " chains add '#err-frac' init " .. GEN_1,
     }
     local post = exec {
         cmd = EXE_A .. " chain '#err-frac' post inline 'legit' --sign " .. KEY1,
@@ -345,7 +345,7 @@ do
 
     TEST "A creates chain + post"
     exec {
-        cmd = EXE_A .. " chains add '#err-zero' init file " .. GEN_1,
+        cmd = EXE_A .. " chains add '#err-zero' init " .. GEN_1,
     }
     local post = exec {
         cmd = EXE_A .. " chain '#err-zero' post inline 'legit' --sign " .. KEY1,
@@ -375,7 +375,7 @@ do
 
     TEST "A creates chain + post"
     exec {
-        cmd = EXE_A .. " chains add '#err-backs' init file " .. GEN_1,
+        cmd = EXE_A .. " chains add '#err-backs' init " .. GEN_1,
     }
     local post = exec {
         cmd = EXE_A .. " chain '#err-backs' post inline 'legit' --sign " .. KEY1,
@@ -405,7 +405,7 @@ do
 
     TEST "A creates chain"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#err-forge-like' init file " .. GEN_1,
+        cmd = EXE_A .. " --now=1000 chains add '#err-forge-like' init " .. GEN_1,
     }
 
     TEST "B clones from A"

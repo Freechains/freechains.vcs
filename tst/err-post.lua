@@ -54,7 +54,7 @@ do
 
     TEST "A creates chain + post"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#err-reps' init file " .. GEN_1,
+        cmd = EXE_A .. " --now=1000 chains add '#err-reps' init " .. GEN_1,
     }
     local legit = exec {
         cmd = EXE_A .. " --now=2000 chain '#err-reps' post inline 'legit' --sign " .. KEY1,
@@ -83,7 +83,7 @@ do
 
     TEST "A creates chain + post"
     exec {
-        cmd = EXE_A .. " --now=10000 chains add '#err-time' init file " .. GEN_1,
+        cmd = EXE_A .. " --now=10000 chains add '#err-time' init " .. GEN_1,
     }
     local legit = exec {
         cmd = EXE_A .. " --now=11000 chain '#err-time' post inline 'legit' --sign " .. KEY1,
@@ -114,7 +114,7 @@ do
 
     TEST "A creates chain + post"
     exec {
-        cmd = EXE_A .. " --now=10000 chains add '#err-future' init file " .. GEN_1,
+        cmd = EXE_A .. " --now=10000 chains add '#err-future' init " .. GEN_1,
     }
     exec {
         cmd = EXE_A .. " --now=11000 chain '#err-future' post inline 'legit' --sign " .. KEY1,
@@ -145,7 +145,7 @@ do
 
     TEST "A creates chain + post"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#err-forge' init file " .. GEN_1,
+        cmd = EXE_A .. " --now=1000 chains add '#err-forge' init " .. GEN_1,
     }
     exec {
         cmd = EXE_A .. " --now=2000 chain '#err-forge' post inline 'legit' --sign " .. KEY1,

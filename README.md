@@ -105,7 +105,7 @@ $ ssh-keygen -t ed25519 -C '' -f /tmp/alice
 `Alice` can now create a chain `#chat` locally:
 
 ```
-$ freechains chains add '#chat' init inline --sign=/tmp/alice
+$ freechains chains add '#chat' init --pioneer=/tmp/alice
 #461cfb4...
 ```
 

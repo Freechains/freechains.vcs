@@ -72,7 +72,7 @@ do
     -- G
     TEST "create chain"
     exec {
-        cmd = ENV_EXE .. " chains add '#cli-abandon-1' init file " .. GEN_1,
+        cmd = ENV_EXE .. " chains add '#cli-abandon-1' init " .. GEN_1,
     }
 
     -- G -- p1[K1]
@@ -230,7 +230,7 @@ do
     -- G
     TEST "create chain"
     exec {
-        cmd = ENV_EXE .. " chains add '#cli-abandon-2' init file " .. GEN_1,
+        cmd = ENV_EXE .. " chains add '#cli-abandon-2' init " .. GEN_1,
     }
     local gen = exec {
         cmd = "git -C " .. DIR2 .. " rev-parse HEAD",
@@ -332,7 +332,7 @@ do
     -- A: G -- S[K1]
     TEST "A creates chain + seeds seed.txt"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#abandon-fork' init file " .. GEN_2,
+        cmd = EXE_A .. " --now=1000 chains add '#abandon-fork' init " .. GEN_2,
     }
     local seed = exec {
         cmd = EXE_A .. " --now=1100 chain '#abandon-fork' post inline 'seed\n' --sign " .. KEY1,

@@ -19,7 +19,7 @@ do
     do
         TEST "genesis envelope is neutral (identity + dates)"
         exec {
-            cmd = "HOME=" .. SSH .. "home " .. ENV_EXE .. " --now=0 chains add '#cli-now' init inline --sign",
+            cmd = "HOME=" .. SSH .. "home " .. ENV_EXE .. " --now=0 chains add '#cli-now' init --pioneer",
         }
         local ts = exec {
             cmd = "git -C " .. DIR .. " log -1 --format='%an %ae %cn %ce %at %ct'",

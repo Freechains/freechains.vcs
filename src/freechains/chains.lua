@@ -33,7 +33,7 @@ end
 local function pioneers (dir)
     local T = dofile(dir .. "genesis.lua")
     local A = {}
-    if T.pioneers then
+    if T.pioneers and #T.pioneers>0 then
         local n = C.reps.max // #T.pioneers
         if n < C.reps.cost then
             ERROR("chains add : too many pioneers")
@@ -79,46 +79,44 @@ if ARGS.add then
     end
 
     if ARGS.init then
-        assert(ARGS.file or ARGS.inline, "bug found")
-
         local rand = math.random(0, 9999999999)
 
-        if ARGS.file then
-            -- existing path-based init below
-        elseif ARGS.inline then
-            local pub = exec {
-                cmd = "ssh-keygen -y -f " .. ARGS.sign,
-                err = "chains add : invalid sign key",
-            }
-            pub = assert(pub:match("^(%S+ %S+)"), "bug found")
-            local T = {
-                version  = VERSION,
-                type     = "#",
-                name     = ARGS.alias,
-                pioneers = { pub },
-            }
-            local tmp = "/tmp/fc-inline-" .. rand .. ".lua"
-            local f = io.open(tmp, "w")
-            f:write(serial(T))
-            f:close()
-            ARGS.path = tmp
-        end
-
-        do
-            local err = true
-            local f = loadfile(ARGS.path)
-            if f then
-                local ok, ret = pcall(f)
-                if ok and (type(ret) == 'table') then
-                    if ret.version and ret.type and ret.name then
-                        err = false
-                    end
+        -- each --pioneer is a key string ("ssh-...") or a key file
+        local keys = {}
+        for _, v in ipairs(ARGS.pioneer or {}) do
+            local key
+            if v:match("^ssh%-") then
+                key = v
+            else
+                local f = io.open(v)
+                local ln = f and f:read("l")
+                if f then
+                    f:close()
+                end
+                if ln and ln:match("^ssh%-") then
+                    key = ln          -- public key file
+                else
+                    key = exec {      -- private key file
+                        cmd = "ssh-keygen -y -f " .. v,
+                        err = "chains add : invalid pioneer",
+                    }
                 end
             end
-            if err then
-                ERROR("chains add : invalid genesis")
+            key = key:match("^(%S+ %S+)")
+            if not key then
+                ERROR("chains add : invalid pioneer : " .. v)
             end
+            keys[key] = true
         end
+
+        local pios = {}
+        for key in pairs(keys) do
+            pios[#pios+1] = key
+        end
+        local GEN = {
+            version  = VERSION,
+            pioneers = pios,
+        }
 
         local tmp = DIR .. "/tmp-" .. rand .. "/"
 
@@ -132,9 +130,11 @@ if ARGS.add then
             f:write(tostring(rand) .. "\n")
             f:close()
         end
-        exec {
-            cmd = "cp " .. ARGS.path .. " " .. tmp .. "/genesis.lua",
-        }
+        do
+            local f = io.open(tmp .. "/genesis.lua", "w")
+            f:write(serial(GEN))
+            f:close()
+        end
         exec {
             cmd = "git -C " .. tmp .. " add .",
         }

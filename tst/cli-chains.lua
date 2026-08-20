@@ -11,23 +11,23 @@ do
     do
         TEST "success"
         local out, code = exec {
-            cmd = EXE .. " chains add '#cli-chains' init file " .. GEN_0,
+            cmd = EXE .. " chains add '#cli-chains' init " .. GEN_0,
         }
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 41, "hash length: " .. #out)
         assert(out:match("^#%x+$"), "hash is hex")
 
         TEST "genesis file"
+        -- always generated: version and pioneers, nothing else
         local gen = DIR .. "/genesis.lua"
-        local _, code = exec {
-            cmd = "diff -q " .. GEN_0 .. " " .. gen,
-        }
-        assert(code == 0, "exit code: " .. tostring(code))
         local t = dofile(gen)
         assert(type(t) == "table")
-        assert(t.version and t.version[1]==1 and t.version[2]==2 and t.version[3]==3)
-        assert(t.type == "#")
-        assert(t.name == "A forum")
+        assert (
+            t.version and t.version[1]==0 and t.version[2]==20 and t.version[3]==0
+            , "version mismatch"
+        )
+        assert(t.pioneers and #t.pioneers == 0, "no pioneers")
+        assert(t.type == nil and t.name == nil, "no dead fields")
 
         TEST "alias -> hash"
         local lnk = exec {
@@ -74,56 +74,53 @@ do
     do
         TEST "duplicate alias fails"
         FAIL {
-            cmd = EXE .. " chains add '#cli-chains' init file " .. GEN_0,
+            cmd = EXE .. " chains add '#cli-chains' init " .. GEN_0,
             err = "ERROR : chains add : alias already exists",
         }
     end
 
     do
-        TEST "bad genesis file"
-        local bad = "/tmp/fc-test-bad-genesis.lua"
+        TEST "pioneer file is not a key"
+        local bad = "/tmp/fc-test-bad-key"
         do
-            f = io.open(bad, "w")
-            f:write('return "not a table"\n')
+            local f = io.open(bad, "w")
+            f:write("not a key\n")
             f:close()
+            exec { cmd = "chmod 600 " .. bad }
         end
-        FAIL {
-            cmd = EXE .. " chains add '#x' init file " .. bad,
-            err = "ERROR : chains add : invalid genesis",
-        }
-    end
-
-    do
-        TEST "genesis file not found"
-        FAIL {
-            cmd = EXE .. " chains add '#x' init file /nonexistent/genesis.lua",
-            err = "ERROR : chains add : invalid genesis",
-        }
-    end
-
-    do
-        TEST "init missing subcommand fails"
+        -- ssh-keygen's own detail follows, so match the head line
         local err = FAIL {
-            cmd = EXE .. " chains add '#x' init",
+            cmd = EXE .. " chains add '#x' init --pioneer=" .. bad,
         }
-        assert(err and
-            err:match("Error: a command is required"), "should fail with TODO: " .. tostring(err))
+        assert (
+            err:match("^ERROR : chains add : invalid pioneer\n")
+            , "should fail with: " .. tostring(err)
+        )
     end
 
     do
-        TEST "init invalid subcommand fails"
+        TEST "pioneer string is truncated"
+        -- starts with `ssh-`, so never looked up as a file
+        FAIL {
+            cmd = EXE .. " chains add '#x' init --pioneer='ssh-ed25519'",
+            err = "ERROR : chains add : invalid pioneer : ssh-ed25519",
+        }
+    end
+
+    do
+        TEST "init takes no subcommand"
         local err = FAIL {
             cmd = EXE .. " chains add '#x' init bogus",
         }
         assert(err and
-            err:match("Error: unknown command 'bogus'"), "should fail with TODO: " .. tostring(err))
+            err:match("Error: too many arguments"), "should fail with TODO: " .. tostring(err))
     end
 
     do
         TEST "git init failed"
         -- the error carries git's own detail (>>> ... <<<)
         local err = FAIL {
-            cmd = ENV .. " ../src/freechains.lua --root /dev/null chains add '#x' init file " .. GEN_0,
+            cmd = ENV .. " ../src/freechains.lua --root /dev/null chains add '#x' init " .. GEN_0,
         }
         err = err:gsub("tmp%-%d+", "tmp-N")     -- random suffix
         assert(err == [[
@@ -191,7 +188,7 @@ do
     do
         TEST "dir two chains"
         exec {
-            cmd = EXE .. " chains add '#other' init file " .. GEN_0,
+            cmd = EXE .. " chains add '#other' init " .. GEN_0,
         }
         local out, code = exec {
             cmd = EXE .. " chains dir",
@@ -249,24 +246,22 @@ do
     end
 end
 
--- ADD INIT INLINE
+-- ADD INIT --pioneer
 do
-    print("==> freechains chains add init inline")
+    print("==> freechains chains add init --pioneer")
 
     do
-        TEST "inline creates chain"
+        TEST "pioneer key file creates chain"
         local out, code = exec {
-            cmd = EXE .. " chains add '#inl-chat' init inline --sign " .. KEY1,
+            cmd = EXE .. " chains add '#inl-chat' init --pioneer=" .. KEY1,
         }
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 41, "hash length: " .. #out)
         assert(out:match("^#%x+$"), "hash is hex")
 
-        TEST "inline genesis"
+        TEST "pioneer in genesis"
         local gen = ROOT .. "/chains/#inl-chat/genesis.lua"
         local t = dofile(gen)
-        assert(t.type == "#", "type: " .. tostring(t.type))
-        assert(t.name == "#inl-chat", "name: " .. tostring(t.name))
         assert (
             t.pioneers and t.pioneers[1] == PUB1
             , "pioneers[1]: " .. tostring(t.pioneers and t.pioneers[1])
@@ -278,9 +273,9 @@ do
     end
 
     do
-        TEST "inline uses default --sign at $HOME/.ssh/id_ed25519"
+        TEST "bare --pioneer is $HOME/.ssh/id_ed25519"
         local out, code = exec {
-            cmd = "HOME=" .. SSH .. "home " .. EXE .. " chains add '#inl-default' init inline --sign",
+            cmd = "HOME=" .. SSH .. "home " .. EXE .. " chains add '#inl-default' init --pioneer",
         }
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 41, "hash length: " .. #out)
@@ -294,14 +289,14 @@ do
     end
 
     do
-        TEST "inline with bad --sign fails"
+        TEST "pioneer file not found"
         -- the error carries ssh-keygen's own detail (>>> ... <<<)
         local err = FAIL {
-            cmd = EXE .. " chains add '#inl-badkey' init inline --sign /nonexistent/key",
+            cmd = EXE .. " chains add '#inl-badkey' init --pioneer=/nonexistent/key",
         }
         err = err:gsub("\r\n", "\n")    -- ssh-keygen speaks CRLF
         assert(err == [[
-ERROR : chains add : invalid sign key
+ERROR : chains add : invalid pioneer
 >>>
 /nonexistent/key: No such file or directory
 <<<
@@ -313,39 +308,29 @@ end
 do
     print("==> Pioneer limit")
 
+    -- n distinct fake keys, one --pioneer each
+    local function PIOS (n)
+        local t = {}
+        for i = 1, n do
+            local body = string.format("%043d", i)
+            t[#t+1] = "--pioneer='ssh-ed25519 " .. body .. "'"
+        end
+        return table.concat(t, " ")
+    end
+
     do
         TEST "too many pioneers rejects"
         -- 101 keys: 50000/101 = 495, below the 500 post cost
-        local tmp = TMP .. "/many.lua"
-        local f = io.open(tmp, "w")
-        f:write("return {\n")
-        f:write('    version = {1,2,3}, type = "#", name = "many",\n')
-        f:write("    pioneers = {\n")
-        for i = 1, 101 do
-            f:write('        "ssh-ed25519 ' .. string.rep(tostring(i%10), 43) .. '",\n')
-        end
-        f:write("    },\n}\n")
-        f:close()
         FAIL {
-            cmd = ENV_EXE .. " chains add '#many' init file " .. tmp,
+            cmd = ENV_EXE .. " chains add '#many' init " .. PIOS(101),
             err = "ERROR : chains add : too many pioneers",
         }
     end
 
     do
         TEST "the limit itself is accepted"
-        local tmp = TMP .. "/limit.lua"
-        local f = io.open(tmp, "w")
-        f:write("return {\n")
-        f:write('    version = {1,2,3}, type = "#", name = "limit",\n')
-        f:write("    pioneers = {\n")
-        for i = 1, 100 do
-            f:write('        "ssh-ed25519 ' .. string.rep(tostring(i%10), 43) .. '",\n')
-        end
-        f:write("    },\n}\n")
-        f:close()
         local out, code = exec {
-            cmd = ENV_EXE .. " chains add '#limit' init file " .. tmp,
+            cmd = ENV_EXE .. " chains add '#limit' init " .. PIOS(100),
         }
         assert(code == 0, "exit code: " .. tostring(code))
         assert(out:match("^#%x+$"), "chain id: " .. out)

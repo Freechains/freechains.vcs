@@ -4,7 +4,7 @@ require "tests"
 local ssh = require "freechains.chain.ssh"
 
 exec {
-    cmd = ENV_EXE .. " chains add '#cli-like' init file " .. GEN_2,
+    cmd = ENV_EXE .. " chains add '#cli-like' init " .. GEN_2,
 }
 local DIR = ROOT .. "/chains/#cli-like/"
 
@@ -172,7 +172,7 @@ exec {
     cmd = ENV_EXE .. " chains rem '#cli-like'",
 }
 exec {
-    cmd = ENV_EXE .. " chains add '#cli-like' init file " .. GEN_2,
+    cmd = ENV_EXE .. " chains add '#cli-like' init " .. GEN_2,
 }
 do
     print("==> freechains chain like author")

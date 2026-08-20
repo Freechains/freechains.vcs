@@ -68,7 +68,7 @@ do
     -- A: G
     TEST "A creates chain"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#bca' init file " .. GEN_4,
+        cmd = EXE_A .. " --now=1000 chains add '#bca' init " .. GEN_4,
     }
 
     -- B clones at G, so its post forks AT genesis
