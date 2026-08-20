@@ -104,6 +104,39 @@ do
     }
 end
 
+-- sync rejects a post stamped beyond the receiver's own clock:
+-- `too old` is DAG-derived, but nothing bounds a time from above
+-- except the receiver. `--now` is all an attacker needs
+do
+    print("==> sync rejects post with future timestamp")
+
+    local REPO_A5 = ROOT_A .. "/chains/#err-future/"
+
+    TEST "A creates chain + post"
+    exec {
+        cmd = EXE_A .. " --now=10000 chains add '#err-future' init file " .. GEN_1,
+    }
+    exec {
+        cmd = EXE_A .. " --now=11000 chain '#err-future' post inline 'legit' --sign " .. KEY1,
+    }
+
+    TEST "B clones from A"
+    exec {
+        cmd = EXE_B .. " chains add '#err-future' clone " .. REPO_A5,
+    }
+
+    TEST "A posts far in the future (its own clock, its own rule)"
+    exec {
+        cmd = EXE_A .. " --now=99999999 chain '#err-future' post inline 'ahead' --sign " .. KEY1,
+    }
+
+    TEST "B rejects the future post on sync"
+    FAIL {
+        cmd = EXE_B .. " --now=12000 chain '#err-future' sync recv " .. REPO_A5,
+        err = "ERROR : chain sync : invalid post : too new",
+    }
+end
+
 -- sync rejects post with forged signature
 do
     print("==> sync rejects forged signature post")

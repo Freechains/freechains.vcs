@@ -126,13 +126,16 @@ end
 --  - `act`: what its author CLAIMS (n, target=aid/author, backs)
 --  - `env`: what the chain VERIFIED: (time, aid, sign, beg)
 function apply (G, kind, act, env)
-    -- a commit may sit at most `time.diff` below everything that precedes it
-    -- read from the action DAG (backs), so it does not depend on the
-    -- order a replay applies commits in (consensus order is not
-    -- chronological order)
+    -- time sits within reasonable interval `time.diff`:
+    --  max(backs)-diff < me < max(all)+diff
     local up = NOW(G, act.backs)
-    if env.time < up-C.time.diff then
-        return false, "too old"
+    do
+        if env.time < up-C.time.diff then
+            return false, "too old"
+        end
+        if env.time > tonumber(CMD.now)+C.time.diff then
+            return false, "too new"
+        end
     end
 
     advance(G, env)
