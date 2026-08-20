@@ -43,7 +43,7 @@ local PID_C  = ROOT_C .. "/daemon.pid"
 
 local function daemon_start (exe, port, pid)
     exec {
-        cmd = exe .. " daemon --hub --port=" .. port .. " --" .. " --listen=127.0.0.1" .. " --pid-file=" .. pid .. " --reuseaddr" .. " --detach",
+        cmd = exe .. " daemon start --hub --port=" .. port .. " --" .. " --listen=127.0.0.1" .. " --pid-file=" .. pid .. " --reuseaddr" .. " --detach",
     }
 end
 

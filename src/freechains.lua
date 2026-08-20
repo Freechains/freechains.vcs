@@ -72,6 +72,8 @@ parser
 local cmd = {
     daemon = {
         _ = parser:command("daemon"),
+        start = {},
+        stop  = {},
     },
     chains = {
         _ = parser:command("chains"),
@@ -114,9 +116,13 @@ local cmd = {
 
 -- cmd.daemon
 do
-    cmd.daemon._:option("--port"):convert(tonumber)
-    cmd.daemon._:flag("--hub")
-    cmd.daemon._:argument("xtra"):args("*")
+    cmd.daemon.start._ = cmd.daemon._:command("start")
+    cmd.daemon.start._:option("--port"):convert(tonumber)
+    cmd.daemon.start._:flag("--hub")
+    cmd.daemon.start._:argument("xtra"):args("*")
+
+    cmd.daemon.stop._ = cmd.daemon._:command("stop")
+    cmd.daemon.stop._:option("--port"):convert(tonumber)
 end
 
 -- cmd.chains
@@ -241,15 +247,7 @@ CMD = {
 }
 
 if ARGS.daemon then
-    local port = ARGS.port or PORT
-    print("Serving on port " .. port .. "...")
-    os.execute (
-        "git daemon --base-path=" .. (ARGS.root .. "/chains/") ..
-            " --export-all" ..
-            " --enable=" .. (ARGS.hub and "receive-pack" or "upload-pack") ..
-            " --port=" .. port ..
-            " " .. table.concat(ARGS.xtra, " ")
-    )
+    require "freechains.daemon"
 elseif ARGS.chains then
     require "freechains.chains"
 elseif ARGS.chain then

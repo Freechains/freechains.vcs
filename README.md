@@ -193,7 +193,7 @@ We first need to start a daemon to serve synchronization requests:
 
 ```
 # (switch to new terminal)
-$ freechains daemon
+$ freechains daemon start
 Serving on port 8330...
 ```
 
@@ -455,7 +455,7 @@ never posts, acting only as a hub to which other peers push their posts:
 $ freechains --root=/tmp/X/ chains add '#chat' clone localhost
 #461cfb4...
 # (switch to new terminal)
-$ freechains --root=/tmp/X/ daemon --hub --port=8331
+$ freechains --root=/tmp/X/ daemon start --hub --port=8331
 Serving on port 8331...
 ```
 

@@ -4,7 +4,8 @@
 freechains v0.20.0
 
 Usage:
-    freechains daemon [--port=<port>] [--hub] [<git-daemon-opt>...]
+    freechains daemon start [--port=<port>] [--hub] [-- <git-opts>...]
+    freechains daemon stop [--port=<port>]
 
     freechains chains add <alias> init [--pioneer=<key>]...
     freechains chains add <alias> clone <url>
@@ -48,26 +49,36 @@ More Information:
     Please report bugs at <https://github.com/Freechains/freechains.vcs/>.
 ```
 
-# daemon
+# Daemon
 
-Starts daemon to serve local chains.
+## daemon start / stop
+
+Starts or stops the local daemon.
 
 ```
-freechains daemon [--port=<port>] [--hub] [<git-opts>...]
+freechains daemon start [--port=<port>] [--hub] [-- <git-opts>...]
+freechains daemon stop [--port=<port>]
 ```
 
 - `--port=<port>`: port to listen [default: 8330]
 - `--hub`: accept `sync send` from peers
 - `<git-opts>...`: extra options forwarded to `git daemon`
 
+`start` blocks, so background it with `&`.
+It writes `<root>/daemon-<port>.pid`, which is how `stop` finds it.
+
+`stop` kills the daemon serving `<port>` and removes its pid file.
+A pid that no longer serves this root is refused as stale.
+
 - Examples:
 
 ```
-freechains daemon
-freechains --root=/tmp/X/ daemon --hub --port=8331
+freechains daemon start
+freechains --root=/tmp/X/ daemon start --hub --port=8331 &
+freechains --root=/tmp/X/ daemon stop --port=8331
 ```
 
-# chains
+# Chains
 
 Operations over the set of local chains.
 
@@ -153,7 +164,7 @@ Lists all local chains.
 freechains chains dir
 ```
 
-# chain
+# Chain
 
 Operations inside a single chain.
 All take the chain `<alias>` (or its `#<id>`) as first argument.

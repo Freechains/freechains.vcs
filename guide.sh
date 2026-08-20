@@ -80,7 +80,7 @@ echo
 # peer A serves on $A_PORT (upload-pack)
 # --listen=127.0.0.1 forces IPv4-only: a dual-stack [::] bind would
 # reserve the port and then fail its own 0.0.0.0 bind
-FC --root="$A" daemon --port=$A_PORT -- --listen=127.0.0.1 --reuseaddr &
+FC --root="$A" daemon start --port=$A_PORT -- --listen=127.0.0.1 --reuseaddr &
 sleep 1
 
 FC --root="$B" chains add '#chat' clone localhost:$A_PORT
@@ -171,7 +171,7 @@ echo
 
 # neutral hub X clones from A, then serves on $X_PORT (hub: recv + upload)
 FC --root="$X" chains add '#chat' clone localhost:$A_PORT
-FC --root="$X" daemon --hub --port=$X_PORT -- --listen=127.0.0.1 --reuseaddr &
+FC --root="$X" daemon start --hub --port=$X_PORT -- --listen=127.0.0.1 --reuseaddr &
 sleep 1
 
 # Alice and Charlie post at the same time, without syncing

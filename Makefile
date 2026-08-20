@@ -17,6 +17,7 @@ tests:
 	$(L) cli-time.lua
 	$(L) cli-begs.lua
 	$(L) cli-get-merge.lua
+	$(L) cli-daemon.lua
 	$(L) cli-recv.lua
 	$(L) cli-send.lua
 	$(L) cli-list.lua

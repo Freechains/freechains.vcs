@@ -21,6 +21,7 @@ build = {
         ["freechains.argparse"]        = "src/freechains/argparse.lua",
         ["freechains.common"]          = "src/freechains/common.lua",
         ["freechains.constants"]       = "src/freechains/constants.lua",
+        ["freechains.daemon"]          = "src/freechains/daemon.lua",
         ["freechains.chain"]           = "src/freechains/chain/init.lua",
         ["freechains.chain.action"]    = "src/freechains/chain/action.lua",
         ["freechains.chain.git"]       = "src/freechains/chain/git.lua",

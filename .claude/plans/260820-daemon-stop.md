@@ -7,13 +7,12 @@
 # Goal
 
 ```
-freechains daemon start [--port=<port>] [--hub] [--detach]
+freechains daemon start [--port=<port>] [--hub]
                         [-- <git-daemon-opt>...]
 freechains daemon stop  [--port=<port>]
 ```
 
 - `start` keeps today's behaviour: foreground, blocks
-- `--detach`: write the pid file and return
 - `stop`: read the pid, kill it, remove the file
 
 # Why
@@ -32,20 +31,21 @@ freechains daemon stop  [--port=<port>]
 - Path: `<root>/daemon-<port>.pid`
 - One daemon per root and port, so the name is the key
 - `git daemon --pid-file=<path>` writes it, we never do
-- `--detach` without `--pid-file` is refused by us: a
-  detached daemon with no pid is exactly what `stop` cannot
-  reach
+- It is written even in the foreground, so `stop` reaches a
+  `start` backgrounded with `&`
+- MEASURED: `--detach` is NOT needed for that, so the flag
+  was dropped
 
 # `stop`, step by step
 
 - Read `<root>/daemon-<port>.pid`
     - missing: `ERROR : daemon stop : not running`
-- Verify BEFORE killing: `/proc/<pid>/cmdline` must contain
-  `base-path=<root>/chains/`
-    - a stale pid may belong to something else entirely
-    - mismatch: `ERROR : daemon stop : stale pid file`
-      and remove the file
-- `kill <pid>`, then remove the file
+- Remove the file, then `kill <pid>`
+    - a dead pid fails the kill: same `not running`
+- DECIDED: no pid-reuse guard
+    - reading `/proc/<pid>/cmdline` to confirm it is really
+      our daemon was dropped as over-protection
+    - it also made `stop` Linux-only
 
 # What changes
 
@@ -53,14 +53,13 @@ freechains daemon stop  [--port=<port>]
 
 - `cmd.daemon` gains two subcommands, `start` and `stop`
 - `--port` moves to both; `--hub` and `xtra` stay on `start`
-- `--detach` is a new flag on `start`
 - The `if ARGS.daemon` block moves to `src/freechains/daemon.lua`
     - it is the only command still inlined in the parser file
 
 ## `src/freechains/daemon.lua` (new)
 
-- `start`: today's `os.execute`, plus `--detach --pid-file`
-  when asked
+- `start`: today's `os.execute`, plus `--pid-file`
+- a signal is not a failure: `stop` kills `start`
 - `stop`: the steps above
 
 ## docs
@@ -72,9 +71,8 @@ freechains daemon stop  [--port=<port>]
 
 # Decided
 
-- `start` stays FOREGROUND by default
+- `start` stays FOREGROUND, with no way to detach
     - `&` is the idiom, and tests already rely on it
-    - `--detach` is opt-in, and only it writes a pid file
 - `stop` takes `--port`, not a pid: the port is what the
   user typed, the pid is an implementation detail
 - No `daemon status`: `stop`'s verify step is the same
