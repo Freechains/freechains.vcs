@@ -1,8 +1,9 @@
 package = "freechains"
-version = "dev-2"
+version = "0.20-1"
 
 source = {
     url = "git+https://github.com/Freechains/freechains.vcs.git",
+    branch = "v0.20",
 }
 
 description = {
