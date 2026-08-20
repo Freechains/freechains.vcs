@@ -13,10 +13,12 @@ local function hardfork (our, their)
     -- window [low, #our] with at most 100 actions
     local low = math.max(1, #our-C.fork.actions+1)
 
-    -- times from the action files
-    local ts = {}
+    -- times from the action files, and the newest among them
+    local ts  = {}
+    local max = 0
     for i=low, #our do
         ts[our[i]] = ACTION.read(true, our[i]).time
+        max = math.max(max, ts[our[i]])
     end
 
     -- determine highest settled `set` index, if any
@@ -28,9 +30,8 @@ local function hardfork (our, their)
         end
 
         -- walk from the tip until first entry older than `fork.time`
-        local new = assert(ts[our[#our]])
         for i=#our, low, -1 do
-            if (new-assert(ts[our[i]])) >= C.fork.time then
+            if (max-assert(ts[our[i]])) >= C.fork.time then
                 set = i
                 break
             end

@@ -125,4 +125,94 @@ do
     end
 end
 
+-- 2. a backdated LAST entry must not clear the freeze
+-- `hardfork` measures the span against the newest time in the window.
+-- Consensus order is NOT chronological, so a low-rep author can sort
+-- last while carrying an ancient time (fork off an old tip, `--now`).
+-- Reading the span from that entry would switch rule 1 OFF and let a
+-- settled prefix be reordered.
+do
+    print("==> Test 2: backdated last entry keeps the freeze")
+
+    local ROOT_C = ROOT .. "/fork-7-days/C/"
+    local EXE_C  = ENV .. " ../src/freechains.lua --root " .. ROOT_C
+    exec {
+        cmd = "mkdir -p " .. ROOT_C,
+    }
+
+    local DIR_A = ROOT_A .. "/chains/#fork-back/"
+    local DIR_B = ROOT_B .. "/chains/#fork-back/"
+    local DIR_C = ROOT_C .. "/chains/#fork-back/"
+
+    -- A: G -- S[K1] -- L[K2] -- W[K1]
+    -- W welcomes KEY3, so KEY3 posts with the LOWEST reps of all
+    TEST "A creates chain, seeds, KEY2 likes, KEY1 welcomes KEY3"
+    exec {
+        cmd = EXE_A .. " --now=1000 chains add '#fork-back' init file " .. GEN_2,
+    }
+    local seed = exec {
+        cmd = EXE_A .. " --now=1100 chain '#fork-back' post inline 'seed\n' --sign " .. KEY1,
+    }
+    local like = exec {
+        cmd = EXE_A .. " --now=1200 chain '#fork-back' like 5000 action " .. seed .. " --sign " .. KEY2,
+    }
+    local welc = exec {
+        cmd = EXE_A .. " --now=1250 chain '#fork-back' like 1000 author '" .. PUB3 .. "' --sign " .. KEY1,
+    }
+
+    TEST "B and C clone at the fork point"
+    exec {
+        cmd = EXE_B .. " chains add '#fork-back' clone " .. DIR_A,
+    }
+    exec {
+        cmd = EXE_C .. " chains add '#fork-back' clone " .. DIR_A,
+    }
+
+    -- A: ... -- a1[K2] -- a2[K2]      (a1..a2 spans 7d: A is entrenched)
+    TEST "A posts a1 and a2, 7 days apart"
+    local a1 = exec {
+        cmd = EXE_A .. " --now=1300 chain '#fork-back' post inline 'a1\n' --sign " .. KEY2,
+    }
+    local a2 = exec {
+        cmd = EXE_A .. " --now=" .. (1300+WEEK) .. " chain '#fork-back' post inline 'a2\n' --sign " .. KEY2,
+    }
+
+    -- C: ... -- c1[K3]                (off the OLD tip, ancient `--now`)
+    TEST "C posts c1 backdated, off the old tip, with the lowest reps"
+    local c1 = exec {
+        cmd = EXE_C .. " --now=1300 chain '#fork-back' post inline 'c1\n' --sign " .. KEY3,
+    }
+
+    -- c1 sorts LAST (KEY3 holds the fewest reps) while stamped 1300,
+    -- so A's order ends on an entry ~7d older than its own tip
+    TEST "A recvs c1: accepted, and it lands last"
+    exec {
+        cmd = EXE_A .. " --now=" .. (1300+WEEK+100) .. " chain '#fork-back' sync recv " .. DIR_C,
+    }
+    do
+        local O = ORDER(EXE_A, "#fork-back")
+        assert(O[#O] == c1, "c1 should sort last")
+        assert(#O == 6, "expected 6 entries, got " .. #O)
+    end
+
+    -- B forks with KEY1 (higher reps): it would sort BEFORE a1, so the
+    -- settled prefix would be reordered. A must still refuse
+    TEST "B posts beta with KEY1"
+    local beta = exec {
+        cmd = EXE_B .. " --now=" .. (1300+WEEK) .. " chain '#fork-back' post inline 'beta\n' --sign " .. KEY1,
+    }
+
+    TEST "A recvs from B: still refused, despite the backdated last entry"
+    FAIL {
+        cmd = EXE_A .. " --now=" .. (1300+WEEK+200) .. " chain '#fork-back' sync recv " .. DIR_B,
+        err = "ERROR : chain sync : hard fork",
+    }
+
+    TEST "A keeps its own branch untouched (beta not merged)"
+    do
+        local _, S = ORDER(EXE_A, "#fork-back")
+        assert(not S[beta], "beta must not have been merged")
+    end
+end
+
 print("<== ALL PASSED")
