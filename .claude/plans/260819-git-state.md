@@ -74,5 +74,8 @@
 - does `abandon`'s reset leave orphan refs/states for
   dropped cids? cleanup on abandon, or let gc.auto handle
   (blob unreachable once ref deleted) -> delete the ref
-- migration of existing `.git/states/*.lua` chains: one-off
-  import, or only new chains? (old chains rare, may skip)
+
+# No back-compat
+
+- new format only; do NOT import old `.git/states/*.lua`
+  chains. Clean break, no migration path.
