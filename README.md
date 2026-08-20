@@ -26,7 +26,7 @@ between them.
 
 By "Sybil-resistant", we mean that extra identities grant no power:
     a fresh key holds zero `reps` and cannot post in a chain.
-By "permissionless", we mean that no central authority gatekeeps membership:
+By "permissionless", we mean that no central authority controls membership:
     any member can welcome any newcomer in a chain.
 
 <!--
@@ -52,7 +52,7 @@ By "permissionless", we mean that no central authority gatekeeps membership:
 
 ## Install
 
-Freechains is implemented in Lua on top of Git.
+Freechains is implemented in Lua (`>=5.3`) on top of Git.
 
 Install dependencies:
 
