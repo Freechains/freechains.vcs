@@ -1,40 +1,43 @@
 # Time in Freechains
 
-## Time Source: Committer Timestamp
+## Time Source: The Action File
 
-Every git commit has two mandatory timestamps:
+Every action carries its own `time` field, an integer unix
+timestamp written by its author:
 
+```lua
+return {
+    ["action"] = "post",
+    ["time"] = 1780088002,
+    ...
+}
 ```
-author <name> <email> <timestamp> <tz>
-committer <name> <email> <timestamp> <tz>
-```
 
-Freechains uses the **committer timestamp** (`%ct`) as the
-canonical time source.
+That field is the canonical time source.
 
-### Why committer over author?
+### Why not the commit dates
 
-In freechains there's no rebasing or cherry-picking — commits
-are created once and replicated as-is.
-Both timestamps should always be identical in practice.
-Committer timestamp is chosen because it reflects when the
-commit entered the DAG, which is what the 12h maturation
-rule cares about.
+Both git dates are pinned to `@0 +0000` on every commit
+(`freechains.lua:227`), so they carry no information at all.
+Neutral dates are what make the genesis commit reproducible:
+the creator and a cloner hash the same bytes.
+Time therefore lives in the action file, which is signed, so
+it is covered by the commit signature like any other field.
 
 ### Extraction
 
-```bash
-git log --format='%ct' -1 <hash>     # unix timestamp
-git cat-file commit <hash>           # raw, parse committer line
+```lua
+ACTION.read(true, aid).time      -- replay and hardfork
+env.time                         -- inside apply()
 ```
 
 ### Other time sources
 
-- **Filename timestamps** (`os.time()` in filenames like
-  `post-<t>-<hash>.txt` and `like-<t>-<hash>.lua`): ensure
-  unique filenames, not used for logic.
-- **GPG signature timestamps**: only present on signed
-  commits, not a general source.
+- **`CMD.now`** (`--now` or `os.time()`): the local clock.
+  Read in exactly 3 places, all of them writers or queries:
+  `post.lua:51,60`, `like.lua:98,112`, `reps.lua:5`; plus
+  the `too new` bound in `rules.lua`.
+- **SSH signature timestamps**: not extracted, not used.
 
 ## Trust Model: Forgeable but Tamper-Proof
 
@@ -106,7 +109,7 @@ share the same 1-hour default tolerance.
 
 The 12h variable discount period is specified in full in
 [reps.md](reps.md) (Rule 2). From the timestamp
-perspective: the committer timestamp marks when the post
+perspective: the action's own `time` marks when the post
 entered the DAG, and the discount window is measured from
 that point.
 
@@ -118,7 +121,7 @@ not just on the DAG content itself.**
 
 ### The Problem: Temporary Divergence
 
-Consider a post with committer timestamp `T`:
+Consider a post whose action file says `time = T`:
 
 1. **Node A** evaluates at `T + 12h + 1min` — 12h window
    has passed — the post is settled, dislikes on it are
@@ -198,10 +201,10 @@ ends of the window.
 
 ### Timing Implications
 
-- The 7-day window is measured from committer timestamps
+- The 7-day window is measured from the action files' `time`
   in the DAG, not wall-clock time at sync
-- Both timestamps are the local branch's own, so the remote
-  cannot inflate them
+- The span is read as max-minus-entry over the window, not
+  from the last entry: consensus order is not chronological
 - The verdict is never replayed: an entrenched branch does
   not merge, so no merge commit encodes a rule-1 decision.
   Determinism is therefore no longer required here — a
@@ -231,34 +234,29 @@ ends of the window.
 | Hard fork        | 7 days  | Freeze consensus, force diverge  |
 |                  | (span)  | span of the branch's own commits |
 
-All three rules depend on committer timestamps but operate
+All three rules depend on the action files' `time` but operate
 at different scales. The hard fork threshold is the largest
 and defines the boundary of consensus convergence.
 
 ## Status
 
-- [x] Decision: committer timestamp as time basis
-- [x] Impl: monotonic check at post time (tolerance 1h)
-- [x] Tests: monotonic violation rejected
+- [x] Decision: the action file's `time` is the basis
+- [x] Impl: `too old`, bounded by the DAG (`backs`)
+- [x] Impl: `too new`, bounded by MY clock (`CMD.now`)
+- [x] Both run in `apply`, so post and replay share them
+- [x] Tests: `err-post.lua`, `err-like.lua`
 
-## Next: Fetch-Time Validation Infrastructure
+No separate fetch-time hook was built: `apply` already runs
+on every replayed action, which is exactly the fetch path.
 
-The future check (`commit.ts <= receiver.now + tolerance`)
-is only meaningful at fetch time — at post time the commit
-timestamp equals local time, so the check is trivially true.
+### Left over
 
-Steps:
-- [ ] Build fetch-time validation hook (pre-merge-commit
-  or post-fetch script that walks incoming commits)
-- [ ] Future check: reject incoming commits with
-  `commit.ts > local_now + TOLERANCE`
-- [ ] Monotonic check on incoming commits (reuse same rule)
-- [ ] Tests: future-dated remote commit rejected
-- [ ] Tests: monotonic violation in fetched commit rejected
+- [ ] `threats.md`: record future-dating as its own threat
+- [ ] revisit `260818-prune.md` P2 (time axis of the window)
 
 ## Later: 12h Maturation (depends on consensus engine)
 
-- [ ] Impl: 12h maturation rule using committer timestamp
+- [ ] Impl: 12h maturation rule using the action's `time`
 - [ ] Tests: 12h maturation
 - Requires DAG-walking reputation recomputation engine
 - See [reps.md](reps.md) for maturation details
