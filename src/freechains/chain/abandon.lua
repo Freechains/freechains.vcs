@@ -3,7 +3,7 @@
 -- it, so the settled remote branch can be received again.
 -- Local only: no signing, no network, no reps.
 -- Chain state lives in local snapshots (`.git/states/`), keyed by
--- commit: the reset must land on a tip whose snapshot survives
+-- commit: the reset lands on a tip whose snapshot already exists.
 --
 -- Two forms:
 --  - `abandon <aid>`: aid is first DROPPED
@@ -59,12 +59,6 @@ else
     tip = exec {
         cmd = "git -C " .. REPO .. " rev-parse " .. cid .. "^1",
     }
-end
-
--- cannot abandon pruned state
--- it becomes HEAD and requires state
-if not STATE.has(tip) then
-    ERROR("chain abandon : pruned state")
 end
 
 -- the dropped range, oldest first

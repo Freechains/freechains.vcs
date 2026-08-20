@@ -14,9 +14,6 @@ return {
         time    = 7*24*h,       -- span of my settled order (hard fork)
         actions = 100,          -- entries of my settled order (hard fork)
     },
-    prune = {
-        actions = 500,          -- deeper fork refused, snapshot prunable
-    },
     reps = {
         --pioneer = 50*unit,    -- split among pioneers
         cost    = unit//2,      -- 500 per signed post (refunded at 12h)

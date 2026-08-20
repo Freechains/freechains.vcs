@@ -44,7 +44,6 @@ tests:
 	# slow tests last (many posts / big chains)
 	$(L) consensus.lua
 	$(L) fork-100-posts.lua
-	$(L) prune.lua
 	@rm -Rf /tmp/freechains/
 
 test:

@@ -124,18 +124,6 @@ elseif ARGS.recv then
         -- 3. need common ancestor
 
         local oct = octopus(loc, rem)
-
-        -- refuse a fork deeper than `prune.actions`:
-        -- no state snapshots to replay
-        local deep = tonumber((exec {
-            cmd = "git -C " .. REPO .. " log --diff-filter=A --format=%H " ..
-                "HEAD ^" .. oct .. " -- actions/" ..
-                " | head -" .. (C.prune.actions+1) .. " | wc -l",
-        }))
-        if deep > C.prune.actions then
-            ERROR("chain sync : pruned state")
-        end
-
         local G_oct = STATE.read(oct)
 
         -- needs fst/winner - snd/loser (do now b/c replay mutates G_oct)

@@ -251,44 +251,4 @@ do
     assert(out2 == bg, "beg dropped alone: " .. out2)
 end
 
--- 6. P1: refuse when the landing snapshot is gone (simulates prune P3
--- by hiding the landing commit's snapshot). Inert until P3 exists, so
--- the test manufactures the pruned state directly.
-do
-    TEST "abandon refuses when the landing snapshot is pruned"
-    local f1 = exec {
-        cmd = EXE_A .. " --now=2500 chain '" .. CHAIN .. "' post inline 'f1\n' --file f1.txt --sign " .. KEY1,
-    }
-    local f2 = exec {
-        cmd = EXE_A .. " --now=2600 chain '" .. CHAIN .. "' post inline 'f2\n' --file f2.txt --sign " .. KEY1,
-    }
-    -- default form lands on f1 (f2's parent); hide f1's snapshot
-    local snap = DIR_A .. ".git/states/" .. CID(DIR_A, f1) .. ".lua"
-    exec { cmd = "mv " .. snap .. " " .. snap .. ".off" }
-
-    FAIL {
-        cmd = EXE_A .. " chain '" .. CHAIN .. "' abandon " .. f2,
-        err = "ERROR : chain abandon : pruned state",
-    }
-    -- --keep form lands ON f1 too: same refusal
-    FAIL {
-        cmd = EXE_A .. " chain '" .. CHAIN .. "' abandon --keep " .. f1,
-        err = "ERROR : chain abandon : pruned state",
-    }
-
-    TEST "the refusal mutated nothing (f2 payload, order intact)"
-    exec {
-        cmd = "git -C " .. DIR_A .. " rev-parse refs/payloads/" .. f2,
-    }
-    local _, S = ORDER(EXE_A, CHAIN)
-    assert(S[f1] and S[f2], "f1 f2 still in the order")
-
-    TEST "with the snapshot restored, the same abandon works"
-    exec { cmd = "mv " .. snap .. ".off " .. snap }
-    local out = exec {
-        cmd = EXE_A .. " chain '" .. CHAIN .. "' abandon " .. f2,
-    }
-    assert(out == f2, "f2 dropped: " .. out)
-end
-
 print("<== ALL PASSED")
