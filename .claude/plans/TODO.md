@@ -5,6 +5,23 @@
 
 # Open
 
+## Sandbox `STATE.read` too (T6c leftover)
+
+- `state.lua` `M.read` still does `load(src)()`, with globals
+- Safe TODAY, and the reasons are worth keeping
+    - the blob is our own `serial(G)`: literals only
+    - `refs/states/*` are never fetched: every refspec is
+      explicit (`main`, `refs/begs/*`, `refs/payloads/*`)
+    - nor pushed: `hooks/pre-receive` rejects any other ref
+- So reaching it means owning `~/.freechains/` already
+- Still worth one line, as defense-in-depth
+    - the guarantee rests on that hook being present and
+      correct in EVERY repo
+    - a hub with no hook accepts a pushed `refs/states/<cid>`,
+      and the unsandboxed `load` turns a forgery into code
+- Fix: `load(src, "=state", "t", {})`, as T6c did elsewhere
+- Check: no snapshot may rely on a global (`serial` says none can)
+
 ## Per-chain configurable constants
 
 - move `constants.lua` values into a per-chain file

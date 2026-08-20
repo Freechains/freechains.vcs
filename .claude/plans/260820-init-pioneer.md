@@ -58,8 +58,8 @@ freechains chains add <alias> init [--pioneer=<key>]...
 
 # Steps
 
-- ALL DONE, `make tests` GREEN (39/39)
-- `guide.sh` NOT run yet
+- ALL DONE: `make tests` GREEN (39/39), `guide.sh` GREEN
+- Plan COMPLETE, ready for `done/`
 
 ## 1. parser (`src/freechains.lua`) -- DONE
 
@@ -137,13 +137,21 @@ freechains chains add <alias> init [--pioneer=<key>]...
 - Errors: prefix first, ssh-keygen keeps reporting the detail
 - Public key files keep their comment, `%S+ %S+` drops it
 
-# Found on the way
+# Found on the way -- CLOSED
 
-- `pioneers()` runs `dofile` on the CLONED `genesis.lua`
-    - remote Lua executes locally on `chains add clone`
-    - predates this change, the dropped validation was
-      only on the `init` path
-    - deserves a `threats.md` entry and a sandboxed load
+- `pioneers()` ran `dofile` on the CLONED `genesis.lua`
+    - remote Lua executed locally on `chains add clone`
+    - predates this change: the dropped validation was
+      only on the `init` path, and `loadfile` runs too
+- `chain get payload` had the same shape (`get.lua`)
+    - the action file is remote-authored
+    - the sandboxed check in `sync` does not protect a
+      later call that re-loads the bytes with globals
+- FIXED: both use `load(src, "=...", "t", {})`, the shape
+  `ACTION.read` already had
+    - a non-table genesis is refused as `invalid genesis`
+- Recorded as T6c in `threats.md`, matrix row included
+- STILL OPEN: `state.lua` `M.read`, see TODO
 
 # Won't do
 
