@@ -158,7 +158,6 @@ do
         -- cmd.chain.post.inline
         cmd.chain.post.inline._ = cmd.chain.post._:command("inline")
         cmd.chain.post.inline._:argument("text")
-        cmd.chain.post.inline._:option("--file")
     end
 
     local function positive (s)

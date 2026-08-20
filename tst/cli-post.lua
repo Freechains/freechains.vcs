@@ -143,6 +143,14 @@ do
     end
 
     do
+        TEST "post inline rejects --file"
+        local err = FAIL {
+            cmd = ENV_EXE .. " chain '#cli-post' post inline 'x' --file /tmp/x --sign " .. KEY1,
+        }
+        assert(err:match("Error: unknown option '%-%-file'"), "should reject --file")
+    end
+
+    do
         TEST "post file copy failed"
         -- the error carries cp's own detail (>>> ... <<<)
         local err = FAIL {
