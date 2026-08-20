@@ -1,11 +1,12 @@
 
--- Serves the local chains, one daemon per root and port.
--- `git daemon` owns the pid file, so `stop` reaches a `start`
--- backgrounded with `&`. We only ever read it back.
+-- Serves the local chains, one daemon per root: `--hub` adds
+-- pushes to the fetches `git daemon` already serves, so a root
+-- never needs two. `git daemon` owns the pid file, so `stop`
+-- reaches a `start` backgrounded with `&`.
 
 local port = ARGS.port or PORT
 local base = ARGS.root .. "/chains/"
-local pid  = ARGS.root .. "/daemon-" .. port .. ".pid"
+local pid  = ARGS.root .. "/daemon.pid"
 
 if ARGS.start then
     local cmd =

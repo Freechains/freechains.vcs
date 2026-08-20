@@ -4,7 +4,7 @@ require "tests"
 
 -- `daemon start` serves the local chains; `daemon stop` kills the
 -- daemon on that port. The pid file is written by `git daemon`
--- itself (`--pid-file`), and lives at `<root>/daemon-<port>.pid`.
+-- itself (`--pid-file`), and lives at `<root>/daemon.pid`.
 -- `start` blocks, so it runs backgrounded here, as scripts do.
 
 local ROOT_A = ROOT .. "/cli-daemon/A/"
@@ -14,7 +14,7 @@ local EXE_A  = ENV .. " ../src/freechains.lua --root " .. ROOT_A
 local EXE_B  = ENV .. " ../src/freechains.lua --root " .. ROOT_B
 
 local PORT = 18330
-local PID  = ROOT_A .. "/daemon-" .. PORT .. ".pid"
+local PID  = ROOT_A .. "/daemon.pid"
 
 -- IPv4 only: a dual-stack [::] bind reserves the port, then fails
 -- its own 0.0.0.0 bind
@@ -67,7 +67,7 @@ do
 
     TEST "stop prints the pid it killed and removes the file"
     local killed = exec {
-        cmd = EXE_A .. " daemon stop --port=" .. PORT,
+        cmd = EXE_A .. " daemon stop",
     }
     assert(killed == pid, "stopped " .. killed .. ", expected " .. pid)
     assert(not io.open(PID), "pid file still there")
@@ -87,7 +87,7 @@ print("==> daemon stop errors")
 do
     TEST "stop with no daemon running"
     FAIL {
-        cmd = EXE_A .. " daemon stop --port=" .. PORT,
+        cmd = EXE_A .. " daemon stop",
         err = "ERROR : daemon stop : not running",
     }
 
@@ -97,7 +97,7 @@ do
     f:write("2147483646\n")
     f:close()
     FAIL {
-        cmd = EXE_A .. " daemon stop --port=" .. PORT,
+        cmd = EXE_A .. " daemon stop",
         err = "ERROR : daemon stop : not running",
     }
     assert(not io.open(PID), "pid file should be gone")

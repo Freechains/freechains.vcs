@@ -9,7 +9,7 @@
 ```
 freechains daemon start [--port=<port>] [--hub]
                         [-- <git-daemon-opt>...]
-freechains daemon stop  [--port=<port>]
+freechains daemon stop
 ```
 
 - `start` keeps today's behaviour: foreground, blocks
@@ -28,8 +28,12 @@ freechains daemon stop  [--port=<port>]
 
 # Pid file
 
-- Path: `<root>/daemon-<port>.pid`
-- One daemon per root and port, so the name is the key
+- Path: `<root>/daemon.pid`
+- One daemon per root, so the root is the key
+    - `--hub` ADDS pushes to the fetches `git daemon` already
+      serves, so a root never needs two daemons
+    - two `start`s on one root: the second overwrites the pid
+      file and the first becomes unstoppable. Accepted
 - `git daemon --pid-file=<path>` writes it, we never do
 - It is written even in the foreground, so `stop` reaches a
   `start` backgrounded with `&`
@@ -38,7 +42,7 @@ freechains daemon stop  [--port=<port>]
 
 # `stop`, step by step
 
-- Read `<root>/daemon-<port>.pid`
+- Read `<root>/daemon.pid`
     - missing: `ERROR : daemon stop : not running`
 - Remove the file, then `kill <pid>`
     - a dead pid fails the kill: same `not running`
@@ -52,7 +56,7 @@ freechains daemon stop  [--port=<port>]
 ## `src/freechains.lua`
 
 - `cmd.daemon` gains two subcommands, `start` and `stop`
-- `--port` moves to both; `--hub` and `xtra` stay on `start`
+- `--port`, `--hub` and `xtra` all stay on `start`
 - The `if ARGS.daemon` block moves to `src/freechains/daemon.lua`
     - it is the only command still inlined in the parser file
 
@@ -73,8 +77,8 @@ freechains daemon stop  [--port=<port>]
 
 - `start` stays FOREGROUND, with no way to detach
     - `&` is the idiom, and tests already rely on it
-- `stop` takes `--port`, not a pid: the port is what the
-  user typed, the pid is an implementation detail
+- `stop` takes NOTHING: `--root` already names the daemon,
+  and the port is just the address it binds
 - No `daemon status`: `stop`'s verify step is the same
   check, and nothing needs it yet
 
