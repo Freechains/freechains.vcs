@@ -18,11 +18,35 @@
 
 - move `constants.lua` values into a per-chain file
 - each chain picks its own reps/time parameters
-- open: where stored? genesis (immutable, consensual)
-  vs config/ (local, divergence risk)
-- open: which constants are safe to vary per chain?
-- divergent constants across peers = divergent replay
-    - likely must be consensual (genesis)
+- ANSWERED: genesis, but only for what replay reads
+    - the test is whether a value derives `G`
+    - divergent values across peers = divergent replay
+
+### Genesis (consensual, immutable)
+
+- `time.half`, `time.full`: discount and consolidation
+- `reps.cost`, `earn`, `revoke`, `max`: every balance
+- `vote.tax`, `vote.split`: every transfer
+- all flow through `apply`/`advance` into the state blob
+
+### Config (local policy, never replayed)
+
+- `fork.time`, `fork.actions`: entrenchment is self-protection
+- the verdict is never replayed: no merge commit encodes it
+- in genesis, a chain author could disable everyone's rule 1
+
+### Straddles both: `time.diff`
+
+- `too old` is DAG-derived and replayed -> genesis
+- `too new` reads MY clock -> config
+- likely two values, not one
+
+### Open
+
+- validate genesis constants on clone
+    - hostile `reps.cost = 0` or `vote.tax = 100`
+    - bounds per field, or a whole-table sanity check
+- what happens when `version` and the constants disagree?
 
 ## Perf cleanups P1-P4 (profile first, land measured)
 
