@@ -45,7 +45,7 @@ do
         cmd = EXE_A .. " --now=1000 chains add '#cu' init file " .. GEN_2,
     }
     local seed = exec {
-        cmd = EXE_A .. " --now=1020 chain '#cu' post inline 'seed\n' --file seed.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1020 chain '#cu' post inline 'seed\n' --sign " .. KEY1,
     }
 
     -- K2 pays 1, 10% burned, half credited to K1 -> K1 > K2 (no hash tiebreak)
@@ -63,10 +63,10 @@ do
     -- A: ... -- AW[K1]      B: ... -- CW[K2]     (both fork at F1)
     TEST "A posts AW (higher reps), B posts CW (concurrent, fork at F1)"
     exec {
-        cmd = EXE_A .. " --now=1100 chain '#cu' post inline 'AW\n' --file aw.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1100 chain '#cu' post inline 'AW\n' --sign " .. KEY1,
     }
     exec {
-        cmd = EXE_B .. " --now=1100 chain '#cu' post inline 'CW\n' --file cw.txt --sign " .. KEY2,
+        cmd = EXE_B .. " --now=1100 chain '#cu' post inline 'CW\n' --sign " .. KEY2,
     }
 
     -- B: G -- {CW, AW} -- M1        (inner merge, fork = genesis = F1)
@@ -78,7 +78,7 @@ do
     -- A: G -- AW -- takeover[K1]    (AW = F2, still no M1 on A)
     TEST "A posts takeover (child of AW = F2)"
     local takeover = exec {
-        cmd = EXE_A .. " --now=1300 chain '#cu' post inline 'takeover\n' --file to.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1300 chain '#cu' post inline 'takeover\n' --sign " .. KEY1,
     }
 
     -- A: ... -- M2 = merge(takeover, M1)   (outer merge, fork = AW = F2)

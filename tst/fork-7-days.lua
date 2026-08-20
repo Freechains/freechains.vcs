@@ -41,7 +41,7 @@ do
     -- A: G -- S[K1]
     TEST "A seeds seed.txt with KEY1"
     local seed = exec {
-        cmd = EXE_A .. " --now=1100 chain '#fork-7d' post inline 'seed\n' --file seed.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1100 chain '#fork-7d' post inline 'seed\n' --sign " .. KEY1,
     }
 
     -- A: G -- S[K1] -- L[K2]
@@ -62,21 +62,21 @@ do
     -- B: G -- S[K1] -- L[K2]
     TEST "A posts a1 to a1.txt with KEY2 (lower reps), right after the fork"
     local a1 = exec {
-        cmd = EXE_A .. " --now=1300 chain '#fork-7d' post inline 'a1\n' --file a1.txt --sign " .. KEY2,
+        cmd = EXE_A .. " --now=1300 chain '#fork-7d' post inline 'a1\n' --sign " .. KEY2,
     }
 
     -- A: G -- S[K1] -- L[K2] -- a1[K2] -- a2[K2]   (a1..a2 spans 7d → rule 1)
     -- B: G -- S[K1] -- L[K2]
     TEST "A posts a2 7 days later: A's exclusive commits now span 7d"
     local a2 = exec {
-        cmd = EXE_A .. " --now=" .. (1300+WEEK) .. " chain '#fork-7d' post inline 'a2\n' --file a2.txt --sign " .. KEY2,
+        cmd = EXE_A .. " --now=" .. (1300+WEEK) .. " chain '#fork-7d' post inline 'a2\n' --sign " .. KEY2,
     }
 
     -- A: G -- S[K1] -- L[K2] -- a1[K2] -- a2[K2]
     -- B: G -- S[K1] -- L[K2] -- beta[K1]           (single post: no span)
     TEST "B posts beta to b.txt with KEY1 (higher prefix reps)"
     local beta = exec {
-        cmd = EXE_B .. " --now=" .. (1300+WEEK) .. " chain '#fork-7d' post inline 'beta\n' --file b.txt --sign " .. KEY1,
+        cmd = EXE_B .. " --now=" .. (1300+WEEK) .. " chain '#fork-7d' post inline 'beta\n' --sign " .. KEY1,
     }
 
     -- A: G -- S[K1] -- L[K2] -- a1[K2] -- a2[K2]   (entrenched: span 7d)

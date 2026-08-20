@@ -65,7 +65,7 @@ do
         cmd = EXE_A .. " --now=1000 chains add '#cg' init file " .. GEN_2,
     }
     local seed = exec {
-        cmd = EXE_A .. " --now=1020 chain '#cg' post inline 'seed\n' --file seed.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1020 chain '#cg' post inline 'seed\n' --sign " .. KEY1,
     }
 
     -- K2 pays 1, 10% burned, half credited to K1 -> K1 > K2 (no hash tiebreak)
@@ -86,10 +86,10 @@ do
     -- A: ... -- AW[K1]      B: ... -- CW[K2]     (both fork at F1)
     TEST "A posts AW (higher reps), B posts CW (fork at F1)"
     exec {
-        cmd = EXE_A .. " --now=1100 chain '#cg' post inline 'AW\n' --file aw.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1100 chain '#cg' post inline 'AW\n' --sign " .. KEY1,
     }
     exec {
-        cmd = EXE_B .. " --now=1100 chain '#cg' post inline 'CW\n' --file cw.txt --sign " .. KEY2,
+        cmd = EXE_B .. " --now=1100 chain '#cg' post inline 'CW\n' --sign " .. KEY2,
     }
 
     -- B: G -- {AW, CW} -- M1        (inner merge, forks at genesis = F1)
@@ -101,10 +101,10 @@ do
     -- B: ... M1 -- d1[K2] -- d2[K2]        (3h apart: crosses time.diff)
     TEST "B posts d1, then d2 three hours later"
     exec {
-        cmd = EXE_B .. " --now=1200 chain '#cg' post inline 'd1\n' --file d1.txt --sign " .. KEY2,
+        cmd = EXE_B .. " --now=1200 chain '#cg' post inline 'd1\n' --sign " .. KEY2,
     }
     exec {
-        cmd = EXE_B .. " --now=" .. (1200+3*HOUR) .. " chain '#cg' post inline 'd2\n' --file d2.txt --sign " .. KEY2,
+        cmd = EXE_B .. " --now=" .. (1200+3*HOUR) .. " chain '#cg' post inline 'd2\n' --sign " .. KEY2,
     }
 
     -- H: ... M1 -- d1 -- d2      (no takeover)
@@ -116,7 +116,7 @@ do
     -- A: G -- AW -- takeover[K1]     (AW = F2, A still has no M1)
     TEST "A posts takeover (child of AW = F2)"
     exec {
-        cmd = EXE_A .. " --now=" .. (1200+4*HOUR) .. " chain '#cg' post inline 'takeover\n' --file to.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=" .. (1200+4*HOUR) .. " chain '#cg' post inline 'takeover\n' --sign " .. KEY1,
     }
 
     -- A: ... -- M2 = merge(takeover, d2)   (outer merge, forks at AW = F2)

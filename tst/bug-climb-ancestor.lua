@@ -80,7 +80,7 @@ do
     -- A: G -- n2[K1]
     TEST "A posts n2 (child of G)"
     local n2 = exec {
-        cmd = EXE_A .. " --now=1010 chain '#bca' post inline 'n2\n' --file n2.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1010 chain '#bca' post inline 'n2\n' --sign " .. KEY1,
     }
 
     -- C clones at S2: it never sees M0, so its post stays below it
@@ -92,7 +92,7 @@ do
     -- B: G -- n1[K2]
     TEST "B posts n1 (child of G)"
     local n1 = exec {
-        cmd = EXE_B .. " --now=1020 chain '#bca' post inline 'n1\n' --file n1.txt --sign " .. KEY2,
+        cmd = EXE_B .. " --now=1020 chain '#bca' post inline 'n1\n' --sign " .. KEY2,
     }
 
     -- A: G -- {S2, S1} -- M0        (criss-cross: both sides fork at G)
@@ -104,7 +104,7 @@ do
     -- A: ... M0 -- n3[K1]
     TEST "A posts n3 (child of M0)"
     local n3 = exec {
-        cmd = EXE_A .. " --now=1040 chain '#bca' post inline 'n3\n' --file n3.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1040 chain '#bca' post inline 'n3\n' --sign " .. KEY1,
     }
 
     -- D clones at S3: the fork between n4 and n5 sits ABOVE M0
@@ -116,16 +116,16 @@ do
     -- A: ... S3 -- n4[K1]      D: ... S3 -- n5[K4]
     TEST "A posts n4, D posts n5 (concurrent, fork at S3)"
     local n4 = exec {
-        cmd = EXE_A .. " --now=1050 chain '#bca' post inline 'n4\n' --file n4.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1050 chain '#bca' post inline 'n4\n' --sign " .. KEY1,
     }
     local n5 = exec {
-        cmd = EXE_D .. " --now=1060 chain '#bca' post inline 'n5\n' --file n5.txt --sign " .. KEY4,
+        cmd = EXE_D .. " --now=1060 chain '#bca' post inline 'n5\n' --sign " .. KEY4,
     }
 
     -- C: ... S2 -- n6[K3]      (the deep attachment point)
     TEST "C posts n6 (child of S2, below M0)"
     local n6 = exec {
-        cmd = EXE_C .. " --now=1070 chain '#bca' post inline 'n6\n' --file n6.txt --sign " .. KEY3,
+        cmd = EXE_C .. " --now=1070 chain '#bca' post inline 'n6\n' --sign " .. KEY3,
     }
 
     -- A: ... -- M1 = merge(S4, S6)

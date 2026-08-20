@@ -34,7 +34,7 @@ do
     -- A: G -- S[K1]
     TEST "A seeds seed.txt with KEY1"
     local seed = exec {
-        cmd = EXE_A .. " --now=1100 chain '#anc' post inline 'seed\n' --file seed.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1100 chain '#anc' post inline 'seed\n' --sign " .. KEY1,
     }
 
     -- A: G -- S[K1] -- L[K2]
@@ -55,21 +55,21 @@ do
     -- B: G -- S[K1] -- L[K2]
     TEST "A posts alpha with KEY1 (winner side)"
     local alpha = exec {
-        cmd = EXE_A .. " --now=2000 chain '#anc' post inline 'alpha\n' --file a.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=2000 chain '#anc' post inline 'alpha\n' --sign " .. KEY1,
     }
 
     -- A: G -- S[K1] -- L[K2] -- alpha[K1] -- gamma[K1]   (gamma >1h ahead)
     -- B: G -- S[K1] -- L[K2]
     TEST "A posts gamma far ahead (advances A tip.now past +1h)"
     local gamma = exec {
-        cmd = EXE_A .. " --now=10000 chain '#anc' post inline 'gamma\n' --file g.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=10000 chain '#anc' post inline 'gamma\n' --sign " .. KEY1,
     }
 
     -- A: G -- S[K1] -- L[K2] -- alpha[K1] -- gamma[K1]
     -- B: G -- S[K1] -- L[K2] -- beta[K2]        (ancient, own file)
     TEST "B posts ancient beta with KEY2 (loser, own file)"
     local beta = exec {
-        cmd = EXE_B .. " --now=2000 chain '#anc' post inline 'beta\n' --file b.txt --sign " .. KEY2,
+        cmd = EXE_B .. " --now=2000 chain '#anc' post inline 'beta\n' --sign " .. KEY2,
     }
 
     --                       alpha[K1] -- gamma[K1] --\

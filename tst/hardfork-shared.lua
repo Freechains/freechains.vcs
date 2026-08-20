@@ -67,7 +67,7 @@ do
         cmd = EXE_A .. " --now=1000 chains add '#hs' init file " .. GEN_2,
     }
     local seed = exec {
-        cmd = EXE_A .. " --now=1100 chain '#hs' post inline 'seed\n' --file s.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1100 chain '#hs' post inline 'seed\n' --sign " .. KEY1,
     }
 
     -- K2 pays 1, 10% burned, half credited to K1 -> K1 > K2
@@ -84,10 +84,10 @@ do
     -- the unrelated earlier fork: it is what drags `oct` below AW
     TEST "A posts AW, X posts cw at the same time (unrelated fork)"
     local aw = exec {
-        cmd = EXE_A .. " --now=2000 chain '#hs' post inline 'AW\n' --file aw.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=2000 chain '#hs' post inline 'AW\n' --sign " .. KEY1,
     }
     exec {
-        cmd = EXE_X .. " --now=2000 chain '#hs' post inline 'cw\n' --file cw.txt --sign " .. KEY2,
+        cmd = EXE_X .. " --now=2000 chain '#hs' post inline 'cw\n' --sign " .. KEY2,
     }
 
     -- X now holds AW too: it is shared, and nobody disputes it
@@ -99,13 +99,13 @@ do
     -- X's own order spans 7 days -> everything before d2 is settled
     TEST "X posts d2 seven days later: X is entrenched"
     exec {
-        cmd = EXE_X .. " --now=" .. (2000+WEEK) .. " chain '#hs' post inline 'd2\n' --file d2.txt --sign " .. KEY2,
+        cmd = EXE_X .. " --now=" .. (2000+WEEK) .. " chain '#hs' post inline 'd2\n' --sign " .. KEY2,
     }
 
     -- A never saw cw/d2; it posts on its own branch
     TEST "A posts ALICE on its own branch"
     local alice = exec {
-        cmd = EXE_A .. " --now=" .. (2000+WEEK+100) .. " chain '#hs' post inline 'ALICE\n' --file al.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=" .. (2000+WEEK+100) .. " chain '#hs' post inline 'ALICE\n' --sign " .. KEY1,
     }
 
     -- KEY1 outranks KEY2 across the true fork, so ALICE belongs BEFORE

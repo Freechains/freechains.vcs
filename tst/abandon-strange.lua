@@ -42,7 +42,7 @@ exec {
     cmd = EXE_A .. " --now=1000 chains add '" .. CHAIN .. "' init file " .. GEN_2,
 }
 local seed = exec {
-    cmd = EXE_A .. " --now=1100 chain '" .. CHAIN .. "' post inline 'seed\n' --file s.txt --sign " .. KEY1,
+    cmd = EXE_A .. " --now=1100 chain '" .. CHAIN .. "' post inline 'seed\n' --sign " .. KEY1,
 }
 exec {
     cmd = EXE_B .. " chains add '" .. CHAIN .. "' clone " .. DIR_A,
@@ -51,16 +51,16 @@ exec {
 -- diverge: A posts a1 a2, B posts b1 b2
 TEST "A and B diverge"
 local a1 = exec {
-    cmd = EXE_A .. " --now=1200 chain '" .. CHAIN .. "' post inline 'a1\n' --file a1.txt --sign " .. KEY1,
+    cmd = EXE_A .. " --now=1200 chain '" .. CHAIN .. "' post inline 'a1\n' --sign " .. KEY1,
 }
 local a2 = exec {
-    cmd = EXE_A .. " --now=1300 chain '" .. CHAIN .. "' post inline 'a2\n' --file a2.txt --sign " .. KEY1,
+    cmd = EXE_A .. " --now=1300 chain '" .. CHAIN .. "' post inline 'a2\n' --sign " .. KEY1,
 }
 local b1 = exec {
-    cmd = EXE_B .. " --now=1200 chain '" .. CHAIN .. "' post inline 'b1\n' --file b1.txt --sign " .. KEY2,
+    cmd = EXE_B .. " --now=1200 chain '" .. CHAIN .. "' post inline 'b1\n' --sign " .. KEY2,
 }
 local b2 = exec {
-    cmd = EXE_B .. " --now=1300 chain '" .. CHAIN .. "' post inline 'b2\n' --file b2.txt --sign " .. KEY2,
+    cmd = EXE_B .. " --now=1300 chain '" .. CHAIN .. "' post inline 'b2\n' --sign " .. KEY2,
 }
 
 -- A merges B: HEAD is the sync merge M
@@ -109,7 +109,7 @@ end
 do
     TEST "A posts c1; B recvs it; A abandons c1; A recvs: c1 is back"
     local c1 = exec {
-        cmd = EXE_A .. " --now=1600 chain '" .. CHAIN .. "' post inline 'c1\n' --file c1.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1600 chain '" .. CHAIN .. "' post inline 'c1\n' --sign " .. KEY1,
     }
     exec {
         cmd = EXE_B .. " --now=1700 chain '" .. CHAIN .. "' sync recv " .. DIR_A,
@@ -131,16 +131,16 @@ do
     TEST "abandon d1 lands ON the sync merge below it"
     -- fresh divergence so A's next recv really merges
     exec {
-        cmd = EXE_A .. " --now=1900 chain '" .. CHAIN .. "' post inline 'x1\n' --file x1.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1900 chain '" .. CHAIN .. "' post inline 'x1\n' --sign " .. KEY1,
     }
     exec {
-        cmd = EXE_B .. " --now=1900 chain '" .. CHAIN .. "' post inline 'y1\n' --file y1.txt --sign " .. KEY2,
+        cmd = EXE_B .. " --now=1900 chain '" .. CHAIN .. "' post inline 'y1\n' --sign " .. KEY2,
     }
     exec {
         cmd = EXE_A .. " --now=1950 chain '" .. CHAIN .. "' sync recv " .. DIR_B,
     }
     local d1 = exec {
-        cmd = EXE_A .. " --now=2000 chain '" .. CHAIN .. "' post inline 'd1\n' --file d1.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=2000 chain '" .. CHAIN .. "' post inline 'd1\n' --sign " .. KEY1,
     }
     local merge = exec {
         cmd = "git -C " .. DIR_A .. " rev-parse HEAD~1",
@@ -163,7 +163,7 @@ do
 
     TEST "chain still works on top of the merge"
     exec {
-        cmd = EXE_A .. " --now=2050 chain '" .. CHAIN .. "' post inline 'd2\n' --file d2.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=2050 chain '" .. CHAIN .. "' post inline 'd2\n' --sign " .. KEY1,
     }
 end
 
@@ -171,7 +171,7 @@ end
 do
     TEST "beg + like: the like commit is a 2-parent action"
     local beg = exec {
-        cmd = EXE_A .. " --now=2100 chain '" .. CHAIN .. "' post inline 'beg\n' --file beg.txt --beg --sign " .. KEY3,
+        cmd = EXE_A .. " --now=2100 chain '" .. CHAIN .. "' post inline 'beg\n' --beg --sign " .. KEY3,
     }
     local like = exec {
         cmd = EXE_A .. " --now=2200 chain '" .. CHAIN .. "' like 1000 action " .. beg .. " --sign " .. KEY1,
@@ -204,7 +204,7 @@ end
 do
     TEST "--keep the tip itself is a no-op"
     local e1 = exec {
-        cmd = EXE_A .. " --now=2300 chain '" .. CHAIN .. "' post inline 'e1\n' --file e1.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=2300 chain '" .. CHAIN .. "' post inline 'e1\n' --sign " .. KEY1,
     }
     local head = exec {
         cmd = "git -C " .. DIR_A .. " rev-parse HEAD",
@@ -220,7 +220,7 @@ do
 
     TEST "--keep drops the linear stretch above the survivor"
     local e2 = exec {
-        cmd = EXE_A .. " --now=2350 chain '" .. CHAIN .. "' post inline 'e2\n' --file e2.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=2350 chain '" .. CHAIN .. "' post inline 'e2\n' --sign " .. KEY1,
     }
     local out2 = exec {
         cmd = EXE_A .. " chain '" .. CHAIN .. "' abandon --keep " .. e1,
@@ -233,7 +233,7 @@ do
 
     TEST "--keep on a beg is invalid (not in main)"
     local bg = exec {
-        cmd = EXE_A .. " --now=2400 chain '" .. CHAIN .. "' post inline 'bg\n' --file bg.txt --beg --sign " .. KEY4,
+        cmd = EXE_A .. " --now=2400 chain '" .. CHAIN .. "' post inline 'bg\n' --beg --sign " .. KEY4,
     }
     FAIL {
         cmd = EXE_A .. " chain '" .. CHAIN .. "' abandon --keep " .. bg,

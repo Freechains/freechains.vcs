@@ -69,7 +69,7 @@ do
         cmd = EXE_A .. " --now=1000 chains add '#hff' init file " .. GEN_2,
     }
     local seed = exec {
-        cmd = EXE_A .. " --now=1020 chain '#hff' post inline 'seed\n' --file s.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1020 chain '#hff' post inline 'seed\n' --sign " .. KEY1,
     }
 
     -- K2 pays 1, 10% burned, half credited to K1 -> K1 > K2 (no hash tiebreak)
@@ -91,16 +91,16 @@ do
     -- A: ... -- ALICE[K1]      B: ... -- day 0[K2]
     TEST "A posts ALICE, B posts day 0 (concurrent)"
     local alice = exec {
-        cmd = EXE_A .. " --now=1100 chain '#hff' post inline 'ALICE\n' --file al.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1100 chain '#hff' post inline 'ALICE\n' --sign " .. KEY1,
     }
     exec {
-        cmd = EXE_B .. " --now=1100 chain '#hff' post inline 'day 0\n' --file d0.txt --sign " .. KEY2,
+        cmd = EXE_B .. " --now=1100 chain '#hff' post inline 'day 0\n' --sign " .. KEY2,
     }
 
     -- B: ... -- day 0 -- day 7        (span reaches fork.time: entrenched)
     TEST "B posts day 7 seven days later: B is entrenched"
     exec {
-        cmd = EXE_B .. " --now=" .. (1100+WEEK) .. " chain '#hff' post inline 'day 7\n' --file d7.txt --sign " .. KEY2,
+        cmd = EXE_B .. " --now=" .. (1100+WEEK) .. " chain '#hff' post inline 'day 7\n' --sign " .. KEY2,
     }
 
     TEST "B's settled order is 4 entries"

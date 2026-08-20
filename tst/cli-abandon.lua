@@ -78,21 +78,21 @@ do
     -- G -- p1[K1]
     TEST "post p1"
     local p1 = exec {
-        cmd = ENV_EXE .. " chain '#cli-abandon-1' post inline 'p1\n' --file p1.txt --sign " .. KEY1,
+        cmd = ENV_EXE .. " chain '#cli-abandon-1' post inline 'p1\n' --sign " .. KEY1,
     }
     local at_p1 = REPS(ENV_EXE, "#cli-abandon-1", PUB1)
 
     -- G -- p1[K1] -- p2[K1]
     TEST "post p2"
     local p2 = exec {
-        cmd = ENV_EXE .. " chain '#cli-abandon-1' post inline 'p2\n' --file p2.txt --sign " .. KEY1,
+        cmd = ENV_EXE .. " chain '#cli-abandon-1' post inline 'p2\n' --sign " .. KEY1,
     }
     local at_p2 = REPS(ENV_EXE, "#cli-abandon-1", PUB1)
 
     -- G -- p1[K1] -- p2[K1] -- p3[K1]
     TEST "post p3"
     local p3 = exec {
-        cmd = ENV_EXE .. " chain '#cli-abandon-1' post inline 'p3\n' --file p3.txt --sign " .. KEY1,
+        cmd = ENV_EXE .. " chain '#cli-abandon-1' post inline 'p3\n' --sign " .. KEY1,
     }
 
     -- capture p2's commit + its state blob BEFORE abandon, to prove
@@ -202,7 +202,7 @@ do
         -- the abandoned posts cost nothing, they never happened
         TEST "repost after abandon costs no extra reps"
         p2b = exec {
-            cmd = ENV_EXE .. " chain '#cli-abandon-1' post inline 'p2\n' --file p2.txt --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain '#cli-abandon-1' post inline 'p2\n' --sign " .. KEY1,
         }
         local now = REPS(ENV_EXE, "#cli-abandon-1", PUB1)
         assert(now == at_p2, "expected " .. at_p2 .. " reps, got " .. now)
@@ -257,13 +257,13 @@ do
     -- a beg lives on its own ref, outside `main`
     TEST "beg b0 off the genesis"
     local b0 = exec {
-        cmd = ENV_EXE .. " chain '#cli-abandon-2' post inline 'b0\n' --file b0.txt --beg --sign " .. KEY2,
+        cmd = ENV_EXE .. " chain '#cli-abandon-2' post inline 'b0\n' --beg --sign " .. KEY2,
     }
 
     -- G -- b0[K2], b2[K2]                  (a second beg, to abandon alone)
     TEST "beg b2 off the genesis"
     local b2 = exec {
-        cmd = ENV_EXE .. " chain '#cli-abandon-2' post inline 'b2\n' --file b2.txt --beg --sign " .. KEY2,
+        cmd = ENV_EXE .. " chain '#cli-abandon-2' post inline 'b2\n' --beg --sign " .. KEY2,
     }
 
     -- G -- b0[K2]                          (b2 abandoned: nothing follows)
@@ -290,14 +290,14 @@ do
     -- G -- p1[K1]                         (b0 still off G)
     TEST "post p1"
     local p1 = exec {
-        cmd = ENV_EXE .. " chain '#cli-abandon-2' post inline 'p1\n' --file p1.txt --sign " .. KEY1,
+        cmd = ENV_EXE .. " chain '#cli-abandon-2' post inline 'p1\n' --sign " .. KEY1,
     }
 
     -- G -- p1[K1] -- b1[K2]
     -- b0 hangs off the genesis, b1 off p1: only b1 is orphaned below
     TEST "beg b1 off p1"
     local b1 = exec {
-        cmd = ENV_EXE .. " chain '#cli-abandon-2' post inline 'b1\n' --file b1.txt --beg --sign " .. KEY2,
+        cmd = ENV_EXE .. " chain '#cli-abandon-2' post inline 'b1\n' --beg --sign " .. KEY2,
     }
 
     -- G                                    (p1 abandoned, b1 unattachable)
@@ -335,7 +335,7 @@ do
         cmd = EXE_A .. " --now=1000 chains add '#abandon-fork' init file " .. GEN_2,
     }
     local seed = exec {
-        cmd = EXE_A .. " --now=1100 chain '#abandon-fork' post inline 'seed\n' --file seed.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1100 chain '#abandon-fork' post inline 'seed\n' --sign " .. KEY1,
     }
 
     -- A: G -- S      B: G -- S            (fork point = S, at t=1100)
@@ -347,19 +347,19 @@ do
     -- A: G -- S -- a1[K1]                  (right after the fork)
     TEST "A posts a1, right after the fork"
     local a1 = exec {
-        cmd = EXE_A .. " --now=1200 chain '#abandon-fork' post inline 'a1\n' --file a1.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1200 chain '#abandon-fork' post inline 'a1\n' --sign " .. KEY1,
     }
 
     -- A: G -- S -- a1[K1] -- a2[K1]        (a1..a2 spans 7d: entrenched)
     TEST "A posts a2 7 days later: A's exclusive commits now span 7d"
     local a2 = exec {
-        cmd = EXE_A .. " --now=" .. (1200+WEEK) .. " chain '#abandon-fork' post inline 'a2\n' --file a2.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=" .. (1200+WEEK) .. " chain '#abandon-fork' post inline 'a2\n' --sign " .. KEY1,
     }
 
     -- B: G -- S -- beta[K2]                (single post: no span)
     TEST "B posts beta"
     local beta = exec {
-        cmd = EXE_B .. " --now=" .. (1200+WEEK) .. " chain '#abandon-fork' post inline 'beta\n' --file b.txt --sign " .. KEY2,
+        cmd = EXE_B .. " --now=" .. (1200+WEEK) .. " chain '#abandon-fork' post inline 'beta\n' --sign " .. KEY2,
     }
 
     -- A is entrenched, so it refuses to reconcile with B at all
@@ -400,7 +400,7 @@ do
     -- A: G -- S -- beta[K2] -- a3[K1]      (a1 reposted: new hash)
     TEST "A reposts on top of the settled branch"
     local a3 = exec {
-        cmd = EXE_A .. " --now=" .. (1200+WEEK+300) .. " chain '#abandon-fork' post inline 'a1\n' --file a1.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=" .. (1200+WEEK+300) .. " chain '#abandon-fork' post inline 'a1\n' --sign " .. KEY1,
     }
     assert(a3 ~= a1, "repost should be a new post")
 

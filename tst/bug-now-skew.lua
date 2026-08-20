@@ -50,7 +50,7 @@ do
         cmd = EXE_A .. " chains add '#ns' init file " .. GEN_2,
     }
     exec {
-        cmd = EXE_A .. " chain '#ns' post inline 'seed\n' --file s.txt --sign " .. KEY1,
+        cmd = EXE_A .. " chain '#ns' post inline 'seed\n' --sign " .. KEY1,
     }
 
     TEST "X clones ns"
@@ -66,7 +66,7 @@ do
         exec {
             cmd = "GIT_AUTHOR_DATE='@" .. future .. " +0000'" ..
                 " GIT_COMMITTER_DATE='@" .. future .. " +0000' " ..
-                EXE_A .. " chain '#ns' post inline 'skew\n' --file k.txt --sign " .. KEY1,
+                EXE_A .. " chain '#ns' post inline 'skew\n' --sign " .. KEY1,
         }
     end
 

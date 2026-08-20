@@ -60,7 +60,7 @@ do
         cmd = EXE_A .. " --now=1000 chains add '#cg2' init file " .. GEN_2,
     }
     local seed = exec {
-        cmd = EXE_A .. " --now=1100 chain '#cg2' post inline 'seed\n' --file seed.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1100 chain '#cg2' post inline 'seed\n' --sign " .. KEY1,
     }
 
     -- K2 pays 1, 10% burned, half credited to K1 -> K1 > K2
@@ -81,13 +81,13 @@ do
     -- B: ... L -- low[K2]        (lower reps, EARLIER)
     TEST "B posts low with KEY2"
     local low = exec {
-        cmd = EXE_B .. " --now=1300 chain '#cg2' post inline 'low\n' --file lo.txt --sign " .. KEY2,
+        cmd = EXE_B .. " --now=1300 chain '#cg2' post inline 'low\n' --sign " .. KEY2,
     }
 
     -- A: ... L -- high[K1]       (higher reps, 2 HOURS LATER)
     TEST "A posts high with KEY1, 2 hours after low"
     local high = exec {
-        cmd = EXE_A .. " --now=" .. (1300+2*HOUR) .. " chain '#cg2' post inline 'high\n' --file hi.txt --sign " .. KEY1,
+        cmd = EXE_A .. " --now=" .. (1300+2*HOUR) .. " chain '#cg2' post inline 'high\n' --sign " .. KEY1,
     }
 
     -- A: ... L -- {high, low} -- M     KEY1 wins: high is ordered FIRST
