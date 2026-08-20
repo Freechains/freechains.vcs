@@ -447,6 +447,32 @@ but violate freechains rules.
 and merge. The fetch-then-validate-then-merge pipeline
 is correct by design.
 
+### T6c. Remote Lua Executed as a Program
+
+**Mechanism**: `chains add clone` fetches `refs/genesis`
+and `git reset --hard` writes the remote's `genesis.lua`
+into the worktree (`chains.lua`). `pioneers()` then read
+it with `dofile`, i.e. with the full global environment:
+a hostile peer's genesis could call `os.execute` on the
+cloning machine. `chain get payload` had the same shape
+over the REMOTE-authored action file (`get.lua`), where
+passing the sandboxed check in `sync` does not neutralise
+bytes that a later call re-loads with globals.
+
+**Resources**: Any peer the victim chooses to clone from,
+or any action that reached the victim through `sync`.
+
+**Real threat**: was High — one line in a fetched file is
+arbitrary code. `ACTION.read` already had the answer:
+`load(out, "=action", "t", {})`, text only and no globals,
+"the file is DATA, not a program".
+
+**Mitigation**: both readers now use that same shape. A
+genesis that is not a table is refused as `invalid
+genesis`. `state.lua` still loads with globals, but
+`refs/states/*` are written locally and never fetched:
+reaching them means the attacker already owns the disk.
+
 ---
 
 ## T7. Free Self-Revoke Faucet
@@ -501,6 +527,7 @@ pays via `unrevoke` (which costs). Guarded in `rules.lua`.
 | T5b  | Personal key theft            | High     | Low        | No defense   |
 | T6a  | Disk exhaustion via fetch      | Medium   | Medium     | Planned      |
 | T6b  | Ref manipulation              | Low      | Low        | By design    |
+| T6c  | Remote Lua run as a program   | High     | Low        | Yes (sandbox)|
 | T7   | Free self-revoke faucet       | Medium   | Medium     | Guard (dedup)|
 
 ---

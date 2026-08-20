@@ -20,7 +20,7 @@ if ARGS.payload then
         ERROR("chain get : revoked payload")
     end
 
-    local T = assert(load(src))()
+    local T = assert(load(src, "=action", "t", {}))()
 
     local pay = ""
     if T.blob then

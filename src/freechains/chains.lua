@@ -31,7 +31,25 @@ end
 
 -- chain starts with max split among pioneers
 local function pioneers (dir)
-    local T = dofile(dir .. "genesis.lua")
+    -- the genesis may come from a REMOTE peer (clone), so it is
+    -- loaded as DATA: "t" text only, {} no globals (T6c)
+    local src
+    do
+        local f = io.open(dir .. "genesis.lua")
+        if not f then
+            ERROR("chains add : invalid genesis")
+        end
+        src = f:read("a")
+        f:close()
+    end
+    local T = load(src, "=genesis", "t", {})
+    local ok
+    if T then
+        ok, T = pcall(T)
+    end
+    if not (ok and type(T) == 'table') then
+        ERROR("chains add : invalid genesis")
+    end
     local A = {}
     if T.pioneers and #T.pioneers>0 then
         local n = C.reps.max // #T.pioneers
