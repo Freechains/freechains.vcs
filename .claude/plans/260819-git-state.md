@@ -82,7 +82,32 @@
       backgrounded (autoDetach), fired by `commit`'s gc --auto
     - verified: refs/states/* are `blob` refs keyed by cid;
       state reads/writes work; value to be tuned in S4
-- S4: measure on chat-02 sim: packed disk + read latency
+- S4 DISK DONE (26/08/19): chat sim, 9580 msgs / 6541
+  actions (reinstalled with gc.auto 256 midway):
+    - file-based baseline .......... 15.3 GB (states)
+    - prune + manual sweep ......... 1.5 GB
+    - git-state, mid-run (loose) ... 507 MB (no sweep)
+    - git-state, PACKED FLOOR ...... 28.56 MiB (git gc)
+      - loose 0, one pack, 35378/66586 delta'd (~53%)
+      - ~535x vs baseline, ~50x vs prune: the O(N) delta
+        chain, on real data, automatic
+      - whole chain dir `du -sh` = 66 MB (28.6 MB `.git` +
+        ~37 MB working tree of 6541 action files -- the
+        irreducible content)
+      - the 507 MB mid-run was almost all LOOSE state blobs;
+        gc.auto 256 from the START bounds that tail and holds
+        disk near this floor with no manual step
+    - the sim's disk() helper now reports pack vs loose (was
+      reading the empty `.git/states/`)
+    - S4 leftovers (optional): read latency (cat-file vs file
+      read); transient with gc.auto 256 from the start;
+      aid-hash vs G.order ordering (may shrink the floor)
+
+# Conclusion (26/08/19)
+
+- item 4 VALIDATED: automatic git packing makes state disk
+  ~28 MB at 6541 actions, no sweep, no prune. Beats prune by
+  ~50x and needs no manual step. Prune stays retired.
 - S5: confirm prune stays out (already reverted); update
   260818-prune as SUPERSEDED
 
