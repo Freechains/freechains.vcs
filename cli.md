@@ -192,7 +192,7 @@ freechains chain <alias> get (metadata | payload) <id>
 - `metadata`: the action file, serialized as a Lua table
     - fields: `action`, `backs`, `blob`, `sign`, `time`
 - `payload`: the actual content bytes
-    - fails action is revoked
+    - fails if action is revoked
 
 - Examples:
 
@@ -233,23 +233,18 @@ freechains chain <alias> like <n> (action <id> | author <pub>) [--why=<text>] [-
 freechains chain <alias> dislike <n> (action <id> | author <pub>) [--why=<text>]
 ```
 
-- `<n>`: amount of reps to spend, a positive integer
+- `<n>`: amount of reps to spend
 - target:
     - `action <id>`: rates action
     - `author <pub>`: rates author
 - `--why=<text>`: justify the action
-- `--file=<path>`: supplies the payload bytes when liking a beg
-  whose content is not held locally
-    - refused unless it hashes to the expected blob
-
-Likes are taxed and split between the action and its author.
-Dislikes drain reps from both.
+- `--file=<path>`: original payload (required for revoked actions)
 
 - Examples:
 
 ```
-freechains chain '#chat' like 10000 author "$(cat /tmp/bob.pub)" --sign=/tmp/alice
 freechains chain '#chat' like 1000 action b52c62f --sign=/tmp/charlie
+freechains chain '#chat' like 10000 author "$(cat /tmp/bob.pub)" --sign=/tmp/alice
 freechains chain '#chat' dislike 1000 action d6568e4 --sign=/tmp/bob --why='SPAM'
 ```
 
@@ -262,21 +257,18 @@ freechains chain <alias> revoke <n> <id> [--why=<text>]
 freechains chain <alias> unrevoke <n> <id> [--why=<text>] [--file=<path>]
 ```
 
-- `<n>`: amount of reps to spend, a positive integer
-- `<id>`: action whose payload to remove or restore
+- `<n>`: amount of reps to spend
+- `<id>`: action to remove or restore payload
 - `--why=<text>`: justify the action
-- `--file=<path>`: supplies the payload bytes on `unrevoke`,
-  when they were already erased by `sweep`
+- `--file=<path>`: original payload (required for revoked actions)
 
-Revocation is a vote on its own axis, independent of likes.
-Authors may always revoke their own posts for free.
 A revoked payload becomes immediately unavailable to `get`.
 
 - Examples:
 
 ```
 freechains chain '#chat' revoke 1000 4a5b6c7 --sign=/tmp/alice
-freechains chain '#chat' unrevoke 1000 4a5b6c7 --sign=/tmp/alice
+freechains chain '#chat' unrevoke 1000 4a5b6c7 --sign=/tmp/alice --file=/tmp/f.txt
 ```
 
 ## chain reps
