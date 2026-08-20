@@ -23,8 +23,8 @@ Usage:
 
     # actions
     freechains chain <alias> post (file <path> | inline <text>) [--beg]
-    freechains chain <alias> like <n> (action | author) <id> [--file=<path>]
-    freechains chain <alias> dislike <n> (action | author) <id>
+    freechains chain <alias> like <n> (action <id> | author <pub>) [--file=<path>]
+    freechains chain <alias> dislike <n> (action <id> | author <pub>)
     freechains chain <alias> revoke <n> <id>
     freechains chain <alias> unrevoke <n> <id> [--file=<path>]
 
@@ -66,13 +66,12 @@ More Information:
 
 # Daemon
 
-## daemon start / stop
+## daemon start
 
-Starts (or stops) daemon to serve local chains.
+Starts daemon to serve local chains.
 
 ```
 freechains daemon start [--port=<port>] [--hub] [-- <git-opts>...]
-freechains daemon stop
 ```
 
 - `--port=<port>`: port to listen [default: 8330]
@@ -84,6 +83,20 @@ freechains daemon stop
 ```
 freechains daemon start
 freechains --root=/tmp/X/ daemon start --hub --port=8331 &
+```
+
+## daemon stop
+
+Stops running daemon.
+
+```
+freechains daemon stop
+```
+
+- Examples:
+
+```
+freechains daemon stop
 freechains --root=/tmp/X/ daemon stop
 ```
 
@@ -119,7 +132,7 @@ freechains chains add '#chat' clone localhost:8331/#talks
 
 ## chains rem
 
-Leaves a chain removing all of its data.
+Drops a chain removing all of its data.
 
 ```
 freechains chains rem <alias>
@@ -143,22 +156,23 @@ freechains chains dir
 
 Operations inside a single chain:
 
-- All take the chain `<alias>` (or `#<id>`) as first argument.
+- All take the chain `<alias>` as first argument.
 - Action ids may be abbreviated, as printed by `list dag`.
 
 ## chain list
 
-Lists the actions of the chain.
+Lists the chain actions.
 
 ```
 freechains chain <alias> list (order | dag | begs | revokes)
 ```
 
 - `order`: consensus order, one id per line
-    - revoked payloads appear wrapped as `~<id>~`
-- `dag`: the actions DAG, drawn as ASCII
+- `dag`: DAG drawn as ASCII
 - `begs`: pending begs, still parked outside the chain
-- `revokes`: revoked actions only, in consensus order
+- `revokes`: revoked actions only
+
+In `order` and `dag`, actions with revoked payloads appear wrapped as `~<id>~`.
 
 - Examples:
 
@@ -346,7 +360,7 @@ freechains chain <alias> sync (recv | send) <remote>
 - `send`: sends   missing actions to   remote peer
 - `recv`: receive missing actions from remote peer
     - the remote daemon must run with `--hub`
-- `<remote>`: same url forms accepted by `chains add clone`
+- `<remote>`: same url forms of `Chain URLs`
 
 Received actions are validated and replayed.
 If the merge would reorder our settled actions, it is refused
