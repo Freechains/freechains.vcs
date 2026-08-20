@@ -22,9 +22,6 @@ local function git_init (dir)
     }
 
     exec {
-        cmd = "mkdir -p " .. dir .. "/.git/states/"
-    }
-    exec {
         cmd = "cp " .. HERE .. "/hooks/pre-receive " .. dir .. "/.git/hooks/pre-receive"
     }
     exec {
@@ -48,8 +45,10 @@ local function pioneers (dir)
     return A
 end
 
--- genesis snapshot: direct write (no chain context here); `now` =
--- 0: dates are neutral, so creator and cloner agree byte for byte
+-- genesis snapshot: stored as a git blob pinned by refs/states/<gen>
+-- (same store as STATE.write; inlined, no chain context here).
+-- `now` = 0: dates are neutral, so creator and cloner agree byte
+-- for byte
 local function genesis (dir, gen)
     local G = {
         authors = pioneers(dir),
@@ -57,9 +56,16 @@ local function genesis (dir, gen)
         order   = {},
         now     = 0,
     }
-    local f = io.open(dir .. ".git/states/" .. gen .. ".lua", "w")
+    local tmp = dir .. ".git/state-tmp"
+    local f = io.open(tmp, "w")
     f:write(serial(G))
     f:close()
+    local blob = exec {
+        cmd = "git -C " .. dir .. " hash-object -w " .. tmp,
+    }
+    exec {
+        cmd = "git -C " .. dir .. " update-ref refs/states/" .. gen .. " " .. blob,
+    }
 end
 
 local DIR = ARGS.root .. "/chains/"

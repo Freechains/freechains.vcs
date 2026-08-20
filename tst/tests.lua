@@ -51,12 +51,15 @@ function CID (dir, aid)
     return (assert(cid, "no commit: " .. aid))
 end
 
--- the state snapshot at `dir`'s HEAD (.git/states/<hash>.lua)
+-- the state snapshot at `dir`'s HEAD (blob at refs/states/<hash>)
 function STATE (dir)
     local hash = exec {
         cmd = "git -C " .. dir .. " rev-parse HEAD",
     }
-    return dofile(dir .. ".git/states/" .. hash .. ".lua")
+    local src = exec { trim=false,
+        cmd = "git -C " .. dir .. " cat-file blob refs/states/" .. hash,
+    }
+    return load(src)()
 end
 
 -- run a command expected to FAIL; assert the error msg if given; return it

@@ -2,7 +2,7 @@
 -- Escape hatch for a hard fork: abandon the aid and everything after
 -- it, so the settled remote branch can be received again.
 -- Local only: no signing, no network, no reps.
--- Chain state lives in local snapshots (`.git/states/`), keyed by
+-- Chain state lives in local snapshots (`refs/states/*`), keyed by
 -- commit: the reset lands on a tip whose snapshot already exists.
 --
 -- Two forms:

@@ -60,7 +60,15 @@
 
 # Steps
 
-- S1: state.lua -> blob+ref backing (write/read/has)
+- S1 DONE (26/08/19): state.lua -> blob+ref backing
+    - write: hash-object -w (via .git/state-tmp) + update-ref
+    - read: cat-file blob; has: show-ref --verify --quiet
+    - chains.lua genesis(): writes the blob too; dropped the
+      `mkdir .git/states/`
+    - tst/tests.lua STATE() helper reads the blob
+    - full suite green (installed freechains is STALE, so the
+      pre-receive hook needs a real `make install`; validated
+      here with a PATH shim to the worktree)
 - S2: stable serialize (sorted keys) in `serial`
 - S3: ensure `gc.auto` sane on chain init (chains.lua)
 - S4: measure on chat-02 sim: packed disk + read latency
