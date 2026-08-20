@@ -52,7 +52,7 @@ By "permissionless", we mean that no central authority controls membership:
 
 ## Install
 
-Freechains is implemented in Lua (`>=5.3`) on top of Git.
+Freechains is implemented in Lua (`>=5.4`) on top of Git.
 
 Install dependencies:
 
@@ -63,7 +63,7 @@ sudo apt install git openssh-client lua5.4 luarocks
 Install via LuaRocks:
 
 ```
-sudo luarocks install freechains
+sudo luarocks --lua-version=5.4 install freechains
 ```
 
 Verify that `freechains` is installed:

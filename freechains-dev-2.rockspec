@@ -12,7 +12,7 @@ description = {
 }
 
 dependencies = {
-    "lua >= 5.3",
+    "lua >= 5.4",
 }
 
 build = {
