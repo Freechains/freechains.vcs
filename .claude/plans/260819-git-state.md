@@ -84,6 +84,13 @@
   for dropped commits (symmetric with refs/payloads), so gc
   can reclaim orphaned state blobs. sweep.lua doc now names
   the state-pack role of its `git gc`.
+    - NOTE: the old file-based abandon leaked too (orphan
+      `.lua` files, never cleaned) -- this is a latent leak
+      now fixed, not a regression
+    - test in cli-abandon.lua: after abandon, p2's state ref
+      is gone, p1's remains, and `gc --prune=now` reaps the
+      orphaned blob (reflog does not pin it: state blobs live
+      outside commit trees)
 - S4 DISK DONE (26/08/19): chat sim, 9580 msgs / 6541
   actions (reinstalled with gc.auto 256 midway):
     - file-based baseline .......... 15.3 GB (states)
