@@ -27,7 +27,7 @@ local parser = argparse()
 
 parser
     :name "freechains"
-    :description "Freechains: Permissionless Peer-to-peer Content Dissemination"
+    :description "Freechains: Permissionless Peer-to-Peer Communities"
     :epilog [[
 For more information, please visit our website:
 

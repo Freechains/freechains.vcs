@@ -6,8 +6,8 @@ source = {
 }
 
 description = {
-    summary  = "Permissionless Peer-to-peer Content Dissemination",
-    homepage = "https://www.freechains.org/",
+    summary  = "Permissionless Peer-to-Peer Communities",
+    homepage = "https://github.com/Freechains/freechains.vcs",
     license  = "MIT",
 }
 
