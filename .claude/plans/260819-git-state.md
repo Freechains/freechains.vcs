@@ -69,8 +69,19 @@
     - full suite green (installed freechains is STALE, so the
       pre-receive hook needs a real `make install`; validated
       here with a PATH shim to the worktree)
-- S2: stable serialize (sorted keys) in `serial`
-- S3: ensure `gc.auto` sane on chain init (chains.lua)
+- S2 DONE (26/08/19): already satisfied -- `serial`
+  (common.lua:56) sorts keys at every level, so output is
+  deterministic and stable (reps change = in-place edit).
+  No code change.
+    - S4 to weigh: actions sort by AID (hash) -> a new one
+      inserts mid-file; serializing by `G.order` instead
+      would be pure-APPEND -> tighter deltas. Optional.
+- S3 DONE (26/08/19): `git config gc.auto 256` in git_init
+    - one large loose blob per action; default 6700 would let
+      the loose pile balloon (O(N) each). 256 packs often,
+      backgrounded (autoDetach), fired by `commit`'s gc --auto
+    - verified: refs/states/* are `blob` refs keyed by cid;
+      state reads/writes work; value to be tuned in S4
 - S4: measure on chat-02 sim: packed disk + read latency
 - S5: confirm prune stays out (already reverted); update
   260818-prune as SUPERSEDED
