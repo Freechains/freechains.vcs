@@ -19,8 +19,7 @@ do
 
         TEST "genesis file"
         -- always generated: version and pioneers, nothing else
-        local gen = DIR .. "/genesis.lua"
-        local t = dofile(gen)
+        local t = GENESIS(DIR)
         assert(type(t) == "table")
         assert (
             t.version and t.version[1]==0 and t.version[2]==20 and t.version[3]==0
@@ -260,8 +259,7 @@ do
         assert(out:match("^#%x+$"), "hash is hex")
 
         TEST "pioneer in genesis"
-        local gen = ROOT .. "/chains/#inl-chat/genesis.lua"
-        local t = dofile(gen)
+        local t = GENESIS(ROOT .. "/chains/#inl-chat")
         assert (
             t.pioneers and t.pioneers[1] == PUB1
             , "pioneers[1]: " .. tostring(t.pioneers and t.pioneers[1])
@@ -280,8 +278,7 @@ do
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 41, "hash length: " .. #out)
 
-        local gen = ROOT .. "/chains/#inl-default/genesis.lua"
-        local t = dofile(gen)
+        local t = GENESIS(ROOT .. "/chains/#inl-default")
         assert (
             t.pioneers and t.pioneers[1] == PUB1
             , "pioneers[1]: " .. tostring(t.pioneers and t.pioneers[1])

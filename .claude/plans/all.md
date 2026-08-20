@@ -31,7 +31,7 @@ Each section below has its own detailed plan file.
 ### Git as the Database — [git.md](git.md)
 
 Chain = Repository (not branch). Each chain is its own git repo
-(currently working trees, not bare). Data model: block = commit,
+(bare: no worktree, all writes via plumbing). Data model: block = commit,
 payload = blob, fork/merge = merge commit. Consensus via
 `git log --date-order`. Merge after every sync (single HEAD
 model). Sync marker strategy for sync-only merge commits is

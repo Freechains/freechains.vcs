@@ -121,9 +121,7 @@ do
 
     do
         TEST "A and B are equal"
-        local _, ok = exec { err=false,
-            cmd = "diff -r --exclude=.git " .. REPO_A .. " " .. REPO_B,
-        }
+        local ok = (TREE(REPO_A) == TREE(REPO_B)) and 0 or 1
         assert(ok == 0, "A and B should not differ")
     end
     -- A:  genesis ── ... ── P3 ── [post] P4
@@ -225,9 +223,7 @@ do
         end
 
         TEST "A and B are bit-equal"
-        local _, ok = exec { err=false,
-            cmd = "diff -r --exclude=.git " .. REPO_A .. " " .. REPO_B,
-        }
+        local ok = (TREE(REPO_A) == TREE(REPO_B)) and 0 or 1
         assert(ok == 0, "A and B should not differ")
     end
     --                             ┌── [post] P5
@@ -341,22 +337,14 @@ do
     local aid = exec {
         cmd = "git -C " .. REPO_A .. " hash-object smuggle.lua",
     }
-    exec {
-        cmd = "mkdir -p " .. REPO_A .. "actions/" .. aid:sub(1,2),
-    }
-    exec {
-        cmd = "mv " .. REPO_A .. "smuggle.lua " ..
-            REPO_A .. "actions/" .. aid:sub(1,2) .. "/" .. aid .. ".lua",
-    }
-    local f = io.open(REPO_A .. "/evil2.txt", "w")
-    f:write("smuggled\n")
-    f:close()
-    exec {
-        cmd = "git -C " .. REPO_A .. " add actions/ evil2.txt",
-    }
-    exec {
-        cmd = "git -C " .. REPO_A .. " commit --allow-empty-message -m ''",
-    }
+    os.remove(REPO_A .. "smuggle.lua")
+    COMMIT(REPO_A, {
+        files = {
+            ["actions/" .. aid:sub(1,2) .. "/" .. aid .. ".lua"]
+                = "return { action='post' }\n",
+            ["evil2.txt"] = "smuggled\n",
+        },
+    })
 
     TEST "B's HEAD before recv"
     local before = exec {
@@ -387,19 +375,13 @@ do
         cmd = "git -C " .. REPO_B .. " rev-parse HEAD",
     }
     exec {
-        cmd = "git -C " .. REPO_A .. " reset --hard " .. b_head,
+        cmd = "git -C " .. REPO_A .. " update-ref HEAD " .. b_head,
     }
 
     TEST "A commits a junk file"
-    local f = io.open(REPO_A .. "/evil.txt", "w")
-    f:write("smuggled\n")
-    f:close()
-    exec {
-        cmd = "git -C " .. REPO_A .. " add evil.txt",
-    }
-    exec {
-        cmd = "git -C " .. REPO_A .. " commit --allow-empty-message -m ''",
-    }
+    COMMIT(REPO_A, {
+        files = { ["evil.txt"] = "smuggled\n" },
+    })
 
     TEST "B's HEAD before recv"
     local before = exec {
@@ -430,23 +412,17 @@ do
         cmd = "git -C " .. REPO_B .. " rev-parse HEAD",
     }
     exec {
-        cmd = "git -C " .. REPO_A .. " reset --hard " .. b_head,
+        cmd = "git -C " .. REPO_A .. " update-ref HEAD " .. b_head,
     }
 
     TEST "A commits a forged action path"
     local fake = string.rep("ab", 20)
-    exec {
-        cmd = "mkdir -p " .. REPO_A .. "actions/" .. fake:sub(1,2),
-    }
-    local f = io.open(REPO_A .. "actions/" .. fake:sub(1,2) .. "/" .. fake .. ".lua", "w")
-    f:write("return { action='post' }\n")
-    f:close()
-    exec {
-        cmd = "git -C " .. REPO_A .. " add actions/",
-    }
-    exec {
-        cmd = "git -C " .. REPO_A .. " commit --allow-empty-message -m ''",
-    }
+    COMMIT(REPO_A, {
+        files = {
+            ["actions/" .. fake:sub(1,2) .. "/" .. fake .. ".lua"]
+                = "return { action='post' }\n",
+        },
+    })
 
     TEST "B's HEAD before recv"
     local before = exec {

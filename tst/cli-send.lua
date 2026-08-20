@@ -48,13 +48,13 @@ do
 
     TEST "A has executable pre-receive hook"
     local _, ok = exec { err=false,
-        cmd = "test -x " .. REPO_A .. ".git/hooks/pre-receive",
+        cmd = "test -x " .. REPO_A .. "hooks/pre-receive",
     }
     assert(ok == 0, "A hook missing or not executable")
 
     TEST "B has executable pre-receive hook"
     local _, ok = exec { err=false,
-        cmd = "test -x " .. REPO_B .. ".git/hooks/pre-receive",
+        cmd = "test -x " .. REPO_B .. "hooks/pre-receive",
     }
     assert(ok == 0, "B hook missing or not executable")
 
@@ -96,9 +96,7 @@ do
     )
 
     -- temp commit on A so next pushes trigger the hook
-    exec {
-        cmd = "git -C " .. REPO_A .. " commit --allow-empty -m 'tmp'",
-    }
+    COMMIT(REPO_A, { msg = "tmp" })
 
     TEST "reject push without freechains option"
     local err = FAIL {
@@ -120,7 +118,7 @@ do
 
     -- drop the temp commit
     exec {
-        cmd = "git -C " .. REPO_A .. " reset --hard HEAD~1",
+        cmd = "git -C " .. REPO_A .. " update-ref HEAD HEAD~1",
     }
 
     TEST "accept main:main no-op"
@@ -154,19 +152,14 @@ do
     local aid = exec {
         cmd = "git -C " .. REPO_X .. " hash-object like-err.lua",
     }
-    exec {
-        cmd = "mkdir -p " .. REPO_X .. "actions/" .. aid:sub(1,2),
-    }
-    exec {
-        cmd = "mv " .. REPO_X .. "like-err.lua " ..
-            REPO_X .. "actions/" .. aid:sub(1,2) .. "/" .. aid .. ".lua",
-    }
-    exec {
-        cmd = "git -C " .. REPO_X .. " add actions/",
-    }
-    exec {
-        cmd = ENV .. " git -C " .. REPO_X .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh" .. " commit -S --allow-empty-message -m ''",
-    }
+    local fh = io.open(REPO_X .. "like-err.lua")
+    local content = fh:read("a")
+    fh:close()
+    os.remove(REPO_X .. "like-err.lua")
+    COMMIT(REPO_X, {
+        files = { ["actions/" .. aid:sub(1,2) .. "/" .. aid .. ".lua"] = content },
+        sign  = KEY3,
+    })
 
     TEST "X sends to B: push should be rejected"
     local err = FAIL {
@@ -242,9 +235,7 @@ do
 
     do
         TEST "A and B are equal"
-        local _, ok = exec { err=false,
-            cmd = "diff -r --exclude=.git " .. REPO_A .. " " .. REPO_B,
-        }
+        local ok = (TREE(REPO_A) == TREE(REPO_B)) and 0 or 1
         assert(ok == 0, "A and B should not differ")
     end
     -- A:  genesis ── ... ── P3 ── [post] P4
@@ -346,9 +337,7 @@ do
         end
 
         TEST "A and B are bit-equal"
-        local _, ok = exec { err=false,
-            cmd = "diff -r --exclude=.git " .. REPO_A .. " " .. REPO_B,
-        }
+        local ok = (TREE(REPO_A) == TREE(REPO_B)) and 0 or 1
         assert(ok == 0, "A and B should not differ")
     end
     --                             ┌── [post] P5

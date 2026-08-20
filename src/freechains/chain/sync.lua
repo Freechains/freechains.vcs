@@ -182,20 +182,16 @@ elseif ARGS.recv then
                 end
             end
 
-            -- reset HEAD to remote tip
+            -- move HEAD to remote tip
             exec {
-                cmd = "git -C " .. REPO .. " reset --hard " .. rem
+                cmd = "git -C " .. REPO .. " update-ref HEAD " .. rem
             }
         end
 
         -- merge the last non-failing loser
         if merge then
-            exec { stderr=false,
-                cmd = "git -C " .. REPO .. " merge --no-commit " .. merge
-            }
-            exec {
-                cmd = CMD.git .. "git -C " .. REPO ..
-                    " commit --allow-empty-message -m ''"
+            GIT.commit {
+                parents = { GIT.deref("HEAD"), merge },
             }
             -- the merge tip is new: snapshot the final state there
             -- (a merge adds no time: fold its parents' actions)

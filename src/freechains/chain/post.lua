@@ -18,7 +18,7 @@ end
 -- `refs/payloads/<aid>`. The action file's `blob` field is what
 -- binds it: the aid transitively commits to the content
 
-local path = REPO .. ".git/payload-tmp"   -- payload staging file
+local path = REPO .. "payload-tmp"   -- payload staging file (git dir)
 
 local act
 local aid
@@ -81,18 +81,13 @@ exec {
 }
 os.remove(path)
 
-do
-    local s1, s2 = "", ""
-    if ARGS.sign then
-        s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=ssh"
-        s2 = " -S"
-    end
-    -- unsigned: only a bug fails
-    exec {
-        cmd = CMD.git .. "git -C " .. REPO .. s1 .. " commit" .. s2 .. " --allow-empty-message -m ''",
-        err = ARGS.sign and "chain post : invalid sign key" or nil,
-    }
-end
+-- unsigned: only a bug fails
+GIT.commit {
+    parents = { GIT.deref("HEAD") },
+    add     = { blob = aid, path = ACTION.path(aid) },
+    sign    = ARGS.sign,
+    err     = ARGS.sign and "chain post : invalid sign key" or nil,
+}
 
 -- snapshot state at the new tip (the action commit itself)
 STATE.write(G, GIT.deref("HEAD"))
@@ -102,7 +97,7 @@ if ARGS.beg then
         cmd = "git -C " .. REPO .. " update-ref refs/begs/beg-" .. aid .. " HEAD",
     }
     exec {
-        cmd = "git -C " .. REPO .. " reset --hard HEAD~1",
+        cmd = "git -C " .. REPO .. " update-ref HEAD " .. GIT.deref("HEAD~1"),
     }
 end
 

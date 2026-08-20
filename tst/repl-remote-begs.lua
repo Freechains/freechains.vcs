@@ -225,9 +225,7 @@ do
             cmd = "git -C " .. REPO_C .. " for-each-ref refs/begs/ --sort=refname --format='%(refname)'",
         }
         local first = ref:match("[^\n]+")
-        FAIL {
-            cmd = "git -C " .. REPO_C .. " merge --no-commit --no-ff " .. first,
-        }
+        assert(not DRYMERGE(REPO_C, first), "merge should fail")
     end
 end
 
@@ -244,9 +242,7 @@ do
 
     do
         TEST "merge beg into HEAD (fast-forward)"
-        exec {
-            cmd = "git -C " .. REPO_A .. " merge --no-edit " .. ref1,
-        }
+        MERGE(REPO_A, ref1)
         local count = exec {
             cmd = "git -C " .. REPO_A .. " rev-list --count HEAD",
         }
@@ -260,9 +256,7 @@ do
 
     do
         TEST "merge second beg into HEAD (true merge, no conflict)"
-        exec {
-            cmd = "git -C " .. REPO_A .. " merge --no-edit " .. ref2,
-        }
+        MERGE(REPO_A, ref2)
         local count = exec {
             cmd = "git -C " .. REPO_A .. " rev-list --count HEAD",
         }
@@ -287,7 +281,7 @@ do
     do
         TEST "both merged action files present in A"
         local count = exec {
-            cmd = "ls " .. REPO_A .. "actions/*/*.lua | wc -l",
+            cmd = "git -C " .. REPO_A .. " ls-tree -r --name-only HEAD -- actions | wc -l",
         }
         assert(count == "2", "expected 2 action files, got: " .. count)
     end
@@ -305,9 +299,7 @@ do
         assert(code == 0, "fetch HEAD failed")
 
         TEST "B merges A's HEAD"
-        exec {
-            cmd = "git -C " .. REPO_B .. " merge --no-edit FETCH_HEAD",
-        }
+        MERGE(REPO_B, "FETCH_HEAD")
     end
 
     do

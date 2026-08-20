@@ -56,11 +56,11 @@ function M.full (pre)
     if (#pre == 40) or (#pre < 2) or (not pre:match("^%x+$")) then
         return pre
     end
-    -- an action in history sits in its bucket; a pending beg
-    -- is outside HEAD's tree, on its own ref
+    -- an action in history sits in its bucket (in HEAD's tree);
+    -- a pending beg is outside HEAD's tree, on its own ref
     local dir = exec { err=false, stderr=false,
-        cmd = "ls " .. REPO .. "actions/" .. pre:sub(1, 2) .. "/" ..
-            pre .. "*.lua",
+        cmd = "git -C " .. REPO .. " ls-tree --name-only" ..
+            " 'HEAD:actions/" .. pre:sub(1, 2) .. "'",
     } or ""
     local begs = exec { err=false, stderr=false,
         cmd = "git -C " .. REPO .. " for-each-ref --format='%(refname)'" ..
@@ -68,11 +68,13 @@ function M.full (pre)
     } or ""
     local aid = nil
     for l in (dir .. "\n" .. begs):gmatch("[^\n]+") do
-        local a = l:match("(%x+)%.lua$") or l:match("beg%-(%x+)$")
-        if a and aid and (a ~= aid) then
-            return pre      -- ambiguous
+        local a = l:match("^(%x+)%.lua$") or l:match("beg%-(%x+)$")
+        if a and (a:sub(1, #pre) == pre) then
+            if aid and (a ~= aid) then
+                return pre      -- ambiguous
+            end
+            aid = a
         end
-        aid = a or aid
     end
     return aid or pre
 end
@@ -134,11 +136,11 @@ function M.backs (ps)
     return ret
 end
 
--- mint `T`'s aid: the file waits in `.git/` (worktree
--- untouched) until `pos` places it after `apply` accepts
+-- mint `T`'s aid: the file waits in the git dir (object db
+-- untouched) until `pos` writes it after `apply` accepts
 
 function M.pre (T)
-    local tmp = REPO .. ".git/action-tmp.lua"
+    local tmp = REPO .. "action-tmp.lua"
     local f = io.open(tmp, "w")
     f:write(serial(T))
     f:close()
@@ -147,18 +149,14 @@ function M.pre (T)
     })
 end
 
--- place + stage the minted action file (the bucket dir may
--- not exist yet -- or may have been emptied by a reset)
+-- the minted action file enters the object db (repos are bare:
+-- no file to place); `GIT.commit` stages it into the new tree
 
 function M.pos (aid)
-    local path = M.path(aid)
     exec {
-        cmd = "mkdir -p " .. REPO .. "actions/" .. aid:sub(1, 2) .. "/",
+        cmd = "git -C " .. REPO .. " hash-object -w " .. REPO .. "action-tmp.lua",
     }
-    os.rename(REPO .. ".git/action-tmp.lua", REPO .. path)
-    exec {
-        cmd = "git -C " .. REPO .. " add " .. path,
-    }
+    os.remove(REPO .. "action-tmp.lua")
 end
 
 return M

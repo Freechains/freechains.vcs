@@ -79,16 +79,16 @@ function M.verify (repo, cid)
         return nil, 'unsigned'
     end
 
-    -- per-repo scratch belongs in .git/, out of the worktree
-    local f = io.open(repo .. "/.git/allowed_signers", "w")
+    -- per-repo scratch: the bare repo dir IS the git dir
+    local f = io.open(repo .. "/allowed_signers", "w")
     f:write("git " .. key .. "\n")
     f:close()
     local out, code = exec { err=false,
         cmd = "git -C " .. repo
-        .. " -c gpg.ssh.allowedSignersFile=.git/allowed_signers"
+        .. " -c gpg.ssh.allowedSignersFile=allowed_signers"
         .. " verify-commit " .. cid,
     }
-    os.remove(repo .. "/.git/allowed_signers")
+    os.remove(repo .. "/allowed_signers")
     if code == 0 then
         return key
     else

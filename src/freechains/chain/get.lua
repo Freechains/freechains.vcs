@@ -1,18 +1,19 @@
 
 -- membership: an action of the CURRENT history <=> its file is
--- in HEAD's tree (mirrored by the worktree): files only ever
--- accumulate, and `abandon`'s reset drops exactly the abandoned
--- ones. One io.open, no git -- and it doubles as the read
+-- in HEAD's tree: files only ever accumulate, and `abandon`'s
+-- reset drops exactly the abandoned ones. One cat-file -- and
+-- it doubles as the read
 local src
 do
     ARGS.aid = ACTION.full(ARGS.aid)
-    local f = ARGS.aid:match("^%x+$") and
-        io.open(REPO .. ACTION.path(ARGS.aid))
-    if not f then
+    src = ARGS.aid:match("^%x+$") and
+        exec { trim=false, err=false, stderr=false,
+            cmd = "git -C " .. REPO .. " cat-file blob" ..
+                " 'HEAD:" .. ACTION.path(ARGS.aid) .. "'",
+        }
+    if not src then
         ERROR("chain get : unknown post")
     end
-    src = f:read("a")
-    f:close()
 end
 
 if ARGS.payload then

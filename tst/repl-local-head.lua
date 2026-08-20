@@ -116,14 +116,7 @@ do
         assert(code == 0, "fetch failed")
 
         TEST "dry-run merge ok"
-        local _, code = exec {
-            cmd = "git -C " .. REPO_A .. " merge --no-commit --no-ff FETCH_HEAD",
-        }
-        assert(code == 0, "dry-run merge failed")
-        local _, code = exec {
-            cmd = "git -C " .. REPO_A .. " merge --abort",
-        }
-        assert(code == 0, "abort failed")
+        assert(DRYMERGE(REPO_A, "FETCH_HEAD"), "dry-run merge failed")
 
         TEST "A recvs from B (fast-forward)"
         exec {
@@ -153,9 +146,7 @@ do
 
     do
         TEST "A and B are equal"
-        local _,ok = exec { err=false,
-            cmd = "diff -r --exclude=.git " .. REPO_A .. " " .. REPO_B,
-        }
+        local ok = (TREE(REPO_A) == TREE(REPO_B)) and 0 or 1
         assert(ok==0, "A and B differ")
     end
 end
@@ -186,14 +177,7 @@ do
         assert(code == 0, "fetch failed")
 
         TEST "A dry-run merge ok"
-        local _, code = exec {
-            cmd = "git -C " .. REPO_A .. " merge --no-commit --no-ff FETCH_HEAD",
-        }
-        assert(code == 0, "dry-run merge failed")
-        local _, code = exec {
-            cmd = "git -C " .. REPO_A .. " merge --abort",
-        }
-        assert(code == 0, "abort failed")
+        assert(DRYMERGE(REPO_A, "FETCH_HEAD"), "dry-run merge failed")
 
         TEST "A recvs B (true merge)"
         exec {
@@ -222,9 +206,7 @@ do
 
     do
         TEST "A and B are equal after bidirectional sync"
-        local _, ok = exec { err=false,
-            cmd = "diff -r --exclude=.git " .. REPO_A .. " " .. REPO_B,
-        }
+        local ok = (TREE(REPO_A) == TREE(REPO_B)) and 0 or 1
         assert(ok == 0, "A and B differ")
     end
 end
@@ -246,9 +228,7 @@ do
         assert(code == 0, "fetch should succeed")
 
         TEST "dry-run merge from unrelated chain fails"
-        FAIL {
-            cmd = "git -C " .. REPO_C .. " merge --no-commit --no-ff FETCH_HEAD",
-        }
+        assert(not DRYMERGE(REPO_C, "FETCH_HEAD"), "merge should fail")
     end
 end
 
@@ -283,14 +263,7 @@ do
         assert(code == 0, "fetch should succeed")
 
         TEST "dry-run merge succeeds (no shared paths)"
-        local _, code = exec {
-            cmd = "git -C " .. REPO_A .. " merge --no-commit --no-ff FETCH_HEAD",
-        }
-        assert(code == 0, "merge should not conflict")
-        local _, code = exec {
-            cmd = "git -C " .. REPO_A .. " merge --abort",
-        }
-        assert(code == 0, "abort failed")
+        assert(DRYMERGE(REPO_A, "FETCH_HEAD"), "merge should not conflict")
 
         TEST "A recvs B (converges)"
         exec {

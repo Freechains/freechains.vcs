@@ -28,23 +28,11 @@ local function craft (repo, key, content)
     local aid = exec {
         cmd = "git -C " .. repo .. " hash-object crafted.lua",
     }
-    exec {
-        cmd = "mkdir -p " .. repo .. "actions/" .. aid:sub(1,2),
-    }
-    exec {
-        cmd = "mv " .. repo .. "crafted.lua " ..
-            repo .. "actions/" .. aid:sub(1,2) .. "/" .. aid .. ".lua",
-    }
-    exec {
-        cmd = "git -C " .. repo .. " add actions/",
-    }
-    local sign = key and
-        (" -c user.signingkey=" .. key .. " -c gpg.format=ssh") or ""
-    local S = key and " -S" or ""
-    exec {
-        cmd = ENV .. " git -C " .. repo .. sign ..
-            " commit" .. S .. " --allow-empty-message -m ''",
-    }
+    os.remove(repo .. "crafted.lua")
+    COMMIT(repo, {
+        files = { ["actions/" .. aid:sub(1,2) .. "/" .. aid .. ".lua"] = content },
+        sign  = key,
+    })
 end
 
 -- a like action file: `sign` must match the envelope signature,
@@ -119,9 +107,7 @@ do
     }
 
     TEST "A crafts an empty commit"
-    exec {
-        cmd = ENV .. " git -C " .. REPO_A2 .. " -c user.signingkey=" .. KEY1 .. " -c gpg.format=ssh" .. " commit --allow-empty -S -m 'x'",
-    }
+    COMMIT(REPO_A2, { sign = KEY1, msg = "x" })
 
     TEST "B rejects the empty commit on sync"
     FAIL {
@@ -422,7 +408,7 @@ do
         cmd = "git -C " .. REPO_A11 .. " cat-file commit HEAD",
     }
     local forged = raw .. "tampered\n"
-    local tmpf = REPO_A11 .. ".git/forged-commit"
+    local tmpf = REPO_A11 .. "forged-commit"
     local fh = io.open(tmpf, "w")
     fh:write(forged)
     fh:close()
@@ -431,7 +417,7 @@ do
     }
     os.remove(tmpf)
     exec {
-        cmd = "git -C " .. REPO_A11 .. " reset --hard " .. new_hash,
+        cmd = "git -C " .. REPO_A11 .. " update-ref HEAD " .. new_hash,
     }
 
     TEST "B rejects forged like signature on sync"

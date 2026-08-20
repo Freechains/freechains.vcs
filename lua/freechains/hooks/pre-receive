@@ -34,8 +34,8 @@ do
     end
 end
 
-local git_dir  = io.popen("cd " .. os.getenv("GIT_DIR") .. " && pwd"):read("l")
-local repo_dir = git_dir:match("(.+)/[^/]+$")
+-- bare repo: the git dir IS the chain repo dir (<root>/chains/<chain>)
+local repo_dir = io.popen("cd " .. os.getenv("GIT_DIR") .. " && pwd"):read("l")
 local fc_root  = repo_dir:match("(.+)/[^/]+/[^/]+$")
 local fc_chain = repo_dir:match("([^/]+)$")
 

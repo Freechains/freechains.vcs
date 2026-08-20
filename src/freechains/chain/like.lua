@@ -70,7 +70,7 @@ if not pub then
     ERROR("chain " .. name .. " : invalid sign key")
 end
 
-local path = REPO .. ".git/payload-tmp"   -- why staging file
+local path = REPO .. "payload-tmp"   -- why staging file (git dir)
 
 local blob
 if ARGS.why then
@@ -171,13 +171,6 @@ if entry then
     end
 end
 
--- runs last to avoid --abort on errors
-if to_beg then
-    exec {
-        cmd = "git -C " .. REPO .. " merge --no-ff --no-commit --no-edit " .. ref,
-    }
-end
-
 ACTION.pos(aid)
 
 -- the why enters the object db anchored at its final name
@@ -191,13 +184,13 @@ if blob then
     os.remove(path)
 end
 
-do
-    local s1 = " -c user.signingkey=" .. ARGS.sign .. " -c gpg.format=ssh"
-    exec {
-        cmd = CMD.git .. "git -C " .. REPO .. s1 .. " commit -S --allow-empty-message -m ''",
-        err = "chain " .. name .. " : invalid sign key",
-    }
-end
+-- a beg like commits the merge itself: `ps` carries both sides
+GIT.commit {
+    parents = ps,
+    add     = { blob = aid, path = ACTION.path(aid) },
+    sign    = ARGS.sign,
+    err     = "chain " .. name .. " : invalid sign key",
+}
 
 -- snapshot state at the new tip (the action commit itself)
 STATE.write(G, GIT.deref("HEAD"))

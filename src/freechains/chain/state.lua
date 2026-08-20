@@ -16,7 +16,7 @@ end
 -- G saved with every new snapshot
 
 function M.write (G, cid)
-    local tmp = REPO .. ".git/state-tmp"
+    local tmp = REPO .. "state-tmp"
     local f = io.open(tmp, "w")
     f:write(serial(G))
     f:close()

@@ -56,15 +56,10 @@ do
 
     -- A: ... -- p -- FORGED    (no action file at all)
     TEST "A hand-forges a commit that is not an action"
-    exec {
-        cmd = "echo junk > " .. REPO_A .. "junk.txt",
-    }
-    exec {
-        cmd = "git -C " .. REPO_A .. " add junk.txt",
-    }
-    exec {
-        cmd = "git -C " .. REPO_A .. " commit -q -m 'x' --no-gpg-sign",
-    }
+    COMMIT(REPO_A, {
+        files = { ["junk.txt"] = "junk\n" },
+        msg   = "x",
+    })
 
     TEST "X recvs A: must name the problem, not leak a traceback"
     FAIL {
@@ -85,27 +80,20 @@ do
     -- A: ... -- p -- FORGED    (action file with an unknown kind)
     TEST "A hand-forges an action file with an unknown kind"
     exec {
-        cmd = "git -C " .. REPO_A .. " reset --hard " .. good,
+        cmd = "git -C " .. REPO_A .. " update-ref HEAD " .. good,
     }
+    local content = "return { action='xyz' }\n"
     local f = io.open(REPO_A .. "bad-kind.lua", "w")
-    f:write("return { action='xyz' }\n")
+    f:write(content)
     f:close()
     local aid = exec {
         cmd = "git -C " .. REPO_A .. " hash-object bad-kind.lua",
     }
-    exec {
-        cmd = "mkdir -p " .. REPO_A .. "actions/" .. aid:sub(1,2),
-    }
-    exec {
-        cmd = "mv " .. REPO_A .. "bad-kind.lua " ..
-            REPO_A .. "actions/" .. aid:sub(1,2) .. "/" .. aid .. ".lua",
-    }
-    exec {
-        cmd = "git -C " .. REPO_A .. " add actions/",
-    }
-    exec {
-        cmd = "git -C " .. REPO_A .. " commit -q -m 'x' --no-gpg-sign",
-    }
+    os.remove(REPO_A .. "bad-kind.lua")
+    COMMIT(REPO_A, {
+        files = { ["actions/" .. aid:sub(1,2) .. "/" .. aid .. ".lua"] = content },
+        msg   = "x",
+    })
 
     TEST "X recvs A: invalid kind, named"
     FAIL {

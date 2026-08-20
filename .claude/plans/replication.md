@@ -4,7 +4,7 @@
 
 Owner-to-owner replication only.
 Full trust, no validation, no consensus.
-Chains use working trees (`git init`, not bare repos).
+Chains use bare repos (`git init --bare`, no working trees).
 
 ## Workflow
 

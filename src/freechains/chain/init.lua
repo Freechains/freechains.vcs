@@ -7,11 +7,13 @@ require "freechains.chain.rules"
 REPO   = ARGS.root .. "/chains/" .. ARGS.alias .. "/"
 
 do
-    local f = io.open(REPO .. "genesis.lua")
-    if not f then
+    -- the chain exists <=> its (bare) repo resolves a genesis
+    local ok = exec { err=false, stderr=false,
+        cmd = "git -C " .. REPO .. " cat-file -e HEAD:genesis.lua",
+    }
+    if not ok then
         ERROR("chain " .. ARGS.alias .. " : not found")
     end
-    f:close()
 end
 
 if ARGS.sync then

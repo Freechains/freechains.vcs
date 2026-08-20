@@ -13,7 +13,7 @@ A Freechains host is a directory with two top-level subdirectories, each backed 
     config.toml                     <- host port, default peers, key to use
     peers.toml                      <- known peers registry
   chains/                           <- one git repo per chain
-    <chain-id>/                   <- git working tree (DAG + blocks)
+    <chain-id>/                   <- BARE git repo (DAG + blocks)
       .freechains/
         genesis.lua                <- tracked: genesis block definition
         random                     <- tracked: uniqueness seed
@@ -32,9 +32,10 @@ A standard git working tree containing configuration and key material. Not a fre
 
 ### chains/
 
-Contains one git repo per chain (currently working trees, not
-bare repos). Each chain is an independent repository. Symlinks
-provide human-readable aliases.
+Contains one BARE git repo per chain (no working tree: reads go
+through `cat-file`/`ls-tree` on HEAD's tree, writes through
+`hash-object`/`update-index`/`commit-tree`). Each chain is an
+independent repository. Symlinks provide human-readable aliases.
 
 ## Replication Model
 

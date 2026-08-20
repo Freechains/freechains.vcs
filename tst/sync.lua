@@ -202,19 +202,14 @@ do
     local aid = exec {
         cmd = "git -C " .. REPO_X .. " hash-object like-bad.lua",
     }
-    exec {
-        cmd = "mkdir -p " .. REPO_X .. "actions/" .. aid:sub(1,2),
-    }
-    exec {
-        cmd = "mv " .. REPO_X .. "like-bad.lua " ..
-            REPO_X .. "actions/" .. aid:sub(1,2) .. "/" .. aid .. ".lua",
-    }
-    exec {
-        cmd = "git -C " .. REPO_X .. " add actions/",
-    }
-    exec {
-        cmd = ENV .. " git -C " .. REPO_X .. " -c user.signingkey=" .. KEY3 .. " -c gpg.format=ssh" .. " commit -S --allow-empty-message -m ''",
-    }
+    local fh = io.open(REPO_X .. "like-bad.lua")
+    local content = fh:read("a")
+    fh:close()
+    os.remove(REPO_X .. "like-bad.lua")
+    COMMIT(REPO_X, {
+        files = { ["actions/" .. aid:sub(1,2) .. "/" .. aid .. ".lua"] = content },
+        sign  = KEY3,
+    })
 
     TEST "X sends to B: rejected"
     local err = FAIL {

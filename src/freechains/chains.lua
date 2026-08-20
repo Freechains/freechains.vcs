@@ -21,26 +21,24 @@ local function git_init (dir)
         cmd = "git -C " .. dir .. " config receive.advertisePushOptions true"
     }
 
+    -- bare repo: the repo dir IS the git dir
     exec {
-        cmd = "cp " .. HERE .. "/hooks/pre-receive " .. dir .. "/.git/hooks/pre-receive"
+        cmd = "cp " .. HERE .. "/hooks/pre-receive " .. dir .. "/hooks/pre-receive"
     }
     exec {
-        cmd = "chmod +x " .. dir .. "/.git/hooks/pre-receive"
+        cmd = "chmod +x " .. dir .. "/hooks/pre-receive"
     }
 end
 
 -- chain starts with max split among pioneers
-local function pioneers (dir)
+local function pioneers (dir, gen)
     -- the genesis may come from a REMOTE peer (clone), so it is
     -- loaded as DATA: "t" text only, {} no globals (T6c)
-    local src
-    do
-        local f = io.open(dir .. "genesis.lua")
-        if not f then
-            ERROR("chains add : invalid genesis")
-        end
-        src = f:read("a")
-        f:close()
+    local src = exec { trim=false, err=false, stderr=false,
+        cmd = "git -C " .. dir .. " cat-file blob " .. gen .. ":genesis.lua",
+    }
+    if not src then
+        ERROR("chains add : invalid genesis")
     end
     local T = load(src, "=genesis", "t", {})
     local ok
@@ -69,12 +67,12 @@ end
 -- for byte
 local function genesis (dir, gen)
     local G = {
-        authors = pioneers(dir),
+        authors = pioneers(dir, gen),
         actions = {},
         order   = {},
         now     = 0,
     }
-    local tmp = dir .. ".git/state-tmp"
+    local tmp = dir .. "state-tmp"
     local f = io.open(tmp, "w")
     f:write(serial(G))
     f:close()
@@ -139,29 +137,49 @@ if ARGS.add then
         local tmp = DIR .. "/tmp-" .. rand .. "/"
 
         exec {
-            cmd = "git init -b main " .. tmp,
+            cmd = "git init --bare -b main " .. tmp,
             err = "chains add : git init failed",
         }
         git_init(tmp)
+
+        -- genesis commit via plumbing (bare: no worktree, no index
+        -- to inherit): blobs -> index -> tree -> commit -> main
+        local b_rnd, b_gen
         do
-            local f = io.open(tmp .. "/random", "w")
+            local f = io.open(tmp .. "random-tmp", "w")
             f:write(tostring(rand) .. "\n")
             f:close()
+            b_rnd = exec {
+                cmd = "git -C " .. tmp .. " hash-object -w " .. tmp .. "random-tmp",
+            }
+            os.remove(tmp .. "random-tmp")
         end
         do
-            local f = io.open(tmp .. "/genesis.lua", "w")
+            local f = io.open(tmp .. "genesis-tmp", "w")
             f:write(serial(GEN))
             f:close()
+            b_gen = exec {
+                cmd = "git -C " .. tmp .. " hash-object -w " .. tmp .. "genesis-tmp",
+            }
+            os.remove(tmp .. "genesis-tmp")
         end
         exec {
-            cmd = "git -C " .. tmp .. " add .",
+            cmd = "git -C " .. tmp .. " read-tree --empty",
         }
         exec {
-            cmd = CMD.git .. "git -C " .. tmp .. " commit --allow-empty-message -m ''",
+            cmd = "git -C " .. tmp .. " update-index --add" ..
+                " --cacheinfo 100644," .. b_gen .. ",genesis.lua" ..
+                " --cacheinfo 100644," .. b_rnd .. ",random",
         }
-
+        local tree = exec {
+            cmd = "git -C " .. tmp .. " write-tree",
+        }
         local gen = exec {
-            cmd = "git -C " .. tmp .. " rev-parse HEAD",
+            cmd = CMD.git .. "git -C " .. tmp .. " commit-tree " .. tree ..
+                " < /dev/null",
+        }
+        exec {
+            cmd = "git -C " .. tmp .. " update-ref HEAD " .. gen,
         }
 
         -- genesis ref: remote clone without whole history
@@ -197,7 +215,7 @@ if ARGS.add then
         }
         local tmp = DIR .. "/_tmp-" .. math.random(0, 9999999999) .. "/"
         exec {
-            cmd = "git init -b main " .. tmp,
+            cmd = "git init --bare -b main " .. tmp,
             err = "chains add : clone failed",
         }
         git_init(tmp)
@@ -210,7 +228,7 @@ if ARGS.add then
             cmd = "git -C " .. tmp .. " rev-parse refs/genesis",
         }
         exec {
-            cmd = "git -C " .. tmp .. " reset --hard " .. gen,
+            cmd = "git -C " .. tmp .. " update-ref HEAD " .. gen,
         }
         local id = "#" .. gen
         local dir = DIR .. "/" .. id .. "/"

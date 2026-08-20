@@ -29,21 +29,14 @@ local function craft (repo, key, pub, now, back)
     local aid = exec {
         cmd = "git -C " .. repo .. " hash-object forged.lua",
     }
-    exec {
-        cmd = "mkdir -p " .. repo .. "actions/" .. aid:sub(1,2),
-    }
-    exec {
-        cmd = "mv " .. repo .. "forged.lua " ..
-            repo .. "actions/" .. aid:sub(1,2) .. "/" .. aid .. ".lua",
-    }
-    exec {
-        cmd = "git -C " .. repo .. " add actions/",
-    }
-    exec {
-        cmd = ENV .. " git -C " .. repo ..
-            " -c user.signingkey=" .. key .. " -c gpg.format=ssh" ..
-            " commit -S --allow-empty-message -m ''",
-    }
+    local fh = io.open(repo .. "forged.lua")
+    local content = fh:read("a")
+    fh:close()
+    os.remove(repo .. "forged.lua")
+    COMMIT(repo, {
+        files = { ["actions/" .. aid:sub(1,2) .. "/" .. aid .. ".lua"] = content },
+        sign  = key,
+    })
 end
 
 -- sync rejects post from author with insufficient reputation
@@ -165,7 +158,7 @@ do
         cmd = "git -C " .. REPO_A3 .. " cat-file commit HEAD",
     }
     local forged = raw .. "tampered\n"
-    local tmpf = REPO_A3 .. ".git/forged-commit"
+    local tmpf = REPO_A3 .. "forged-commit"
     local fh = io.open(tmpf, "w")
     fh:write(forged)
     fh:close()
@@ -174,7 +167,7 @@ do
     }
     os.remove(tmpf)
     exec {
-        cmd = "git -C " .. REPO_A3 .. " reset --hard " .. new_hash,
+        cmd = "git -C " .. REPO_A3 .. " update-ref HEAD " .. new_hash,
     }
 
     TEST "B rejects forged signature on sync"

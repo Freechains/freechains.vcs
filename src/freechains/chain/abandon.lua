@@ -105,7 +105,7 @@ end
 -- settled posts can be abandoned: the hard-fork rule guards against a
 -- REMOTE reorder, never against a deliberate local escape
 exec {
-    cmd = "git -C " .. REPO .. " reset --hard " .. tip,
+    cmd = "git -C " .. REPO .. " update-ref HEAD " .. tip,
 }
 
 -- stale-beg cleanup: a beg is one commit (the post) on top of the

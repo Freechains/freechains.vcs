@@ -41,17 +41,17 @@ do
     end
 
     do
-        TEST "no payload file in the worktree"
-        local _, code = exec { err=false,
-            cmd = "test -f " .. DIR .. "/hello.txt",
+        TEST "no payload file in the tree"
+        local _, code = exec { err=false, stderr=false,
+            cmd = "git -C " .. DIR .. " cat-file -e HEAD:hello.txt",
         }
-        assert(code ~= 0, "hello.txt should not exist in the worktree")
+        assert(code ~= 0, "hello.txt should not exist in the tree")
     end
 
     do
         TEST "genesis still in tree"
         local _, code = exec {
-            cmd = "test -f " .. DIR .. "/genesis.lua",
+            cmd = "git -C " .. DIR .. " cat-file -e HEAD:genesis.lua",
         }
         assert(code == 0, "genesis.lua missing")
     end
@@ -95,9 +95,9 @@ do
     end
 
     do
-        TEST "worktree carries no user files"
+        TEST "tree carries no user files"
         local files = exec { trim=false,
-            cmd = "ls " .. DIR,
+            cmd = "git -C " .. DIR .. " ls-tree --name-only HEAD",
         }
         assert(files == "actions\ngenesis.lua\nrandom\n",
             "expected internals only: " .. files)

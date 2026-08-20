@@ -53,6 +53,107 @@ function CID (dir, aid)
     return (assert(cid, "no commit: " .. aid))
 end
 
+-- the genesis table of the chain at `dir` (bare repo: no worktree,
+-- so the file is read from HEAD's tree)
+function GENESIS (dir)
+    local src = exec { trim=false,
+        cmd = "git -C " .. dir .. " cat-file blob HEAD:genesis.lua",
+    }
+    return load(src)()
+end
+
+-- the tracked tree of the chain at `dir` (bare repo: replaces
+-- worktree listings/diffs in assertions)
+function TREE (dir)
+    return (exec { trim=false,
+        cmd = "git -C " .. dir .. " ls-tree -r HEAD",
+    })
+end
+
+-- craft a raw git commit on the bare chain repo `dir` (no
+-- worktree): stage `files` (path -> content) on top of HEAD's
+-- tree, commit with optional ssh `sign` key and `msg`, move HEAD.
+-- Returns the new cid
+function COMMIT (dir, t)
+    t = t or {}
+    exec {
+        cmd = "git -C " .. dir .. " read-tree 'HEAD^{tree}'",
+    }
+    for path, content in pairs(t.files or {}) do
+        local tmp = dir .. "/craft-tmp"
+        local f = io.open(tmp, "w")
+        f:write(content)
+        f:close()
+        local blob = exec {
+            cmd = "git -C " .. dir .. " hash-object -w " .. tmp,
+        }
+        os.remove(tmp)
+        exec {
+            cmd = "git -C " .. dir .. " update-index --add --cacheinfo " ..
+                "100644," .. blob .. "," .. path,
+        }
+    end
+    local tree = exec {
+        cmd = "git -C " .. dir .. " write-tree",
+    }
+    local sig = t.sign and
+        (" -c user.signingkey=" .. t.sign .. " -c gpg.format=ssh") or ""
+    local msg = t.msg and (" -m '" .. t.msg .. "'") or ""
+    local cid = exec {
+        cmd = ENV .. " git -C " .. dir .. sig .. " commit-tree" ..
+            (t.sign and " -S" or "") .. " -p HEAD" .. msg .. " " .. tree ..
+            " < /dev/null",
+    }
+    exec {
+        cmd = "git -C " .. dir .. " update-ref HEAD " .. cid,
+    }
+    return cid
+end
+
+-- raw-git merge on the bare repo `dir`: FF when possible, else
+-- merge-tree + commit-tree, as `git merge` would
+function MERGE (dir, other)
+    local ok = exec { err=false, stderr=false,
+        cmd = "git -C " .. dir .. " merge-base --is-ancestor HEAD " .. other,
+    }
+    if ok then
+        local cid = exec {
+            cmd = "git -C " .. dir .. " rev-parse " .. other,
+        }
+        exec {
+            cmd = "git -C " .. dir .. " update-ref HEAD " .. cid,
+        }
+        return cid
+    end
+    local tree = exec {
+        cmd = "git -C " .. dir .. " merge-tree --write-tree HEAD " .. other,
+    }
+    local cid = exec {
+        cmd = "git -C " .. dir .. " commit-tree " .. tree ..
+            " -p HEAD -p " .. other .. " < /dev/null",
+    }
+    exec {
+        cmd = "git -C " .. dir .. " update-ref HEAD " .. cid,
+    }
+    return cid
+end
+
+-- dry-run merge on the bare repo `dir`: would HEAD+other merge
+-- cleanly? merge-tree computes the tree with no worktree, so
+-- there is nothing to abort. Unrelated histories fail too
+function DRYMERGE (dir, other)
+    local ok = exec { err=false, stderr=false,
+        cmd = "git -C " .. dir .. " merge-base HEAD " .. other,
+    }
+    if not ok then
+        return false
+    end
+    local _, code = exec { err=false, stderr=false,
+        cmd = "git -C " .. dir .. " merge-tree --write-tree HEAD " .. other,
+    }
+    return code == 0
+end
+
 -- the state snapshot at `dir`'s HEAD (blob at refs/states/<hash>)
 function STATE (dir)
     local hash = exec {
