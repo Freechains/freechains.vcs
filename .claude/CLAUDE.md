@@ -44,7 +44,6 @@ Key specs in `.claude/plans/`:
 | `reps.md`        | Reputation: likes, dislikes, pioneers, 12h rule|
 | `crypto.md`      | Crypto choices (openssl, luasodium)            |
 | `commands.md`    | Freechains CLI to Git command mapping          |
-| `cli.md`         | Command-line interface reference               |
 | `tests.md`       | Test catalog (58 tests across sections A–X)    |
 | `threats.md`     | Security threat catalog (T1–T6), mitigations   |
 | `prune.md`       | Git history flattening: `--orphan` vs `prune`  |

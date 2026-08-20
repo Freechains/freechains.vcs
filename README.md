@@ -560,9 +560,10 @@ peers reach the same state without any central authority.
 
 As a measure against malicious members with strong past reputation, Freechains
 protects settled local branches from unexpected consensus reorderings.
-A settled branch contains at least *100 actions* or *7 days* between oldest and
-newest actions.
-Posts older than this window are frozen and cannot be reordered.
+A branch settles once it holds at least *100 actions* or spans *7 days* between
+its oldest and newest actions.
+Only posts behind that window are frozen: the most recent ones can still
+reorder freely.
 So, if a `sync` operation would reorder local frozen posts, then the merge is
 simply refused and the peers are no longer compatible.
 In contrast, peers that remain active and synchronize over time evolve together
