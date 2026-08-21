@@ -286,12 +286,12 @@ do
         exec {
             cmd = EXE .. " chains add '#inl-pub' init --pioneer=" .. KEY1 .. ".pub",
         }
-        local t1 = dofile(ROOT .. "/chains/#inl-pub/genesis.lua")
+        local t1 = GENESIS(ROOT .. "/chains/#inl-pub")
         assert(t1.pioneers[1] == PUB1, "pub-file form")
         exec {
             cmd = EXE .. " chains add '#inl-str' init --pioneer='" .. PUB1 .. "'",
         }
-        local t2 = dofile(ROOT .. "/chains/#inl-str/genesis.lua")
+        local t2 = GENESIS(ROOT .. "/chains/#inl-str")
         assert(t2.pioneers[1] == PUB1, "string form")
     end
 
