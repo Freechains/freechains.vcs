@@ -7,7 +7,7 @@ local DIR = ROOT .. "/chains/#cli-now/"
 -- reads the signed time of action `aid` (the one source of truth)
 local function TIME (aid)
     local act = exec {
-        cmd = "git -C " .. DIR .. " cat-file blob " .. aid,
+        cmd = "git -C " .. DIR .. " log -1 --format=%B " .. aid,
     }
     return act:match('%["time"%] = (%d+)')
 end

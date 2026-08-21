@@ -104,71 +104,44 @@ local KINDS = { post=true, like=true, revoke=true }
 function commit (G, cid, beg)
     local ps = GIT.parents(cid)
     local aid = ACTION.aid(cid)
-    -- a merge adds no time: dates are neutral, the action file is
-    -- the one source of truth
-    local time = 0
+    -- a merge adds no time: dates are neutral, the action message
+    -- is the one source of truth
 
-    -- not an action file: must be an empty merge
+    -- EVERY commit carries the empty tree: content in a tree would
+    -- be smuggled bytes, relayed forever and un-revocable
+    do
+        local t = exec { err=false, stderr=false,
+            cmd = "git -C " .. REPO .. " rev-parse " .. cid .. "^{tree}",
+        }
+        if t ~= GIT.tree() then
+            error("malformed commit : unexpected tree", 0)
+        end
+    end
+
+    -- empty message: must be a 2-parent sync merge (the genesis,
+    -- the only root, is below every replay and never gets here)
     if not aid then
-        if #ps == 2 then
-            local diff = exec {
-                cmd = "git -C " .. REPO ..
-                    " diff-tree --cc --no-commit-id -r --name-status " .. cid
-            }
-            if diff ~= "" then
-                error("malformed commit : expected empty merge", 0)
-            end
-        else
+        if #ps ~= 2 then
             error("malformed commit : expected 2-parent merge", 0)
         end
 
-    -- action file: check commit
+    -- action message: check commit
     else
-        -- the file's name must be its own hash: the aid binds content
-        local h = exec { err=false, stderr=false,
-            cmd = "git -C " .. REPO .. " rev-parse " .. cid .. ":" .. ACTION.path(aid)
-        }
-        if h ~= aid then
-            error("malformed commit : invalid action filename", 0)
-        end
         local act = ACTION.read(false, aid)
         if not act then
-            error("malformed commit : invalid action file", 0)
+            error("malformed commit : invalid action", 0)
         end
         local kind = act.action
         if not KINDS[kind] then
             error("malformed commit : invalid action kind", 0)
         end
-
-        -- the whole diff must be exactly: add the action file
-        -- (--cc: one status letter per parent -> AA on a beg merge)
-        -- checked even for an already-applied action: a duplicate
-        -- must still be a clean add, not a tamper
-        local diff = exec {
-            cmd = "git -C " .. REPO ..
-                " diff-tree --cc --no-commit-id -r --name-status " .. cid
-        }
-        if diff ~= (("A"):rep(#ps) .. "\t" .. ACTION.path(aid)) then
-            error("malformed commit : expected clean add", 0)
-        end
-
-        -- stored `backs` must match calculated here
-        do
-            local backs = ACTION.backs(ps)
-            if type(act.backs)~='table' or #act.backs~=#backs then
-                error("malformed commit : invalid backs", 0)
-            end
-            for i, a in ipairs(backs) do
-                if act.backs[i] ~= a then
-                    error("malformed commit : invalid backs", 0)
-                end
-            end
+        if #ps > 2 then
+            error("malformed commit : too many parents", 0)
         end
 
         if math.type(act.time) ~= 'integer' then
             error("malformed commit : invalid time", 0)
         end
-        time = act.time
 
         if G.actions[aid] then
             -- the same action arrived in an earlier commit: already
@@ -176,9 +149,9 @@ function commit (G, cid, beg)
             goto SNAP
         end
 
-        -- B6: pin the file to the envelope. The file's `sign` must
-        -- match the commit's verified signature; `time` needs no
-        -- pin, the file itself is the signed source of truth
+        -- B6: pin the message to the envelope. The claimed `sign`
+        -- must match the commit's verified signature; `time` needs
+        -- no pin, the message itself is the signed source of truth
         local key, err = ssh.verify(REPO, cid)
         if (not key) and err=='forged' then
             error("malformed commit : invalid signature", 0)
@@ -187,12 +160,17 @@ function commit (G, cid, beg)
             error("malformed commit : invalid signature", 0)
         end
 
+        -- backs are STRUCTURAL: derived here from the parents,
+        -- never claimed (aid == cid: git's Merkle binds ancestry)
+        local backs = ACTION.backs(ps)
+
         if kind == 'post' then
             local ok, err = apply(G, 'post', act, {
-                time = time,
-                aid  = aid,
-                sign = key,
-                beg  = beg or (key == nil),
+                time  = act.time,
+                aid   = aid,
+                sign  = key,
+                beg   = beg or (key == nil),
+                backs = backs,
             })
             if not ok then
                 error("invalid post : " .. err, 0)
@@ -209,10 +187,11 @@ function commit (G, cid, beg)
                 and (G.actions[act.aid].maturity == "beg")
             ) or false
             local ok, err = apply(G, kind, act, {
-                time = time,
-                aid  = aid,
-                sign = key,
-                beg  = to_beg,
+                time  = act.time,
+                aid   = aid,
+                sign  = key,
+                beg   = to_beg,
+                backs = backs,
             })
             if not ok then
                 error("invalid " .. kind .. " : " .. err, 0)

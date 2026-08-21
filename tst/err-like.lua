@@ -22,16 +22,9 @@ exec {
 -- (placed at its own hash), the commit signed by `key`
 -- (unsigned when nil)
 local function craft (repo, key, content)
-    local f = io.open(repo .. "crafted.lua", "w")
-    f:write(content)
-    f:close()
-    local aid = exec {
-        cmd = "git -C " .. repo .. " hash-object crafted.lua",
-    }
-    os.remove(repo .. "crafted.lua")
     COMMIT(repo, {
-        files = { ["actions/" .. aid:sub(1,2) .. "/" .. aid .. ".lua"] = content },
-        sign  = key,
+        msg  = content,
+        sign = key,
     })
 end
 
@@ -106,13 +99,13 @@ do
         cmd = EXE_B .. " chains add '#err-payload' clone " .. REPO_A2,
     }
 
-    TEST "A crafts an empty commit"
+    TEST "A crafts a 1-parent commit whose message is not an action"
     COMMIT(REPO_A2, { sign = KEY1, msg = "x" })
 
-    TEST "B rejects the empty commit on sync"
+    TEST "B rejects it on sync (not a valid action)"
     FAIL {
         cmd = EXE_B .. " chain '#err-payload' sync recv " .. REPO_A2,
-        err = "ERROR : chain sync : malformed commit : expected 2-parent merge",
+        err = "ERROR : chain sync : malformed commit : invalid action",
     }
 end
 
@@ -141,7 +134,7 @@ do
     TEST "B rejects bad lua on sync"
     FAIL {
         cmd = EXE_B .. " chain '#err-lua' sync recv " .. REPO_A3,
-        err = "ERROR : chain sync : malformed commit : invalid action file",
+        err = "ERROR : chain sync : malformed commit : invalid action",
     }
 end
 
@@ -170,7 +163,7 @@ do
     TEST "B rejects bad lua on sync"
     FAIL {
         cmd = EXE_B .. " chain '#err-table' sync recv " .. REPO_A4,
-        err = "ERROR : chain sync : malformed commit : invalid action file",
+        err = "ERROR : chain sync : malformed commit : invalid action",
     }
 end
 
@@ -353,35 +346,9 @@ do
     }
 end
 
--- sync rejects an action whose backs do not match its parents
-do
-    print("==> sync rejects lying backs")
-
-    local REPO_A12 = ROOT_A .. "/chains/#err-backs/"
-
-    TEST "A creates chain + post"
-    exec {
-        cmd = EXE_A .. " chains add '#err-backs' init " .. GEN_1,
-    }
-    local post = exec {
-        cmd = EXE_A .. " chain '#err-backs' post inline 'legit' --sign " .. KEY1,
-    }
-
-    TEST "B clones from A"
-    exec {
-        cmd = EXE_B .. " chains add '#err-backs' clone " .. REPO_A12,
-    }
-
-    TEST "A crafts like whose backs deny its parent"
-    local now = os.time()
-    craft(REPO_A12, KEY1, like_file('["aid"] = "' .. post .. '"', 1000, PUB1, now, "{ }"))
-
-    TEST "B rejects lying backs on sync"
-    FAIL {
-        cmd = EXE_B .. " chain '#err-backs' sync recv " .. REPO_A12,
-        err = "ERROR : chain sync : malformed commit : invalid backs",
-    }
-end
+-- (removed) "lying backs" test: backs are STRUCTURAL now (the
+-- commit's parents, aid == cid) -- there is no backs field to lie
+-- about, so the whole class is gone by construction (B7 dissolved)
 
 -- sync rejects like with forged signature
 do
@@ -403,11 +370,12 @@ do
     exec {
         cmd = EXE_A .. " --now=2000 chain '#err-forge-like' like 1000 author '" .. PUB1 .. "' --sign " .. KEY1,
     }
-    -- Tamper: append a message; tree, dates and gpgsig stay intact
+    -- Tamper the SIGNED action (the message): flip the n value so
+    -- the body still parses but the ssh signature no longer matches
     local raw = exec { trim=false,
         cmd = "git -C " .. REPO_A11 .. " cat-file commit HEAD",
     }
-    local forged = raw .. "tampered\n"
+    local forged = raw:gsub('%["n"%] = 1000', '["n"] = 999')
     local tmpf = REPO_A11 .. "forged-commit"
     local fh = io.open(tmpf, "w")
     fh:write(forged)

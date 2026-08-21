@@ -22,6 +22,7 @@ tests:
 	$(L) cli-send.lua
 	$(L) cli-list.lua
 	$(L) cli-abandon.lua
+	$(L) cid-edges.lua
 	$(L) abandon-strange.lua
 	$(L) cli-sweep.lua
 	$(L) list-dag-roots.lua

@@ -85,36 +85,41 @@ if ARGS.why then
     }
 end
 
--- the parents of the commit about to be created: `backs` walks
--- them and `apply` folds its time peak over them
+-- the parents of the commit about to be minted: `backs` derives
+-- from them; a beg like parents both sides of its merge
 local ps = to_beg and { GIT.deref("HEAD"), GIT.deref(ref) }
                    or { GIT.deref("HEAD") }
 
--- action file: self-description; minted BEFORE the commit;
--- a beg like backs both sides of its merge.
+-- the action IS the commit message; minted UNREFERENCED
+-- (aid == cid), so a rejection leaves one gc-able loose commit.
 -- ARGS.id is already the aid (or a pubkey): stored as is
 local act = {
     action = kind,
-    backs  = ACTION.backs(ps),
     sign   = pub,
     time   = tonumber(CMD.now),
     blob   = blob,
     [ARGS.target] = ARGS.id,
     n      = num,
 }
-local aid = ACTION.pre(act)
+local aid = ACTION.pre {
+    act     = act,
+    parents = ps,
+    sign    = ARGS.sign,
+    err     = "chain " .. name .. " : invalid sign key",
+}
 
 -- entry/was_revoked used after apply
 local entry = (ARGS.target == "aid") and G.actions[ARGS.id] or nil
 local was_revoked = entry and is_revoked(entry)
 
--- apply BEFORE the commit: a rejected vote leaves nothing
+-- apply BEFORE HEAD moves: a rejected vote leaves nothing anchored
 do
     local ok, err = apply(G, kind, act, {
-        time = tonumber(CMD.now),
-        aid  = aid,
-        sign = pub,
-        beg  = to_beg,
+        time  = tonumber(CMD.now),
+        aid   = aid,
+        sign  = pub,
+        beg   = to_beg,
+        backs = ACTION.backs(ps),
     })
     if not ok then
         ERROR("chain " .. name .. " : " .. err)
@@ -173,8 +178,6 @@ if entry then
     end
 end
 
-ACTION.pos(aid)
-
 -- the why enters the object db anchored at its final name
 if blob then
     exec {
@@ -186,16 +189,12 @@ if blob then
     os.remove(path)
 end
 
--- a beg like commits the merge itself: `ps` carries both sides
-GIT.commit {
-    parents = ps,
-    add     = { blob = aid, path = ACTION.path(aid) },
-    sign    = ARGS.sign,
-    err     = "chain " .. name .. " : invalid sign key",
-}
+-- accepted: the minted commit becomes the tip (a beg like IS the
+-- merge: `ps` carries both sides as its parents)
+GIT.tip(aid)
 
 -- snapshot state at the new tip (the action commit itself)
-STATE.write(G, GIT.deref("HEAD"))
+STATE.write(G, aid)
 
 if to_beg then
     exec {

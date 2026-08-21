@@ -41,12 +41,12 @@ elseif ARGS.dag then
         return
     end
 
-    -- ups from each action file's `backs` (the aid IS its blob
-    -- hash); short labels, revoked wrapped in ~~
+    -- ups are structural: the action ancestors of each commit's
+    -- parents (aid == cid); short labels, revoked wrapped in ~~
     local ups = {}
     local lbl = {}
     for _, h in ipairs(order) do
-        ups[h] = ACTION.read(true, h).backs
+        ups[h] = ACTION.backs(GIT.parents(h))
         local l = h:sub(1, 7)
         if G.actions[h] and is_revoked(G.actions[h]) then
             l = "~" .. l .. "~"

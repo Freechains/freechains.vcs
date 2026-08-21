@@ -4,38 +4,27 @@
 
 local M = {}
 
--- Commit without a worktree (chain repos are BARE):
---  - tree: the single parent's tree, or `merge-tree` of two parents
---    (trees only ever gain action files, so the merge is clean)
---  - `add`: stages one extra blob (the action file) on top
---  - `commit-tree` + `update-ref HEAD`: replaces porcelain
---    `merge`/`commit`, which require a worktree
---  - message read from /dev/null: empty, as porcelain produced
--- t = { parents={cid [, cid]}, add={blob=,path=} | nil,
+-- Every commit carries the EMPTY tree: the protocol lives in the
+-- commit MESSAGE (an action table; empty for a sync merge). Trees
+-- and blobs are not used by actions at all (aid == cid).
+local TREE = nil
+function M.tree ()
+    TREE = TREE or exec {
+        cmd = "git -C " .. REPO .. " hash-object -t tree /dev/null",
+    }
+    return TREE
+end
+local tree = M.tree
+
+-- Mint a commit (no worktree, no index):
+--  - `msg`: path of the message file (the action), or nil (merge)
+--  - `ref` = false: mint the loose object only, do NOT move HEAD
+--    (an action is minted BEFORE `apply`; a rejected one stays
+--    unreferenced, one gc away from gone)
+-- t = { parents={cid [, cid]}, msg=path | nil, ref=false | nil,
 --       sign=keypath | nil, err=msg | nil }
 
 function M.commit (t)
-    local base
-    if t.parents[2] then
-        base = exec {
-            cmd = "git -C " .. REPO .. " merge-tree --write-tree " ..
-                t.parents[1] .. " " .. t.parents[2],
-        }
-    else
-        base = t.parents[1] .. "^{tree}"
-    end
-    exec {
-        cmd = "git -C " .. REPO .. " read-tree '" .. base .. "'",
-    }
-    if t.add then
-        exec {
-            cmd = "git -C " .. REPO .. " update-index --add --cacheinfo " ..
-                "100644," .. t.add.blob .. "," .. t.add.path,
-        }
-    end
-    local tree = exec {
-        cmd = "git -C " .. REPO .. " write-tree",
-    }
     local sig = t.sign and
         (" -c user.signingkey=" .. t.sign .. " -c gpg.format=ssh") or ""
     local ps = ""
@@ -44,13 +33,24 @@ function M.commit (t)
     end
     local cid = exec {
         cmd = CMD.git .. "git -C " .. REPO .. sig .. " commit-tree" ..
-            (t.sign and " -S" or "") .. ps .. " " .. tree .. " < /dev/null",
+            (t.sign and " -S" or "") .. ps .. " " .. tree() ..
+            " < " .. (t.msg or "/dev/null"),
         err = t.err,
     }
+    if t.ref ~= false then
+        exec {
+            cmd = "git -C " .. REPO .. " update-ref HEAD " .. cid,
+        }
+    end
+    return cid
+end
+
+-- point HEAD at a minted commit (the accepted-action second half)
+
+function M.tip (cid)
     exec {
         cmd = "git -C " .. REPO .. " update-ref HEAD " .. cid,
     }
-    return cid
 end
 
 local MEMO = {}

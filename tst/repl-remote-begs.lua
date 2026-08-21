@@ -279,11 +279,13 @@ do
     end
 
     do
-        TEST "both merged action files present in A"
+        TEST "both merged actions present in A"
+        -- actions carry a `time`; the genesis message has none
         local count = exec {
-            cmd = "git -C " .. REPO_A .. " ls-tree -r --name-only HEAD -- actions | wc -l",
+            cmd = "git -C " .. REPO_A .. " log --format=%B HEAD" ..
+                " | grep -c '\\[\"time\"\\]'",
         }
-        assert(count == "2", "expected 2 action files, got: " .. count)
+        assert(count == "2", "expected 2 actions, got: " .. count)
     end
 end
 

@@ -105,11 +105,48 @@
 
 # Steps
 
-- S1: tests first: craft the edges above vs TODAY's code
-- S2: GIT.commit -> empty tree + message; action.lua
-  identity layer
-- S3: post/like flow (unreferenced mint -> apply -> ref)
-- S4: consensus/replay validation reshape
-- S5: sync/abandon consumers; drop backs everywhere
-- S6: tests + guide/README transcripts; measure disk again
-  (expect ~1/3 fewer objects)
+- S1 DONE (26/08/21): `tst/cid-edges.lua` pins today:
+    - consecutive identical posts: DIFFERENT ids (backs
+      differ) -- B's parents give the same shape
+    - concurrent identical posts on the same tip: same aid
+      AND same cid ALREADY (neutral dates collapse the
+      commits into one); sync sees nothing new
+    - => B's "idempotent collision" is byte-for-byte
+      today's behavior; the identity question is closed
+      empirically, not just by argument
+- S2 DONE: git.lua empty-tree commit (msg + ref=false mint
+  + GIT.tip); action.lua identity layer (read=message body,
+  aid==cid, full=rev-parse ^{commit}, backs=walk parents)
+- S3 DONE: post/like mint UNREFERENCED (ACTION.pre builds
+  the commit) -> apply -> GIT.tip; act loses `backs`
+- S4 DONE: consensus rewrite -- empty-tree check (new:
+  "unexpected tree"), message parses as action, backs
+  STRUCTURAL from parents, B7/filename/clean-add gone
+- S5 DONE: get/list/rules/sync/abandon consumers; env.backs
+  threads the structural backs into apply
+- S6 DONE: tests reshaped (COMMIT crafts via message,
+  CID/TREE identity, err-* crafts drop backs, lying-backs
+  test REMOVED as impossible); FULL SUITE 40/40 GREEN
+    - error renames: invalid action (was ...file/filename),
+      unexpected tree (was expected clean add / 2-parent)
+- DISK re-measure (1000 posts, packed window 50):
+    - old (tree): 7002 objects (1001 c / 3001 b / 3000 t),
+      1.17 MiB
+    - new (msg):  3003 objects (1001 c / 2001 b / 1 tree),
+      722 KiB
+    - 57% fewer objects, 38% smaller pack; the 3000 trees
+      and 1000 duplicate blobs were pure structure
+    - remaining 2001 blobs are content: 1000 payloads +
+      1001 state snapshots (git-state already packs these)
+- FULL 10k SIM (wikimedia chat, 6541 actions):
+    - packed floor: 9.65 MiB (vs tree-based git-state ~23
+      MiB -> HALVED again); du 20 MB total
+    - census: 12726 commits + 18417 blobs + 1 tree (blobs
+      are pure content: payloads + state snapshots)
+    - wall time 45.7 min, max RSS 26 MB -- FASTEST of all
+      models (file 48 / bare-tree 57): minting = one
+      commit-tree, no read-tree/update-index/write-tree
+    - full arc: 15.3 GB -> 9.65 MiB (~1580x)
+- PENDING: guide/README transcripts
+- NOTE: validated via worktree shim; hook needs `make
+  install` for a native `make tests`

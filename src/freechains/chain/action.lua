@@ -1,31 +1,26 @@
 local GIT = require "freechains.chain.git"
 
--- action files: one per action, inside the action commit itself:
---  - `actions/ab/<aid>.lua` (256 mechanical buckets: git stores
---    a tree object whole, so one flat dir would cost O(n^2))
---  - aid = git blob hash of the file, minted BEFORE the commit
+-- an ACTION is a commit whose MESSAGE is the action table:
+--  - aid == cid: one id space (states/payloads/begs agree)
+--  - a sync MERGE has an empty message: transparent
+--  - the GENESIS is the root (no parents): not an action
+--    (its message carries the genesis table)
 
 local M = {}
 
--- tree path of action `aid`
-
-function M.path (aid)
-    return "actions/" .. aid:sub(1, 2) .. "/" .. aid .. ".lua"
-end
-
--- the action table of `aid`: the aid IS the blob hash, so the
--- object is the file
+-- the action table of `aid`: the commit's message body
 --  - asr = true  : asserts (my own history, so it is a bug)
 --  - asr = false : nil if it does not load (untrusted input)
 
 function M.read (asr, aid)
-    local out = exec { err=false, stderr=false,
-        cmd = "git -C " .. REPO .. " cat-file blob " .. aid
+    local out = exec { trim=false, err=false, stderr=false,
+        cmd = "git -C " .. REPO .. " cat-file commit " .. aid
     }
-    if out then
+    local body = out and out:match("\n\n(.*)$")
+    if body and #body > 0 then
         -- "t": text only (a binary chunk can crash the VM)
-        -- {} : no globals (the file is DATA, not a program)
-        local f = load(out, "=action", "t", {})
+        -- {} : no globals (the message is DATA, not a program)
+        local f = load(body, "=action", "t", {})
         if f then
             local ok, t = pcall(f)
             if ok then
@@ -47,73 +42,52 @@ function M.read (asr, aid)
 end
 
 -- `pre` expanded to a full aid: ids are printed abbreviated
--- (`list dag`), so a prefix must resolve, as git does with
--- commit hashes. Two chars name the bucket, so anything
--- shorter cannot resolve. Unknown or ambiguous prefixes are
--- returned unchanged: the caller fails on the id it was given
+-- (`list dag`), so a prefix must resolve, as git does with any
+-- object. Unknown or ambiguous prefixes are returned unchanged:
+-- the caller fails on the id it was given
 
 function M.full (pre)
-    if (#pre == 40) or (#pre < 2) or (not pre:match("^%x+$")) then
+    if (#pre == 40) or (not pre:match("^%x+$")) then
         return pre
     end
-    -- an action in history sits in its bucket (in HEAD's tree);
-    -- a pending beg is outside HEAD's tree, on its own ref
-    local dir = exec { err=false, stderr=false,
-        cmd = "git -C " .. REPO .. " ls-tree --name-only" ..
-            " 'HEAD:actions/" .. pre:sub(1, 2) .. "'",
-    } or ""
-    local begs = exec { err=false, stderr=false,
-        cmd = "git -C " .. REPO .. " for-each-ref --format='%(refname)'" ..
-            " 'refs/begs/beg-" .. pre .. "*'",
-    } or ""
-    local aid = nil
-    for l in (dir .. "\n" .. begs):gmatch("[^\n]+") do
-        local a = l:match("^(%x+)%.lua$") or l:match("beg%-(%x+)$")
-        if a and (a:sub(1, #pre) == pre) then
-            if aid and (a ~= aid) then
-                return pre      -- ambiguous
-            end
-            aid = a
-        end
-    end
-    return aid or pre
+    -- ^{commit}: states/payloads are blobs in the same object db
+    local out = exec { err=false, stderr=false,
+        cmd = "git -C " .. REPO .. " rev-parse --verify --quiet" ..
+            " '" .. pre .. "^{commit}'",
+    }
+    return out or pre
 end
 
--- aid(cid): cid -> aid : aid of the action commit cid
+-- aid(cid): is `cid` an action? its id (== cid), or nil:
+-- a merge has an empty message, the genesis has no parents
 
 function M.aid (cid)
-    local out = exec { err=false, stderr=false,
-        cmd = "git -C " .. REPO ..
-            " diff-tree --cc --no-commit-id -r --name-only " .. cid,
-    }
-    return out and out:match("actions/%x+/(%x+)%.lua")
-end
-
--- cid(aid): aid -> cid : the commit that added action `aid`,
-
-function M.cid (aid)
-    local out = exec { err=false, stderr=false,
-        cmd = "git -C " .. REPO ..
-            " log --all --full-history -m --diff-filter=A --format=%H" ..
-            " -- " .. M.path(aid),
+    local out = exec { trim=false, err=false, stderr=false,
+        cmd = "git -C " .. REPO .. " cat-file commit " .. cid,
     }
     if not out then
         return nil
     end
-    -- `-m` also lists a MERGE whose side brought the file in
-    -- (its parent-1 diff shows it as added): the true adder is
-    -- the OLDEST listed commit
-    local cid
-    for h in out:gmatch("%x+") do
-        cid = h
+    if not out:match("\nparent %x+") then
+        return nil                          -- genesis
     end
-    return cid
+    local body = out:match("\n\n(.*)$")
+    if body and #body > 0 then
+        return cid
+    end
+    return nil                              -- sync merge
+end
+
+-- cid(aid): identity (kept for the callers' vocabulary)
+
+function M.cid (aid)
+    return M.aid(aid)
 end
 
 -- the action ancestors (as sorted aids) of the commit about to
 -- be created, from its parents `ps` (revs). Structural: an
--- action IS a commit adding its action file; anything else
--- (genesis, plumbing merge) is transparent
+-- action IS a commit with a message; anything else (genesis,
+-- sync merge) is transparent
 
 function M.backs (ps)
     local ret = {}
@@ -136,27 +110,25 @@ function M.backs (ps)
     return ret
 end
 
--- mint `T`'s aid: the file waits in the git dir (object db
--- untouched) until `pos` writes it after `apply` accepts
+-- mint `T`'s action commit UNREFERENCED (aid == cid needs the
+-- parents): `apply` runs on the aid; only acceptance moves HEAD
+-- (GIT.tip). A rejected action stays one loose commit, gc-able.
+-- t = { act=T, parents={...}, sign=keypath|nil, err=msg|nil }
 
-function M.pre (T)
-    local tmp = REPO .. "action-tmp.lua"
+function M.pre (t)
+    local tmp = REPO .. "action-tmp"
     local f = io.open(tmp, "w")
-    f:write(serial(T))
+    f:write(serial(t.act))
     f:close()
-    return (exec {
-        cmd = "git -C " .. REPO .. " hash-object " .. tmp,
-    })
-end
-
--- the minted action file enters the object db (repos are bare:
--- no file to place); `GIT.commit` stages it into the new tree
-
-function M.pos (aid)
-    exec {
-        cmd = "git -C " .. REPO .. " hash-object -w " .. REPO .. "action-tmp.lua",
+    local cid = GIT.commit {
+        parents = t.parents,
+        msg     = tmp,
+        ref     = false,
+        sign    = t.sign,
+        err     = t.err,
     }
-    os.remove(REPO .. "action-tmp.lua")
+    os.remove(tmp)
+    return cid
 end
 
 return M

@@ -112,7 +112,8 @@ end
 
 -- the newest time causally preceding a set of actions: each entry
 -- records its own `now` at apply, so the fold is one table walk.
--- `backs` is trusted: pinned to the envelope parents at replay (B7)
+-- `backs` is STRUCTURAL: derived from the commit's parents
+-- (aid == cid), never claimed, so there is nothing to pin
 function NOW (G, backs)
     local max = 0
     for _, a in ipairs(backs) do
@@ -123,12 +124,12 @@ function NOW (G, backs)
 end
 
 -- an action is applied from two sides:
---  - `act`: what its author CLAIMS (n, target=aid/author, backs)
---  - `env`: what the chain VERIFIED: (time, aid, sign, beg)
+--  - `act`: what its author CLAIMS (n, target=aid/author)
+--  - `env`: what the chain VERIFIED: (time, aid, sign, beg, backs)
 function apply (G, kind, act, env)
     -- time sits within reasonable interval `time.diff`:
     --  max(backs)-diff <= me <= now+diff
-    local up = NOW(G, act.backs)
+    local up = NOW(G, env.backs)
     do
         if env.time < up-C.time.diff then
             return false, "too old"

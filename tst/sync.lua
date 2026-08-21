@@ -189,26 +189,16 @@ do
 
     TEST "X crafts a raw like signed by KEY3 (0 reps) targeting P1"
     local now = 7000
-    local f = io.open(REPO_X .. "like-bad.lua", "w")
-    f:write('return {\n'
+    local content = 'return {\n'
         .. '    ["action"] = "like",\n'
         .. '    ["aid"] = "' .. P1 .. '",\n'
-        .. '    ["backs"] = { "' .. L_K2 .. '" },\n'   -- X's tip is the beg like
         .. '    ["n"] = 1000,\n'
         .. '    ["sign"] = "' .. PUB3 .. '",\n'
         .. '    ["time"] = ' .. now .. ',\n'
-        .. '}\n')
-    f:close()
-    local aid = exec {
-        cmd = "git -C " .. REPO_X .. " hash-object like-bad.lua",
-    }
-    local fh = io.open(REPO_X .. "like-bad.lua")
-    local content = fh:read("a")
-    fh:close()
-    os.remove(REPO_X .. "like-bad.lua")
+        .. '}\n'
     COMMIT(REPO_X, {
-        files = { ["actions/" .. aid:sub(1,2) .. "/" .. aid .. ".lua"] = content },
-        sign  = KEY3,
+        msg  = content,
+        sign = KEY3,
     })
 
     TEST "X sends to B: rejected"

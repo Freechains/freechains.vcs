@@ -5,7 +5,7 @@ if not (ARGS.sign or ARGS.beg) then
 end
 
 -- the writer's own pubkey, read from the `.pub` file BEFORE the
--- commit: a bad key fails early, nothing enters the tree
+-- commit: a bad key fails early, nothing enters the object db
 local pub = nil
 if ARGS.sign then
     pub = ssh.pub.key(ARGS.sign)
@@ -14,11 +14,15 @@ if ARGS.sign then
     end
 end
 
--- the payload lives OUTSIDE the tree: a loose blob, anchored by
--- `refs/payloads/<aid>`. The action file's `blob` field is what
--- binds it: the aid transitively commits to the content
+-- the payload lives OUTSIDE the commit: a loose blob, anchored by
+-- `refs/payloads/<aid>`. The action's `blob` field is what binds
+-- it: the aid transitively commits to the content
 
 local path = REPO .. "payload-tmp"   -- payload staging file (git dir)
+
+-- the parents of the commit about to be minted: `backs` derives
+-- from them (parents ARE the backs: aid == cid)
+local ps = { GIT.deref("HEAD") }
 
 local act
 local aid
@@ -36,39 +40,42 @@ do
             err = "chain post : invalid path",
         }
     end
-    -- DRY hash: nothing enters the object db before `apply`
-    -- accepts, so a rejection leaves nothing to clean
+    -- DRY hash: the payload enters the object db only after
+    -- `apply` accepts, so a rejection leaves nothing to clean
     blob = exec {
         cmd = "git -C " .. REPO .. " hash-object " .. path,
     }
 
-    -- action file: self-description; minted BEFORE the commit
-    -- (`pos` places it only after `apply` accepts)
+    -- the action IS the commit message; minted UNREFERENCED
+    -- (aid == cid), so a rejection leaves one gc-able loose commit
     act = {
         action = 'post',
-        backs  = ACTION.backs { "HEAD" },
         sign   = pub,
         time   = tonumber(CMD.now),
         blob   = blob,
     }
-    aid = ACTION.pre(act)
+    aid = ACTION.pre {
+        act     = act,
+        parents = ps,
+        sign    = ARGS.sign,
+        err     = ARGS.sign and "chain post : invalid sign key" or nil,
+    }
 end
 
--- apply BEFORE the commit: a rejected post leaves nothing
+-- apply BEFORE HEAD moves: a rejected post leaves nothing anchored
 do
     local ok, err = apply(G, 'post', act, {
-        time = tonumber(CMD.now),
-        aid  = aid,
-        sign = pub,
-        beg  = ARGS.beg,
+        time  = tonumber(CMD.now),
+        aid   = aid,
+        sign  = pub,
+        beg   = ARGS.beg,
+        backs = ACTION.backs(ps),
     })
     if not ok then
         ERROR("chain post : " .. err)
     end
     G.order[#G.order+1] = aid
 end
-
-ACTION.pos(aid)
 
 -- the payload enters the object db anchored at its final name:
 -- `refs/payloads/<aid>` -> blob. (A crash between the two calls
@@ -81,24 +88,16 @@ exec {
 }
 os.remove(path)
 
--- unsigned: only a bug fails
-GIT.commit {
-    parents = { GIT.deref("HEAD") },
-    add     = { blob = aid, path = ACTION.path(aid) },
-    sign    = ARGS.sign,
-    err     = ARGS.sign and "chain post : invalid sign key" or nil,
-}
-
--- snapshot state at the new tip (the action commit itself)
-STATE.write(G, GIT.deref("HEAD"))
+-- snapshot state at the action commit itself
+STATE.write(G, aid)
 
 if ARGS.beg then
+    -- a beg parks on its own ref, outside `main`: HEAD never moves
     exec {
-        cmd = "git -C " .. REPO .. " update-ref refs/begs/beg-" .. aid .. " HEAD",
+        cmd = "git -C " .. REPO .. " update-ref refs/begs/beg-" .. aid .. " " .. aid,
     }
-    exec {
-        cmd = "git -C " .. REPO .. " update-ref HEAD " .. GIT.deref("HEAD~1"),
-    }
+else
+    GIT.tip(aid)
 end
 
 print(aid)

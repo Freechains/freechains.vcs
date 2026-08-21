@@ -132,8 +132,9 @@ do
         assert(T.n == nil, "post metadata has no n key: " .. tostring(T.n))
         assert(type(T.sign) == "string", "sign type: " .. type(T.sign))
         assert(T.sign:match("^ssh%-ed25519 "), "sign: " .. tostring(T.sign))
-        assert(type(T.backs) == "table", "backs type: " .. type(T.backs))
-        assert(#T.backs == 0, "POST is the first post; expected 0 backs, got: " .. #T.backs)
+        -- backs are STRUCTURAL now (the commit's parents): the
+        -- message carries no backs field
+        assert(T.backs == nil, "no backs key: " .. tostring(T.backs))
     end
 
     do
@@ -147,8 +148,11 @@ do
         assert(T.aid == POST, "aid: " .. tostring(T.aid))
         assert(T.author == nil, "author should be unset")
         assert(math.type(T.n) == "integer", "n: " .. tostring(T.n))
-        assert(#T.backs == 1, "expected 1 back, got: " .. #T.backs)
-        assert(T.backs[1] == POST, "back should be POST: " .. tostring(T.backs[1]))
+        -- backs are structural: the like's parent commit IS the post
+        local up = exec {
+            cmd = "git -C " .. DIR .. " rev-parse " .. LIKE .. "^1",
+        }
+        assert(up == POST, "parent should be POST: " .. up)
     end
 
     do
@@ -189,21 +193,25 @@ do
         local T = load(out, "metadata", "t", {})()
         assert(T.sign == nil, "sign: " .. tostring(T.sign))
         assert(T.action == "post", "action: " .. tostring(T.action))
-        assert(#T.backs == 1, "expected 1 back, got: " .. #T.backs)
-        assert(T.backs[1] == LIKE, "back should be LIKE: " .. tostring(T.backs[1]))
+        -- backs are structural: the unsigned post's parent is LIKE
+        local up = exec {
+            cmd = "git -C " .. DIR .. " rev-parse " .. UNSIGNED .. "^1",
+        }
+        assert(up == LIKE, "parent should be LIKE: " .. up)
     end
 
     do
-        TEST "metadata of merge-like (beg merge, 2 backs)"
-        local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-get' get metadata " .. MERGE_LIKE,
+        TEST "merge-like (beg merge): TWO structural parents"
+        local ps = exec {
+            cmd = "git -C " .. DIR .. " rev-list --parents -n 1 " .. MERGE_LIKE,
         }
-        assert(code == 0, "exit code: " .. tostring(code))
-        local T = load(out, "metadata", "t", {})()
-        assert(#T.backs == 2, "expected 2 backs, got: " .. #T.backs)
-        local s = { [T.backs[1]] = true, [T.backs[2]] = true }
-        assert(s[LIKE],     "backs should contain LIKE: "     .. table.concat(T.backs, " "))
-        assert(s[UNSIGNED], "backs should contain UNSIGNED: " .. table.concat(T.backs, " "))
+        local s = {}
+        for h in ps:gmatch("%x+") do
+            s[h] = true
+        end
+        s[MERGE_LIKE] = nil
+        assert(s[LIKE],     "parents should contain LIKE: "     .. ps)
+        assert(s[UNSIGNED], "parents should contain UNSIGNED: " .. ps)
     end
 end
 

@@ -355,7 +355,7 @@ do
     local err = FAIL {
         cmd = EXE_B .. " --now=10000 chain '#test' sync recv " .. REPO_A,
     }
-    assert(err and err:match("malformed commit : expected clean add"), "should fail: " .. tostring(err))
+    assert(err and err:match("malformed commit : unexpected tree"), "should fail: " .. tostring(err))
 
     TEST "B's HEAD unchanged"
     local after = exec {
@@ -392,7 +392,7 @@ do
     local err = FAIL {
         cmd = EXE_B .. " --now=11000 chain '#test' sync recv " .. REPO_A,
     }
-    assert(err and err:match("malformed commit : expected 2%-parent merge"), "should fail: " .. tostring(err))
+    assert(err and err:match("malformed commit : unexpected tree"), "should fail: " .. tostring(err))
 
     TEST "B's HEAD unchanged"
     local after = exec {
@@ -433,7 +433,7 @@ do
     local err = FAIL {
         cmd = EXE_B .. " --now=12000 chain '#test' sync recv " .. REPO_A,
     }
-    assert(err and err:match("malformed commit : invalid action filename"), "should fail: " .. tostring(err))
+    assert(err and err:match("malformed commit : unexpected tree"), "should fail: " .. tostring(err))
 
     TEST "B's HEAD unchanged"
     local after = exec {

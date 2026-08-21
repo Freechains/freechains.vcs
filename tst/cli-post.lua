@@ -95,12 +95,11 @@ do
     end
 
     do
-        TEST "tree carries no user files"
+        TEST "tree is EMPTY (actions live in commit messages)"
         local files = exec { trim=false,
             cmd = "git -C " .. DIR .. " ls-tree --name-only HEAD",
         }
-        assert(files == "actions\n",
-            "expected internals only: " .. files)
+        assert(files == "", "expected empty tree: " .. files)
     end
 end
 
@@ -118,14 +117,20 @@ do
     end
 
     do
-        TEST "post commit message is always empty"
-        exec {
+        TEST "post commit message IS the action table"
+        local p = exec {
             cmd = ENV_EXE .. " chain '#cli-post' post inline 'no reason' --sign " .. KEY1,
         }
-        local msg = exec {
-            cmd = "git -C " .. DIR .. " log -1 --format=%s HEAD",
+        local msg = exec { trim=false,
+            cmd = "git -C " .. DIR .. " log -1 --format=%B HEAD",
         }
-        assert(msg == "", "commit message should be empty: " .. msg)
+        local T = load(msg, "=msg", "t", {})()
+        assert(T.action == "post", "message parses as the action")
+        -- and the id IS the commit
+        local head = exec {
+            cmd = "git -C " .. DIR .. " rev-parse HEAD",
+        }
+        assert(p == head, "aid == cid")
     end
 end
 

@@ -64,14 +64,16 @@ do
     end
 
     do
-        TEST "like-commit-is-action-file-only"
-        local files = exec {
-            cmd = "git -C " .. DIR .. " diff-tree --cc --no-commit-id -r --name-only " .. CID(DIR, LIKE),
+        TEST "like-commit-is-the-action (message, empty tree)"
+        local msg = exec { trim=false,
+            cmd = "git -C " .. DIR .. " log -1 --format=%B " .. LIKE,
         }
-        assert(
-            files == "actions/" .. LIKE:sub(1, 2) .. "/" .. LIKE .. ".lua",
-            "expected only the action file: " .. files
-        )
+        local T = load(msg, "=msg", "t", {})()
+        assert(T.action == "like", "message parses as the like")
+        local files = exec { trim=false,
+            cmd = "git -C " .. DIR .. " ls-tree --name-only " .. LIKE,
+        }
+        assert(files == "", "tree must be empty: " .. files)
     end
 
     do
@@ -127,7 +129,7 @@ do
     do
         TEST "dislike-is-like-action"
         local out = exec {
-            cmd = "git -C " .. DIR .. " cat-file blob " .. DISLIKE,
+            cmd = "git -C " .. DIR .. " log -1 --format=%B " .. DISLIKE,
         }
         local T = load(out, "metadata", "t", {})()
         assert(T.action == "like", "action: " .. tostring(T.action))
@@ -150,11 +152,12 @@ do
         }
         assert(why == "spam content", "why: " .. why)
 
-        TEST "vote commit message is empty"
-        local msg = exec {
-            cmd = "git -C " .. DIR .. " log -1 --format=%s HEAD",
+        TEST "the why is NOT in the message (payload blob only)"
+        local msg = exec { trim=false,
+            cmd = "git -C " .. DIR .. " log -1 --format=%B HEAD",
         }
-        assert(msg == "", "message should be empty: " .. msg)
+        assert(not msg:find("spam content", 1, true),
+            "why must stay out of the action: " .. msg)
     end
 
     do

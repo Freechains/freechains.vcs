@@ -139,26 +139,16 @@ do
 
     TEST "X crafts malicious like signed by non-pioneer (0 reps)"
     local now = 1500
-    local f = io.open(REPO_X .. "like-err.lua", "w")
-    f:write('return {\n'
+    local content = 'return {\n'
         .. '    ["action"] = "like",\n'
         .. '    ["author"] = "' .. PUB1 .. '",\n'
-        .. '    ["backs"] = {},\n'    -- X's tip is the genesis
         .. '    ["n"] = 1000,\n'
         .. '    ["sign"] = "' .. PUB3 .. '",\n'
         .. '    ["time"] = ' .. now .. ',\n'
-        .. '}\n')
-    f:close()
-    local aid = exec {
-        cmd = "git -C " .. REPO_X .. " hash-object like-err.lua",
-    }
-    local fh = io.open(REPO_X .. "like-err.lua")
-    local content = fh:read("a")
-    fh:close()
-    os.remove(REPO_X .. "like-err.lua")
+        .. '}\n'
     COMMIT(REPO_X, {
-        files = { ["actions/" .. aid:sub(1,2) .. "/" .. aid .. ".lua"] = content },
-        sign  = KEY3,
+        msg  = content,
+        sign = KEY3,
     })
 
     TEST "X sends to B: push should be rejected"

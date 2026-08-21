@@ -37,20 +37,14 @@ function TEST (name)
     print("  - " .. name .. "... ")
 end
 
--- the commit that added action `aid` (CLI prints aids; git-level
--- probes and commit-keyed state need the commit)
+-- aid == cid: identity, kept for the callers' vocabulary
+-- (asserts the commit exists in `dir`)
 function CID (dir, aid)
-    local out = exec {
-        cmd = "git -C " .. dir ..
-            " log --all --full-history -m --diff-filter=A --format=%H" ..
-            " -- actions/" .. aid:sub(1, 2) .. "/" .. aid .. ".lua",
+    local ok = exec { err=false, stderr=false,
+        cmd = "git -C " .. dir .. " cat-file -e " .. aid,
     }
-    -- `-m` also lists merges that bring the file in: oldest wins
-    local cid
-    for h in out:gmatch("%x+") do
-        cid = h
-    end
-    return (assert(cid, "no commit: " .. aid))
+    assert(ok, "no commit: " .. aid)
+    return aid
 end
 
 -- the genesis table of the chain at `dir`: the genesis commit's
@@ -62,48 +56,63 @@ function GENESIS (dir)
     return load(src:match("\n\n(.*)$"))()
 end
 
--- the tracked tree of the chain at `dir` (bare repo: replaces
--- worktree listings/diffs in assertions)
+-- repo-equality probe: trees are always empty (actions live in
+-- messages), so HEAD's cid IS the whole chain (git's Merkle) --
+-- stronger than the tree diff this helper used to return
 function TREE (dir)
-    return (exec { trim=false,
-        cmd = "git -C " .. dir .. " ls-tree -r HEAD",
+    return (exec {
+        cmd = "git -C " .. dir .. " rev-parse HEAD",
     })
 end
 
--- craft a raw git commit on the bare chain repo `dir` (no
--- worktree): stage `files` (path -> content) on top of HEAD's
--- tree, commit with optional ssh `sign` key and `msg`, move HEAD.
--- Returns the new cid
+-- craft a raw git commit on the bare chain repo `dir`: message
+-- `msg` (the action; nil = merge-like empty) over the EMPTY tree,
+-- with optional ssh `sign` key. `files` (path -> content) builds a
+-- NON-empty tree instead, to exercise the smuggling check.
+-- Returns the new cid; moves HEAD
 function COMMIT (dir, t)
     t = t or {}
-    exec {
-        cmd = "git -C " .. dir .. " read-tree 'HEAD^{tree}'",
-    }
-    for path, content in pairs(t.files or {}) do
-        local tmp = dir .. "/craft-tmp"
-        local f = io.open(tmp, "w")
-        f:write(content)
-        f:close()
-        local blob = exec {
-            cmd = "git -C " .. dir .. " hash-object -w " .. tmp,
-        }
-        os.remove(tmp)
+    local tree
+    if t.files then
         exec {
-            cmd = "git -C " .. dir .. " update-index --add --cacheinfo " ..
-                "100644," .. blob .. "," .. path,
+            cmd = "git -C " .. dir .. " read-tree --empty",
+        }
+        for path, content in pairs(t.files) do
+            local tmp = dir .. "/craft-tmp"
+            local f = io.open(tmp, "w")
+            f:write(content)
+            f:close()
+            local blob = exec {
+                cmd = "git -C " .. dir .. " hash-object -w " .. tmp,
+            }
+            os.remove(tmp)
+            exec {
+                cmd = "git -C " .. dir .. " update-index --add --cacheinfo " ..
+                    "100644," .. blob .. "," .. path,
+            }
+        end
+        tree = exec {
+            cmd = "git -C " .. dir .. " write-tree",
+        }
+    else
+        tree = exec {
+            cmd = "git -C " .. dir .. " hash-object -t tree /dev/null",
         }
     end
-    local tree = exec {
-        cmd = "git -C " .. dir .. " write-tree",
-    }
+    local msg = dir .. "/craft-msg"
+    do
+        local f = io.open(msg, "w")
+        f:write(t.msg or "")
+        f:close()
+    end
     local sig = t.sign and
         (" -c user.signingkey=" .. t.sign .. " -c gpg.format=ssh") or ""
-    local msg = t.msg and (" -m '" .. t.msg .. "'") or ""
     local cid = exec {
         cmd = ENV .. " git -C " .. dir .. sig .. " commit-tree" ..
-            (t.sign and " -S" or "") .. " -p HEAD" .. msg .. " " .. tree ..
-            " < /dev/null",
+            (t.sign and " -S" or "") .. " -p HEAD " .. tree ..
+            " < " .. msg,
     }
+    os.remove(msg)
     exec {
         cmd = "git -C " .. dir .. " update-ref HEAD " .. cid,
     }
@@ -126,7 +135,7 @@ function MERGE (dir, other)
         return cid
     end
     local tree = exec {
-        cmd = "git -C " .. dir .. " merge-tree --write-tree HEAD " .. other,
+        cmd = "git -C " .. dir .. " hash-object -t tree /dev/null",
     }
     local cid = exec {
         cmd = "git -C " .. dir .. " commit-tree " .. tree ..

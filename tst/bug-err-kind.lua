@@ -64,7 +64,7 @@ do
     TEST "X recvs A: must name the problem, not leak a traceback"
     FAIL {
         cmd = EXE_X .. " --now=1200 chain '#ek' sync recv " .. REPO_A,
-        err = "ERROR : chain sync : malformed commit : expected 2-parent merge",
+        err = "ERROR : chain sync : malformed commit : unexpected tree",
     }
 
     TEST "X is untouched (2 entries: seed + like)"
@@ -77,22 +77,14 @@ do
         assert(n == 2, "expected 2 entries, got " .. n)
     end
 
-    -- A: ... -- p -- FORGED    (action file with an unknown kind)
-    TEST "A hand-forges an action file with an unknown kind"
+    -- A: ... -- p -- FORGED    (action message with an unknown kind)
+    TEST "A hand-forges an action with an unknown kind"
     exec {
         cmd = "git -C " .. REPO_A .. " update-ref HEAD " .. good,
     }
-    local content = "return { action='xyz' }\n"
-    local f = io.open(REPO_A .. "bad-kind.lua", "w")
-    f:write(content)
-    f:close()
-    local aid = exec {
-        cmd = "git -C " .. REPO_A .. " hash-object bad-kind.lua",
-    }
-    os.remove(REPO_A .. "bad-kind.lua")
     COMMIT(REPO_A, {
-        files = { ["actions/" .. aid:sub(1,2) .. "/" .. aid .. ".lua"] = content },
-        msg   = "x",
+        msg  = "return { action='xyz', time=1 }\n",
+        sign = KEY1,
     })
 
     TEST "X recvs A: invalid kind, named"
