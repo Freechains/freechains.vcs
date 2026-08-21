@@ -20,6 +20,12 @@ local function git_init (dir)
     exec {
         cmd = "git -C " .. dir .. " config receive.advertisePushOptions true"
     }
+    -- bitmaps default ON in bare repos: they fatten the pack (worse
+    -- delta selection; 46 vs 32 MiB at 6.5k actions) to speed fetch
+    -- serving, which our small syncs do not need
+    exec {
+        cmd = "git -C " .. dir .. " config repack.writeBitmaps false"
+    }
 
     -- bare repo: the repo dir IS the git dir
     exec {
