@@ -15,17 +15,17 @@ if ARGS.sign then
 end
 
 -- the payload lives OUTSIDE the commit: a loose blob, anchored by
--- `refs/payloads/<aid>`. The action's `blob` field is what binds
--- it: the aid transitively commits to the content
+-- `refs/payloads/<cid>`. The action's `blob` field is what binds
+-- it: the cid transitively commits to the content
 
 local path = REPO .. "payload-tmp"   -- payload staging file (git dir)
 
 -- the parents of the commit about to be minted: `backs` derives
--- from them (parents ARE the backs: aid == cid)
+-- from them (parents ARE the backs: the cid IS the commit)
 local ps = { GIT.deref("HEAD") }
 
 local act
-local aid
+local cid
 local blob
 do
     if ARGS.inline then
@@ -47,14 +47,14 @@ do
     }
 
     -- the action IS the commit message; minted UNREFERENCED
-    -- (aid == cid), so a rejection leaves one gc-able loose commit
+    -- (the cid IS the commit), so a rejection leaves one gc-able loose commit.
     act = {
         action = 'post',
         sign   = pub,
         time   = tonumber(CMD.now),
         blob   = blob,
     }
-    aid = ACTION.pre {
+    cid = ACTION.pre {
         act     = act,
         parents = ps,
         sign    = ARGS.sign,
@@ -65,8 +65,8 @@ end
 -- apply BEFORE HEAD moves: a rejected post leaves nothing anchored
 do
     local ok, err = apply(G, 'post', act, {
+        cid   = cid,
         time  = tonumber(CMD.now),
-        aid   = aid,
         sign  = pub,
         beg   = ARGS.beg,
         backs = ACTION.backs(ps),
@@ -74,30 +74,30 @@ do
     if not ok then
         ERROR("chain post : " .. err)
     end
-    G.order[#G.order+1] = aid
+    G.order[#G.order+1] = cid
 end
 
 -- the payload enters the object db anchored at its final name:
--- `refs/payloads/<aid>` -> blob. (A crash between the two calls
+-- `refs/payloads/<cid>` -> blob. (A crash between the two calls
 -- leaves one loose blob for the gc grace period)
 exec {
     cmd = "git -C " .. REPO .. " hash-object -w " .. path,
 }
 exec {
-    cmd = "git -C " .. REPO .. " update-ref refs/payloads/" .. aid .. " " .. blob,
+    cmd = "git -C " .. REPO .. " update-ref refs/payloads/" .. cid .. " " .. blob,
 }
 os.remove(path)
 
 -- snapshot state at the action commit itself
-STATE.write(G, aid)
+STATE.write(G, cid)
 
 if ARGS.beg then
     -- a beg parks on its own ref, outside `main`: HEAD never moves
     exec {
-        cmd = "git -C " .. REPO .. " update-ref refs/begs/beg-" .. aid .. " " .. aid,
+        cmd = "git -C " .. REPO .. " update-ref refs/begs/beg-" .. cid .. " " .. cid,
     }
 else
-    GIT.tip(aid)
+    GIT.tip(cid)
 end
 
-print(aid)
+print(cid)

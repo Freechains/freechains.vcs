@@ -6,7 +6,7 @@ local M = {}
 
 -- Every commit carries the EMPTY tree: the protocol lives in the
 -- commit MESSAGE (an action table; empty for a sync merge). Trees
--- and blobs are not used by actions at all (aid == cid).
+-- and blobs are not used by actions at all (the cid IS the commit).
 local TREE = nil
 function M.tree ()
     TREE = TREE or exec {
@@ -18,13 +18,17 @@ local tree = M.tree
 
 -- Mint a commit (no worktree, no index):
 --  - `msg`: path of the message file (the action), or nil (merge)
+--  - `date`: unix secs -> the action's signed TIME (author +
+--    committer date); nil = the neutral @0 (merges)
 --  - `ref` = false: mint the loose object only, do NOT move HEAD
 --    (an action is minted BEFORE `apply`; a rejected one stays
 --    unreferenced, one gc away from gone)
--- t = { parents={cid [, cid]}, msg=path | nil, ref=false | nil,
---       sign=keypath | nil, err=msg | nil }
+-- t = { parents={cid [, cid]}, msg=path | nil, date=secs | nil,
+--       ref=false | nil, sign=keypath | nil, err=msg | nil }
 
 function M.commit (t)
+    local dt = "GIT_AUTHOR_DATE='@"    .. (t.date or 0) .. " +0000' " ..
+               "GIT_COMMITTER_DATE='@" .. (t.date or 0) .. " +0000' "
     local sig = t.sign and
         (" -c user.signingkey=" .. t.sign .. " -c gpg.format=ssh") or ""
     local ps = ""
@@ -32,7 +36,7 @@ function M.commit (t)
         ps = ps .. " -p " .. p
     end
     local cid = exec {
-        cmd = CMD.git .. "git -C " .. REPO .. sig .. " commit-tree" ..
+        cmd = dt .. "git -C " .. REPO .. sig .. " commit-tree" ..
             (t.sign and " -S" or "") .. ps .. " " .. tree() ..
             " < " .. (t.msg or "/dev/null"),
         err = t.err,

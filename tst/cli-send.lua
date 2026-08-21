@@ -139,15 +139,9 @@ do
 
     TEST "X crafts malicious like signed by non-pioneer (0 reps)"
     local now = 1500
-    local content = 'return {\n'
-        .. '    ["action"] = "like",\n'
-        .. '    ["author"] = "' .. PUB1 .. '",\n'
-        .. '    ["n"] = 1000,\n'
-        .. '    ["sign"] = "' .. PUB3 .. '",\n'
-        .. '    ["time"] = ' .. now .. ',\n'
-        .. '}\n'
     COMMIT(REPO_X, {
-        msg  = content,
+        msg  = 'like 1000\nauthor ' .. PUB1 .. '\n',
+        date = now,
         sign = KEY3,
     })
 

@@ -244,9 +244,9 @@ elseif ARGS.recv then
         local G = STATE.read(GIT.deref("HEAD"))
 
         local exc = {}
-        for aid, e in pairs(G.actions) do
+        for cid, e in pairs(G.actions) do
             if is_revoked(e) then
-                exc[#exc+1] = " '^refs/payloads/" .. aid .. "'"
+                exc[#exc+1] = " '^refs/payloads/" .. cid .. "'"
             end
         end
         exec { err=false, stderr=false,
@@ -265,16 +265,16 @@ elseif ARGS.recv then
             end
         end
 
-        for aid, e in pairs(G.actions) do
+        for cid, e in pairs(G.actions) do
             if is_revoked(e) then
-                if has[aid] then
+                if has[cid] then
                     exec {
                         cmd = "git -C " .. REPO ..
-                            " update-ref -d refs/payloads/" .. aid
+                            " update-ref -d refs/payloads/" .. cid
                     }
                 end
-            elseif not has[aid] then
-                local t = ACTION.read(false, aid)
+            elseif not has[cid] then
+                local t = ACTION.read(false, cid)
                 if t and t.blob then
                     local have = exec { err=false, stderr=false,
                         cmd = "git -C " .. REPO .. " cat-file -e " .. t.blob
@@ -282,7 +282,7 @@ elseif ARGS.recv then
                     if have then
                         exec {
                             cmd = "git -C " .. REPO .. " update-ref refs/payloads/" ..
-                                aid .. " " .. t.blob
+                                cid .. " " .. t.blob
                         }
                     end
                 end

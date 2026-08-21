@@ -128,7 +128,7 @@ do
         assert(T.action == "post", "action: " .. tostring(T.action))
         assert(math.type(T.time) == "integer", "time: " .. tostring(T.time))
         assert(type(T.blob) == "string" and #T.blob == 40, "blob: " .. tostring(T.blob))
-        assert(T.aid == nil, "post metadata has no aid key: " .. tostring(T.aid))
+        assert(T.cid == nil, "post metadata has no cid key: " .. tostring(T.cid))
         assert(T.n == nil, "post metadata has no n key: " .. tostring(T.n))
         assert(type(T.sign) == "string", "sign type: " .. type(T.sign))
         assert(T.sign:match("^ssh%-ed25519 "), "sign: " .. tostring(T.sign))
@@ -145,7 +145,7 @@ do
         assert(code == 0, "exit code: " .. tostring(code))
         local T = load(out, "metadata", "t", {})()
         assert(T.action == "like", "action: " .. tostring(T.action))
-        assert(T.aid == POST, "aid: " .. tostring(T.aid))
+        assert(T.cid == POST, "cid: " .. tostring(T.cid))
         assert(T.author == nil, "author should be unset")
         assert(math.type(T.n) == "integer", "n: " .. tostring(T.n))
         -- backs are structural: the like's parent commit IS the post
@@ -163,7 +163,7 @@ do
         assert(code == 0, "exit code: " .. tostring(code))
         local T = load(out, "metadata", "t", {})()
         assert(T.action == "revoke", "action: " .. tostring(T.action))
-        assert(T.aid == RPOST, "aid: " .. tostring(T.aid))
+        assert(T.cid == RPOST, "cid: " .. tostring(T.cid))
         assert(math.type(T.n) == "integer", "n: " .. tostring(T.n))
         assert(T.n < 0, "n should be negative: " .. tostring(T.n))
     end

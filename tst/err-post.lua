@@ -18,15 +18,11 @@ exec {
 -- craft a post action commit by hand: proper aid path, signed
 -- commit; the file IS the time source (dates are neutral)
 local function craft (repo, key, pub, now, back)
-    -- back is now STRUCTURAL (the parent commit): the craft sits
-    -- on whatever HEAD is, so `back` only documents intent here
-    local content = 'return {\n'
-        .. '    ["action"] = "post",\n'
-        .. '    ["sign"] = "' .. pub .. '",\n'
-        .. '    ["time"] = ' .. now .. ',\n'
-        .. '}\n'
+    -- positional post with an all-zero payload blob; time is the
+    -- commit DATE; sign/backs are structural (gpgsig/parent)
     COMMIT(repo, {
-        msg  = content,
+        msg  = "post\n0000000000000000000000000000000000000000\n",
+        date = now,
         sign = key,
     })
 end
@@ -151,7 +147,7 @@ do
     local raw = exec { trim=false,
         cmd = "git -C " .. REPO_A3 .. " cat-file commit HEAD",
     }
-    local forged = raw:gsub('%["time"%] = 3000', '["time"] = 3001')
+    local forged = raw:gsub('\n(author [^\n]* )3000( )', '\n%13001%2', 1)
     local tmpf = REPO_A3 .. "forged-commit"
     local fh = io.open(tmpf, "w")
     fh:write(forged)

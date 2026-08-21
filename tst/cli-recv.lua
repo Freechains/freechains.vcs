@@ -158,12 +158,19 @@ do
             cmd = EXE_A .. " --now=7500 chain '#test' sync recv " .. REPO_B,
         }
 
-        TEST "dates neutral through sync (all zero)"
-        local out = exec {
-            cmd = "git -C " .. REPO_A .. " log --format=%at",
+        TEST "only actions carry dates (merges/genesis stay @0)"
+        local out = exec { trim=false,
+            cmd = "git -C " .. REPO_A .. " log --format='%at %s'",
         }
-        for ts in out:gmatch("%d+") do
-            assert(tonumber(ts) == 0, "date leak: " .. ts)
+        for l in out:gmatch("[^\n]+") do
+            local ts, subj = l:match("^(%d+) ?(.*)$")
+            if subj == "" then
+                assert(tonumber(ts) == 0, "merge dated: " .. l)
+            elseif subj:match("^post") or subj:match("^like")
+                or subj:match("^revoke") then
+                assert(tonumber(ts) ~= 0, "undated action: " .. l)
+            end
+            -- anything else: the genesis (dated @0, own message)
         end
 
         TEST "A has both payloads"

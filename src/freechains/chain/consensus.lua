@@ -103,7 +103,7 @@ local KINDS = { post=true, like=true, revoke=true }
 
 function commit (G, cid, beg)
     local ps = GIT.parents(cid)
-    local aid = ACTION.aid(cid)
+    local aid = ACTION.aid(cid)   -- nil: sync merge
     -- a merge adds no time: dates are neutral, the action message
     -- is the one source of truth
 
@@ -127,7 +127,7 @@ function commit (G, cid, beg)
 
     -- action message: check commit
     else
-        local act = ACTION.read(false, aid)
+        local act = ACTION.read(false, cid)
         if not act then
             error("malformed commit : invalid action", 0)
         end
@@ -143,31 +143,25 @@ function commit (G, cid, beg)
             error("malformed commit : invalid time", 0)
         end
 
-        if G.actions[aid] then
+        if G.actions[cid] then
             -- the same action arrived in an earlier commit: already
             -- in G; only the snapshot below matters
             goto SNAP
         end
 
-        -- B6: pin the message to the envelope. The claimed `sign`
-        -- must match the commit's verified signature; `time` needs
-        -- no pin, the message itself is the signed source of truth
         local key, err = ssh.verify(REPO, cid)
         if (not key) and err=='forged' then
             error("malformed commit : invalid signature", 0)
         end
-        if act.sign ~= key then
-            error("malformed commit : invalid signature", 0)
-        end
 
         -- backs are STRUCTURAL: derived here from the parents,
-        -- never claimed (aid == cid: git's Merkle binds ancestry)
+        -- never claimed (the cid IS the commit: git's Merkle binds ancestry)
         local backs = ACTION.backs(ps)
 
         if kind == 'post' then
             local ok, err = apply(G, 'post', act, {
                 time  = act.time,
-                aid   = aid,
+                cid   = cid,
                 sign  = key,
                 beg   = beg or (key == nil),
                 backs = backs,
@@ -183,12 +177,12 @@ function commit (G, cid, beg)
             local to_beg = (
                 kind == 'like'
                 and (math.type(act.n)=='integer' and act.n>0)
-                and (act.aid and G.actions[act.aid])
-                and (G.actions[act.aid].maturity == "beg")
+                and (act.cid and G.actions[act.cid])
+                and (G.actions[act.cid].maturity == "beg")
             ) or false
             local ok, err = apply(G, kind, act, {
                 time  = act.time,
-                aid   = aid,
+                cid   = cid,
                 sign  = key,
                 beg   = to_beg,
                 backs = backs,
@@ -197,7 +191,7 @@ function commit (G, cid, beg)
                 error("invalid " .. kind .. " : " .. err, 0)
             end
         end
-        G.order[#G.order+1] = aid
+        G.order[#G.order+1] = cid
     end
 
     ::SNAP::
@@ -211,7 +205,7 @@ function commit (G, cid, beg)
     if not STATE.has(cid) then
         local sav = G.now
         if aid then
-            G.now = G.actions[aid].now
+            G.now = G.actions[cid].now
         else
             G.now = NOW(G, ACTION.backs(ps))
         end

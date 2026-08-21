@@ -1,33 +1,26 @@
-
 -- membership: an action of the CURRENT history <=> its commit is
--- an ancestor of HEAD (aid == cid); `abandon` drops exactly the
+-- an ancestor of HEAD (the cid IS the commit); `abandon` drops exactly the
 -- abandoned suffix. A parked beg is outside HEAD: unknown here
-local src
+local T
 do
-    ARGS.aid = ACTION.full(ARGS.aid)
-    local ok = ARGS.aid:match("^%x+$")
-        and ACTION.aid(ARGS.aid)      -- an action (not merge/genesis)
+    ARGS.cid = ACTION.full(ARGS.cid)
+    local ok = ARGS.cid:match("^%x+$")
         and exec { err=false, stderr=false,
             cmd = "git -C " .. REPO .. " merge-base --is-ancestor " ..
-                ARGS.aid .. " HEAD",
+                ARGS.cid .. " HEAD",
         }
     if ok then
-        local out = exec { trim=false,
-            cmd = "git -C " .. REPO .. " cat-file commit " .. ARGS.aid,
-        }
-        src = out:match("\n\n(.*)$")
+        T = ACTION.read(false, ARGS.cid, ARGS.metadata)
     end
-    if not src then
+    if not T then
         ERROR("chain get : unknown post")
     end
 end
 
 if ARGS.payload then
-    if G.actions[ARGS.aid] and is_revoked(G.actions[ARGS.aid]) then
+    if G.actions[ARGS.cid] and is_revoked(G.actions[ARGS.cid]) then
         ERROR("chain get : revoked payload")
     end
-
-    local T = assert(load(src, "=action", "t", {}))()
 
     local pay = ""
     if T.blob then
@@ -40,6 +33,6 @@ if ARGS.payload then
     io.write(pay)
 
 elseif ARGS.metadata then
-    -- the metadata IS the action message (serialized Lua)
-    io.write(src)
+    -- metadata is ACTION.read above
+    io.write(serial(T))
 end

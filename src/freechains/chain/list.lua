@@ -1,5 +1,5 @@
 if ARGS.begs then
-    -- pending begs: post aids parked on refs/begs/beg-<aid>
+    -- pending begs: post cids parked on refs/begs/beg-<cid>
     local out = exec {
         cmd = "git -C " .. REPO .. " for-each-ref refs/begs/ --format='%(refname)'",
     }
@@ -8,20 +8,20 @@ if ARGS.begs then
     end
 
 elseif ARGS.order then
-    -- consensus order (aids); revoked payloads wrapped in ~aid~
-    for _, aid in ipairs(G.order) do
-        if G.actions[aid] and is_revoked(G.actions[aid]) then
-            print("~" .. aid .. "~")
+    -- consensus order (cids); revoked payloads wrapped in ~cid~
+    for _, cid in ipairs(G.order) do
+        if G.actions[cid] and is_revoked(G.actions[cid]) then
+            print("~" .. cid .. "~")
         else
-            print(aid)
+            print(cid)
         end
     end
 
 elseif ARGS.revokes then
-    -- revoked payloads only, in consensus order (bare aids)
-    for _, aid in ipairs(G.order) do
-        if G.actions[aid] and is_revoked(G.actions[aid]) then
-            print(aid)
+    -- revoked payloads only, in consensus order (bare cids)
+    for _, cid in ipairs(G.order) do
+        if G.actions[cid] and is_revoked(G.actions[cid]) then
+            print(cid)
         end
     end
 
@@ -42,7 +42,7 @@ elseif ARGS.dag then
     end
 
     -- ups are structural: the action ancestors of each commit's
-    -- parents (aid == cid); short labels, revoked wrapped in ~~
+    -- parents (the cid IS the commit); short labels, revoked wrapped in ~~
     local ups = {}
     local lbl = {}
     for _, h in ipairs(order) do

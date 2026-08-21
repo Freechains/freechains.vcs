@@ -147,6 +147,75 @@
       models (file 48 / bare-tree 57): minting = one
       commit-tree, no read-tree/update-index/write-tree
     - full arc: 15.3 GB -> 9.65 MiB (~1580x)
+- S7 DONE (26/08/21): POSITIONAL message, no load, min fields
+    - message = line-per-value, parsed by gmatch (NO Lua VM
+      on untrusted bytes -> the whole T6c class is gone)
+    - drop from the message: `time` -> commit DATE (%at),
+      `sign` -> gpgsig (ssh.verify), `backs` already gone
+    - discriminators that survive (not redundant): the kind
+      verb, the target-type word, the SIGN of n
+    - format (kind ∈ post|like|revoke; n>0/n<0 gives the
+      dislike/unrevoke direction):
+        post\n<payload-blob>
+        like <n>\naction <aid>            (or author <pub>)
+        revoke <n>\naction <aid>
+        <trailing bare line> = the --why blob (votes, optional)
+    - author id keeps its space: line = "author " .. pubkey,
+      parse = first token is the type, rest is the id
+    - determinism: actions now carry a real SIGNED date
+      (cid depends on time, as it must); genesis + sync
+      merges stay @0 -> nonzero date <=> action
+    - ACTION.read: one `cat-file commit`, pulls DATE (author
+      line) + body; builds the same t.{action,n,aid/author,
+      blob,time} every caller uses -> callers unchanged
+    - consensus: drop the sign-pin (B6) like backs (B7);
+      `time` validated from the date, not the message
+    - writers: commit-tree with GIT_AUTHOR/COMMITTER_DATE =
+      time +0000 (was @0 for actions); serialize positional
+    - get metadata: reconstruct/print from the parsed table
+    - IMPLEMENTED; full suite 40/40. Notable in the port:
+        - lua trap: `x and x:match()` truncates multiple
+          returns to ONE value (bit the parser; fixed)
+        - tests.lua MERGE/COMMIT mint with @0 (raw merges
+          must match sync's neutral dates); COMMIT gained
+          `date`
+        - dissolved test classes: bad-target-type and
+          fractional-n now fail PARSE ("invalid action");
+          forge tests tamper the date/n line instead of the
+          old table fields
+        - cli-now premise inverted: post envelope date IS
+          the action time; nonzero date <=> action (genesis
+          keeps its own message at @0)
+
+- S7 10k SIM (same input, clean A/B vs S6):
+    - 46:10 wall (S6 45:41), RSS 26 MB: neutral
+    - pack 9.96 MiB (S6 9.65): within delta-selection
+      variance (+ dates vary per commit where @0 was
+      constant); du 20 MB both
+    - post-prune census IDENTICAL: 9634 commits + 18417
+      blobs + 1 tree = 28052 (the S6 "12726 commits" note
+      was pre-prune, counting 3092 rejected-beg loose)
+    - => S7 is disk/time NEUTRAL; its wins are qualitative
+      (no VM on untrusted bytes, minimal messages, log UX)
+- S8 DONE (26/08/21): GENESIS positional too
+    - message: <version>\n<nonce>\n<pioneer pubkey>...
+      (zero labels; pioneers sorted -- fixes a latent
+      `pairs` nondeterminism in multi-pioneer genesis)
+    - closes the LAST `load` on remote bytes (a clone
+      fetches the genesis from an untrusted peer): the
+      T6c class is now fully gone, actions AND genesis
+- S9 DONE (26/08/21): naming doctrine settled
+    - USERS say `id`: CLI metavars (<id>), error strings,
+      cli.md -- via `argument("id"):target("cid")`, the
+      one-line mapping at the parse boundary
+    - the PROTOCOL says `cid`: ARGS.cid and every internal
+      var/param, env.cid, the vote-target field act.cid
+      (message line `action <cid>`), metadata ["cid"]
+    - `aid` survives ONLY as ACTION.aid, the is-this-an-
+      action predicate; ACTION.cid alias deleted
+    - rename traps found: env-key/dot-read mismatch, the
+      consensus cid/aid shadow collapse, and a pubkey
+      argument briefly labeled <cid> (like author targets)
 - PENDING: guide/README transcripts
 - NOTE: validated via worktree shim; hook needs `make
   install` for a native `make tests`

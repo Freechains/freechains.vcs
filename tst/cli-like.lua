@@ -68,8 +68,9 @@ do
         local msg = exec { trim=false,
             cmd = "git -C " .. DIR .. " log -1 --format=%B " .. LIKE,
         }
-        local T = load(msg, "=msg", "t", {})()
-        assert(T.action == "like", "message parses as the like")
+        -- positional: `like <n>` then the target line
+        assert(msg:match("^like 1000\naction %x+\n"),
+            "message is the like: " .. msg)
         local files = exec { trim=false,
             cmd = "git -C " .. DIR .. " ls-tree --name-only " .. LIKE,
         }
@@ -85,7 +86,7 @@ do
         local T = load(exec {
             cmd = ENV_EXE .. " chain '#cli-like' get metadata " .. out,
         }, "metadata", "t", {})()
-        assert(T.aid == POST, "target should be the full id: " .. tostring(T.aid))
+        assert(T.cid == POST, "target should be the full id: " .. tostring(T.cid))
     end
 
     do
@@ -128,12 +129,11 @@ do
 
     do
         TEST "dislike-is-like-action"
-        local out = exec {
+        local out = exec { trim=false,
             cmd = "git -C " .. DIR .. " log -1 --format=%B " .. DISLIKE,
         }
-        local T = load(out, "metadata", "t", {})()
-        assert(T.action == "like", "action: " .. tostring(T.action))
-        assert(T.n < 0, "n should be negative: " .. tostring(T.n))
+        -- a dislike is a `like` with negative n
+        assert(out:match("^like %-1000\n"), "message: " .. out)
     end
 
     do
@@ -328,7 +328,7 @@ do
         TEST "like-bad-target-type"
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-like' like 1000 foo " .. POST .. " --sign " .. KEY1,
-            err = "ERROR : chain like : invalid target : expects 'action' or 'author'",
+            err = "ERROR : chain like : invalid target",
         }
     end
 

@@ -1,7 +1,8 @@
 local GIT = require "freechains.chain.git"
 
 -- an ACTION is a commit whose MESSAGE is the action table:
---  - aid == cid: one id space (states/payloads/begs agree)
+--  - its ID is the commit hash: one cid space for actions,
+--    merges, states, payloads, begs
 --  - a sync MERGE has an empty message: transparent
 --  - the GENESIS is the root (no parents): not an action
 --    (its message carries the genesis table)
@@ -14,7 +15,7 @@ local M = {}
 
 function M.read (asr, aid)
     local out = exec { trim=false, err=false, stderr=false,
-        cmd = "git -C " .. REPO .. " cat-file commit " .. aid
+        cmd = "git -C " .. REPO .. " cat-file commit " .. cid
     }
     local body = out and out:match("\n\n(.*)$")
     if body and #body > 0 then
@@ -36,7 +37,7 @@ function M.read (asr, aid)
         end
     end
     if asr then
-        error("bug found : no action : " .. aid)
+        error("bug found : no action : " .. cid)
     end
     return nil
 end
@@ -44,7 +45,7 @@ end
 -- `pre` expanded to a full aid: ids are printed abbreviated
 -- (`list dag`), so a prefix must resolve, as git does with any
 -- object. Unknown or ambiguous prefixes are returned unchanged:
--- the caller fails on the id it was given
+-- the caller fails on the cid it was given
 
 function M.full (pre)
     if (#pre == 40) or (not pre:match("^%x+$")) then
@@ -58,7 +59,7 @@ function M.full (pre)
     return out or pre
 end
 
--- aid(cid): is `cid` an action? its id (== cid), or nil:
+-- aid(cid): is `cid` an ACTION? returns the cid itself, or nil:
 -- a merge has an empty message, the genesis has no parents
 
 function M.aid (cid)
@@ -76,12 +77,6 @@ function M.aid (cid)
         return cid
     end
     return nil                              -- sync merge
-end
-
--- cid(aid): identity (kept for the callers' vocabulary)
-
-function M.cid (aid)
-    return M.aid(aid)
 end
 
 -- the action ancestors (as sorted aids) of the commit about to

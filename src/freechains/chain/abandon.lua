@@ -1,28 +1,28 @@
 
--- Escape hatch for a hard fork: abandon the aid and everything after
+-- Escape hatch for a hard fork: abandon the cid and everything after
 -- it, so the settled remote branch can be received again.
 -- Local only: no signing, no network, no reps.
 -- Chain state lives in local snapshots (`refs/states/*`), keyed by
 -- commit: the reset lands on a tip whose snapshot already exists.
 --
 -- Two forms:
---  - `abandon <aid>`: aid is first DROPPED
---  - `abandon --keep <aid>`: aid is the last KEPT
+--  - `abandon <cid>`: cid is first DROPPED
+--  - `abandon --keep <cid>`: cid is the last KEPT
 -- In both cases, only a linear suffix may go (crossing a sync merge would also
 -- drop sibling branch).
 
--- the aid may be abbreviated (`list dag` prints it so)
-ARGS.aid = ACTION.full(ARGS.aid)
+-- the cid may be abbreviated (`list dag` prints it so)
+ARGS.cid = ACTION.full(ARGS.cid)
 
-local cid = ACTION.cid(ARGS.aid)
+local cid = ACTION.aid(ARGS.cid)
 if not cid then
     ERROR("chain abandon : invalid action")
 end
 
--- a beg is a post outside `main`, alone on its own aid-named ref:
+-- a beg is a post outside `main`, alone on its own cid-named ref:
 -- nothing follows it, so abandoning it is just deleting the ref
 do
-    local ref = "refs/begs/beg-" .. ARGS.aid
+    local ref = "refs/begs/beg-" .. ARGS.cid
     local ok = exec { stderr=false, err=false,
         cmd = "git -C " .. REPO .. " show-ref --verify --quiet " .. ref,
     }
@@ -34,13 +34,13 @@ do
         exec {
             cmd = "git -C " .. REPO .. " update-ref -d " .. ref,
         }
-        print(ARGS.aid)
+        print(ARGS.cid)
         os.exit(0)
     end
 end
 
 -- the commit must be part of our history (resolution already
--- proves it is an action: it adds the aid's file)
+-- proves it is an action)
 do
     local ok = exec { stderr=false, err=false,
         cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. cid .. " HEAD",
@@ -50,7 +50,7 @@ do
     end
 end
 
--- where we land: the kept aid itself, or the dropped aid's parent
+-- where we land: the kept cid itself, or the dropped cid's parent
 -- (a post is always committed on top of a valid tip, no search)
 local tip
 if ARGS.keep then
@@ -74,7 +74,7 @@ do
     end
 end
 
--- only a LINEAR suffix may go: a commit without an aid is a sync
+-- only a LINEAR suffix may go: a commit without an cid is a sync
 -- merge, and crossing it would also drop the sibling branch
 local aids = {}
 for _, h in ipairs(range) do
@@ -84,7 +84,7 @@ for _, h in ipairs(range) do
     end
 end
 
--- report what is about to be abandoned: one aid per line, like
+-- report what is about to be abandoned: one cid per line, like
 -- `list` (a beg-like merge is an action too, so merges stay in)
 for _, h in ipairs(range) do
     -- the dropped commit's state blob loses its anchor, so gc can

@@ -83,7 +83,8 @@ do
         cmd = "git -C " .. REPO_A .. " update-ref HEAD " .. good,
     }
     COMMIT(REPO_A, {
-        msg  = "return { action='xyz', time=1 }\n",
+        msg  = "xyz 1\naction 0000000000000000000000000000000000000000\n",
+        date = 1100,
         sign = KEY1,
     })
 

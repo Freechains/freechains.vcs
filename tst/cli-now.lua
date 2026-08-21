@@ -6,10 +6,9 @@ local DIR = ROOT .. "/chains/#cli-now/"
 
 -- reads the signed time of action `aid` (the one source of truth)
 local function TIME (aid)
-    local act = exec {
-        cmd = "git -C " .. DIR .. " log -1 --format=%B " .. aid,
-    }
-    return act:match('%["time"%] = (%d+)')
+    return (exec {
+        cmd = "git -C " .. DIR .. " log -1 --format=%at " .. aid,
+    })
 end
 
 -- NEUTRAL COMMIT DATES
@@ -28,7 +27,7 @@ do
     end
 
     do
-        TEST "post envelope is neutral regardless of --now"
+        TEST "post envelope date IS the action time (--now)"
         local out = exec {
             cmd = ENV_EXE .. " --now=100 chain '#cli-now' post inline 'hello' --sign " .. KEY1,
         }
@@ -36,7 +35,7 @@ do
         local ts = exec {
             cmd = "git -C " .. DIR .. " log -1 --format='%an %ae %cn %ce %at %ct'",
         }
-        assert(ts == "- - - - 0 0", "post envelope: " .. ts)
+        assert(ts == "- - - - 100 100", "post envelope: " .. ts)
     end
 end
 

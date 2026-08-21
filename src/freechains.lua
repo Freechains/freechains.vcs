@@ -189,10 +189,10 @@ do
     cmd.chain.get._ = cmd.chain._:command("get")
     do
         cmd.chain.get.metadata._ = cmd.chain.get._:command("metadata")
-        cmd.chain.get.metadata._:argument("id"):target("aid")
+        cmd.chain.get.metadata._:argument("id"):target("cid")
 
         cmd.chain.get.payload._ = cmd.chain.get._:command("payload")
-        cmd.chain.get.payload._:argument("id"):target("aid")
+        cmd.chain.get.payload._:argument("id"):target("cid")
     end
 
     -- cmd.chain.like / dislike : target is a post OR an author
@@ -200,7 +200,7 @@ do
         cmd.chain[c]._ = cmd.chain._:command(c)
         cmd.chain[c]._:argument("number"):convert(positive)
         cmd.chain[c]._:argument("target")
-        cmd.chain[c]._:argument("id")
+        cmd.chain[c]._:argument("id"):target("cid")
         cmd.chain[c]._:option("--sign"):args("?"):count(1):action(sign)
         cmd.chain[c]._:option("--why")
     end
@@ -210,7 +210,7 @@ do
     for _,c in ipairs { "revoke", "unrevoke" } do
         cmd.chain[c]._ = cmd.chain._:command(c)
         cmd.chain[c]._:argument("number"):convert(positive)
-        cmd.chain[c]._:argument("id")
+        cmd.chain[c]._:argument("id"):target("cid")
         cmd.chain[c]._:option("--sign"):args("?"):count(1):action(sign)
         cmd.chain[c]._:option("--why")
     end
@@ -218,7 +218,7 @@ do
 
     -- cmd.chain.abandon : local only (no sign, no network)
     cmd.chain.abandon._ = cmd.chain._:command("abandon")
-    cmd.chain.abandon._:argument("id"):target("aid")
+    cmd.chain.abandon._:argument("id"):target("cid")
     cmd.chain.abandon._:flag("--keep")
 
     -- cmd.chain.sweep : local only (no sign, no network)
@@ -236,14 +236,7 @@ end
 
 ARGS = parser:parse()
 
-local now = ARGS.now or os.time()
-CMD = {
-    now = now,
-    git = (     -- neutral dates: time lives in the action files
-        "GIT_AUTHOR_DATE='@0 +0000' " ..
-        "GIT_COMMITTER_DATE='@0 +0000' "
-    ),
-}
+ARGS.now = ARGS.now or os.time()
 
 if ARGS.daemon then
     require "freechains.daemon"

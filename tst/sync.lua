@@ -189,15 +189,9 @@ do
 
     TEST "X crafts a raw like signed by KEY3 (0 reps) targeting P1"
     local now = 7000
-    local content = 'return {\n'
-        .. '    ["action"] = "like",\n'
-        .. '    ["aid"] = "' .. P1 .. '",\n'
-        .. '    ["n"] = 1000,\n'
-        .. '    ["sign"] = "' .. PUB3 .. '",\n'
-        .. '    ["time"] = ' .. now .. ',\n'
-        .. '}\n'
     COMMIT(REPO_X, {
-        msg  = content,
+        msg  = 'like 1000\naction ' .. P1 .. '\n',
+        date = now,
         sign = KEY3,
     })
 

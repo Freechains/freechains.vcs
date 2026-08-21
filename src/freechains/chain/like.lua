@@ -2,17 +2,17 @@ local ssh = require "freechains.chain.ssh"
 
 -- revoke/unrevoke are content-removal votes:
 -- for action payloads, never authors
--- CLI: action -> aid
+-- CLI: action -> cid
 if (ARGS.target == "action") or ARGS.revoke or ARGS.unrevoke then
-    ARGS.target = "aid"
+    ARGS.target = "cid"
 end
 
-ARGS.id = ARGS.id:match("^%s*(.-)%s*$")
+ARGS.cid = ARGS.cid:match("^%s*(.-)%s*$")
 
 -- an action target may be abbreviated (`list dag` prints it so);
 -- an author target is a pubkey and passes through untouched
-if ARGS.target == "aid" then
-    ARGS.id = ACTION.full(ARGS.id)
+if ARGS.target == "cid" then
+    ARGS.cid = ACTION.full(ARGS.cid)
 end
 
 -- num: dislike and revoke remove reps; like and unrevoke add reps
@@ -26,29 +26,33 @@ end
 local kind = (ARGS.revoke or ARGS.unrevoke) and "revoke" or "like"
 
 -- for errors
-local name = (ARGS.unrevoke and "unrevoke") or (ARGS.revoke and "revoke") or
+local vote = (ARGS.unrevoke and "unrevoke") or (ARGS.revoke and "revoke") or
              (ARGS.dislike and "dislike") or "like"
+
+if (ARGS.target ~= "cid") and (ARGS.target ~= "author") then
+    ERROR("chain " .. vote .. " : invalid target")
+end
 
 if ARGS.target == "author" then
     -- key string or key file (cli.md "Keys:")
-    ARGS.id = ssh.pub.any(ARGS.id) or ARGS.id
-    if #ARGS.id~=80 or (not ARGS.id:match("^ssh%-ed25519 %S+$")) then
-        ERROR("chain " .. name .. " : invalid author key")
+    ARGS.cid = ssh.pub.any(ARGS.cid) or ARGS.cid
+    if #ARGS.cid~=80 or (not ARGS.cid:match("^ssh%-ed25519 %S+$")) then
+        ERROR("chain " .. vote .. " : invalid author key")
     end
 end
 
 -- detect if a positive `like` targets a beg on refs/begs/
 -- (only `like` accepts begs; dislike/revoke/unrevoke do not)
 local to_beg = (
-    ARGS.like and (ARGS.target == "aid") and
+    ARGS.like and (ARGS.target == "cid") and
         exec { err=false,
-            cmd = "git -C " .. REPO .. " rev-parse --verify refs/begs/beg-" .. ARGS.id,
+            cmd = "git -C " .. REPO .. " rev-parse --verify refs/begs/beg-" .. ARGS.cid,
         } and true
 )
 
 -- beg: validate parent, merge into main, load beg entry
--- (the ref is named by the beg's aid)
-local ref = "refs/begs/beg-" .. ARGS.id
+-- (the ref is named by the beg's cid)
+local ref = "refs/begs/beg-" .. ARGS.cid
 if to_beg then
     local up = exec {
         cmd = "git -C " .. REPO .. " log -1 --format=%P " .. ref,
@@ -61,15 +65,15 @@ if to_beg then
         --exec("git -C " .. REPO .. " update-ref -d " .. ref)
         --ERROR("chain like : invalid target : beg post does not exist")
     end
-    G.order[#G.order+1] = ARGS.id   -- beg post
-    G.actions[ARGS.id] = STATE.read(GIT.deref(ref)).actions[ARGS.id]
+    G.order[#G.order+1] = ARGS.cid   -- beg post
+    G.actions[ARGS.cid] = STATE.read(GIT.deref(ref)).actions[ARGS.cid]
 end
 
 -- the writer's own pubkey, read from the `.pub` file BEFORE the
 -- commit: a bad key fails early, nothing enters the tree
 local pub = ssh.pub.key(ARGS.sign)
 if not pub then
-    ERROR("chain " .. name .. " : invalid sign key")
+    ERROR("chain " .. vote .. " : invalid sign key")
 end
 
 local path = REPO .. "payload-tmp"   -- why staging file (git dir)
@@ -91,40 +95,41 @@ local ps = to_beg and { GIT.deref("HEAD"), GIT.deref(ref) }
                    or { GIT.deref("HEAD") }
 
 -- the action IS the commit message; minted UNREFERENCED
--- (aid == cid), so a rejection leaves one gc-able loose commit.
--- ARGS.id is already the aid (or a pubkey): stored as is
+-- (the cid IS the commit), so a rejection leaves one gc-able loose commit.
+-- time = the commit DATE; sign = the gpgsig: not in the message.
+-- ARGS.cid is already the cid (or a pubkey): stored as is
 local act = {
     action = kind,
     sign   = pub,
     time   = tonumber(CMD.now),
     blob   = blob,
-    [ARGS.target] = ARGS.id,
+    [ARGS.target] = ARGS.cid,
     n      = num,
 }
-local aid = ACTION.pre {
+local cid = ACTION.pre {
     act     = act,
     parents = ps,
     sign    = ARGS.sign,
-    err     = "chain " .. name .. " : invalid sign key",
+    err     = "chain " .. vote .. " : invalid sign key",
 }
 
 -- entry/was_revoked used after apply
-local entry = (ARGS.target == "aid") and G.actions[ARGS.id] or nil
+local entry = (ARGS.target == "cid") and G.actions[ARGS.cid] or nil
 local was_revoked = entry and is_revoked(entry)
 
 -- apply BEFORE HEAD moves: a rejected vote leaves nothing anchored
 do
     local ok, err = apply(G, kind, act, {
-        time  = tonumber(CMD.now),
-        aid   = aid,
+        time  = ARGS.now,
+        cid   = cid,
         sign  = pub,
         beg   = to_beg,
         backs = ACTION.backs(ps),
     })
     if not ok then
-        ERROR("chain " .. name .. " : " .. err)
+        ERROR("chain " .. vote .. " : " .. err)
     end
-    G.order[#G.order+1] = aid
+    G.order[#G.order+1] = cid
 end
 
 -- the vote landed, so `entry` now carries the final sums, and
@@ -134,12 +139,12 @@ end
 if entry then
     if (not was_revoked) and is_revoked(entry) then
         exec { err=false, stderr=false,
-            cmd = "git -C " .. REPO .. " update-ref -d refs/payloads/" .. ARGS.id,
+            cmd = "git -C " .. REPO .. " update-ref -d refs/payloads/" .. ARGS.cid,
         }
     elseif was_revoked and (not is_revoked(entry)) then
         -- every post carries a payload, a vote only with `--why`:
         -- with no bytes to restore there is nothing to gate
-        local T = ACTION.read(true, ARGS.id)
+        local T = ACTION.read(true, ARGS.cid)
         if T.blob then
             local have = exec { err=false, stderr=false,
                 cmd = "git -C " .. REPO .. " cat-file -e " .. T.blob,
@@ -152,15 +157,15 @@ if entry then
                     cmd = "git -C " .. REPO .. " hash-object '" .. ARGS.file .. "'",
                 }
                 if blob == false then
-                    ERROR("chain " .. name .. " : invalid path")
+                    ERROR("chain " .. vote .. " : invalid path")
                 end
                 if blob ~= T.blob then
-                    ERROR("chain " .. name .. " : blob mismatch")
+                    ERROR("chain " .. vote .. " : blob mismatch")
                 end
             end
             if have == false then
                 if not ARGS.file then
-                    ERROR("chain " .. name .. " : expected --file")
+                    ERROR("chain " .. vote .. " : expected --file")
                 end
                 -- verified above: only now do the bytes enter the db
                 exec {
@@ -172,7 +177,7 @@ if entry then
             -- `sweep` away from gone
             exec {
                 cmd = "git -C " .. REPO .. " update-ref refs/payloads/" ..
-                    ARGS.id .. " " .. T.blob,
+                    ARGS.cid .. " " .. T.blob,
             }
         end
     end
@@ -184,17 +189,17 @@ if blob then
         cmd = "git -C " .. REPO .. " hash-object -w " .. path,
     }
     exec {
-        cmd = "git -C " .. REPO .. " update-ref refs/payloads/" .. aid .. " " .. blob,
+        cmd = "git -C " .. REPO .. " update-ref refs/payloads/" .. cid .. " " .. blob,
     }
     os.remove(path)
 end
 
 -- accepted: the minted commit becomes the tip (a beg like IS the
 -- merge: `ps` carries both sides as its parents)
-GIT.tip(aid)
+GIT.tip(cid)
 
 -- snapshot state at the new tip (the action commit itself)
-STATE.write(G, aid)
+STATE.write(G, cid)
 
 if to_beg then
     exec {
@@ -202,4 +207,4 @@ if to_beg then
     }
 end
 
-print(aid)
+print(cid)

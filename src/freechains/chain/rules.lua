@@ -7,8 +7,8 @@ function is_revoked (p)
     return ((r.author or 0) < 0) or ((r.others or 0) < 0)
 end
 
--- action aids in a stable order: (time, aid); consolidated actions
--- (time == nil) sort last, then lexicographically by aid. Makes the
+-- action cids in a stable order: (time, cid); consolidated actions
+-- (time == nil) sort last, then lexicographically by cid. Makes the
 -- discount/consolidation scans deterministic across OS processes.
 local function ordered (posts)
     local hs = {}
@@ -45,8 +45,8 @@ function advance (G, env)
 
     -- discount scan (maybe signed at same G.now)
     if env.time>G.now or sign then
-        for _, aid in ipairs(ordered(G.actions)) do
-            local entry = G.actions[aid]
+        for _, cid in ipairs(ordered(G.actions)) do
+            local entry = G.actions[cid]
             if entry.maturity == "00-12" then
                 local subs = {}
                 for h2, other in pairs(G.actions) do
@@ -83,8 +83,8 @@ function advance (G, env)
 
     -- consolidation scan
     if env.time > G.now then
-        for _, aid in ipairs(ordered(G.actions)) do
-            local entry = G.actions[aid]
+        for _, cid in ipairs(ordered(G.actions)) do
+            local entry = G.actions[cid]
             if entry.maturity == "12-24" then
                 if env.time >= entry.time+C.time.full then
                     if entry.author then
@@ -113,7 +113,7 @@ end
 -- the newest time causally preceding a set of actions: each entry
 -- records its own `now` at apply, so the fold is one table walk.
 -- `backs` is STRUCTURAL: derived from the commit's parents
--- (aid == cid), never claimed, so there is nothing to pin
+-- (the cid IS the commit), never claimed, so there is nothing to pin
 function NOW (G, backs)
     local max = 0
     for _, a in ipairs(backs) do
@@ -124,8 +124,8 @@ function NOW (G, backs)
 end
 
 -- an action is applied from two sides:
---  - `act`: what its author CLAIMS (n, target=aid/author)
---  - `env`: what the chain VERIFIED: (time, aid, sign, beg, backs)
+--  - `act`: what its author CLAIMS (n, target=cid/author)
+--  - `env`: what the chain VERIFIED: (time, cid, sign, beg, backs)
 function apply (G, kind, act, env)
     -- time sits within reasonable interval `time.diff`:
     --  max(backs)-diff <= me <= now+diff
@@ -134,7 +134,7 @@ function apply (G, kind, act, env)
         if env.time < up-C.time.diff then
             return false, "too old"
         end
-        if env.time > tonumber(CMD.now)+C.time.diff then
+        if env.time > ARGS.now+C.time.diff then
             return false, "too new"
         end
     end
@@ -159,7 +159,7 @@ function apply (G, kind, act, env)
         end
 
         -- mutation
-        G.actions[env.aid] = {
+        G.actions[env.cid] = {
             action   = 'post',
             author   = env.sign,
             time     = env.time,
@@ -183,11 +183,11 @@ function apply (G, kind, act, env)
         if math.type(act.n)~='integer' or act.n==0 then
             return false, "invalid number : expects non-zero integer"
         end
-        if (act.aid and act.author) or (not act.aid and not act.author) then
+        if (act.cid and act.author) or (not act.cid and not act.author) then
             return false, "invalid target : expects 'action' or 'author'"
         end
         -- revoke/unrevoke never target an author
-        if kind=='revoke' and (not act.aid) then
+        if kind=='revoke' and (not act.cid) then
             return false, "invalid target : expects 'action'"
         end
         -- hiding a post must cost at least what a day mints:
@@ -196,18 +196,18 @@ function apply (G, kind, act, env)
             return false,
                 "invalid number : expects at least " .. C.reps.revoke
         end
-        if act.aid and (not G.actions[act.aid]) then
+        if act.cid and (not G.actions[act.cid]) then
             return false, "invalid target : action not found"
         end
 
         -- author self-revoke (right to be forgotten) is free and ungated
         local self_revoke = (
-            kind=='revoke' and act.n<0 and G.actions[act.aid].author==env.sign
+            kind=='revoke' and act.n<0 and G.actions[act.cid].author==env.sign
         )
 
         -- since self-revoke is free, check its not a "flooding attack"
         if self_revoke then
-            if G.actions[act.aid].revoke.author<0 then
+            if G.actions[act.cid].revoke.author<0 then
                 return false, "already revoked"
             end
         end
@@ -229,8 +229,8 @@ function apply (G, kind, act, env)
             G.authors[env.sign].reps = reps - math.abs(act.n)
         end
         local n = act.n * (100 - C.vote.tax) // 100
-        if act.aid then
-            local e = G.actions[act.aid]
+        if act.cid then
+            local e = G.actions[act.cid]
             local a = e.author
             if not (self_revoke or (kind=='revoke' and act.n>0)) then
                 if a then
@@ -269,7 +269,7 @@ function apply (G, kind, act, env)
         end
 
         -- the vote enters the registry as a target of its own:
-        G.actions[env.aid] = {
+        G.actions[env.cid] = {
             action = kind,
             author = env.sign,
             now    = math.max(env.time, up),

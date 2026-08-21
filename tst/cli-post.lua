@@ -124,8 +124,8 @@ do
         local msg = exec { trim=false,
             cmd = "git -C " .. DIR .. " log -1 --format=%B HEAD",
         }
-        local T = load(msg, "=msg", "t", {})()
-        assert(T.action == "post", "message parses as the action")
+        -- positional: `post` then the payload blob hash
+        assert(msg:match("^post\n%x+\n"), "message is the action: " .. msg)
         -- and the id IS the commit
         local head = exec {
             cmd = "git -C " .. DIR .. " rev-parse HEAD",

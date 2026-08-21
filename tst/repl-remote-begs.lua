@@ -280,10 +280,10 @@ do
 
     do
         TEST "both merged actions present in A"
-        -- actions carry a `time`; the genesis message has none
+        -- a nonzero commit date <=> an action (genesis/merges @0)
         local count = exec {
-            cmd = "git -C " .. REPO_A .. " log --format=%B HEAD" ..
-                " | grep -c '\\[\"time\"\\]'",
+            cmd = "git -C " .. REPO_A .. " log --format=%at HEAD" ..
+                " | grep -vc '^0$'",
         }
         assert(count == "2", "expected 2 actions, got: " .. count)
     end
