@@ -21,6 +21,12 @@ local function git_init (dir)
     exec {
         cmd = "git -C " .. dir .. " config receive.advertisePushOptions true"
     }
+    -- wider delta search for the near-identical state blobs: 23 vs
+    -- 46 MiB at 6.5k actions; gc is manual (sweep) and rare, so the
+    -- extra CPU is fine
+    exec {
+        cmd = "git -C " .. dir .. " config pack.window 50"
+    }
 
     exec {
         cmd = "cp " .. HERE .. "/hooks/pre-receive " .. dir .. "/.git/hooks/pre-receive"
