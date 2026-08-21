@@ -53,13 +53,13 @@ function CID (dir, aid)
     return (assert(cid, "no commit: " .. aid))
 end
 
--- the genesis table of the chain at `dir` (bare repo: no worktree,
--- so the file is read from HEAD's tree)
+-- the genesis table of the chain at `dir`: the genesis commit's
+-- MESSAGE (body after the header block)
 function GENESIS (dir)
     local src = exec { trim=false,
-        cmd = "git -C " .. dir .. " cat-file blob HEAD:genesis.lua",
+        cmd = "git -C " .. dir .. " cat-file commit refs/genesis",
     }
-    return load(src)()
+    return load(src:match("\n\n(.*)$"))()
 end
 
 -- the tracked tree of the chain at `dir` (bare repo: replaces

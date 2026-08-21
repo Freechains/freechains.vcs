@@ -7,9 +7,9 @@ require "freechains.chain.rules"
 REPO   = ARGS.root .. "/chains/" .. ARGS.alias .. "/"
 
 do
-    -- the chain exists <=> its (bare) repo resolves a genesis
+    -- the chain exists <=> its (bare) repo resolves the genesis ref
     local ok = exec { err=false, stderr=false,
-        cmd = "git -C " .. REPO .. " cat-file -e HEAD:genesis.lua",
+        cmd = "git -C " .. REPO .. " cat-file -e refs/genesis",
     }
     if not ok then
         ERROR("chain " .. ARGS.alias .. " : not found")

@@ -49,11 +49,11 @@ do
     end
 
     do
-        TEST "genesis still in tree"
+        TEST "genesis ref still resolves"
         local _, code = exec {
-            cmd = "git -C " .. DIR .. " cat-file -e HEAD:genesis.lua",
+            cmd = "git -C " .. DIR .. " cat-file -e refs/genesis",
         }
-        assert(code == 0, "genesis.lua missing")
+        assert(code == 0, "refs/genesis missing")
     end
 
     do
@@ -99,7 +99,7 @@ do
         local files = exec { trim=false,
             cmd = "git -C " .. DIR .. " ls-tree --name-only HEAD",
         }
-        assert(files == "actions\ngenesis.lua\nrandom\n",
+        assert(files == "actions\n",
             "expected internals only: " .. files)
     end
 end
