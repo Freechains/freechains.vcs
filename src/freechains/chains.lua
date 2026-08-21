@@ -21,11 +21,16 @@ local function git_init (dir)
     exec {
         cmd = "git -C " .. dir .. " config receive.advertisePushOptions true"
     }
-    -- bitmaps default ON in bare repos: they fatten the pack (worse
-    -- delta selection; 46 vs 32 MiB at 6.5k actions) to speed fetch
-    -- serving, which our small syncs do not need
+    -- bitmaps default ON in bare repos: fetch-serving aid our small
+    -- syncs do not need (~0.5 MiB of pack)
     exec {
         cmd = "git -C " .. dir .. " config repack.writeBitmaps false"
+    }
+    -- wider delta search for the near-identical state blobs: 23 vs
+    -- 46 MiB at 6.5k actions; gc is manual (sweep) and rare, so the
+    -- extra CPU is fine
+    exec {
+        cmd = "git -C " .. dir .. " config pack.window 50"
     }
 
     -- bare repo: the repo dir IS the git dir
