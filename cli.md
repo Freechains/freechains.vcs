@@ -202,7 +202,7 @@ freechains chain <alias> dislike <n> (action <id> | author <pub>) [--why=<text>]
 
 ```
 freechains chain '#chat' like 1000 action b52c62f --sign=/tmp/charlie
-freechains chain '#chat' like 10000 author "$(cat /tmp/bob.pub)" --sign=/tmp/alice
+freechains chain '#chat' like 10000 author /tmp/bob.pub --sign=/tmp/alice
 freechains chain '#chat' dislike 1000 action d6568e4 --sign=/tmp/bob --why='SPAM'
 ```
 
@@ -294,7 +294,7 @@ freechains chain <alias> reps revokes
 - Examples:
 
 ```
-freechains chain '#chat' reps author "$(cat /tmp/alice.pub)"
+freechains chain '#chat' reps author /tmp/alice.pub
 freechains chain '#chat' reps actions
 ```
 

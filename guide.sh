@@ -112,19 +112,19 @@ ssh-keygen -t ed25519 -C '' -N '' -q -f "$KEYS/bob"
 echo "-- expected failure:"
 FC --root="$B" --now=$((T0+50)) chain '#chat' post inline $'Possibly malicious\n' --sign="$KEYS/bob" || true
 
-FC --root="$A" --now=$((T0+50)) chain '#chat' reps author "$(awk '{print $1" "$2}' "$KEYS/alice.pub")"
-FC --root="$B" --now=$((T0+50)) chain '#chat' reps author "$(awk '{print $1" "$2}' "$KEYS/bob.pub")"
+FC --root="$A" --now=$((T0+50)) chain '#chat' reps author "$KEYS/alice.pub"
+FC --root="$B" --now=$((T0+50)) chain '#chat' reps author "$KEYS/bob.pub"
 
 # Alice welcomes Bob with 10000 reps
-FC --root="$A" --now=$((T0+60)) chain '#chat' like 10000 author "$(awk '{print $1" "$2}' "$KEYS/bob.pub")" --sign="$KEYS/alice"
+FC --root="$A" --now=$((T0+60)) chain '#chat' like 10000 author "$KEYS/bob.pub" --sign="$KEYS/alice"
 FC --root="$B" chain '#chat' sync recv localhost:$A_PORT
-FC --root="$B" --now=$((T0+70)) chain '#chat' reps author "$(awk '{print $1" "$2}' "$KEYS/alice.pub")"
-FC --root="$B" --now=$((T0+70)) chain '#chat' reps author "$(awk '{print $1" "$2}' "$KEYS/bob.pub")"
+FC --root="$B" --now=$((T0+70)) chain '#chat' reps author "$KEYS/alice.pub"
+FC --root="$B" --now=$((T0+70)) chain '#chat' reps author "$KEYS/bob.pub"
 
 # Bob welcomes Charlie with 5000 reps
 ssh-keygen -t ed25519 -C '' -N '' -q -f "$KEYS/charlie"
-FC --root="$B" --now=$((T0+80)) chain '#chat' like 5000 author "$(awk '{print $1" "$2}' "$KEYS/charlie.pub")" --sign="$KEYS/bob"
-FC --root="$B" --now=$((T0+80)) chain '#chat' reps author "$(awk '{print $1" "$2}' "$KEYS/charlie.pub")"
+FC --root="$B" --now=$((T0+80)) chain '#chat' like 5000 author "$KEYS/charlie.pub" --sign="$KEYS/bob"
+FC --root="$B" --now=$((T0+80)) chain '#chat' reps author "$KEYS/charlie.pub"
 
 echo
 echo "############ Posts Reputation & Begging ############"

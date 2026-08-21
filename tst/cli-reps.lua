@@ -19,6 +19,19 @@ do
     end
 
     do
+        -- cli.md "Keys:": a key file resolves to its pubkey
+        TEST "reps-author-key-file forms agree"
+        local pvt = exec {
+            cmd = ENV_EXE .. " chain '#cli-reps' reps author " .. KEY1,
+        }
+        assert(pvt=="50000", "pvt path: " .. pvt)
+        local pub = exec {
+            cmd = ENV_EXE .. " chain '#cli-reps' reps author " .. KEY1 .. ".pub",
+        }
+        assert(pub=="50000", "pub path: " .. pub)
+    end
+
+    do
         TEST "reps-unknown-pubkey"
         local out, code = exec {
             cmd = ENV_EXE .. " chain '#cli-reps' reps author '" .. PUB2 .. "'",
