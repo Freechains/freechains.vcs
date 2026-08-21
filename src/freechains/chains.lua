@@ -21,14 +21,10 @@ local function git_init (dir)
     exec {
         cmd = "git -C " .. dir .. " config receive.advertisePushOptions true"
     }
-    -- bitmaps default ON in bare repos: fetch-serving aid our small
-    -- syncs do not need (~0.5 MiB of pack)
-    exec {
-        cmd = "git -C " .. dir .. " config repack.writeBitmaps false"
-    }
-    -- wider delta search for the near-identical state blobs: 23 vs
+    -- wider delta search for the near-identical state blobs: 24 vs
     -- 46 MiB at 6.5k actions; gc is manual (sweep) and rare, so the
-    -- extra CPU is fine
+    -- extra CPU is fine. Depth 50 (default) measured right; bitmaps
+    -- (bare default) measured irrelevant (~0.7 MiB sidecar): left alone
     exec {
         cmd = "git -C " .. dir .. " config pack.window 50"
     }

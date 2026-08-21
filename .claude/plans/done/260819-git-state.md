@@ -153,6 +153,55 @@
 - runtimes creeping: 48 (files) / 53 (git-state) / 57 min
   (bare); plumbing-per-action cost, watch if it grows
 
+# S4 FINAL STUDY (26/08/21): config matrix + bare verdict
+
+- pack config matrix (repack -adf on the saved 10k chain,
+  66586 objects; time ~flat 150-270s, uncorrelated):
+
+| window | depth | pack     |
+|--------|-------|----------|
+| 10     | 50    | 45.9 MB  |
+| 20     | 50    | 37.0 MB  |
+| 50     | 50    | 24.5 MB  |  <- knee; CHOSEN
+| 100    | 50    | 23.7 MB  |  (+3%: not substantial)
+| 250    | 250   | 23.7 MB  |
+| 50     | 10    | 25.7 MB  |
+| 50     | 100   | 23.7 MB  |
+
+- bitmaps ISOLATED (window 50, on vs off): pack IDENTICAL
+  (23699K); the bitmap is a 0.7 MB sidecar. The earlier
+  46-vs-32 attribution to bitmaps was WRONG (it was the
+  window/reuse story) -> `writeBitmaps false` DROPPED from
+  git_init (simplicity; nothing measurable)
+- bare vs non-bare (chat-02 N=1000 ~ 650 actions, same
+  code era, same config, both gc'd):
+
+|          | run  | pack    | worktree | total  |
+|----------|------|---------|----------|--------|
+| bare     | 165s | 1.40 MB | --       | 2.7 MB |
+| non-bare | 140s | 1.36 MB | 4.1 MB   | 6.8 MB |
+
+- packs identical; the whole gap is the worktree (~6 KB per
+  action) -> non-bare total 2.5x bigger; bare posts +18%
+- VERDICT (goal = disk): keep BARE + pack.window 50, depth
+  default, no bitmap config. Total at 6.5k actions ~33 MB
+  (23.7 pack + ~9 refs/index) vs 15.3 GB baseline: ~460x
+
+## big picture (6541-action wikimedia chain)
+
+| arrangement                        | total     |
+|------------------------------------|-----------|
+| file snapshots                     | 15,300 MB |
+| prune (keep 500) + sweep           |  1,500 MB |
+| git-state, default pack, worktree  |     70 MB |
+| git-state + window 50, worktree    |    ~57 MB |
+| git-state + window 50 + BARE       |    ~33 MB |
+
+- levers in order: git-state (structural, O(N^2)->O(N)),
+  pack.window 50 (one line), bare (kills the worktree copy)
+- costs: ~+10% post (git-state), +18% post (bare), one
+  explicit `git gc` (sweep) to reach the floor
+
 # Conclusion (26/08/20) -- REVISED
 
 - item 4 wins on DISK FLOOR: 28.6 MB vs prune's 1.5 GB, and
