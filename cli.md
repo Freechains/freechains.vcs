@@ -183,7 +183,7 @@ freechains chain '#chat' list order
 
 ## chain get
 
-Gets the action with the given id.
+Queries action with given id.
 
 ```
 freechains chain <alias> get (metadata | payload) <id>
@@ -273,7 +273,7 @@ freechains chain '#chat' unrevoke 1000 4a5b6c7 --sign=/tmp/alice --file=/tmp/f.t
 
 ## chain reps
 
-Gets the reputation of an action (id) or an author (public key).
+Queries reputation of given action or author.
 
 ```
 freechains chain <alias> reps action  <id>
@@ -335,7 +335,7 @@ Never run it against a concurrent writer.
 
 ## chain sync
 
-Synchronizes a chain with a given peer.
+Synchronizes a chain with given peer.
 
 ```
 freechains chain <alias> sync (recv | send) <remote>
