@@ -88,14 +88,10 @@ do
             f:close()
             exec { cmd = "chmod 600 " .. bad }
         end
-        -- ssh-keygen's own detail follows, so match the head line
-        local err = FAIL {
+        FAIL {
             cmd = EXE .. " chains add '#x' init --pioneer=" .. bad,
+            err = "ERROR : chains add : invalid pioneer : " .. bad,
         }
-        assert (
-            err:match("^ERROR : chains add : invalid pioneer\n")
-            , "should fail with: " .. tostring(err)
-        )
     end
 
     do
@@ -290,17 +286,10 @@ do
 
     do
         TEST "pioneer file not found"
-        -- the error carries ssh-keygen's own detail (>>> ... <<<)
-        local err = FAIL {
+        FAIL {
             cmd = EXE .. " chains add '#inl-badkey' init --pioneer=/nonexistent/key",
+            err = "ERROR : chains add : invalid pioneer : /nonexistent/key",
         }
-        err = err:gsub("\r\n", "\n")    -- ssh-keygen speaks CRLF
-        assert(err == [[
-ERROR : chains add : invalid pioneer
->>>
-/nonexistent/key: No such file or directory
-<<<
-]])
     end
 end
 

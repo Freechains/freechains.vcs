@@ -1,4 +1,5 @@
 local C    = require "freechains.constants"
+local ssh  = require "freechains.chain.ssh"
 local HERE = debug.getinfo(1, "S").source:match("@(.*/)")
 
 local function git_init (dir)
@@ -102,25 +103,7 @@ if ARGS.add then
         -- each --pioneer is a key string ("ssh-...") or a key file
         local keys = {}
         for _, v in ipairs(ARGS.pioneer or {}) do
-            local key
-            if v:match("^ssh%-") then
-                key = v
-            else
-                local f = io.open(v)
-                local ln = f and f:read("l")
-                if f then
-                    f:close()
-                end
-                if ln and ln:match("^ssh%-") then
-                    key = ln          -- public key file
-                else
-                    key = exec {      -- private key file
-                        cmd = "ssh-keygen -y -f " .. v,
-                        err = "chains add : invalid pioneer",
-                    }
-                end
-            end
-            key = key:match("^(%S+ %S+)")
+            local key = ssh.pub.any(v)
             if not key then
                 ERROR("chains add : invalid pioneer : " .. v)
             end
