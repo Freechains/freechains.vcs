@@ -74,9 +74,9 @@ Starts daemon to serve local chains.
 freechains daemon start [--port=<port>] [--hub] [-- <git-opts>...]
 ```
 
-- `--port=<port>`: port to listen [default: 8330]
-- `--hub`: accepts `sync send` from peers
-- `<git-opts>...`: extra options forwarded to `git daemon`
+- `--port=<port>`:  port to listen [default: 8330]
+- `--hub`:          accepts `sync send` from peers
+- `<git-opts>...`:  extra options forwarded to `git daemon`
 
 - Examples:
 
@@ -114,10 +114,10 @@ freechains chains add <alias> init [--pioneer=<pub>]...
 freechains chains add <alias> clone <url>
 ```
 
-- `<alias>`: local name of the chain
-- `init`: creates new chain
-    - `--pioneer=<pub>`: repeat for each pioneer key
-- `clone <url>`: fetches existing chain from peer
+- `<alias>`:                local name of the chain
+- `init`:                   creates new chain
+    - `--pioneer=<pub>`:    repeat for each pioneer key
+- `clone <url>`:            fetches existing chain from peer
 
 Displays the chain id, unique across all peers.
 
@@ -167,10 +167,10 @@ Posts a new action in the chain.
 freechains chain <alias> post (file <path> | inline <text>) [--sign=<pvt>] [--beg]
 ```
 
-- `file <path>`: posts contents of given file
-- `inline <text>`: posts given text
-- `--sign=<pvt>`: private key file of author (defaults to `$HOME/.ssh/id_ed25519`)
-- `--beg`: posts without spending reps
+- `file <path>`:    posts contents of given file
+- `inline <text>`:  posts given text
+- `--sign=<pvt>`:   private key file of author (defaults to `$HOME/.ssh/id_ed25519`)
+- `--beg`:          posts without spending reps
     - post needs a like to become part of the chain
 
 Either `--sign` or `--beg` is required.
@@ -191,12 +191,12 @@ freechains chain <alias> like <n> (action <id> | author <pub>) [--why=<text>] [-
 freechains chain <alias> dislike <n> (action <id> | author <pub>) [--why=<text>]
 ```
 
-- `<n>`: amount of reps to spend
+- `<n>`:                amount of reps to spend
 - target:
-    - `action <id>`: rates action
-    - `author <pub>`: rates author
-- `--why=<text>`: justify the action
-- `--file=<path>`: original payload (required for revoked actions)
+    - `action <id>`:    rates action
+    - `author <pub>`:   rates author
+- `--why=<text>`:       justify the action
+- `--file=<path>`:      original payload (required for revoked actions)
 
 - Examples:
 
@@ -215,10 +215,10 @@ freechains chain <alias> revoke <n> <id> [--why=<text>]
 freechains chain <alias> unrevoke <n> <id> [--why=<text>] [--file=<path>]
 ```
 
-- `<n>`: amount of reps to spend
-- `<id>`: action to remove or restore payload
-- `--why=<text>`: justify the action
-- `--file=<path>`: original payload (required for revoked actions)
+- `<n>`:            amount of reps to spend
+- `<id>`:           action to remove or restore payload
+- `--why=<text>`:   justify the action
+- `--file=<path>`:  original payload (required for revoked actions)
 
 A revoked payload becomes immediately unavailable to `get`.
 
@@ -231,16 +231,16 @@ freechains chain '#chat' unrevoke 1000 4a5b6c7 --sign=/tmp/alice --file=/tmp/f.t
 
 ## chain list
 
-Lists the chain actions.
+Lists chain actions.
 
 ```
 freechains chain <alias> list (order | dag | begs | revokes)
 ```
 
-- `order`: consensus order, one id per line
-- `dag`: DAG drawn as ASCII
-- `begs`: pending begs, still parked outside the chain
-- `revokes`: revoked actions only
+- `order`:      consensus order, one id per line
+- `dag`:        DAG drawn as ASCII
+- `begs`:       pending begs, still parked outside the chain
+- `revokes`:    revoked actions only
 
 In `order` and `dag`, actions with revoked payloads appear wrapped as `~<id>~`.
 
@@ -259,9 +259,9 @@ Queries action with given id.
 freechains chain <alias> get (metadata | payload) <id>
 ```
 
-- `metadata`: the action file, serialized as a Lua table
-    - fields: `action`, `backs`, `blob`, `sign`, `time`
-- `payload`: the actual content bytes
+- `metadata`:   the action file, serialized as a Lua table
+    - fields:   `action`, `backs`, `blob`, `sign`, `time`
+- `payload`:    the actual content bytes
     - fails if action is revoked
 
 - Examples:
@@ -284,12 +284,12 @@ freechains chain <alias> reps revoke  <id>
 freechains chain <alias> reps revokes
 ```
 
-- `action <id>`: reps of a single action
-- `actions`: all actions, most reputable first
-- `author <pub>`: reps of a single author
-- `authors`: all authors, most reputable first
-- `revoke <id>`: revoke votes of an action, as `<author> <others>`
-- `revokes`: revoke votes of all actions, most revoked first
+- `action <id>`:    reps of single action
+- `actions`:        all actions, most reputable first
+- `author <pub>`:   reps of single author
+- `authors`:        all authors, most reputable first
+- `revoke <id>`:    revokes single action, as `<author> <others>`
+- `revokes`:        all actions, most revoked first
 
 - Examples:
 
@@ -306,7 +306,7 @@ Permanently drops a local action and everything after it.
 freechains chain <alias> abandon <id> [--keep]
 ```
 
-- `<id>`: first action to DROP
+- `<id>`:   first action to DROP
 - `--keep`: `<id>` is instead the last action to KEEP
 
 Local only: no signing, no network, no reps.
@@ -341,10 +341,10 @@ Synchronizes a chain with given peer.
 freechains chain <alias> sync (recv | send) <remote>
 ```
 
-- `send`: sends   missing actions to   remote peer
-- `recv`: receive missing actions from remote peer
+- `send`:       sends   missing actions to   remote peer
+- `recv`:       receive missing actions from remote peer
     - the remote daemon must run with `--hub`
-- `<remote>`: same url forms of `Chain URLs`
+- `<remote>`:   same url forms of `Chain URLs`
 
 Received actions are validated and replayed.
 If the merge would reorder our settled actions, it is refused
