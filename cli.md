@@ -324,18 +324,14 @@ freechains chain '#chat' sync send localhost:8331
 
 ## chain abandon
 
-Permanently drops a local action and everything after it.
+Permanently drops local action and everything after it.
 
 ```
 freechains chain <alias> abandon <id> [--keep]
 ```
 
-- `<id>`:   first action to DROP
-- `--keep`: `<id>` is instead the last action to KEEP
-
-Local only: no signing, no network, no reps.
-Only a linear suffix may go, never crossing a sync merge.
-This is the escape hatch to recover from a hard fork.
+- `<id>`:   first action to drop
+- `--keep`: `<id>` is instead last action to keep
 
 - Examples:
 
@@ -346,13 +342,8 @@ freechains chain '#chat' abandon --keep 560a55c
 
 ## chain sweep
 
-Erases the bytes that removal already unreferenced.
+Erases revoked payloads and compacts the chain.
 
 ```
 freechains chain <alias> sweep
 ```
-
-Reclaims revoked and abandoned payloads, and packs the state
-snapshots.
-Local only: no signing, no network, no reps.
-Never run it against a concurrent writer.
