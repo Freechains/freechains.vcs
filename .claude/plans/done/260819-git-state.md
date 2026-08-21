@@ -144,8 +144,12 @@
       defaults ON in BARE repos -- bitmap file + bitmap
       ordering constrains delta selection (29288 deltas vs
       32618). Bitmaps only speed fetch-serving counting.
-    - fix: `git config repack.writeBitmaps false` in
-      git_init -> expect ~32 MiB pack, ~44 MB total
+    - bitmaps were NOT the cause: disabling saved ~0.5 MiB
+      (45.7). Real cause: single-shot gc (reused 0) finds
+      worse deltas than the old incremental gc.auto packs
+    - FIX (measured): `repack -adf --window=50` -> 23.14 MiB,
+      the best floor of all runs -> `pack.window 50` in
+      git_init; sweep's gc is rare, extra CPU fine
 - runtimes creeping: 48 (files) / 53 (git-state) / 57 min
   (bare); plumbing-per-action cost, watch if it grows
 
