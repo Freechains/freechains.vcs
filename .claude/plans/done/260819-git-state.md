@@ -133,6 +133,22 @@
       variance = delta selection). Floor is ~30 MB either way.
     - so the tail is purely TRANSIENT; one gc always recovers
 
+# S4 THIRD RUN (26/08/20): BARE repos (branch 9a9593d)
+
+- same sim, bare chain (no worktree), no gc.auto: 57 min,
+  end 2.4 GB loose (pack 0 -- no auto gc, as designed)
+- after explicit `git gc`: size-pack 46.2 MiB, du 58 MB
+    - vs worktree run: 70 MB total -> 58 MB (the ~38 MB
+      worktree copy is gone)
+    - BUT pack grew 32.2 -> 46.2 MiB: `repack.writeBitmaps`
+      defaults ON in BARE repos -- bitmap file + bitmap
+      ordering constrains delta selection (29288 deltas vs
+      32618). Bitmaps only speed fetch-serving counting.
+    - fix: `git config repack.writeBitmaps false` in
+      git_init -> expect ~32 MiB pack, ~44 MB total
+- runtimes creeping: 48 (files) / 53 (git-state) / 57 min
+  (bare); plumbing-per-action cost, watch if it grows
+
 # Conclusion (26/08/20) -- REVISED
 
 - item 4 wins on DISK FLOOR: 28.6 MB vs prune's 1.5 GB, and

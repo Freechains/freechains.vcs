@@ -180,8 +180,10 @@ do
     -- KEY1=15, KEY2=15
     do
         TEST "like-author-success"
+        -- cli.md "Keys:": the author may be a key FILE (resolves to
+        -- PUB2), not only the key string
         local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-like' like 1000 author '" .. PUB2 .. "'" .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain '#cli-like' like 1000 author " .. KEY2 .. ".pub --sign " .. KEY1,
         }
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)

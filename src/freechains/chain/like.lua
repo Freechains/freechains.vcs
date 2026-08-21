@@ -30,6 +30,8 @@ local name = (ARGS.unrevoke and "unrevoke") or (ARGS.revoke and "revoke") or
              (ARGS.dislike and "dislike") or "like"
 
 if ARGS.target == "author" then
+    -- key string or key file (cli.md "Keys:")
+    ARGS.id = ssh.pub.any(ARGS.id) or ARGS.id
     if #ARGS.id~=80 or (not ARGS.id:match("^ssh%-ed25519 %S+$")) then
         ERROR("chain " .. name .. " : invalid author key")
     end

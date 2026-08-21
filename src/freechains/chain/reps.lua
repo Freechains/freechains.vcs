@@ -1,5 +1,11 @@
+local ssh = require "freechains.chain.ssh"
+
 if ARGS.key then
     ARGS.key = ARGS.key:match("^%s*(.-)%s*$")
+    -- author key: string or key file (cli.md "Keys:")
+    if ARGS.target == "author" then
+        ARGS.key = ssh.pub.any(ARGS.key) or ARGS.key
+    end
 end
 
 advance(G, { time = tonumber(CMD.now) })

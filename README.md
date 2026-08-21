@@ -274,21 +274,12 @@ Note that Git itself provides no reputation mechanism.
 Therefore, Freechains relies on custom Git hooks to validate commits according
 to its own reputation rules.
 
-Let's read the public keys from both users:
+We can query the reputation of members passing their public keys:
 
 ```
-$ cat /tmp/alice.pub
-ssh-ed25519 ...vzTc96I 
-$ cat /tmp/bob.pub
-ssh-ed25519 ...je8+xIa 
-```
-
-Now, we use the public keys to query their reputations:
-
-```
-$ freechains chain '#chat' reps author "$(cat /tmp/alice.pub)"
+$ freechains chain '#chat' reps author /tmp/alice.pub
 49500
-$ freechains chain '#chat' reps author "$(cat /tmp/bob.pub)"
+$ freechains chain '#chat' reps author /tmp/bob.pub
 0
 ```
 
@@ -299,7 +290,7 @@ To welcome new members into the chain, the pioneer needs to redistribute a
 share of its `reps`:
 
 ```
-$ freechains chain '#chat' like 10000 author "$(cat /tmp/bob.pub)" --sign=/tmp/alice
+$ freechains chain '#chat' like 10000 author /tmp/bob.pub --sign=/tmp/alice
 560a55c...
 ```
 
@@ -307,9 +298,9 @@ $ freechains chain '#chat' like 10000 author "$(cat /tmp/bob.pub)" --sign=/tmp/a
 
 ```
 $ freechains --root=/tmp/B/ chain '#chat' sync recv localhost
-$ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/alice.pub)"
+$ freechains --root=/tmp/B/ chain '#chat' reps author /tmp/alice.pub
 40000
-$ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/bob.pub)"
+$ freechains --root=/tmp/B/ chain '#chat' reps author /tmp/bob.pub
 9000
 ```
 
@@ -351,13 +342,13 @@ Let's now introduce new member `Charlie`, who is welcomed by `Bob` in peer `B`:
 
 ```
 $ ssh-keygen -t ed25519 -C '' -f /tmp/charlie
-$ freechains --root=/tmp/B/ chain '#chat' like 5000 author "$(cat /tmp/charlie.pub)" --sign=/tmp/bob
+$ freechains --root=/tmp/B/ chain '#chat' like 5000 author /tmp/charlie.pub --sign=/tmp/bob
 e6d7626...
-$ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/alice.pub)"
+$ freechains --root=/tmp/B/ chain '#chat' reps author /tmp/alice.pub
 40000
-$ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/bob.pub)"
+$ freechains --root=/tmp/B/ chain '#chat' reps author /tmp/bob.pub
 4000
-$ freechains --root=/tmp/B/ chain '#chat' reps author "$(cat /tmp/charlie.pub)"
+$ freechains --root=/tmp/B/ chain '#chat' reps author /tmp/charlie.pub
 4500
 ```
 

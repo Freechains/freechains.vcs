@@ -16,6 +16,30 @@ function M.pub.key (path)
     return s:match("^(%S+ %S+)")
 end
 
+-- The cli.md "Keys:" convention: a pubkey from a key STRING
+-- ("ssh-..."), a pub key FILE, or a pvt key FILE (ssh-keygen -y).
+-- nil if none resolves (caller errors with its command prefix).
+function M.pub.any (v)
+    if v:match("^ssh%-") then
+        return v:match("^(%S+ %S+)")
+    end
+    local f = io.open(v)
+    local ln = f and f:read("l")
+    if f then
+        f:close()
+    end
+    if ln and ln:match("^ssh%-") then
+        return ln:match("^(%S+ %S+)")   -- public key file
+    end
+    local out = exec { err=false, stderr=false,
+        cmd = "ssh-keygen -y -f " .. v, -- private key file
+    }
+    if out then
+        return out:match("^(%S+ %S+)")
+    end
+    return nil
+end
+
 -- Extract the SSH pubkey from a signed commit, or nil if unsigned.
 -- Parses the SSHSIG armored blob in the gpgsig header.
 function M.pub.commit (repo, cid)

@@ -87,14 +87,10 @@ do
             f:close()
             exec { cmd = "chmod 600 " .. bad }
         end
-        -- ssh-keygen's own detail follows, so match the head line
-        local err = FAIL {
+        FAIL {
             cmd = EXE .. " chains add '#x' init --pioneer=" .. bad,
+            err = "ERROR : chains add : invalid pioneer : " .. bad,
         }
-        assert (
-            err:match("^ERROR : chains add : invalid pioneer\n")
-            , "should fail with: " .. tostring(err)
-        )
     end
 
     do
@@ -286,18 +282,25 @@ do
     end
 
     do
-        TEST "pioneer file not found"
-        -- the error carries ssh-keygen's own detail (>>> ... <<<)
-        local err = FAIL {
-            cmd = EXE .. " chains add '#inl-badkey' init --pioneer=/nonexistent/key",
+        TEST "pioneer pub file and key string agree with pvt file"
+        exec {
+            cmd = EXE .. " chains add '#inl-pub' init --pioneer=" .. KEY1 .. ".pub",
         }
-        err = err:gsub("\r\n", "\n")    -- ssh-keygen speaks CRLF
-        assert(err == [[
-ERROR : chains add : invalid pioneer
->>>
-/nonexistent/key: No such file or directory
-<<<
-]])
+        local t1 = dofile(ROOT .. "/chains/#inl-pub/genesis.lua")
+        assert(t1.pioneers[1] == PUB1, "pub-file form")
+        exec {
+            cmd = EXE .. " chains add '#inl-str' init --pioneer='" .. PUB1 .. "'",
+        }
+        local t2 = dofile(ROOT .. "/chains/#inl-str/genesis.lua")
+        assert(t2.pioneers[1] == PUB1, "string form")
+    end
+
+    do
+        TEST "pioneer file not found"
+        FAIL {
+            cmd = EXE .. " chains add '#inl-badkey' init --pioneer=/nonexistent/key",
+            err = "ERROR : chains add : invalid pioneer : /nonexistent/key",
+        }
     end
 end
 
