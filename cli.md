@@ -14,19 +14,19 @@ Usage:
 
     # per-chain
 
-    # queries
-    freechains chain <alias> list (order | dag | begs | revokes)
-    freechains chain <alias> get (metadata | payload) <id>
-    freechains chain <alias> reps (action <id> | author <pub>)
-    freechains chain <alias> reps (actions | authors)
-    freechains chain <alias> reps (revoke <id> | revokes)
-
     # actions
     freechains chain <alias> post (file <path> | inline <text>) [--beg]
     freechains chain <alias> like <n> (action <id> | author <pub>) [--file=<path>]
     freechains chain <alias> dislike <n> (action <id> | author <pub>)
     freechains chain <alias> revoke <n> <id>
     freechains chain <alias> unrevoke <n> <id> [--file=<path>]
+
+    # queries
+    freechains chain <alias> list (order | dag | begs | revokes)
+    freechains chain <alias> get (metadata | payload) <id>
+    freechains chain <alias> reps (action <id> | author <pub>)
+    freechains chain <alias> reps (actions | authors)
+    freechains chain <alias> reps (revoke <id> | revokes)
 
     # synchronize
     freechains chain <alias> sync (recv | send) <remote>
@@ -159,48 +159,6 @@ Operations inside a single chain:
 - All take the chain `<alias>` as first argument.
 - Action ids may be abbreviated, as printed by `list dag`.
 
-## chain list
-
-Lists the chain actions.
-
-```
-freechains chain <alias> list (order | dag | begs | revokes)
-```
-
-- `order`: consensus order, one id per line
-- `dag`: DAG drawn as ASCII
-- `begs`: pending begs, still parked outside the chain
-- `revokes`: revoked actions only
-
-In `order` and `dag`, actions with revoked payloads appear wrapped as `~<id>~`.
-
-- Examples:
-
-```
-freechains chain '#chat' list dag
-freechains chain '#chat' list order
-```
-
-## chain get
-
-Queries action with given id.
-
-```
-freechains chain <alias> get (metadata | payload) <id>
-```
-
-- `metadata`: the action file, serialized as a Lua table
-    - fields: `action`, `backs`, `blob`, `sign`, `time`
-- `payload`: the actual content bytes
-    - fails if action is revoked
-
-- Examples:
-
-```
-freechains chain '#chat' get payload b52c62f
-freechains chain '#chat' get metadata b52c62f
-```
-
 ## chain post
 
 Posts a new action in the chain.
@@ -269,6 +227,48 @@ A revoked payload becomes immediately unavailable to `get`.
 ```
 freechains chain '#chat' revoke 1000 4a5b6c7 --sign=/tmp/alice
 freechains chain '#chat' unrevoke 1000 4a5b6c7 --sign=/tmp/alice --file=/tmp/f.txt
+```
+
+## chain list
+
+Lists the chain actions.
+
+```
+freechains chain <alias> list (order | dag | begs | revokes)
+```
+
+- `order`: consensus order, one id per line
+- `dag`: DAG drawn as ASCII
+- `begs`: pending begs, still parked outside the chain
+- `revokes`: revoked actions only
+
+In `order` and `dag`, actions with revoked payloads appear wrapped as `~<id>~`.
+
+- Examples:
+
+```
+freechains chain '#chat' list dag
+freechains chain '#chat' list order
+```
+
+## chain get
+
+Queries action with given id.
+
+```
+freechains chain <alias> get (metadata | payload) <id>
+```
+
+- `metadata`: the action file, serialized as a Lua table
+    - fields: `action`, `backs`, `blob`, `sign`, `time`
+- `payload`: the actual content bytes
+    - fails if action is revoked
+
+- Examples:
+
+```
+freechains chain '#chat' get payload b52c62f
+freechains chain '#chat' get metadata b52c62f
 ```
 
 ## chain reps
