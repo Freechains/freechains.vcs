@@ -298,6 +298,30 @@ freechains chain '#chat' reps author /tmp/alice.pub
 freechains chain '#chat' reps actions
 ```
 
+## chain sync
+
+Synchronizes a chain with given peer.
+
+```
+freechains chain <alias> sync (recv | send) <remote>
+```
+
+- `send`:       sends   missing actions to   remote peer
+- `recv`:       receive missing actions from remote peer
+    - the remote daemon must run with `--hub`
+- `<remote>`:   same url forms of `Chain URLs`
+
+Received actions are validated and replayed.
+If the merge would reorder our settled actions, it is refused
+with `hard fork`.
+
+- Examples:
+
+```
+freechains chain '#chat' sync recv localhost
+freechains chain '#chat' sync send localhost:8331
+```
+
 ## chain abandon
 
 Permanently drops a local action and everything after it.
@@ -332,27 +356,3 @@ Reclaims revoked and abandoned payloads, and packs the state
 snapshots.
 Local only: no signing, no network, no reps.
 Never run it against a concurrent writer.
-
-## chain sync
-
-Synchronizes a chain with given peer.
-
-```
-freechains chain <alias> sync (recv | send) <remote>
-```
-
-- `send`:       sends   missing actions to   remote peer
-- `recv`:       receive missing actions from remote peer
-    - the remote daemon must run with `--hub`
-- `<remote>`:   same url forms of `Chain URLs`
-
-Received actions are validated and replayed.
-If the merge would reorder our settled actions, it is refused
-with `hard fork`.
-
-- Examples:
-
-```
-freechains chain '#chat' sync recv localhost
-freechains chain '#chat' sync send localhost:8331
-```
