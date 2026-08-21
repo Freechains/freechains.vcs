@@ -175,9 +175,8 @@ elseif ARGS.recv then
                         (from .. ".." .. loc)
                 }
                 for cid in out:gmatch("%x+") do
-                    local a = ACTION.aid(cid)
-                    if a then
-                        print("voided : " .. a)
+                    if ACTION.is(cid) then
+                        print("voided : " .. cid)
                     end
                 end
             end

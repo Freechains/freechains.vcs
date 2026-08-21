@@ -103,7 +103,7 @@ local KINDS = { post=true, like=true, revoke=true }
 
 function commit (G, cid, beg)
     local ps = GIT.parents(cid)
-    local aid = ACTION.aid(cid)   -- nil: sync merge
+    local isa = ACTION.is(cid)   -- false: sync merge
     -- a merge adds no time: dates are neutral, the action message
     -- is the one source of truth
 
@@ -120,7 +120,7 @@ function commit (G, cid, beg)
 
     -- empty message: must be a 2-parent sync merge (the genesis,
     -- the only root, is below every replay and never gets here)
-    if not aid then
+    if not isa then
         if #ps ~= 2 then
             error("malformed commit : expected 2-parent merge", 0)
         end
@@ -204,7 +204,7 @@ function commit (G, cid, beg)
     -- state, and a refused sync must not corrupt local snapshots
     if not STATE.has(cid) then
         local sav = G.now
-        if aid then
+        if isa then
             G.now = G.actions[cid].now
         else
             G.now = NOW(G, ACTION.backs(ps))
@@ -248,9 +248,8 @@ function replay (G, com, tip, trunc)
                 -- only a `like` action merges (beg promotion): its
                 -- second parent is the beg branch
                 -- like positivity (n>0) is enforced in commit()
-                local a = ACTION.aid(cur)
-                local t = a and ACTION.read(false, a)
-                local is_beg_merge = (t~=nil and t.action=='like')
+                local t = ACTION.is(cur) and ACTION.read(true, cur)
+                local is_beg_merge = (t and t.action=='like')
                 meet(G, com, p1, p2, is_beg_merge)
             end
             visited[cur] = true

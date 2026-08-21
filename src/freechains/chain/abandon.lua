@@ -12,17 +12,16 @@
 -- drop sibling branch).
 
 -- the cid may be abbreviated (`list dag` prints it so)
-ARGS.cid = ACTION.full(ARGS.cid)
+local cid = ACTION.full(ARGS.cid)
 
-local cid = ACTION.aid(ARGS.cid)
-if not cid then
+if not ACTION.is(cid) then
     ERROR("chain abandon : invalid action")
 end
 
 -- a beg is a post outside `main`, alone on its own cid-named ref:
 -- nothing follows it, so abandoning it is just deleting the ref
 do
-    local ref = "refs/begs/beg-" .. ARGS.cid
+    local ref = "refs/begs/beg-" .. cid
     local ok = exec { stderr=false, err=false,
         cmd = "git -C " .. REPO .. " show-ref --verify --quiet " .. ref,
     }
@@ -34,7 +33,7 @@ do
         exec {
             cmd = "git -C " .. REPO .. " update-ref -d " .. ref,
         }
-        print(ARGS.cid)
+        print(cid)
         os.exit(0)
     end
 end
@@ -76,30 +75,25 @@ end
 
 -- only a LINEAR suffix may go: a commit without an cid is a sync
 -- merge, and crossing it would also drop the sibling branch
-local aids = {}
 for _, h in ipairs(range) do
-    aids[h] = ACTION.aid(h)
-    if not aids[h] then
+    if not ACTION.is(h) then
         ERROR("chain abandon : unexpected merge")
     end
 end
 
 -- report what is about to be abandoned: one cid per line, like
--- `list` (a beg-like merge is an action too, so merges stay in)
+-- `list` (every commit in range is an action: checked above)
 for _, h in ipairs(range) do
     -- the dropped commit's state blob loses its anchor, so gc can
     -- reclaim it (state lives in refs/states/<cid>, keyed by commit)
     exec { err=false, stderr=false,
         cmd = "git -C " .. REPO .. " update-ref -d refs/states/" .. h,
     }
-    local a = aids[h]
-    if a then
-        -- payloads go with them
-        exec { err=false, stderr=false,
-            cmd = "git -C " .. REPO .. " update-ref -d refs/payloads/" .. a,
-        }
-        print(a)
-    end
+    -- payloads go with them
+    exec { err=false, stderr=false,
+        cmd = "git -C " .. REPO .. " update-ref -d refs/payloads/" .. h,
+    }
+    print(h)
 end
 
 -- settled posts can be abandoned: the hard-fork rule guards against a
