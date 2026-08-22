@@ -19,14 +19,13 @@
 -- readable -- parked begs, abandoned suffixes, refused syncs --
 -- until `sweep` reclaims the unreferenced ones.
 -- The one deny is a REVOKED payload, gated by the chain state
-local T
-do
-    ARGS.cid = ACTION.full(ARGS.cid) or ERROR("chain get : unknown post")
-    local opt = ARGS.metadata and { sign=true, backs=true }
-    T = ACTION.read(false, ARGS.cid, opt)
-    if not T then
-        ERROR("chain get : unknown post")
-    end
+
+ARGS.cid = ACTION.full(ARGS.cid) or ERROR("chain get : unknown post")
+
+local opt = ARGS.metadata and { sign=true, backs=true }
+local T = ACTION.read(false, ARGS.cid, opt)
+if not T then
+    ERROR("chain get : unknown post")
 end
 
 if ARGS.payload then
