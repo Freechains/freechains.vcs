@@ -188,6 +188,10 @@ function M.pre (t)
     return cid
 end
 
+-- `merge` is deliberately absent as a kind: a sync merge carries no
+-- action message and is pure topology (empty message)
+local KINDS = { post=true, like=true, revoke=true }
+
 --[[
 -- Accept `cid` into `G`.
 -- Single pipeline for write and replay.
@@ -208,4 +212,111 @@ end
 --  - climb (consensus.lua): replay, once per commit
 --  - recv (sync.lua): validate an incoming beg head
 --]]
+function M.apply (G, cid, beg)
+    local ps = GIT.parents(cid)
+    local isa = M.is(cid)   -- false: sync merge
+    -- a merge adds no time: dates are neutral, the action message
+    -- is the one source of truth
+
+    -- EVERY commit carries the empty tree: content in a tree would
+    -- be smuggled bytes, relayed forever and un-revocable
+    do
+        local t = exec { err=false, stderr=false,
+            cmd = "git -C " .. REPO .. " rev-parse " .. cid .. "^{tree}",
+        }
+        if t ~= GIT.tree() then
+            error("malformed commit : unexpected tree", 0)
+        end
+    end
+
+    -- empty message: must be a 2-parent sync merge (the genesis,
+    -- the only root, is below every replay and never gets here)
+    if not isa then
+        if #ps ~= 2 then
+            error("malformed commit : expected 2-parent merge", 0)
+        end
+
+    -- action message: check commit
+    else
+        local act = M.read(false, cid)
+        if not act then
+            error("malformed commit : invalid action", 0)
+        end
+        local kind = act.action
+        if not KINDS[kind] then
+            error("malformed commit : invalid action kind", 0)
+        end
+        if #ps > 2 then
+            error("malformed commit : too many parents", 0)
+        end
+
+        if math.type(act.time) ~= 'integer' then
+            error("malformed commit : invalid time", 0)
+        end
+
+        if G.actions[cid] then
+            -- the same action arrived in an earlier commit: already
+            -- in G; only the snapshot below matters
+            goto SNAP
+        end
+
+        local key, err = ssh.verify(REPO, cid)
+        if (not key) and err=='forged' then
+            error("malformed commit : invalid signature", 0)
+        end
+
+        -- backs are STRUCTURAL: derived here from the parents,
+        -- never claimed (the cid IS the commit: git's Merkle binds ancestry)
+        local backs = M.backs(ps)
+
+        -- beg admission: a post begs when forced by the caller
+        -- (writer --beg, beg sync) or unsigned; only a positive
+        -- `like` promotes a parked beg target
+        local to_beg
+        if kind == 'post' then
+            to_beg = beg or (key == nil)
+        else
+            if not key then
+                error("malformed commit : expected signature", 0)
+            end
+            to_beg = (
+                kind == 'like'
+                and (math.type(act.n)=='integer' and act.n>0)
+                and (act.cid and G.actions[act.cid])
+                and (G.actions[act.cid].maturity == "beg")
+            ) or false
+        end
+
+        local ok, err = apply(G, act, {
+            cid   = cid,
+            sign  = key,
+            beg   = to_beg,
+            backs = backs,
+        })
+        if not ok then
+            error("invalid " .. kind .. " : " .. err, 0)
+        end
+        G.order[#G.order+1] = cid
+    end
+
+    ::SNAP::
+
+    -- snapshot: `now` is ancestry-accurate (the replay's G.now may
+    -- already include sibling branches applied earlier in consensus
+    -- order): an action's own `now` was folded at apply; a merge
+    -- adds nothing, so fold its parents' nearest actions.
+    -- NEVER overwrite: the first write is the commit's own-lineage
+    -- state, and a refused sync must not corrupt local snapshots
+    if not STATE.has(cid) then
+        local sav = G.now
+        if isa then
+            G.now = G.actions[cid].now
+        else
+            G.now = NOW(G, M.backs(ps))
+        end
+        STATE.write(G, cid)
+        G.now = sav
+    end
+end
+
 return M
