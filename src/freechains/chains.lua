@@ -147,9 +147,7 @@ local function genesis (dir, gen)
         now     = 0,
     }
     local tmp = dir .. "state-tmp"
-    local f = io.open(tmp, "w")
-    f:write(table_to_string(G))
-    f:close()
+    table_to_file(G, tmp)
     local blob = exec {
         cmd = "git -C " .. dir .. " hash-object -w " .. tmp,
     }

@@ -39,9 +39,7 @@ end
 --]]
 function M.write (G, cid)
     local tmp = REPO .. "state-tmp"
-    local f = io.open(tmp, "w")
-    f:write(table_to_string(G))
-    f:close()
+    table_to_file(G, tmp)
     local blob = exec {
         cmd = "git -C " .. REPO .. " hash-object -w " .. tmp,
     }

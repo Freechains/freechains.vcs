@@ -79,62 +79,66 @@ function exec (t)
 end
 
 --[[
--- Serialize a table to a loadable "return {...}" Lua chunk,
--- keys sorted: same table -> same bytes on every OS/process.
+-- Convert table to string with keys sorted.
 -- Inputs:
---  - t [table]: nested booleans/numbers/strings/tables only
+--  - v   [table]: nested booleans/numbers/strings/tables only
+--  - spc [string?]: indentation accumulator (recursion only)
 -- Outputs:
---  - [string]: 'return {...}\n', load()-able
+--  - [string]: '{...}', the table's Lua source
 -- Errors:
 --  - assert: a string value containing '"'
 --  - "TODO : unsupported type" : function/userdata/etc
 -- Callers:
---  - STATE.write (state.lua): snapshot blob bytes
---  - get metadata (get.lua): prints the action table
+--  - table_to_file (common.lua): the only consumer
 --]]
-function table_to_string (t)
-    --[[
-    -- Serialize one value, recursing into tables.
-    -- Inputs:
-    --  - v   [boolean|number|string|table]: the value
-    --  - spc [string]: current indentation
-    -- Outputs:
-    --  - [string]: the value's Lua source
-    -- Errors:
-    --  - see table_to_string above
-    -- Callers:
-    --  - table_to_string (common.lua): root and recursion
-    --]]
-    local function val (v, spc)
-        if type(v) == 'boolean' then
-            return tostring(v)
-        elseif type(v) == 'number' then
-            return tonumber(v)
-        elseif type(v) == 'string' then
-            assert(not string.find(v,'"'))
-            return '"' .. v .. '"'
-        elseif type(v) ~= 'table' then
-            error("TODO : unsupported type")
-        else
-            local keys = {}
-            for k in pairs(v) do keys[#keys+1] = k end
-            table.sort(keys)
-            local out = {"{\n"}
-            local sub = spc .. "    "
-            for _, k in ipairs(keys) do
-                local pfx
-                if type(k) == 'number' then
-                    pfx = "[" .. k .. "] = "
-                else
-                    pfx = '["' .. k .. '"] = '
-                end
-                out[#out+1] = sub .. pfx .. val(v[k], sub) .. ",\n"
+local function table_to_string (v, spc)
+    spc = spc or ""
+    if type(v) == 'boolean' then
+        return tostring(v)
+    elseif type(v) == 'number' then
+        return tonumber(v)
+    elseif type(v) == 'string' then
+        assert(not string.find(v,'"'))
+        return '"' .. v .. '"'
+    elseif type(v) ~= 'table' then
+        error("TODO : unsupported type")
+    else
+        local keys = {}
+        for k in pairs(v) do keys[#keys+1] = k end
+        table.sort(keys)
+        local out = {"{\n"}
+        local sub = spc .. "    "
+        for _, k in ipairs(keys) do
+            local pfx
+            if type(k) == 'number' then
+                pfx = "[" .. k .. "] = "
+            else
+                pfx = '["' .. k .. '"] = '
             end
-            out[#out+1] = spc .. "}"
-            return table.concat(out)
+            out[#out+1] = sub .. pfx .. table_to_string(v[k], sub) .. ",\n"
         end
+        out[#out+1] = spc .. "}"
+        return table.concat(out)
     end
-    return "return " .. val(t, "") .. "\n"
+end
+
+--[[
+-- Writes table to given path as a loadable "return {...}" chunk.
+-- Inputs:
+--  - t    [table]: nested booleans/numbers/strings/tables only
+--  - path [string]: destination file (overwritten)
+-- Outputs:
+--  - none
+-- Errors:
+--  - see table_to_string above
+-- Callers:
+--  - STATE.write (state.lua): snapshot staging file
+--  - genesis (chains.lua): genesis snapshot staging file
+--]]
+function table_to_file (t, path)
+    local f = io.open(path, "w")
+    f:write("return " .. table_to_string(t) .. "\n")
+    f:close()
 end
 
 --[[

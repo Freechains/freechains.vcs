@@ -216,6 +216,9 @@
     - rename traps found: env-key/dot-read mismatch, the
       consensus cid/aid shadow collapse, and a pubkey
       argument briefly labeled <cid> (like author targets)
-- PENDING: guide/README transcripts
+- DONE: guide/README transcripts
+    - README: metadata example -> key-value lines
+    - README: action IS a commit (id = hash)
+    - guide.sh: aid -> cid in comments
 - NOTE: validated via worktree shim; hook needs `make
   install` for a native `make tests`
