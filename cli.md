@@ -259,16 +259,38 @@ Queries action with given id.
 freechains chain <alias> get (metadata | payload) <id>
 ```
 
-- `metadata`:   the action file, serialized as a Lua table
-    - fields:   `action`, `backs`, `blob`, `sign`, `time`
-- `payload`:    the actual content bytes
+- `metadata`:   dump metadata as `key value` lines
+- `payload`:    dump actual content bytes
     - fails if action is revoked
+
+Metadata template (optional lines in brackets):
+
+```
+<id>                            # full action id
+action (post | like | revoke)   # action kind
+time <secs>                     # local creation time
+[n <n>]                         # vote amount (like | revoke)
+[(cid <id> | author <pub>)]     # vote target (like | revoke)
+[blob <hash>]                   # payload hash
+[sign <pub>]                    # author public key
+backs [<id>]...                 # back-link actions, sorted
+```
 
 - Examples:
 
 ```
 freechains chain '#chat' get payload b52c62f
-freechains chain '#chat' get metadata b52c62f
+freechains chain '#chat' get metadata d6568e4
+```
+
+```
+$ freechains chain '#chat' get metadata d6568e4
+d6568e4...                     # full action id
+action post                    # post, like or revoke
+time 1780088002                # local creation time
+blob 90c7c77...                # payload hash
+sign ssh-ed25519 ...vzTc96I    # author public key
+backs b52c62f...               # back-link actions
 ```
 
 ## chain reps

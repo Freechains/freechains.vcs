@@ -134,8 +134,8 @@ d6568e4...
 
 The output is each post's unique identifier.
 
-Each member action in Freechains -- post, like or revoke -- is backed by a Git
-commit in the chain repository.
+Each member action in Freechains -- post, like or revoke -- is a Git commit in
+the chain repository.
 
 We can list all posts in the chain...
 
@@ -171,15 +171,12 @@ I am here
 
 ```
 $ freechains chain '#chat' get metadata d6568e4
-return {
-    ["action"] = "post",                    -- post, like or revoke
-    ["backs"] = {                           -- actions it links back to
-        [1] = "b52c62f...",
-    },
-    ["blob"] = "90c7c77...",                -- payload hash
-    ["sign"] = "ssh-ed25519 ...vzTc96I",    -- author's public key
-    ["time"] = 1780088002,                  -- local creation time
-}
+d6568e4...                     # the full action id
+action post                    # post, like or revoke
+time 1780088002                # local creation time
+blob 90c7c77...                # payload hash
+sign ssh-ed25519 ...vzTc96I    # author public key
+backs b52c62f...               # back-link actions
 ```
 
 These are the basic steps in Freechains to create keys and chains, and to post

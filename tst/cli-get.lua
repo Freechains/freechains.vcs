@@ -93,7 +93,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-get' get metadata " .. POST:sub(1, 7),
         }
         assert(code == 0, "exit code: " .. tostring(code))
-        local T = load(out, "metadata", "t", {})()
+        local T = META(out)
         assert(T.action == "post", "action: " .. tostring(T.action))
     end
 
@@ -124,7 +124,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-get' get metadata " .. POST,
         }
         assert(code == 0, "exit code: " .. tostring(code))
-        local T = load(out, "metadata", "t", {})()
+        local T = META(out)
         assert(T.action == "post", "action: " .. tostring(T.action))
         assert(math.type(T.time) == "integer", "time: " .. tostring(T.time))
         assert(type(T.blob) == "string" and #T.blob == 40, "blob: " .. tostring(T.blob))
@@ -143,7 +143,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-get' get metadata " .. LIKE,
         }
         assert(code == 0, "exit code: " .. tostring(code))
-        local T = load(out, "metadata", "t", {})()
+        local T = META(out)
         assert(T.action == "like", "action: " .. tostring(T.action))
         assert(T.cid == POST, "cid: " .. tostring(T.cid))
         assert(T.author == nil, "author should be unset")
@@ -161,7 +161,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-get' get metadata " .. REVOKE,
         }
         assert(code == 0, "exit code: " .. tostring(code))
-        local T = load(out, "metadata", "t", {})()
+        local T = META(out)
         assert(T.action == "revoke", "action: " .. tostring(T.action))
         assert(T.cid == RPOST, "cid: " .. tostring(T.cid))
         assert(math.type(T.n) == "integer", "n: " .. tostring(T.n))
@@ -190,7 +190,7 @@ do
             cmd = ENV_EXE .. " chain '#cli-get' get metadata " .. UNSIGNED,
         }
         assert(code == 0, "exit code: " .. tostring(code))
-        local T = load(out, "metadata", "t", {})()
+        local T = META(out)
         assert(T.sign == nil, "sign: " .. tostring(T.sign))
         assert(T.action == "post", "action: " .. tostring(T.action))
         -- backs are structural: the unsigned post's parent is LIKE

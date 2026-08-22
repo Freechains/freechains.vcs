@@ -7,7 +7,7 @@
 --  - G    [table]: state at HEAD (revocation check)
 --  - REPO [string]: the chain's bare repo dir
 -- Outputs:
---  - stdout: raw payload bytes, or serial(action table)
+--  - stdout: raw payload bytes, or metadata dump
 -- Errors:
 --  - "chain get : unknown post" : not in HEAD's history
 --  - "chain get : revoked payload"
@@ -49,6 +49,27 @@ if ARGS.payload then
     io.write(pay)
 
 elseif ARGS.metadata then
-    -- metadata is ACTION.read above
-    io.write(table_to_string(T))
+    local out = ARGS.cid .. "\n" ..
+        "action " .. T.action .. "\n" ..
+        "time " .. T.time .. "\n"
+    if T.n then
+        out = out .. "n " .. T.n .. "\n"
+    end
+    if T.cid then
+        out = out .. "cid " .. T.cid .. "\n"
+    elseif T.author then
+        out = out .. "author " .. T.author .. "\n"
+    end
+    if T.blob then
+        out = out .. "blob " .. T.blob .. "\n"
+    end
+    if T.sign then
+        out = out .. "sign " .. T.sign .. "\n"
+    end
+    local backs = ACTION.backs(GIT.parents(ARGS.cid))
+    out = out .. "backs"
+    for _, b in ipairs(backs) do
+        out = out .. " " .. b
+    end
+    io.write(out .. "\n")
 end

@@ -156,7 +156,7 @@ echo "-- no begs pending anymore:"
 FC --root="$A" chain '#chat' list begs
 
 # DAG (A): the beg merges in line (same column), and the like backs two
-# posts, so the older one shows up as a (^aid) annotation row
+# posts, so the older one shows up as a (^cid) annotation row
 #   like(alice->bob)
 #         |
 #   'A great post!'
@@ -241,7 +241,7 @@ FC --root="$X" chain '#chat' list order
 # Alice comes back and posts on her own branch, which the hub has not seen
 FCH --root="$A" --now=$((FORK+7*DAY+100)) chain '#chat' post inline $'Alice takes over\n' --sign="$KEYS/alice"
 
-# the post she just made (its printed aid)
+# the post she just made (its printed cid)
 REJECTED=$HASH
 
 # A sends to X: the hub is entrenched and REFUSES to merge Alice's fork
@@ -273,7 +273,7 @@ FC --root="$A" chain '#chat' sync send localhost:$X_PORT
 #                    |
 #                 'day 7'
 #                    |
-#           'Alice takes over'    <-- repost (new aid, new time)
+#           'Alice takes over'    <-- repost (new cid, new time)
 FC --root="$A" chain '#chat' list dag
 FC --root="$A" chain '#chat' list order
 
