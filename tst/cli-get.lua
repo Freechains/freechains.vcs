@@ -98,6 +98,27 @@ do
     end
 
     do
+        TEST "payload of a PARKED beg"
+        -- a beg must be READABLE before it is liked (admission is
+        -- a judgment on content): getable while still parked
+        local BEG = exec {
+            cmd = ENV_EXE .. " chain '#cli-get' post inline 'read me first' --beg",
+        }
+        local out, code = exec {
+            cmd = ENV_EXE .. " chain '#cli-get' get payload " .. BEG,
+        }
+        assert(code == 0, "exit code: " .. tostring(code))
+        assert(out == "read me first", "content: " .. out)
+
+        TEST "metadata of a PARKED beg"
+        local T = META(exec {
+            cmd = ENV_EXE .. " chain '#cli-get' get metadata " .. BEG,
+        })
+        assert(T.action == "post", "action: " .. tostring(T.action))
+        assert(T.sign == nil, "beg is unsigned: " .. tostring(T.sign))
+    end
+
+    do
         TEST "payload of genesis"
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-get' get payload " .. GENESIS,

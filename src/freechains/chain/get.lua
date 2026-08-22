@@ -9,26 +9,21 @@
 -- Outputs:
 --  - stdout: raw payload bytes, or metadata dump
 -- Errors:
---  - "chain get : unknown post" : not in HEAD's history
+--  - "chain get : unknown post" : does not resolve to an action
 --  - "chain get : revoked payload"
 -- Callers:
 --  - dispatch (chain/init.lua): ARGS.get
 --]]
 
--- membership: an action of the CURRENT history <=> its commit is
--- an ancestor of HEAD (the cid IS the commit); `abandon` drops exactly the
--- abandoned suffix. A parked beg is outside HEAD: unknown here
+-- `get` is a DISK query: anything git resolves to an action is
+-- readable -- parked begs, abandoned suffixes, refused syncs --
+-- until `sweep` reclaims the unreferenced ones.
+-- The one deny is a REVOKED payload, gated by the chain state
 local T
 do
     ARGS.cid = ACTION.full(ARGS.cid) or ERROR("chain get : unknown post")
-    local ok = exec { err=false, stderr=false,
-        cmd = "git -C " .. REPO .. " merge-base --is-ancestor " ..
-            ARGS.cid .. " HEAD",
-    }
-    if ok then
-        local opt = ARGS.metadata and { sign=true, backs=true }
-        T = ACTION.read(false, ARGS.cid, opt)
-    end
+    local opt = ARGS.metadata and { sign=true, backs=true }
+    T = ACTION.read(false, ARGS.cid, opt)
     if not T then
         ERROR("chain get : unknown post")
     end

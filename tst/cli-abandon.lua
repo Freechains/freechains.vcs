@@ -129,6 +129,14 @@ do
             cmd = "git -C " .. DIR1 .. " rev-parse refs/payloads/" .. p1,
         }
         assert(code1 == 0, "p1 payload ref should remain")
+
+        TEST "abandoned payloads stay readable until sweep"
+        -- `get` is a DISK query: the abandoned bytes are still on
+        -- disk (unreferenced), so readable until the gc below
+        local v = exec {
+            cmd = ENV_EXE .. " chain '#cli-abandon-1' get payload " .. p2,
+        }
+        assert(v == "p2", "p2 still on disk before gc: " .. v)
     end
 
     do
@@ -163,7 +171,9 @@ do
     end
 
     do
-        TEST "abandoned payloads are unreachable via get"
+        TEST "swept payloads are gone for good"
+        -- the gc above reclaimed the abandoned bytes: only now
+        -- does `get` stop serving them
         local v = exec {
             cmd = ENV_EXE .. " chain '#cli-abandon-1' get payload " .. p1,
         }
