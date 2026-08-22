@@ -16,11 +16,15 @@ local M = {}
 --     post ; <payload-blob>
 --     like|revoke <n> ; action <cid>|author <pub> [; <why-blob>]
 -- Inputs:
---  - asr  [boolean]: on errors, true asserts, false returns nil
---  - cid  [string]: 40-hex commit hash
---  - sign [boolean?]: should fill `t.sign` from the gpgsig (not verified)
+--  - asr [boolean]: on errors, true asserts, false returns nil
+--  - cid [string]: 40-hex commit hash
+--  - opt [table?]: ENVELOPE extractions to also fill, each one
+--    extra git call:
+--      - sign=true:  claimed pubkey from the gpgsig (NOT
+--        verified: display only; replay uses SSH.verify)
+--      - backs=true: structural back-links from the parents
 -- Outputs:
---  - [table?]: { action, time, blob?, n?, cid?|author?, sign? }
+--  - [table?]: { action, time, blob?, n?, cid?|author?, sign?, backs? }
 --  - nil, error: parse error (asr=false)
 -- Errors:
 --  - "bug found : no action : <cid>" : parse error (asr=true)
@@ -31,7 +35,8 @@ local M = {}
 --  - like (like.lua): payload restore on unrevoke crossing
 --  - hardfork/recv (sync.lua): window times, payload re-anchors
 --]]
-function M.read (asr, cid, sign)
+function M.read (asr, cid, opt)
+    opt = opt or {}
     do
         local out = exec { trim=false, err=false, stderr=false,
             cmd = "git -C " .. REPO .. " cat-file commit " .. cid
@@ -65,7 +70,8 @@ function M.read (asr, cid, sign)
                 action = 'post',
                 time   = time,
                 blob   = ls[2],
-                sign   = (sign and SSH.pub.commit(REPO, cid)) or nil,
+                sign   = (opt.sign and SSH.pub.commit(REPO, cid)) or nil,
+                backs  = (opt.backs and M.backs(GIT.parents(cid))) or nil,
             }
 
         -- vote shape
@@ -93,7 +99,8 @@ function M.read (asr, cid, sign)
                 time   = time,
                 n      = tonumber(n),
                 blob   = why,
-                sign   = (sign and SSH.pub.commit(REPO, cid)) or nil,
+                sign   = (opt.sign and SSH.pub.commit(REPO, cid)) or nil,
+                backs  = (opt.backs and M.backs(GIT.parents(cid))) or nil,
                 [ty == 'action' and 'cid' or 'author'] = tgt,
             }
         end

@@ -26,7 +26,8 @@ do
             ARGS.cid .. " HEAD",
     }
     if ok then
-        T = ACTION.read(false, ARGS.cid, ARGS.metadata)
+        local opt = ARGS.metadata and { sign=true, backs=true }
+        T = ACTION.read(false, ARGS.cid, opt)
     end
     if not T then
         ERROR("chain get : unknown post")
@@ -66,9 +67,8 @@ elseif ARGS.metadata then
     if T.sign then
         out = out .. "sign " .. T.sign .. "\n"
     end
-    local backs = ACTION.backs(GIT.parents(ARGS.cid))
     out = out .. "backs"
-    for _, b in ipairs(backs) do
+    for _, b in ipairs(T.backs) do
         out = out .. " " .. b
     end
     io.write(out .. "\n")
