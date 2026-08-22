@@ -40,75 +40,49 @@ end
 
 local path = REPO .. "payload-tmp"   -- payload staging file (git dir)
 
--- the parents of the commit about to be minted: `backs` derives
--- from them (parents ARE the backs: the cid IS the commit)
-local ps = { GIT.deref("HEAD") }
-
-local act
-local cid
-local blob
-do
-    if ARGS.inline then
-        local f = io.open(path, "w")
-        f:write(ARGS.text)
-        f:close()
-    else
-        assert(ARGS.file)
-        -- `cp` runs in the caller's cwd: relative paths just work
-        exec {
-            cmd = "cp -- '" .. ARGS.path .. "' " .. path,
-            err = "chain post : invalid path",
-        }
-    end
-    -- DRY hash: the payload enters the object db only after
-    -- `apply` accepts, so a rejection leaves nothing to clean
-    blob = exec {
-        cmd = "git -C " .. REPO .. " hash-object " .. path,
-    }
-
-    -- the action IS the commit message; minted UNREFERENCED
-    -- (the cid IS the commit), so a rejection leaves one gc-able loose commit.
-    act = {
-        action = 'post',
-        sign   = pub,
-        time   = tonumber(CMD.now),
-        blob   = blob,
-    }
-    cid = ACTION.pre {
-        act     = act,
-        parents = ps,
-        sign    = ARGS.sign,
-        err     = ARGS.sign and "chain post : invalid sign key" or nil,
+if ARGS.inline then
+    local f = io.open(path, "w")
+    f:write(ARGS.text)
+    f:close()
+else
+    assert(ARGS.file)
+    -- `cp` runs in the caller's cwd: relative paths just work
+    exec {
+        cmd = "cp -- '" .. ARGS.path .. "' " .. path,
+        err = "chain post : invalid path",
     }
 end
 
--- apply BEFORE HEAD moves: a rejected post leaves nothing anchored
-do
-    local ok, err = apply(G, 'post', act, {
-        cid   = cid,
-        time  = tonumber(CMD.now),
-        sign  = pub,
-        beg   = ARGS.beg,
-        backs = ACTION.backs(ps),
-    })
-    if not ok then
-        ERROR("chain post : " .. err)
-    end
-    G.order[#G.order+1] = cid
-end
+-- save payload and commit
+-- both UNANCHORED: rejection leaves them gc-able
 
--- the payload enters the object db now, UNANCHORED: a rejection
--- leaves it loose beside the rejected commit, both gc-able
 local blob = exec {
     cmd = "git -C " .. REPO .. " hash-object -w " .. path,
 }
 os.remove(path)
+
+local cid = ACTION.commit {
+    parents = { GIT.deref("HEAD") },
+    action  = 'post',
+    blob    = blob,
+    sign    = ARGS.sign,
+    err     = (ARGS.sign and "chain post : invalid sign key") or nil,
+}
+
+-- ONE pipeline for write and replay:
+--  - re-reads the action from minted commit
+--  - applies, orders, snapshots state
+
+local ok, err = pcall(ACTION.apply, G, cid, ARGS.beg)
+if not ok then
+    ERROR("chain post : " .. err:gsub("^invalid %a+ : ", ""))
+end
+
+-- ACCEPTED: anchor payload, post
+
 exec {
     cmd = "git -C " .. REPO .. " update-ref refs/payloads/" .. cid .. " " .. blob,
 }
-
--- snapshot state at the action commit itself
-STATE.write(G, cid)
 
 if ARGS.beg then
     -- a beg parks on its own ref, outside `main`: HEAD never moves
@@ -116,7 +90,9 @@ if ARGS.beg then
         cmd = "git -C " .. REPO .. " update-ref refs/begs/beg-" .. cid .. " " .. cid,
     }
 else
-    GIT.tip(cid)
+    exec {
+        cmd = "git -C " .. REPO .. " update-ref HEAD " .. cid,
+    }
 end
 
 print(cid)

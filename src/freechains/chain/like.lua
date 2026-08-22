@@ -108,41 +108,28 @@ if not ssh.pub.key(ARGS.sign) then
     ERROR("chain " .. vote .. " : invalid sign key")
 end
 
-local path = REPO .. "payload-tmp"   -- why staging file (git dir)
+-- save payload (--why) and commit
+-- both UNANCHORED: rejection leaves them gc-able
 
 local blob
 if ARGS.why then
+    local path = REPO .. "payload-tmp"   -- why staging file (git dir)
     local f = io.open(path, "w")
     f:write(ARGS.why)
     f:close()
-    -- the why enters the object db now, UNANCHORED: a rejection
-    -- leaves it loose beside the rejected commit, both gc-able
     blob = exec {
         cmd = "git -C " .. REPO .. " hash-object -w " .. path,
     }
     os.remove(path)
 end
 
--- the parents of the commit about to be minted: `backs` derives
--- from them; a beg like parents both sides of its merge
-local ps = to_beg and { GIT.deref("HEAD"), GIT.deref(ref) }
-                   or { GIT.deref("HEAD") }
-
--- the action IS the commit message; minted UNREFERENCED
--- (the cid IS the commit), so a rejection leaves one gc-able loose commit.
--- time = the commit DATE; sign = the gpgsig: not in the message.
--- ARGS.cid is already the cid (or a pubkey): stored as is
-local act = {
-    action = kind,
-    sign   = pub,
-    time   = tonumber(CMD.now),
-    blob   = blob,
+local cid = ACTION.commit {
+    parents = to_beg and { GIT.deref("HEAD"), GIT.deref(ref) }
+                      or { GIT.deref("HEAD") },
+    action  = kind,
+    n       = num,
     [ARGS.target] = ARGS.cid,
-    n      = num,
-}
-local cid = ACTION.pre {
-    act     = act,
-    parents = ps,
+    blob    = blob,
     sign    = ARGS.sign,
     err     = "chain " .. vote .. " : invalid sign key",
 }
@@ -151,19 +138,13 @@ local cid = ACTION.pre {
 local entry = (ARGS.target == "cid") and G.actions[ARGS.cid] or nil
 local was_revoked = entry and is_revoked(entry)
 
--- apply BEFORE HEAD moves: a rejected vote leaves nothing anchored
-do
-    local ok, err = apply(G, kind, act, {
-        time  = ARGS.now,
-        cid   = cid,
-        sign  = pub,
-        beg   = to_beg,
-        backs = ACTION.backs(ps),
-    })
-    if not ok then
-        ERROR("chain " .. vote .. " : " .. err)
-    end
-    G.order[#G.order+1] = cid
+-- ONE pipeline for write and replay:
+--  - re-reads the action from minted commit
+--  - applies, orders, snapshots state
+
+local ok, err = pcall(ACTION.apply, G, cid, false)
+if not ok then
+    ERROR("chain " .. vote .. " : " .. err:gsub("^invalid %a+ : ", ""))
 end
 
 -- the vote landed, so `entry` now carries the final sums, and
@@ -224,17 +205,16 @@ if blob then
     }
 end
 
--- accepted: the minted commit becomes the tip (a beg like IS the
--- merge: `ps` carries both sides as its parents)
-GIT.tip(cid)
-
--- snapshot state at the new tip (the action commit itself)
-STATE.write(G, cid)
+-- ACCEPTED: anchor payload, post
 
 if to_beg then
     exec {
         cmd = "git -C " .. REPO .. " update-ref -d " .. ref,
     }
 end
+
+exec {
+    cmd = "git -C " .. REPO .. " update-ref HEAD " .. cid,
+}
 
 print(cid)
