@@ -1,6 +1,3 @@
-local GIT = require "freechains.chain.git"
-local ssh = require "freechains.chain.ssh"
-
 -- an ACTION is a commit whose MESSAGE is the action table:
 --  - its ID is the commit hash: one cid space for actions,
 --    merges, states, payloads, begs
@@ -68,7 +65,7 @@ function M.read (asr, cid, sign)
                 action = 'post',
                 time   = time,
                 blob   = ls[2],
-                sign   = (sign and ssh.pub.commit(REPO, cid)) or nil,
+                sign   = (sign and SSH.pub.commit(REPO, cid)) or nil,
             }
 
         -- vote shape
@@ -96,7 +93,7 @@ function M.read (asr, cid, sign)
                 time   = time,
                 n      = tonumber(n),
                 blob   = why,
-                sign   = (sign and ssh.pub.commit(REPO, cid)) or nil,
+                sign   = (sign and SSH.pub.commit(REPO, cid)) or nil,
                 [ty == 'action' and 'cid' or 'author'] = tgt,
             }
         end
@@ -305,7 +302,7 @@ function M.apply (G, cid, beg)
             goto SNAP
         end
 
-        local key, err = ssh.verify(REPO, cid)
+        local key, err = SSH.verify(REPO, cid)
         if (not key) and err=='forged' then
             error("malformed commit : invalid signature", 0)
         end
@@ -332,7 +329,7 @@ function M.apply (G, cid, beg)
             ) or false
         end
 
-        local ok, err = apply(G, act, {
+        local ok, err = RULES.apply(G, act, {
             cid   = cid,
             sign  = key,
             beg   = to_beg,
@@ -357,7 +354,7 @@ function M.apply (G, cid, beg)
         if isa then
             G.now = G.actions[cid].now
         else
-            G.now = NOW(G, M.backs(ps))
+            G.now = RULES.now(G, M.backs(ps))
         end
         STATE.write(G, cid)
         G.now = sav

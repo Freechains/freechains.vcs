@@ -20,7 +20,8 @@ C      = require "freechains.constants"
 ACTION = require "freechains.chain.action"
 STATE  = require "freechains.chain.state"
 GIT    = require "freechains.chain.git"
-require "freechains.chain.rules"
+SSH    = require "freechains.chain.ssh"
+RULES  = require "freechains.chain.rules"
 REPO   = ARGS.root .. "/chains/" .. ARGS.alias .. "/"
 
 do

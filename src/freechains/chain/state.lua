@@ -1,5 +1,3 @@
-local GIT = require "freechains.chain.git"
-
 -- per-commit state, stored as a git BLOB pinned by a local ref:
 --  - `refs/states/<cid>` -> blob(table_to_string(G))
 --  - keyed by the derefed cid (callers resolve refs via GIT.deref)

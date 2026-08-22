@@ -26,7 +26,7 @@ if ARGS.begs then
 elseif ARGS.order then
     -- consensus order (cids); revoked payloads wrapped in ~cid~
     for _, cid in ipairs(G.order) do
-        if G.actions[cid] and is_revoked(G.actions[cid]) then
+        if G.actions[cid] and RULES.is_revoked(G.actions[cid]) then
             print("~" .. cid .. "~")
         else
             print(cid)
@@ -36,7 +36,7 @@ elseif ARGS.order then
 elseif ARGS.revokes then
     -- revoked payloads only, in consensus order (bare cids)
     for _, cid in ipairs(G.order) do
-        if G.actions[cid] and is_revoked(G.actions[cid]) then
+        if G.actions[cid] and RULES.is_revoked(G.actions[cid]) then
             print(cid)
         end
     end
@@ -64,7 +64,7 @@ elseif ARGS.dag then
     for _, h in ipairs(order) do
         ups[h] = ACTION.backs(GIT.parents(h))
         local l = h:sub(1, 7)
-        if G.actions[h] and is_revoked(G.actions[h]) then
+        if G.actions[h] and RULES.is_revoked(G.actions[h]) then
             l = "~" .. l .. "~"
         end
         lbl[h] = l

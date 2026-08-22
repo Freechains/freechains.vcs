@@ -24,7 +24,7 @@
 --  - pre-receive hook: runs recv on the receiver
 --]]
 
-require "freechains.chain.consensus"
+local CONSENSUS = require "freechains.chain.consensus"
 
 --[[
 -- Hard fork protects my current order.
@@ -159,17 +159,17 @@ elseif ARGS.recv then
 
         -- 3. need common ancestor
 
-        local oct = octopus(loc, rem)
+        local oct = CONSENSUS.octopus(loc, rem)
         local G_oct = STATE.read(oct)
 
         -- needs fst/winner - snd/loser (do now b/c replay mutates G_oct)
-        local fst, snd = consensus(G_oct, loc, rem)
+        local fst, snd = CONSENSUS.winner(G_oct, loc, rem)
 
         -- remote validation: always replay oct -> rem
         -- malformed commits reject the whole sync
         local G_rem = G_oct -- (G_oct no longer required)
         do
-            local ok, err = pcall(replay, G_rem, oct, rem, false)
+            local ok, err = pcall(CONSENSUS.replay, G_rem, oct, rem, false)
             if not ok then
                 ERROR("chain sync : " .. err)
             end
@@ -188,7 +188,7 @@ elseif ARGS.recv then
         -- loser state: replay snd from fst.
         -- The first failure voids the rest: the action is valid in
         -- its own branch, but not in this order
-        local merge, err = replay(G_fst, fst, snd, true)
+        local merge, err = CONSENSUS.replay(G_fst, fst, snd, true)
         if err then
             io.stderr:write("ERROR : " .. err .. "\n")
         end
@@ -229,7 +229,7 @@ elseif ARGS.recv then
             })
             -- the merge tip is new: snapshot the final state there
             -- (a merge adds no time: fold its parents' actions)
-            G_fst.now = NOW(G_fst, ACTION.backs {
+            G_fst.now = RULES.now(G_fst, ACTION.backs {
                 GIT.deref("HEAD^1"),
                 GIT.deref("HEAD^2"),
             })
@@ -279,7 +279,7 @@ elseif ARGS.recv then
 
         local exc = {}
         for cid, e in pairs(G.actions) do
-            if is_revoked(e) then
+            if RULES.is_revoked(e) then
                 exc[#exc+1] = " '^refs/payloads/" .. cid .. "'"
             end
         end
@@ -300,7 +300,7 @@ elseif ARGS.recv then
         end
 
         for cid, e in pairs(G.actions) do
-            if is_revoked(e) then
+            if RULES.is_revoked(e) then
                 if has[cid] then
                     exec {
                         cmd = "git -C " .. REPO ..

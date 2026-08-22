@@ -31,8 +31,6 @@
 --    revoke/unrevoke
 --]]
 
-local ssh = require "freechains.chain.ssh"
-
 -- revoke/unrevoke are content-removal votes:
 -- for action payloads, never authors
 -- CLI: action -> cid
@@ -69,7 +67,7 @@ end
 
 if ARGS.target == "author" then
     -- key string or key file (cli.md "Keys:")
-    ARGS.cid = ssh.pub.any(ARGS.cid) or ARGS.cid
+    ARGS.cid = SSH.pub.any(ARGS.cid) or ARGS.cid
     if #ARGS.cid~=80 or (not ARGS.cid:match("^ssh%-ed25519 %S+$")) then
         ERROR("chain " .. vote .. " : invalid author key")
     end
@@ -104,7 +102,7 @@ if to_beg then
 end
 
 -- a bad key fails EARLY and clean: nothing reaches git
-if not ssh.pub.key(ARGS.sign) then
+if not SSH.pub.key(ARGS.sign) then
     ERROR("chain " .. vote .. " : invalid sign key")
 end
 
@@ -138,7 +136,7 @@ local cid = ACTION.commit(
 
 -- entry/was_revoked used after the pipeline
 local entry = (ARGS.target == "cid") and G.actions[ARGS.cid] or nil
-local was_revoked = entry and is_revoked(entry)
+local was_revoked = entry and RULES.is_revoked(entry)
 
 -- ONE pipeline for write and replay:
 --  - re-reads the action from minted commit
@@ -154,11 +152,11 @@ end
 --  - it entered REVOKED -> the bytes go (REMOVAL)
 --  - it left REVOKED    -> the bytes must be here (LIFT)
 if entry then
-    if (not was_revoked) and is_revoked(entry) then
+    if (not was_revoked) and RULES.is_revoked(entry) then
         exec { err=false, stderr=false,
             cmd = "git -C " .. REPO .. " update-ref -d refs/payloads/" .. ARGS.cid,
         }
-    elseif was_revoked and (not is_revoked(entry)) then
+    elseif was_revoked and (not RULES.is_revoked(entry)) then
         -- every post carries a payload, a vote only with `--why`:
         -- with no bytes to restore there is nothing to gate
         local T = ACTION.read(true, ARGS.cid)

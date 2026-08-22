@@ -1,4 +1,4 @@
-local ssh = require "freechains.chain.ssh"
+local M = {}
 
 --[[
 -- Boundary octopus: common ancestor of every point where region between `a`
@@ -18,7 +18,7 @@ local ssh = require "freechains.chain.ssh"
 -- here re-derives all of it, including merges nested deeper than
 -- the outer one.
 -- With a single fork it degenerates to the pairwise merge-base.
-function octopus (a, b)
+function M.octopus (a, b)
     local out = exec {
         cmd = "git -C " .. REPO .. " rev-list --boundary " .. a .. "..." .. b
     }
@@ -62,7 +62,7 @@ end
 -- authors, a commit both sides already hold hands its author's
 -- full reps to whichever side lacked them -- letting undisputed
 -- history decide a disputed merge.
-function consensus (G, a, b)
+function M.winner (G, a, b)
     local com = (exec {
         cmd = "git -C " .. REPO .. " merge-base " .. a .. " " .. b
     }):match("%x+")
@@ -101,7 +101,7 @@ function consensus (G, a, b)
             cmd = "git -C " .. REPO .. " log --reverse --format=%H " .. com .. ".." .. tip
         }
         for cid in out:gmatch("%x+") do
-            local key = ssh.pub.commit(REPO, cid)
+            local key = SSH.pub.commit(REPO, cid)
             if key then
                 keys[key] = true
             end
@@ -162,7 +162,7 @@ end
 -- an action already in `G`, so shared history never re-applies)
 -- ancestor(cur,com): stops climb from descending below its floor
 -- without these the inner meet underflows to a root
-function replay (G, com, tip, trunc)
+function M.replay (G, com, tip, trunc)
     local visited = {}
     local last          -- last commit applied
 
@@ -243,9 +243,9 @@ function replay (G, com, tip, trunc)
     --  - climb (consensus.lua): on every 2-parent merge
     --]]
     meet = function (G, com, left, right, right_is_beg)
-        local up = octopus(left, right)
+        local up = M.octopus(left, right)
         climb(G, com, up, false)
-        local w = consensus(G, left, right)
+        local w = M.winner(G, left, right)
         if w == left then
             climb(G, up, left,  false)
             climb(G, up, right, right_is_beg)
@@ -265,3 +265,4 @@ function replay (G, com, tip, trunc)
     end
 end
 
+return M

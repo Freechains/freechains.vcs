@@ -34,7 +34,7 @@ do
 end
 
 if ARGS.payload then
-    if G.actions[ARGS.cid] and is_revoked(G.actions[ARGS.cid]) then
+    if G.actions[ARGS.cid] and RULES.is_revoked(G.actions[ARGS.cid]) then
         ERROR("chain get : revoked payload")
     end
 

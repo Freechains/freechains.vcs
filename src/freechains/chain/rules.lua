@@ -1,5 +1,7 @@
 -- the reputation rules: what an action does to `G`
 
+local M = {}
+
 --[[
 -- Is the entry's payload REVOKED?
 -- Inputs:
@@ -15,7 +17,7 @@
 --  - get (get.lua): refuse a revoked payload
 --  - recv (sync.lua): payload anchor reconcile
 --]]
-function is_revoked (act)
+function M.is_revoked (act)
     local r = act.revoke or {}
     return ((r.author or 0) < 0) or ((r.others or 0) < 0)
 end
@@ -63,7 +65,7 @@ end
 --  - apply (rules.lua): after every action
 --  - reps (reps.lua): after the query-time advance
 --]]
-function cap (G)
+function M.cap (G)
     for _, v in pairs(G.authors) do
         if v.reps > C.reps.max then
             v.reps = C.reps.max
@@ -87,7 +89,7 @@ end
 --  - apply (rules.lua): before every action
 --  - reps (reps.lua): fold time up to --now at query time
 --]]
-function advance (G, time, sign)
+function M.advance (G, time, sign)
     -- discount scan (maybe signed at same G.now)
     if time>G.now or sign then
         for _, cid in ipairs(ordered(G)) do
@@ -170,7 +172,7 @@ end
 --  - apply (action.lua): merge-snapshot `now` fold
 --  - recv (sync.lua): loser sync-merge snapshot fold
 --]]
-function NOW (G, backs)
+function M.now (G, backs)
     local max = 0
     for _, a in ipairs(backs) do
         local now = assert(G.actions[a]).now
@@ -198,10 +200,10 @@ end
 -- Callers:
 --  - apply (action.lua): the accept pipeline, per action
 --]]
-function apply (G, act, env)
+function M.apply (G, act, env)
     -- time sits within reasonable interval `time.diff`:
     --  max(backs)-diff <= me <= now+diff
-    local up = NOW(G, env.backs)
+    local up = M.now(G, env.backs)
     do
         if act.time < up-C.time.diff then
             return false, "too old"
@@ -211,7 +213,7 @@ function apply (G, act, env)
         end
     end
 
-    advance(G, act.time, env.sign)
+    M.advance(G, act.time, env.sign)
 
     if act.action == 'post' then
         -- validation
@@ -350,7 +352,9 @@ function apply (G, act, env)
         }
     end
 
-    cap(G)
+    M.cap(G)
 
     return true
 end
+
+return M

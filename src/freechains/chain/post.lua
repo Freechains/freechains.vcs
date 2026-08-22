@@ -23,14 +23,12 @@
 --  - dispatch (chain/init.lua): ARGS.post
 --]]
 
-local ssh = require "freechains.chain.ssh"
-
 if not (ARGS.sign or ARGS.beg) then
     ERROR("chain post : requires --sign or --beg")
 end
 
 -- a bad key fails EARLY and clean: nothing reaches git
-if ARGS.sign and (not ssh.pub.key(ARGS.sign)) then
+if ARGS.sign and (not SSH.pub.key(ARGS.sign)) then
     ERROR("chain post : invalid sign key")
 end
 

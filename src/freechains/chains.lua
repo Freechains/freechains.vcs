@@ -24,7 +24,7 @@
 --]]
 
 local C    = require "freechains.constants"
-local ssh  = require "freechains.chain.ssh"
+local SSH  = require "freechains.chain.ssh"
 local HERE = debug.getinfo(1, "S").source:match("@(.*/)")
 
 --[[
@@ -179,7 +179,7 @@ if ARGS.add then
         -- each --pioneer is a key string ("ssh-...") or a key file
         local keys = {}
         for _, v in ipairs(ARGS.pioneer or {}) do
-            local key = ssh.pub.any(v)
+            local key = SSH.pub.any(v)
             if not key then
                 ERROR("chains add : invalid pioneer : " .. v)
             end

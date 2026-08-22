@@ -20,7 +20,7 @@
 math.randomseed()
 
 local argparse = require "freechains.argparse"
-local common   = require "freechains.common"
+require "freechains.common"
 
 --[[
 -- argparse action for `--sign [key]`: defaults to ~/.ssh/id_ed25519.

@@ -16,18 +16,16 @@
 --  - dispatch (chain/init.lua): ARGS.reps
 --]]
 
-local ssh = require "freechains.chain.ssh"
-
 if ARGS.key then
     ARGS.key = ARGS.key:match("^%s*(.-)%s*$")
     -- author key: string or key file (cli.md "Keys:")
     if ARGS.target == "author" then
-        ARGS.key = ssh.pub.any(ARGS.key) or ARGS.key
+        ARGS.key = SSH.pub.any(ARGS.key) or ARGS.key
     end
 end
 
-advance(G, ARGS.now)
-cap(G)
+RULES.advance(G, ARGS.now)
+RULES.cap(G)
 
 if ARGS.target == "action" then
     if not ARGS.key then
