@@ -50,5 +50,5 @@ if ARGS.payload then
 
 elseif ARGS.metadata then
     -- metadata is ACTION.read above
-    io.write(serial(T))
+    io.write(table_to_string(T))
 end

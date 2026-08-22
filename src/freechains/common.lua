@@ -92,7 +92,7 @@ end
 --  - STATE.write (state.lua): snapshot blob bytes
 --  - get metadata (get.lua): prints the action table
 --]]
-function serial (t)
+function table_to_string (t)
     --[[
     -- Serialize one value, recursing into tables.
     -- Inputs:
@@ -101,9 +101,9 @@ function serial (t)
     -- Outputs:
     --  - [string]: the value's Lua source
     -- Errors:
-    --  - see serial above
+    --  - see table_to_string above
     -- Callers:
-    --  - serial (common.lua): root and recursion
+    --  - table_to_string (common.lua): root and recursion
     --]]
     local function val (v, spc)
         if type(v) == 'boolean' then

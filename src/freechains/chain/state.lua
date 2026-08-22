@@ -1,7 +1,7 @@
 local GIT = require "freechains.chain.git"
 
 -- per-commit state, stored as a git BLOB pinned by a local ref:
---  - `refs/states/<cid>` -> blob(serial(G))
+--  - `refs/states/<cid>` -> blob(table_to_string(G))
 --  - keyed by the derefed cid (callers resolve refs via GIT.deref)
 -- git packs the near-identical blobs (delta + zlib) and `gc.auto`
 -- keeps the loose->packed cadence. `refs/states/*` are LOCAL: sync
@@ -25,7 +25,7 @@ local function ref (cid)
 end
 
 --[[
--- Snapshot `G` at `cid`: serial(G) as a blob pinned by its ref.
+-- Snapshot `G` at `cid`: table_to_string(G) as a blob pinned by its ref.
 -- Inputs:
 --  - G   [table]: chain state (authors/actions/order/now)
 --  - cid [string]: 40-hex commit hash, derefed
@@ -40,7 +40,7 @@ end
 function M.write (G, cid)
     local tmp = REPO .. "state-tmp"
     local f = io.open(tmp, "w")
-    f:write(serial(G))
+    f:write(table_to_string(G))
     f:close()
     local blob = exec {
         cmd = "git -C " .. REPO .. " hash-object -w " .. tmp,
