@@ -75,9 +75,9 @@ end
 -- Advance time: discount refunds (12h), consolidation grants (24h).
 -- Then `now` advances.
 -- Inputs:
---  - G   [table]: chain state; MUTATED (maturities, reps, G.now)
---  - env.time [integer]: the verified time driving the scans
---  - env.sign [string?]: the acting author's pubkey; in a `reps`
+--  - G    [table]: chain state; MUTATED (maturities, reps, G.now)
+--  - time [integer]: the time driving the scans (act.time)
+--  - sign [string?]: the acting author's pubkey; in a `reps`
 --    query nothing happened but time passing (no sign, no action)
 -- Outputs:
 --  - none
@@ -87,11 +87,9 @@ end
 --  - apply (rules.lua): before every action
 --  - reps (reps.lua): fold time up to --now at query time
 --]]
-function advance (G, env)
-    local sign = env.sign
-
+function advance (G, time, sign)
     -- discount scan (maybe signed at same G.now)
-    if env.time>G.now or sign then
+    if time>G.now or sign then
         for _, cid in ipairs(ordered(G)) do
             local entry = G.actions[cid]
             if entry.maturity == "00-12" then
@@ -117,7 +115,7 @@ function advance (G, env)
                 local ratio = (tot>0 and cur/tot) or 0
                 local discount = C.time.half * math.max(0, 1 - 2*ratio)
 
-                if env.time >= entry.time + discount then
+                if time >= entry.time + discount then
                     -- signed beg?
                     if entry.author then
                         G.authors[entry.author].reps = G.authors[entry.author].reps + C.reps.cost
@@ -129,14 +127,14 @@ function advance (G, env)
     end
 
     -- consolidation scan
-    if env.time > G.now then
+    if time > G.now then
         for _, cid in ipairs(ordered(G)) do
             local entry = G.actions[cid]
             if entry.maturity == "12-24" then
-                if env.time >= entry.time+C.time.full then
+                if time >= entry.time+C.time.full then
                     if entry.author then
                         local last = G.authors[entry.author].time
-                        if env.time-last >= C.time.full then
+                        if time-last >= C.time.full then
                             G.authors[entry.author].reps = G.authors[entry.author].reps + C.reps.earn
                             G.authors[entry.author].time = last + C.time.full
                             entry.maturity = nil
@@ -152,8 +150,8 @@ function advance (G, env)
         end
     end
 
-    if env.time > G.now then
-        G.now = env.time
+    if time > G.now then
+        G.now = time
     end
 end
 
@@ -189,15 +187,15 @@ function apply (G, kind, act, env)
     --  max(backs)-diff <= me <= now+diff
     local up = NOW(G, env.backs)
     do
-        if env.time < up-C.time.diff then
+        if act.time < up-C.time.diff then
             return false, "too old"
         end
-        if env.time > ARGS.now+C.time.diff then
+        if act.time > ARGS.now+C.time.diff then
             return false, "too new"
         end
     end
 
-    advance(G, env)
+    advance(G, act.time, env.sign)
 
     if kind == 'post' then
         -- validation
@@ -220,8 +218,8 @@ function apply (G, kind, act, env)
         G.actions[env.cid] = {
             action   = 'post',
             author   = env.sign,
-            time     = env.time,
-            now      = math.max(env.time, up),
+            time     = act.time,
+            now      = math.max(act.time, up),
             maturity = (env.beg and 'beg') or (env.sign and '00-12') or 'beg',
             reps     = 0,
             revoke   = { author=0, others=0 },
@@ -230,7 +228,7 @@ function apply (G, kind, act, env)
             G.authors[env.sign] = G.authors[env.sign] or { reps=0 }
             if not env.beg then
                 G.authors[env.sign].reps = G.authors[env.sign].reps - C.reps.cost
-                G.authors[env.sign].time = G.authors[env.sign].time or env.time
+                G.authors[env.sign].time = G.authors[env.sign].time or act.time
                     -- do not set for beg, bc not available to others
             end
         end
@@ -316,9 +314,9 @@ function apply (G, kind, act, env)
 
             if env.beg then
                 e.maturity = "00-12"
-                e.time = env.time
+                e.time = act.time
                 if a then
-                    G.authors[a].time = G.authors[a].time or env.time
+                    G.authors[a].time = G.authors[a].time or act.time
                 end
             end
         else
@@ -330,7 +328,7 @@ function apply (G, kind, act, env)
         G.actions[env.cid] = {
             action = kind,
             author = env.sign,
-            now    = math.max(env.time, up),
+            now    = math.max(act.time, up),
             reps   = 0,
             revoke = { author=0, others=0 },
         }

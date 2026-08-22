@@ -26,7 +26,7 @@ if ARGS.key then
     end
 end
 
-advance(G, { time = ARGS.now })
+advance(G, ARGS.now)
 cap(G)
 
 if ARGS.target == "action" then
