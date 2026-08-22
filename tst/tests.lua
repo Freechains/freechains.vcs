@@ -77,13 +77,27 @@ function CID (dir, aid)
     return aid
 end
 
--- the genesis table of the chain at `dir`: the genesis commit's
--- MESSAGE (body after the header block)
+-- the genesis of the chain at `dir`: the genesis commit's MESSAGE,
+-- positional (<version>\n<nonce>\n<pioneer>...), as a table
 function GENESIS (dir)
     local src = exec { trim=false,
         cmd = "git -C " .. dir .. " cat-file commit refs/genesis",
     }
-    return load(src:match("\n\n(.*)$"))()
+    local body = src:match("\n\n(.*)$")
+    local ls = {}
+    for l in body:gmatch("[^\n]+") do
+        ls[#ls+1] = l
+    end
+    local M, m, p = ls[1]:match("^(%d+)%.(%d+)%.(%d+)$")
+    local t = {
+        version  = { tonumber(M), tonumber(m), tonumber(p) },
+        nonce    = tonumber(ls[2]),
+        pioneers = {},
+    }
+    for i = 3, #ls do
+        t.pioneers[#t.pioneers+1] = ls[i]
+    end
+    return t
 end
 
 -- repo-equality probe: trees are always empty (actions live in
@@ -137,8 +151,11 @@ function COMMIT (dir, t)
     end
     local sig = t.sign and
         (" -c user.signingkey=" .. t.sign .. " -c gpg.format=ssh") or ""
+    -- `date`: an action's time is its commit DATE (default @0)
+    local dt = "GIT_AUTHOR_DATE='@" .. (t.date or 0) .. " +0000' " ..
+        "GIT_COMMITTER_DATE='@" .. (t.date or 0) .. " +0000' "
     local cid = exec {
-        cmd = ENV .. " git -C " .. dir .. sig .. " commit-tree" ..
+        cmd = dt .. ENV .. " git -C " .. dir .. sig .. " commit-tree" ..
             (t.sign and " -S" or "") .. " -p HEAD " .. tree ..
             " < " .. msg,
     }
@@ -168,7 +185,8 @@ function MERGE (dir, other)
         cmd = "git -C " .. dir .. " hash-object -t tree /dev/null",
     }
     local cid = exec {
-        cmd = "git -C " .. dir .. " commit-tree " .. tree ..
+        cmd = "GIT_AUTHOR_DATE='@0 +0000' GIT_COMMITTER_DATE='@0 +0000' " ..
+            "git -C " .. dir .. " commit-tree " .. tree ..
             " -p HEAD -p " .. other .. " < /dev/null",
     }
     exec {

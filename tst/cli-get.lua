@@ -132,9 +132,10 @@ do
         assert(T.n == nil, "post metadata has no n key: " .. tostring(T.n))
         assert(type(T.sign) == "string", "sign type: " .. type(T.sign))
         assert(T.sign:match("^ssh%-ed25519 "), "sign: " .. tostring(T.sign))
-        -- backs are STRUCTURAL now (the commit's parents): the
-        -- message carries no backs field
-        assert(T.backs == nil, "no backs key: " .. tostring(T.backs))
+        assert(T.id == POST, "id: " .. tostring(T.id))
+        -- backs are STRUCTURAL (walked from the parents): the
+        -- first post backs only the genesis, which is no action
+        assert(#T.backs == 0, "backs: " .. #T.backs)
     end
 
     do
@@ -148,6 +149,7 @@ do
         assert(T.cid == POST, "cid: " .. tostring(T.cid))
         assert(T.author == nil, "author should be unset")
         assert(math.type(T.n) == "integer", "n: " .. tostring(T.n))
+        assert(T.backs[1] == POST, "back should be POST")
         -- backs are structural: the like's parent commit IS the post
         local up = exec {
             cmd = "git -C " .. DIR .. " rev-parse " .. LIKE .. "^1",

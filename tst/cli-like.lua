@@ -24,7 +24,7 @@ do
         local out = exec {
             cmd = ENV_EXE .. " chain '#cli-like' get metadata " .. POST,
         }
-        local T = load(out, "metadata", "t", {})()
+        local T = META(out)
         assert(T.action == "post", "action: " .. tostring(T.action))
     end
 end
@@ -59,7 +59,7 @@ do
         local out = exec {
             cmd = ENV_EXE .. " chain '#cli-like' get metadata " .. LIKE,
         }
-        local T = load(out, "metadata", "t", {})()
+        local T = META(out)
         assert(T.action == "like", "action: " .. tostring(T.action))
     end
 
@@ -83,9 +83,9 @@ do
             cmd = ENV_EXE .. " chain '#cli-like' like 1000 action " .. POST:sub(1, 7) .. " --sign " .. KEY2,
         }
         assert(code == 0, "exit code: " .. tostring(code))
-        local T = load(exec {
+        local T = META(exec {
             cmd = ENV_EXE .. " chain '#cli-like' get metadata " .. out,
-        }, "metadata", "t", {})()
+        })
         assert(T.cid == POST, "target should be the full id: " .. tostring(T.cid))
     end
 
