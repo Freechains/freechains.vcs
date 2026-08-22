@@ -1,4 +1,5 @@
 local GIT = require "freechains.chain.git"
+local ssh = require "freechains.chain.ssh"
 
 -- an ACTION is a commit whose MESSAGE is the action table:
 --  - its ID is the commit hash: one cid space for actions,
@@ -108,11 +109,6 @@ function M.read (asr, cid, sign)
     return nil
 end
 
--- `pre` expanded to a full aid: ids are printed abbreviated
--- (`list dag`), so a prefix must resolve, as git does with any
--- object. Unknown or ambiguous prefixes are returned unchanged:
--- the caller fails on the cid it was given
-
 --[[
 -- Resolve `pre` to full commit cid.
 -- Anything git resolves (hex prefix, full hash, HEAD, ...).
@@ -128,15 +124,11 @@ end
 --  - abandon (abandon.lua): id argument
 --]]
 function M.full (pre)
-    if (#pre == 40) or (not pre:match("^%x+$")) then
-        return pre
-    end
     -- ^{commit}: states/payloads are blobs in the same object db
-    local out = exec { err=false, stderr=false,
+    return exec { err=false, stderr=false,
         cmd = "git -C " .. REPO .. " rev-parse --verify --quiet" ..
             " '" .. pre .. "^{commit}'",
     }
-    return out or pre
 end
 
 --[[
@@ -153,21 +145,20 @@ end
 --  - abandon (abandon.lua): range must be all actions
 --  - recv (sync.lua): voided-commit listing
 --]]
-function M.aid (cid)
+function M.is (cid)
     local out = exec { trim=false, err=false, stderr=false,
         cmd = "git -C " .. REPO .. " cat-file commit " .. cid,
     }
     if not out then
-        return nil
+        return false
     end
     if not out:match("\nparent %x+") then
-        return nil                          -- genesis
+        return false    -- genesis
     end
-    local body = out:match("\n\n(.*)$")
-    if body and #body > 0 then
-        return cid
+    if #out:match("\n\n(.*)$") == 0 then
+        return false    -- sync merge
     end
-    return nil                              -- sync merge
+    return true
 end
 
 --[[
@@ -190,11 +181,10 @@ function M.backs (ps)
     local see = {}
     local function rec (hs)
         for _, h in ipairs(hs) do
-            local a = M.aid(h)
-            if a then
-                if not see[a] then
-                    see[a] = true
-                    ret[#ret+1] = a
+            if M.is(h) then
+                if not see[h] then
+                    see[h] = true
+                    ret[#ret+1] = h
                 end
             else
                 rec(GIT.parents(h))
@@ -207,9 +197,10 @@ function M.backs (ps)
 end
 
 --[[
--- Commit action `t`.
+-- Commit action `t` with inline message metadata.
 -- Inputs:
---  - t [table]: the action fields
+--  - t [table]: action, n, cid?|author?, blob?
+--    + parents={...}, sign=keypath?, err=msg?
 -- Outputs:
 --  - [string]: the new action's 40-hex cid
 -- Errors:
@@ -218,20 +209,29 @@ end
 --  - post (post.lua): mint the post
 --  - like (like.lua): mint the vote
 --]]
-function M.pre (t)
-    local tmp = REPO .. "action-tmp"
-    local f = io.open(tmp, "w")
-    f:write(serial(t.act))
-    f:close()
-    local cid = GIT.commit {
+function M.commit (t)
+    local msg
+    if t.action == 'post' then
+        msg = "post\n" .. t.blob .. "\n"
+    else
+        msg = t.action .. " " .. t.n .. "\n"
+        if t.cid then
+            msg = msg .. "action " .. t.cid .. "\n"
+        else
+            msg = msg .. "author " .. t.author .. "\n"
+        end
+        if t.blob then
+            msg = msg .. t.blob .. "\n"
+        end
+    end
+    return GIT.commit {
         parents = t.parents,
-        msg     = tmp,
+        msg     = msg,
+        date    = ARGS.now,
         ref     = false,
         sign    = t.sign,
         err     = t.err,
     }
-    os.remove(tmp)
-    return cid
 end
 
 -- `merge` is deliberately absent as a kind: a sync merge carries no
