@@ -45,12 +45,14 @@ function M.read (asr, cid, opt)
             goto ERR
         end
 
+        -- "author - <-> 1780088002 +0000"
         local time = tonumber(out:match("\nauthor [^\n]* (%d+) [%+%-]%d+\n"))
         if not time then
             goto ERR
         end
 
         local ls = {}
+        -- "...committer - <-> 1780088002 +0000\n\nlike 1000\n..."
         for l in (out:match("\n\n(.*)$") or ""):gmatch("[^\n]+") do
             ls[#ls+1] = l
         end
@@ -63,6 +65,7 @@ function M.read (asr, cid, opt)
             if #ls ~= 2 then
                 goto ERR
             end
+            -- "90c7c77a05dc37cb04ca75b6247a92c0d5451208"
             if not ls[2]:match("^%x+$") then
                 goto ERR
             end
@@ -76,6 +79,7 @@ function M.read (asr, cid, opt)
 
         -- vote shape
         else
+            -- "like 1000" | "revoke -1000"
             local kind, n = ls[1]:match("^(%a+) (%-?%d+)$")
             if not kind then
                 goto ERR
@@ -85,12 +89,14 @@ function M.read (asr, cid, opt)
             end
             local ty, tgt
             if ls[2] then
+                -- "action 4b2080cf..." | "author ssh-ed25519 AAAA..."
                 ty, tgt = ls[2]:match("^(%a+) (.+)$")
             end
             if (ty ~= 'action') and (ty ~= 'author') then
                 goto ERR
             end
             local why = ls[3]
+            -- "9ae2f1b35c88f0a3d7e6d41f2b90c477aa105523"
             if why and (not why:match("^%x+$")) then
                 goto ERR
             end
