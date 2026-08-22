@@ -224,14 +224,12 @@ function M.commit (t)
             msg = msg .. t.blob .. "\n"
         end
     end
-    return GIT.commit {
+    return GIT.commit({
         parents = t.parents,
         msg     = msg,
         date    = ARGS.now,
-        ref     = false,
         sign    = t.sign,
-        err     = t.err,
-    }
+    }, false, t.err)
 end
 
 -- `merge` is deliberately absent as a kind: a sync merge carries no
