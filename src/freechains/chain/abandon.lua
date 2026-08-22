@@ -30,16 +30,16 @@
 -- drop sibling branch).
 
 -- the cid may be abbreviated (`list dag` prints it so)
-local cid = ACTION.full(ARGS.cid)
+ARGS.cid = ACTION.full(ARGS.cid)
 
-if not (cid and ACTION.is(cid)) then
+if not (ARGS.cid and ACTION.is(ARGS.cid)) then
     ERROR("chain abandon : invalid action")
 end
 
 -- a beg is a post outside `main`, alone on its own cid-named ref:
 -- nothing follows it, so abandoning it is just deleting the ref
 do
-    local ref = "refs/begs/beg-" .. cid
+    local ref = "refs/begs/beg-" .. ARGS.cid
     local ok = exec { stderr=false, err=false,
         cmd = "git -C " .. REPO .. " show-ref --verify --quiet " .. ref,
     }
@@ -51,7 +51,7 @@ do
         exec {
             cmd = "git -C " .. REPO .. " update-ref -d " .. ref,
         }
-        print(cid)
+        print(ARGS.cid)
         os.exit(0)
     end
 end
@@ -60,7 +60,7 @@ end
 -- proves it is an action)
 do
     local ok = exec { stderr=false, err=false,
-        cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. cid .. " HEAD",
+        cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. ARGS.cid .. " HEAD",
     }
     if not ok then
         ERROR("chain abandon : invalid action")
@@ -71,10 +71,10 @@ end
 -- (a post is always committed on top of a valid tip, no search)
 local tip
 if ARGS.keep then
-    tip = cid
+    tip = ARGS.cid
 else
     tip = exec {
-        cmd = "git -C " .. REPO .. " rev-parse " .. cid .. "^1",
+        cmd = "git -C " .. REPO .. " rev-parse " .. ARGS.cid .. "^1",
     }
 end
 
