@@ -1,10 +1,40 @@
 #!/usr/bin/env lua5.4
 
+--[[
+-- The freechains CLI entry point.
+-- Builds the argparse tree into global ARGS.
+-- Dispatches daemon/chains/chain.
+-- Inputs:
+--  - arg [table]: the command line (see cli.md)
+-- Outputs:
+--  - globals: ARGS (with ARGS.now defaulted to os.time())
+--  - whatever the dispatched command prints
+-- Errors:
+--  - argparse usage errors (bad command/argument), exit(1)
+-- Callers:
+--  - the `freechains` executable (make install)
+--  - pre-receive hook (hooks/): recv on push
+--  - chains add clone (chains.lua): re-execs `sync recv`
+--]]
+
 math.randomseed()
 
 local argparse = require "freechains.argparse"
 local common   = require "freechains.common"
 
+--[[
+-- argparse action for `--sign [key]`: defaults to ~/.ssh/id_ed25519.
+-- Inputs:
+--  - T  [table]: the args table being filled
+--  - k  [string]: "sign" (the option key)
+--  - vs [string*]: given value(s)
+-- Outputs:
+--  - none: sets T.sign
+-- Errors:
+--  - assert "bug found" : multiple values
+-- Callers:
+--  - argparse (freechains.lua): post/like/... --sign
+--]]
 local function sign (T, k, vs)
     local v = os.getenv("HOME") .. "/.ssh/id_ed25519"
     if vs == nil then
@@ -23,7 +53,19 @@ local function sign (T, k, vs)
     T[k] = v
 end
 
--- appends one resolved key path or string to ARGS.pioneer
+--[[
+-- argparse action for `--pioneer [key]`: defaults to ~/.ssh/id_ed25519.
+-- Inputs:
+--  - T  [table]: the args table being filled
+--  - k  [string]: "pioneer" (the option key)
+--  - vs [string*]: given value(s)
+-- Outputs:
+--  - none: appends to T.pioneer
+-- Errors:
+--  - assert "bug found" : multiple values
+-- Callers:
+--  - argparse (freechains.lua): chains add init --pioneer
+--]]
 local function pioneer (T, k, vs)
     local v = os.getenv("HOME") .. "/.ssh/id_ed25519"
     if vs == nil then
@@ -176,6 +218,18 @@ do
         cmd.chain.post.inline._:argument("text")
     end
 
+    --[[
+    -- argparse convert: a strictly positive integer.
+    -- Inputs:
+    --  - s [string]: the raw argument
+    -- Outputs:
+    --  - [integer]: the value, or
+    --  - [nil, string]: argparse error message
+    -- Errors:
+    --  - none
+    -- Callers:
+    --  - argparse (freechains.lua): like/dislike/revoke number
+    --]]
     local function positive (s)
         local n = math.tointeger(s)
         if n and n>0 then

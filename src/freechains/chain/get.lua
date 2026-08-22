@@ -1,3 +1,20 @@
+--[[
+-- `chain <alias> get payload|metadata`
+-- Print one action payload bytes or metadata.
+-- Inputs:
+--  - ARGS.payload|ARGS.metadata [boolean]: what to print
+--  - ARGS.cid [string]: the actions cid (may be short)
+--  - G    [table]: state at HEAD (revocation check)
+--  - REPO [string]: the chain's bare repo dir
+-- Outputs:
+--  - stdout: raw payload bytes, or serial(action table)
+-- Errors:
+--  - "chain get : unknown post" : not in HEAD's history
+--  - "chain get : revoked payload"
+-- Callers:
+--  - dispatch (chain/init.lua): ARGS.get
+--]]
+
 -- membership: an action of the CURRENT history <=> its commit is
 -- an ancestor of HEAD (the cid IS the commit); `abandon` drops exactly the
 -- abandoned suffix. A parked beg is outside HEAD: unknown here

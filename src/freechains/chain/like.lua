@@ -1,3 +1,36 @@
+--[[
+-- `chain <alias> like|dislike|revoke|unrevoke`
+-- Mint a vote, accept it via the pipeline, handle beg promotion and the
+-- REMOVAL/LIFT payload crossings, move HEAD.
+-- Inputs:
+--  - ARGS.like/dislike/revoke/unrevoke [boolean]: the vote
+--  - ARGS.number [integer]: magnitude (> 0)
+--  - ARGS.target [string]: "action"|"author"
+--  - ARGS.cid  [string]: target cid (may be short) or pubkey
+--  - ARGS.why  [string?]: optional reason payload
+--  - ARGS.file [string?]: payload restore fallback (LIFT)
+--  - ARGS.sign [string]: ssh private key path
+--  - ARGS.now  [integer]: the action's TIME (commit DATE)
+--  - G    [table]: state at HEAD; MUTATED by the pipeline
+--  - REPO [string]: the chain's bare repo dir
+-- Outputs:
+--  - stdout: the new cid
+--  - refs: HEAD -> cid; state at refs/states/<cid>; why blob at
+--    refs/payloads/<cid>; the TARGET's payload anchor dropped
+--    (entered REVOKED) or restored (left REVOKED); a liked beg's
+--    refs/begs/ ref deleted (promotion merge)
+-- Errors:
+--  - "chain <vote> : invalid target"
+--  - "chain <vote> : invalid author key"
+--  - "chain <vote> : invalid sign key"
+--  - "chain <vote> : invalid path" | "blob mismatch" |
+--                    "expected --file" : LIFT payload restore
+--  - "chain <vote> : <rules>" : refused by the pipeline
+-- Callers:
+--  - dispatch (chain/init.lua): ARGS.like/dislike/
+--    revoke/unrevoke
+--]]
+
 local ssh = require "freechains.chain.ssh"
 
 -- revoke/unrevoke are content-removal votes:

@@ -1,16 +1,37 @@
 -- the reputation rules: what an action does to `G`
 
--- REVOKED when either the author or the community net revoke is negative
--- REVOKE votes require 1000s each time, so sums move in units, never in dust
-function is_revoked (p)
-    local r = p.revoke or {}
+--[[
+-- Is the entry's payload REVOKED?
+-- Inputs:
+--  - act [table]: a G.actions entry
+-- Outputs:
+--  - [boolean]: author OR community net revoke below zero
+-- Errors:
+--  - none
+-- Callers:
+--  - apply (rules.lua): self-revoke flood check
+--  - like (like.lua): the REMOVAL/LIFT crossing
+--  - list (list.lua): ~cid~ wrapping, revokes listing
+--  - get (get.lua): refuse a revoked payload
+--  - recv (sync.lua): payload anchor reconcile
+--]]
     return ((r.author or 0) < 0) or ((r.others or 0) < 0)
 end
 
--- action cids in a stable order: (time, cid); consolidated actions
--- (time == nil) sort last, then lexicographically by cid. Makes the
--- discount/consolidation scans deterministic across OS processes.
-local function ordered (posts)
+--[[
+-- Action cids in a stable order.
+-- (time, cid); consolidated actions (time == nil) sort last.
+-- Makes the scans deterministic across OS processes.
+-- Inputs:
+--  - G [table]: chain state (reads G.actions; NOT the global:
+--    replay passes its own states)
+-- Outputs:
+--  - [table]: array of cids, sorted
+-- Errors:
+--  - none
+-- Callers:
+--  - advance (rules.lua): discount and consolidation scans
+--]]
     local hs = {}
     for h in pairs(posts) do
         hs[#hs+1] = h
@@ -27,8 +48,18 @@ local function ordered (posts)
     return hs
 end
 
--- no author holds more than `max`
--- applied ONCE at the end of a step
+--[[
+-- Cap every author at C.reps.max, ONCE at the end of a step.
+-- Inputs:
+--  - G [table]: chain state; MUTATED (G.authors[*].reps)
+-- Outputs:
+--  - none
+-- Errors:
+--  - none
+-- Callers:
+--  - apply (rules.lua): after every action
+--  - reps (reps.lua): after the query-time advance
+--]]
 function cap (G)
     for _, v in pairs(G.authors) do
         if v.reps > C.reps.max then
@@ -37,9 +68,22 @@ function cap (G)
     end
 end
 
--- TIME: the scans that run before anything else
--- discount refunds, consolidation grants, then `now` advances
--- in a `reps` query nothing happened but time passing (no `sign`, no action)
+--[[
+-- Advance time: discount refunds (12h), consolidation grants (24h).
+-- Then `now` advances.
+-- Inputs:
+--  - G   [table]: chain state; MUTATED (maturities, reps, G.now)
+--  - env.time [integer]: the verified time driving the scans
+--  - env.sign [string?]: the acting author's pubkey; in a `reps`
+--    query nothing happened but time passing (no sign, no action)
+-- Outputs:
+--  - none
+-- Errors:
+--  - none
+-- Callers:
+--  - apply (rules.lua): before every action
+--  - reps (reps.lua): fold time up to --now at query time
+--]]
 function advance (G, env)
     local sign = env.sign
 
@@ -110,10 +154,21 @@ function advance (G, env)
     end
 end
 
--- the newest time causally preceding a set of actions: each entry
--- records its own `now` at apply, so the fold is one table walk.
--- `backs` is STRUCTURAL: derived from the commit's parents
--- (the cid IS the commit), never claimed, so there is nothing to pin
+--[[
+-- The newest time causally preceding a set of actions: each
+-- entry records its own `now` at apply, so the fold is one walk.
+-- Inputs:
+--  - G     [table]: chain state (reads G.actions[*].now)
+--  - backs [table]: action cids, STRUCTURAL (from the parents)
+-- Outputs:
+--  - [integer]: max of the backs' recorded `now`, 0 if none
+-- Errors:
+--  - assert: a back without a G entry (bug: backs precede)
+-- Callers:
+--  - apply (rules.lua): the "too old" lower bound
+--  - apply (action.lua): merge-snapshot `now` fold
+--  - recv (sync.lua): loser sync-merge snapshot fold
+--]]
 function NOW (G, backs)
     local max = 0
     for _, a in ipairs(backs) do

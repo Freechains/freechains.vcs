@@ -1,3 +1,21 @@
+--[[
+-- `chain <alias> abandon [--keep] <id>`
+-- Drops a linear suffix of actions (the hard-fork escape hatch), or delete a
+-- parked beg.
+-- Inputs:
+--  - ARGS.cid  [string]: the boundary cid (may be short)
+--  - ARGS.keep [boolean?]: cid is the last KEPT (or first DROPPED)
+--  - REPO [string]: the chain's repo dir
+-- Outputs:
+--  - stdout: the dropped cids, oldest first (or the beg cid)
+--  - refs: HEAD reset to the kept tip; the dropped commits'
+--    refs/states/ + refs/payloads/ deleted; stale begs deleted
+-- Errors:
+--  - "chain abandon : invalid action" : not action, not in history, --keep beg
+--  - "chain abandon : unexpected merge" : suffix not linear
+-- Callers:
+--  - dispatch (chain/init.lua): ARGS.abandon
+--]]
 
 -- Escape hatch for a hard fork: abandon the cid and everything after
 -- it, so the settled remote branch can be received again.

@@ -3,9 +3,17 @@ local M = {}
 -- Pubkey by source: `key` from a key file, `commit` from a signature.
 M.pub = {}
 
--- The canonical pubkey of a private key file: the first two fields
--- of its `.pub` sibling, or nil if unreadable.
--- Known before any commit exists, unlike `commit` below.
+--[[
+-- The pubkey of a private key file, from its `.pub` sibling.
+-- Inputs:
+--  - path [string]: private key path (reads path .. ".pub")
+-- Outputs:
+--  - [string?]: "ssh-ed25519 <base64>", nil if unreadable
+-- Errors:
+--  - none
+-- Callers:
+--  - post/like: early clean check of --sign before minting
+--]]
 function M.pub.key (path)
     local f = io.open(path .. ".pub")
     if not f then
@@ -16,9 +24,22 @@ function M.pub.key (path)
     return s:match("^(%S+ %S+)")
 end
 
--- The cli.md "Keys:" convention: a pubkey from a key STRING
--- ("ssh-..."), a pub key FILE, or a pvt key FILE (ssh-keygen -y).
--- nil if none resolves (caller errors with its command prefix).
+--[[
+-- Resolve a pubkey from
+--  - a key STRING ("ssh-...")
+--  - a pub key FILE
+--  - a pvt key FILE
+-- Inputs:
+--  - v [string]: key string or key file path
+-- Outputs:
+--  - [string?]: "ssh-ed25519 <base64>", nil if none resolves
+-- Errors:
+--  - none
+-- Callers:
+--  - chains add init (chains.lua): each --pioneer
+--  - like (like.lua): author target normalization
+--  - reps (reps.lua): author key argument
+--]]
 function M.pub.any (v)
     if v:match("^ssh%-") then
         return v:match("^(%S+ %S+)")
@@ -40,8 +61,21 @@ function M.pub.any (v)
     return nil
 end
 
--- Extract the SSH pubkey from a signed commit, or nil if unsigned.
--- Parses the SSHSIG armored blob in the gpgsig header.
+--[[
+-- Extract CLAIMED pubkey from a commit gpgsig header
+-- (parses the SSHSIG armored blob; does NOT verify it).
+-- Inputs:
+--  - repo [string]: git dir path
+--  - cid  [string]: 40-hex commit hash
+-- Outputs:
+--  - [string?]: "ssh-ed25519 <base64>", nil if unsigned
+-- Errors:
+--  - via exec: "bug found" if cat-file/base64/xxd fail
+-- Callers:
+--  - read (action.lua): opt-in `t.sign` (display only)
+--  - collect_keys (consensus.lua): reps summing per side
+--  - verify (ssh.lua): the key the signature is checked against
+--]]
 function M.pub.commit (repo, cid)
     local commit = exec {
         cmd = "git -C " .. repo .. " cat-file commit " .. cid,
@@ -77,6 +111,17 @@ function M.pub.commit (repo, cid)
     local hex = exec {
         cmd = "printf '%s' '" .. body .. "' | base64 -d | xxd -p | tr -d '\n'",
     }
+    --[[
+    -- Big-endian u32 at 1-based offset `off` of the hex dump.
+    -- Inputs:
+    --  - off [integer]: hex-char offset (8 chars read)
+    -- Outputs:
+    --  - [integer]: the 32-bit value
+    -- Errors:
+    --  - none
+    -- Callers:
+    --  - pub.commit (ssh.lua): SSHSIG wire-format lengths
+    --]]
     local function u32 (off)
         local a = tonumber(hex:sub(off,    off+1), 16)
         local b = tonumber(hex:sub(off+2,  off+3), 16)
@@ -95,8 +140,19 @@ function M.pub.commit (repo, cid)
     return "ssh-ed25519 " .. key
 end
 
+--[[
 -- Verify a commit's SSH signature against its embedded pubkey.
--- Returns pubkey on success, nil on failure.
+-- Inputs:
+--  - repo [string]: git dir path
+--  - cid  [string]: 40-hex commit hash
+-- Outputs:
+--  - [string]: the verified pubkey, or
+--  - [nil, string]: 'unsigned' (no gpgsig) | 'forged' (bad sig)
+-- Errors:
+--  - none
+-- Callers:
+--  - apply (action.lua): authenticates every action
+--]]
 function M.verify (repo, cid)
     local key = M.pub.commit(repo, cid)
     if key == nil then

@@ -9,11 +9,31 @@ local GIT = require "freechains.chain.git"
 
 local M = {}
 
--- the action table of `aid`: the commit's message body
---  - asr = true  : asserts (my own history, so it is a bug)
---  - asr = false : nil if it does not load (untrusted input)
-
-function M.read (asr, aid)
+--[[
+-- Parse `cid` action from commit:
+--  time:  commit DATE
+--  backs: commit parents
+--  sign:  gpgsig
+--  Commit message shape:
+--     post ; <payload-blob>
+--     like|revoke <n> ; action <cid>|author <pub> [; <why-blob>]
+-- Inputs:
+--  - asr  [boolean]: on errors, true asserts, false returns nil
+--  - cid  [string]: 40-hex commit hash
+--  - sign [boolean?]: should fill `t.sign` from the gpgsig (not verified)
+-- Outputs:
+--  - [table?]: { action, time, blob?, n?, cid?|author?, sign? }
+--  - nil, error: parse error (asr=false)
+-- Errors:
+--  - "bug found : no action : <cid>" : parse error (asr=true)
+-- Callers:
+--  - apply (action.lua): the accept pipeline
+--  - climb (consensus.lua): beg-merge detection
+--  - get (get.lua): payload blob and metadata
+--  - like (like.lua): payload restore on unrevoke crossing
+--  - hardfork/recv (sync.lua): window times, payload re-anchors
+--]]
+function M.read (asr, cid, sign)
     local out = exec { trim=false, err=false, stderr=false,
         cmd = "git -C " .. REPO .. " cat-file commit " .. cid
     }
@@ -47,6 +67,20 @@ end
 -- object. Unknown or ambiguous prefixes are returned unchanged:
 -- the caller fails on the cid it was given
 
+--[[
+-- Resolve `pre` to full commit cid.
+-- Anything git resolves (hex prefix, full hash, HEAD, ...).
+-- Inputs:
+--  - pre [string]: a rev
+-- Outputs:
+--  - [string|false]: the full cid; false if it does not resolve
+-- Errors:
+--  - none
+-- Callers:
+--  - like (like.lua): action target argument
+--  - get (get.lua): id argument
+--  - abandon (abandon.lua): id argument
+--]]
 function M.full (pre)
     if (#pre == 40) or (not pre:match("^%x+$")) then
         return pre
@@ -59,9 +93,20 @@ function M.full (pre)
     return out or pre
 end
 
--- aid(cid): is `cid` an ACTION? returns the cid itself, or nil:
--- a merge has an empty message, the genesis has no parents
-
+--[[
+-- Is `cid` an ACTION?
+-- Inputs:
+--  - cid [string]: 40-hex commit hash (or any rev)
+-- Outputs:
+--  - [boolean]: result
+-- Errors:
+--  - none
+-- Callers:
+--  - backs/apply (action.lua): stop condition, merge branch
+--  - climb (consensus.lua): beg-merge detection
+--  - abandon (abandon.lua): range must be all actions
+--  - recv (sync.lua): voided-commit listing
+--]]
 function M.aid (cid)
     local out = exec { trim=false, err=false, stderr=false,
         cmd = "git -C " .. REPO .. " cat-file commit " .. cid,
@@ -79,11 +124,21 @@ function M.aid (cid)
     return nil                              -- sync merge
 end
 
--- the action ancestors (as sorted aids) of the commit about to
--- be created, from its parents `ps` (revs). Structural: an
--- action IS a commit with a message; anything else (genesis,
--- sync merge) is transparent
-
+--[[
+-- The nearest action ancestors reachable from parents `ps`.
+-- Skips transparent commits: genesis, sync merges.
+-- Structural: derived from the DAG, never claimed.
+-- Inputs:
+--  - ps [table]: array of parent cids (revs)
+-- Outputs:
+--  - [table]: sorted array of action cids (the backs)
+-- Errors:
+--  - none
+-- Callers:
+--  - apply (action.lua): env.backs and the merge snapshot fold
+--  - recv (sync.lua): the loser sync-merge snapshot fold
+--  - list dag (list.lua): structural ups of each node
+--]]
 function M.backs (ps)
     local ret = {}
     local see = {}
@@ -105,11 +160,18 @@ function M.backs (ps)
     return ret
 end
 
--- mint `T`'s action commit UNREFERENCED (aid == cid needs the
--- parents): `apply` runs on the aid; only acceptance moves HEAD
--- (GIT.tip). A rejected action stays one loose commit, gc-able.
--- t = { act=T, parents={...}, sign=keypath|nil, err=msg|nil }
-
+--[[
+-- Commit action `t`.
+-- Inputs:
+--  - t [table]: the action fields
+-- Outputs:
+--  - [string]: the new action's 40-hex cid
+-- Errors:
+--  - via exec: t.err or "bug found" on commit-tree failure
+-- Callers:
+--  - post (post.lua): mint the post
+--  - like (like.lua): mint the vote
+--]]
 function M.pre (t)
     local tmp = REPO .. "action-tmp"
     local f = io.open(tmp, "w")
@@ -126,4 +188,24 @@ function M.pre (t)
     return cid
 end
 
+--[[
+-- Accept `cid` into `G`.
+-- Single pipeline for write and replay.
+-- Everything is read from the commit itself (message, DATE, gpgsig, parents).
+-- Checks structure checks, signature, rules `apply`, order, snapshot.
+-- Inputs:
+--  - G   [table]: chain state (authors/actions/order/now); MUTATED
+--  - cid [string]: 40-hex commit hash, already in the object db
+--  - beg [boolean?]: force beg admission (post writers, beg sync)
+-- Outputs:
+--  - none: G holds the action and refs/states/<cid> holds its snapshot
+-- Errors:
+--  - "malformed commit : ..." : structure (tree/parents/signature)
+--  - "invalid <kind> : ..."   : refused by the reputation rules
+-- Callers:
+--  - post (post.lua): writer accepts its own mint
+--  - like (like.lua): writer accepts its own mint
+--  - climb (consensus.lua): replay, once per commit
+--  - recv (sync.lua): validate an incoming beg head
+--]]
 return M

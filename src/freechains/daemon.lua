@@ -1,3 +1,20 @@
+--[[
+-- `daemon start|stop`: serve the root's chains via git daemon.
+-- Inputs:
+--  - ARGS.start|ARGS.stop [boolean]: what to do
+--  - ARGS.port [integer?]: listen port (default PORT)
+--  - ARGS.hub  [boolean?]: also accept pushes (receive-pack)
+--  - ARGS.xtra [table]: extra git daemon arguments
+--  - ARGS.root [string]: freechains root dir
+-- Outputs:
+--  - start: blocks serving; stdout "Serving on port ..."
+--  - stop: kills via the pid file; stdout the pid
+-- Errors:
+--  - "daemon start : git daemon failed"
+--  - "daemon stop : not running"
+-- Callers:
+--  - dispatch (freechains.lua): ARGS.daemon
+--]]
 
 -- Serves the local chains, one daemon per root: `--hub` adds
 -- pushes to the fetches `git daemon` already serves, so a root

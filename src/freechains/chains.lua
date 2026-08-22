@@ -1,7 +1,45 @@
+--[[
+-- `chains add|rem|dir`
+-- Create, remove, or list root chains.
+-- One bare repo per chain, alias symlinks.
+-- Inputs:
+--  - ARGS.add [boolean]: with ARGS.init (+ ARGS.pioneer list)
+--    or ARGS.clone (+ ARGS.url)
+--  - ARGS.rem [boolean]: delete repo + alias
+--  - ARGS.dir [boolean]: list aliases
+--  - ARGS.alias [string]: "#..." chain alias
+--  - ARGS.root  [string]: freechains root dir
+-- Outputs:
+--  - stdout: the chain cid ("#<genesis>"), or the alias listing
+--  - fs: repo dir under chains/ + alias symlink (add/rem)
+-- Errors:
+--  - "chains add : invalid alias : expected '#'"
+--  - "chains add : alias already exists"
+--  - "chains add : invalid pioneer : <v>"
+--  - "chains add : git init failed" | "init failed"
+--    | "clone failed" | "invalid genesis" | "too many pioneers"
+--  - "chains rem : invalid chain"
+-- Callers:
+--  - dispatch (freechains.lua): ARGS.chains
+--]]
+
 local C    = require "freechains.constants"
 local ssh  = require "freechains.chain.ssh"
 local HERE = debug.getinfo(1, "S").source:match("@(.*/)")
 
+--[[
+-- Configure a fresh bare repo: identity, signing off, merge and
+-- pack knobs, the pre-receive hook.
+-- Inputs:
+--  - dir [string]: the bare repo dir (IS the git dir)
+-- Outputs:
+--  - none
+-- Errors:
+--  - via exec: "bug found" if git config/cp fail
+-- Callers:
+--  - chains add init  (chains.lua): after git init
+--  - chains add clone (chains.lua): after git init
+--]]
 local function git_init (dir)
     exec {
         cmd = "git -C " .. dir .. " config user.name  '-'"
@@ -38,7 +76,21 @@ local function git_init (dir)
     }
 end
 
--- chain starts with max split among pioneers
+--[[
+-- The pioneers' initial reps.
+-- C.reps.max split evenly, parsed from the genesis commit MESSAGE.
+-- May come from a REMOTE peer on clone, so parsed by match, never load.
+-- Inputs:
+--  - dir [string]: the bare repo dir
+--  - gen [string]: the genesis cid
+-- Outputs:
+--  - [table]: authors (pubkey -> { reps = n })
+-- Errors:
+--  - ERROR "chains add : invalid genesis" : message no-parse
+--  - ERROR "chains add : too many pioneers" : split under cost
+-- Callers:
+--  - genesis (chains.lua): the genesis snapshot's authors
+--]]
 local function pioneers (dir, gen)
     -- the genesis table IS the genesis commit MESSAGE (body after
     -- the header block). It may come from a REMOTE peer (clone), so
@@ -71,8 +123,20 @@ local function pioneers (dir, gen)
     return A
 end
 
--- genesis snapshot: stored as a git blob pinned by refs/states/<gen>
--- (same store as STATE.write; inlined, no chain context here).
+--[[
+-- The genesis snapshot: a blob pinned by refs/states/<gen>.
+-- Same store as STATE.write; inlined, no chain context here.
+-- Inputs:
+--  - dir [string]: the bare repo dir
+--  - gen [string]: the genesis cid
+-- Outputs:
+--  - none
+-- Errors:
+--  - via exec/pioneers: see above
+-- Callers:
+--  - chains add init  (chains.lua): after the genesis commit
+--  - chains add clone (chains.lua): before the first recv
+--]]
 -- `now` = 0: dates are neutral, so creator and cloner agree byte
 -- for byte
 local function genesis (dir, gen)

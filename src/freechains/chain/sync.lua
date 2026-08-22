@@ -1,10 +1,45 @@
+--[[
+-- `chain <alias> sync send|recv <remote>`
+-- Push my chain, or fetch remote, validate/replay it, and reconcile refs.
+-- Inputs:
+--  - ARGS.send|ARGS.recv [boolean]: direction
+--  - ARGS.remote [string]: path, host[:port], or URL
+--  - ARGS.alias  [string]: the chain (appended to bare hosts)
+--  - REPO [string]: the chain's bare repo dir (recv reads its
+--    states; G is never preloaded here)
+-- Outputs:
+--  - send: my main + refs/begs/* pushed (receiver's hook recvs)
+--  - recv: stdout "voided : <cid>" per losing action; HEAD
+--    moved/merged; states snapshotted; begs validated or
+--    dropped; payload anchors follow the final revoke sums
+-- Errors:
+--  - "chain sync : freechains.url not set" (send)
+--  - "chain sync : fetch failed"
+--  - "chain sync : incompatible genesis"
+--  - "chain sync : hard fork"
+--  - "chain sync : <replay>" : malformed/invalid remote commit
+-- Callers:
+--  - dispatch (chain/init.lua): ARGS.sync
+--  - chains add clone (chains.lua): re-execs `sync recv`
+--  - pre-receive hook: runs recv on the receiver
+--]]
+
 require "freechains.chain.consensus"
 
+--[[
 -- Hard fork protects my current order.
--- Find `set` as highest settled index crossing fork.time or fork.actions.
--- Must reproduce that prefix verbatim, or it is a hard fork.
--- `our`:   cur order, before replay
--- `their`: new order, after replay
+-- Find `set` as highest SETTLED index (crossing fork.time or fork.actions).
+-- The new order must reproduce that prefix verbatim.
+-- Inputs:
+--  - our   [table]: current order (cids), before replay
+--  - their [table]: new order (cids), after replay
+-- Outputs:
+--  - [boolean]: true = settled prefix reordered (hard fork)
+-- Errors:
+--  - assert: window entry without a time (bug)
+-- Callers:
+--  - recv (sync.lua): only when the remote wins
+--]]
 local function hardfork (our, their)
     if #our == 0 then
         return false

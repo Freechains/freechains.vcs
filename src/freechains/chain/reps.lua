@@ -1,3 +1,21 @@
+--[[
+-- `chain <alias> reps <target> [key]`
+-- Print reputation queries.
+-- Fold time up to --now (discounts/consolidation)
+-- Inputs:
+--  - ARGS.target [string]: action|actions|revoke|revokes|author|authors
+--  - ARGS.key [string?]: action cid or author key (single forms)
+--  - ARGS.now [integer]: query time (drives `advance`)
+--  - G [table]: state at HEAD; mutated in memory only
+-- Outputs:
+--  - stdout: reps value(s), or revoke channel sums
+-- Errors:
+--  - "chain reps : action requires id" (also revoke/author)
+--  - "chain reps : invalid target : <target>"
+-- Callers:
+--  - dispatch (chain/init.lua): ARGS.reps
+--]]
+
 local ssh = require "freechains.chain.ssh"
 
 if ARGS.key then

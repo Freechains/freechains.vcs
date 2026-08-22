@@ -1,3 +1,20 @@
+--[[
+-- `chain <alias> ...`
+-- Bind the chain globals, check the chain exists, load G, dispatch to
+-- subcommand file.
+-- Inputs:
+--  - ARGS.alias [string]: the chain
+--  - ARGS.root  [string]: freechains root dir
+--  - ARGS.<subcommand> [boolean]: what to dispatch
+-- Outputs:
+--  - globals: C, ACTION, STATE, GIT, REPO,
+--      G (state at HEAD, except sync/abandon/sweep, which read their own)
+-- Errors:
+--  - "chain <alias> : not found"
+-- Callers:
+--  - dispatch (freechains.lua): ARGS.chain
+--]]
+
 -- chain context: constants, modules, and the repo path
 C      = require "freechains.constants"
 ACTION = require "freechains.chain.action"

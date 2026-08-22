@@ -1,3 +1,19 @@
+--[[
+-- `chain <alias> list begs|order|revokes|dag`
+-- Print chain actions in the chosen view.
+-- Inputs:
+--  - ARGS.begs|order|revokes|dag [boolean]: the view
+--  - G    [table]: state at HEAD (order, revocations)
+--  - REPO [string]: the chain's bare repo dir
+-- Outputs:
+--  - stdout: cids one per line (revoked wrapped in ~cid~),
+--            or ASCII dag (short labels)
+-- Errors:
+--  - none
+-- Callers:
+--  - dispatch (chain/init.lua): ARGS.list
+--]]
+
 if ARGS.begs then
     -- pending begs: post cids parked on refs/begs/beg-<cid>
     local out = exec {
@@ -153,7 +169,19 @@ elseif ARGS.dag then
         col[n] = col[n] - min
     end
 
-    -- row helpers: sparse char table, emitted trimmed
+    --[[
+    -- Write string `s` centered at column `c` of a sparse row.
+    -- Inputs:
+    --  - t [table]: sparse char row (column -> char); MUTATED
+    --  - c [integer]: center column
+    --  - s [string]: the label/glyph
+    -- Outputs:
+    --  - none
+    -- Errors:
+    --  - none
+    -- Callers:
+    --  - list dag (list.lua): node and edge lines
+    --]]
     local function set_at (t, c, s)
         local start = c - (#s // 2)
         for k = 1, #s do
@@ -162,6 +190,17 @@ elseif ARGS.dag then
             end
         end
     end
+    --[[
+    -- Print a sparse char row, blanks filled, right-trimmed.
+    -- Inputs:
+    --  - t [table]: sparse char row (column -> char)
+    -- Outputs:
+    --  - none: prints one line
+    -- Errors:
+    --  - none
+    -- Callers:
+    --  - list dag (list.lua): once per node/edge line
+    --]]
     local function emit (t)
         local max = 0
         for i in pairs(t) do

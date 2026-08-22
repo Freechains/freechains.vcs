@@ -1,11 +1,22 @@
 local ssh = require "freechains.chain.ssh"
 
--- Boundary octopus:
--- The common ancestor of every point where the region between `a` and
--- `b` attaches to shared history.
--- Sits BELOW every fork inside that region, so a replay starting here
--- re-derives all of it, including merges nested deeper than the outer
--- one.
+--[[
+-- Boundary octopus: common ancestor of every point where region between `a`
+-- and `b` attaches to shared history.
+-- Inputs:
+--  - a [string]: 40-hex commit hash (one tip)
+--  - b [string]: 40-hex commit hash (the other tip)
+-- Outputs:
+--  - [string]: the octopus merge-base cid
+-- Errors:
+--  - via exec: "bug found" if rev-list/merge-base fail
+-- Callers:
+--  - recv (sync.lua): where the remote replay starts
+--  - meet (consensus.lua): floor of each inner fork
+--]]
+-- Sits BELOW every fork inside that region, so a replay starting
+-- here re-derives all of it, including merges nested deeper than
+-- the outer one.
 -- With a single fork it degenerates to the pairwise merge-base.
 function octopus (a, b)
     local out = exec {
@@ -23,11 +34,22 @@ function octopus (a, b)
     }
 end
 
--- Consensus: prefix reps from G decide winner
---  - traverse com..tip, collect signed keys
---  - sum G.authors[key].reps for each side
---  - higher sum wins, cid tiebreaker (smaller wins)
---
+--[[
+-- Consensus: prefix reps from `G` decide the fork winner.
+-- Traverse com..tip per side, collect signed keys, sum their G reps.
+-- Higher sum wins, smaller cid breaks ties.
+-- Inputs:
+--  - G [table]: state at the fork floor (region prefix) with reps that vote
+--  - a [string]: 40-hex commit hash (one tip)
+--  - b [string]: 40-hex commit hash (the other tip)
+-- Outputs:
+--  - [string, string]: winner, loser (FF: ancestor loses)
+-- Errors:
+--  - via exec: "bug found" if git traversal fails
+-- Callers:
+--  - recv (sync.lua): pick fst/snd between local and remote
+--  - meet (consensus.lua): order each inner fork's replay
+--]]
 -- Two ancestors, two different questions:
 --   oct:  how much history must I RE-DERIVE
 --         deep: below every fork in the region
@@ -52,6 +74,17 @@ function consensus (G, a, b)
         return a, b
     end
 
+    --[[
+    -- The authors that signed `tip`'s side of the fork.
+    -- Inputs:
+    --  - tip [string]: one fork tip (com..tip is its region)
+    -- Outputs:
+    --  - [table]: set of pubkeys (key -> true)
+    -- Errors:
+    --  - via exec: "bug found" if git log fails
+    -- Callers:
+    --  - consensus (consensus.lua): once per side
+    --]]
     local function collect_keys (tip)
         --[[
             com..tip = commits reachable from tip but not from com:
@@ -75,6 +108,17 @@ function consensus (G, a, b)
         end
         return keys
     end
+    --[[
+    -- Sum the G reps of a key set.
+    -- Inputs:
+    --  - keys [table]: set of pubkeys (key -> true)
+    -- Outputs:
+    --  - [integer]: sum of G.authors[key].reps (unknown = 0)
+    -- Errors:
+    --  - none
+    -- Callers:
+    --  - consensus (consensus.lua): the two sides' scores
+    --]]
     local function reps (keys)
         local n = 0
         for key in pairs(keys) do
@@ -214,18 +258,43 @@ function commit (G, cid, beg)
     end
 end
 
--- Replay: climb from `com` up to `tip` in consensus order, calling
--- `commit` once per commit.
--- visited: never re-processes a commit (`commit` itself skips an
--- action already in `G`, so shared history never re-applies)
+--[[
+-- Replay: climb from `com` up to `tip` in consensus order.
+-- Calls `ACTION.apply` once per commit.
+-- Inputs:
+--  - G     [table]: state at `com`; MUTATED up to `tip`
+--  - com   [string]: floor cid (already in G)
+--  - tip   [string]: target cid
+--  - trunc [boolean?]: the branch is a LOSER, so first failure voids the rest
+-- Outputs:
+--  - [string?]: last commit applied
+--  - [string?]: the voiding error (trunc only)
+-- Errors:
+--  - re-raises ACTION.apply rejections (trunc = false); a
+--    malformed loser is caught earlier, on its own validation
+-- Callers:
+--  - recv (sync.lua): remote validation, then loser replay
+--]]
+-- visited: never re-processes a commit (`ACTION.apply` itself skips
+-- an action already in `G`, so shared history never re-applies)
 -- ancestor(cur,com): stops climb from descending below its floor
 -- without these the inner meet underflows to a root
--- `trunc`: the branch is a LOSER, so the first failure voids the
--- rest: returns the last good cid and the error, instead of raising.
--- A malformed loser is caught earlier, when its branch is validated
 function replay (G, com, tip, trunc)
     local visited = {}
     local last          -- last commit applied
+
+    --[[
+    -- Is `a` an ancestor of `b`?
+    -- Inputs:
+    --  - a [string]: 40-hex commit hash
+    --  - b [string]: 40-hex commit hash
+    -- Outputs:
+    --  - [string|false]: truthy iff ancestor (exec result)
+    -- Errors:
+    --  - none
+    -- Callers:
+    --  - climb (consensus.lua): stop at/below the floor
+    --]]
     local function ancestor (a, b)
         return exec { err=false, stderr=false,
             cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. a .. " " .. b
@@ -233,6 +302,22 @@ function replay (G, com, tip, trunc)
     end
     local climb, meet
 
+    --[[
+    -- Depth-first ascent com -> cur: parents first, then apply
+    -- `cur` itself; a 2-parent merge recurses through `meet`.
+    -- Inputs:
+    --  - G   [table]: chain state; MUTATED
+    --  - com [string]: floor cid (never descends below)
+    --  - cur [string]: the commit to reach
+    --  - beg [boolean]: beg admission for this branch
+    -- Outputs:
+    --  - none (sets upvalues `visited` and `last`)
+    -- Errors:
+    --  - "malformed commit : expected 2-parent merge" : >2 parents
+    --  - re-raises ACTION.apply rejections
+    -- Callers:
+    --  - replay/meet (consensus.lua): mutual recursion
+    --]]
     climb = function (G, com, cur, beg)
         if cur==com or visited[cur] or ancestor(cur,com) then
             return
@@ -258,6 +343,22 @@ function replay (G, com, tip, trunc)
         end
     end
 
+    --[[
+    -- Resolve one fork: find its floor (octopus), climb there,
+    -- then climb winner side first (consensus decides).
+    -- Inputs:
+    --  - G     [table]: chain state; MUTATED
+    --  - com   [string]: outer floor cid
+    --  - left  [string]: first parent (the merge's own history)
+    --  - right [string]: second parent
+    --  - right_is_beg [boolean]: right side is a beg promotion
+    -- Outputs:
+    --  - none
+    -- Errors:
+    --  - re-raises climb errors
+    -- Callers:
+    --  - climb (consensus.lua): on every 2-parent merge
+    --]]
     meet = function (G, com, left, right, right_is_beg)
         local up = octopus(left, right)
         climb(G, com, up, false)
