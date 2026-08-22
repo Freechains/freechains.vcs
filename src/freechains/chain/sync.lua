@@ -259,7 +259,7 @@ elseif ARGS.recv then
                 local ps = GIT.parents(cid)
                 keep = (#ps == 1) and STATE.has(ps[1])
                 if keep then
-                    keep = pcall(commit, STATE.read(ps[1]), cid, true)
+                    keep = pcall(ACTION.apply, STATE.read(ps[1]), cid, true)
                 end
             end
             if not keep then

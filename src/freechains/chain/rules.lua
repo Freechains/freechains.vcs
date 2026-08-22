@@ -179,10 +179,26 @@ function NOW (G, backs)
     return max
 end
 
--- an action is applied from two sides:
---  - `act`: what its author CLAIMS (n, target=cid/author)
---  - `env`: what the chain VERIFIED: (time, cid, sign, beg, backs)
-function apply (G, kind, act, env)
+--[[
+-- The reputation state transition.
+-- One action folded into `G`, from two sides:
+--  what its author CLAIMS vs what the chain VERIFIED
+-- Inputs:
+--  - G   [table]: chain state; MUTATED on acceptance
+--  - act [table]: what the commit SAYS: action (the kind), time
+--    (its DATE, hash-bound), n, cid?|author? (the target)
+--  - env [table]: what the chain DERIVED: cid, sign?, beg?, backs
+-- Outputs:
+--  - [true]: accepted, or
+--  - [false, string]: refused ("too old", "too new",
+--    "insufficient reputation", "invalid target : ...", ...)
+-- Errors:
+--  - assert: post without sign or beg; vote without sign (bugs:
+--    the pipeline checks before calling)
+-- Callers:
+--  - apply (action.lua): the accept pipeline, per action
+--]]
+function apply (G, act, env)
     -- time sits within reasonable interval `time.diff`:
     --  max(backs)-diff <= me <= now+diff
     local up = NOW(G, env.backs)
@@ -197,7 +213,7 @@ function apply (G, kind, act, env)
 
     advance(G, act.time, env.sign)
 
-    if kind == 'post' then
+    if act.action == 'post' then
         -- validation
         assert(env.sign or env.beg)
         if env.sign then
@@ -233,7 +249,7 @@ function apply (G, kind, act, env)
             end
         end
 
-    elseif kind=='like' or kind=='revoke' then
+    elseif act.action=='like' or act.action=='revoke' then
         -- validation
         assert(env.sign, "bug found")
         if math.type(act.n)~='integer' or act.n==0 then
@@ -243,12 +259,12 @@ function apply (G, kind, act, env)
             return false, "invalid target : expects 'action' or 'author'"
         end
         -- revoke/unrevoke never target an author
-        if kind=='revoke' and (not act.cid) then
+        if act.action=='revoke' and (not act.cid) then
             return false, "invalid target : expects 'action'"
         end
         -- hiding a post must cost at least what a day mints:
         -- one dust unit used to bury a 500-reps post
-        if kind=='revoke' and math.abs(act.n)<C.reps.revoke then
+        if act.action=='revoke' and math.abs(act.n)<C.reps.revoke then
             return false,
                 "invalid number : expects at least " .. C.reps.revoke
         end
@@ -258,7 +274,7 @@ function apply (G, kind, act, env)
 
         -- author self-revoke (right to be forgotten) is free and ungated
         local self_revoke = (
-            kind=='revoke' and act.n<0 and G.actions[act.cid].author==env.sign
+            act.action=='revoke' and act.n<0 and G.actions[act.cid].author==env.sign
         )
 
         -- since self-revoke is free, check its not a "flooding attack"
@@ -288,7 +304,7 @@ function apply (G, kind, act, env)
         if act.cid then
             local e = G.actions[act.cid]
             local a = e.author
-            if not (self_revoke or (kind=='revoke' and act.n>0)) then
+            if not (self_revoke or (act.action=='revoke' and act.n>0)) then
                 if a then
                     G.authors[a] = G.authors[a] or { reps=0 }
                     G.authors[a].reps = G.authors[a].reps + n//C.vote.split
@@ -303,9 +319,9 @@ function apply (G, kind, act, env)
             -- `unrevoke` (the converse is false: a `dislike` never
             -- revokes). Author self-revoke feeds the absolute
             -- `author` channel; everyone else the `others` channel.
-            if kind=='revoke' or act.n>0 then
+            if act.action=='revoke' or act.n>0 then
                 local r = e.revoke
-                if kind=='revoke' and a and env.sign==a then
+                if act.action=='revoke' and a and env.sign==a then
                     r.author = r.author + act.n
                 else
                     r.others = r.others + act.n
@@ -326,7 +342,7 @@ function apply (G, kind, act, env)
 
         -- the vote enters the registry as a target of its own:
         G.actions[env.cid] = {
-            action = kind,
+            action = act.action,
             author = env.sign,
             now    = math.max(act.time, up),
             reps   = 0,

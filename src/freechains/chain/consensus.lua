@@ -221,7 +221,7 @@ function replay (G, com, tip, trunc)
                 meet(G, com, p1, p2, is_beg_merge)
             end
             visited[cur] = true
-            commit(G, cur, beg)
+            ACTION.apply(G, cur, beg)
             last = cur      -- not reached if `commit` raises
         end
     end
