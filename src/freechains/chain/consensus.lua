@@ -214,11 +214,11 @@ function M.replay (G, com, tip, trunc)
                 climb(G, com, p1, beg)
             else
                 -- only a `like` action merges (beg promotion): its
-                -- second parent is the beg branch
-                -- like positivity (n>0) is enforced in commit()
-                local t = ACTION.is(cur) and ACTION.read(true, cur)
-                local is_beg_merge = (t and t.action=='like')
-                meet(G, com, p1, p2, is_beg_merge)
+                -- second parent is the beg branch.
+                -- a sync merge (or a malformed remote) reads nil:
+                -- not a beg merge; `ACTION.apply` rejects malformed
+                local t = ACTION.read(false, cur)
+                meet(G, com, p1, p2, t and t.action=='like')
             end
             visited[cur] = true
             ACTION.apply(G, cur, beg)
