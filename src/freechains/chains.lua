@@ -77,54 +77,9 @@ local function git_init (dir)
 end
 
 --[[
--- The pioneers' initial reps.
--- C.reps.max split evenly, parsed from the genesis commit MESSAGE.
--- May come from a REMOTE peer on clone, so parsed by match, never load.
--- Inputs:
---  - dir [string]: the bare repo dir
---  - gen [string]: the genesis cid
--- Outputs:
---  - [table]: authors (pubkey -> { reps = n })
--- Errors:
---  - ERROR "chains add : invalid genesis" : message no-parse
---  - ERROR "chains add : too many pioneers" : split under cost
--- Callers:
---  - genesis (chains.lua): the genesis snapshot's authors
---]]
-local function pioneers (dir, gen)
-    -- the genesis table IS the genesis commit MESSAGE (body after
-    -- the header block). It may come from a REMOTE peer (clone), so
-    -- it is loaded as DATA: "t" text only, {} no globals (T6c)
-    local src = exec { trim=false, err=false, stderr=false,
-        cmd = "git -C " .. dir .. " cat-file commit " .. gen,
-    }
-    src = src and src:match("\n\n(.*)$")
-    if not src then
-        ERROR("chains add : invalid genesis")
-    end
-    local T = load(src, "=genesis", "t", {})
-    local ok
-    if T then
-        ok, T = pcall(T)
-    end
-    if not (ok and type(T) == 'table') then
-        ERROR("chains add : invalid genesis")
-    end
-    local A = {}
-    if T.pioneers and #T.pioneers>0 then
-        local n = C.reps.max // #T.pioneers
-        if n < C.reps.cost then
-            ERROR("chains add : too many pioneers")
-        end
-        for _, key in ipairs(T.pioneers) do
-            A[key] = { reps = n }
-        end
-    end
-    return A
-end
-
---[[
 -- The genesis snapshot: a blob pinned by refs/states/<gen>.
+-- Parses the pioneers from the genesis commit MESSAGE and splits
+-- C.reps.max evenly among them.
 -- Same store as STATE.write; inlined, no chain context here.
 -- Inputs:
 --  - dir [string]: the bare repo dir
@@ -132,7 +87,12 @@ end
 -- Outputs:
 --  - none
 -- Errors:
---  - via exec/pioneers: see above
+--  - "chains add : invalid genesis : expected commit"
+--  - "chains add : invalid genesis : expected version"
+--  - "chains add : invalid genesis : expected nonce"
+--  - "chains add : invalid genesis : invalid pioneer"
+--  - "chains add : invalid genesis : too many pioneers"
+--  - via exec: "bug found" on hash-object/update-ref
 -- Callers:
 --  - chains add init  (chains.lua): after the genesis commit
 --  - chains add clone (chains.lua): before the first recv
@@ -140,8 +100,55 @@ end
 -- `now` = 0: dates are neutral, so creator and cloner agree byte
 -- for byte
 local function genesis (dir, gen)
+    -- the genesis commit MESSAGE, POSITIONAL (may come from a
+    -- REMOTE peer on clone, so parsed by match, never load):
+    --   <version>\n<nonce>\n<pioneer pubkey>...
+    -- `src` is false when refs/genesis is not a commit (clone);
+    -- for a commit, the "\n\n" separator is ALWAYS present
+    local src = exec { trim=false, err=false, stderr=false,
+        cmd = "git -C " .. dir .. " cat-file commit " .. gen,
+    }
+    if not src then
+        ERROR("chains add : invalid genesis : expected commit")
+    end
+
+    src = src:match("\n\n(.*)$")
+
+    local ls = {}
+    for l in src:gmatch("[^\n]+") do
+        ls[#ls+1] = l
+    end
+
+    if not (ls[1] and ls[1]:match("^%d+%.%d+%.%d+$")) then
+        ERROR("chains add : invalid genesis : expected version")
+    end
+    if not (ls[2] and ls[2]:match("^%d+$")) then
+        ERROR("chains add : invalid genesis : expected nonce")
+    end
+
+    local pios = {}
+    for i=3, #ls do
+        local key = ls[i]:match("^(ssh%-%S+ %S+)$")
+        if not key then
+            ERROR("chains add : invalid genesis : invalid pioneer")
+        end
+        pios[#pios+1] = key
+    end
+
+    -- chain starts with max split among pioneers
+    local A = {}
+    if #pios > 0 then
+        local n = C.reps.max // #pios
+        if n < C.reps.cost then
+            ERROR("chains add : invalid genesis : too many pioneers")
+        end
+        for _, key in ipairs(pios) do
+            A[key] = { reps = n }
+        end
+    end
+
     local G = {
-        authors = pioneers(dir, gen),
+        authors = A,
         actions = {},
         order   = {},
         now     = 0,
@@ -183,11 +190,14 @@ if ARGS.add then
         for key in pairs(keys) do
             pios[#pios+1] = key
         end
-        local GEN = {
-            version  = VERSION,
-            nonce    = rand,
-            pioneers = pios,
-        }
+        table.sort(pios)
+
+        -- genesis message, POSITIONAL (see `genesis` above)
+        local GEN = table.concat(VERSION, ".") .. "\n" ..
+            rand .. "\n"
+        for _, key in ipairs(pios) do
+            GEN = GEN .. key .. "\n"
+        end
 
         local tmp = DIR .. "/tmp-" .. rand .. "/"
 
@@ -197,22 +207,20 @@ if ARGS.add then
         }
         git_init(tmp)
 
-        -- genesis commit: EMPTY tree, the genesis table IS the
-        -- message. `nonce` salts the hash (dates are neutral, so
-        -- equal pioneers would otherwise collide into one chain id)
+        -- genesis commit: EMPTY tree, the genesis IS the message.
+        -- `nonce` salts the hash (dates are neutral, so equal
+        -- pioneers would otherwise collide into one chain cid).
         local tree = exec {
             cmd = "git -C " .. tmp .. " hash-object -t tree /dev/null",
         }
-        do
-            local f = io.open(tmp .. "genesis-tmp", "w")
-            f:write(serial(GEN))
-            f:close()
-        end
+        -- the message is piped VERBATIM (printf, as GIT.commit);
+        -- single quotes are safe: version, nonce and base64 keys
         local gen = exec {
-            cmd = CMD.git .. "git -C " .. tmp .. " commit-tree " .. tree ..
-                " < " .. tmp .. "genesis-tmp",
+            -- @0: creator and cloner agree byte for byte
+            cmd = "printf '%s' '" .. GEN .. "' | " ..
+                "GIT_AUTHOR_DATE='@0 +0000' GIT_COMMITTER_DATE='@0 +0000' " ..
+                "git -C " .. tmp .. " commit-tree " .. tree,
         }
-        os.remove(tmp .. "genesis-tmp")
         exec {
             cmd = "git -C " .. tmp .. " update-ref HEAD " .. gen,
         }
@@ -224,8 +232,8 @@ if ARGS.add then
 
         genesis(tmp, gen)
 
-        local id = "#" .. gen
-        local final = DIR .. "/" .. id
+        local cid = "#" .. gen
+        local final = DIR .. "/" .. cid
         if not os.rename(tmp, final) then
             exec {
                 cmd = "rm -rf " .. tmp,
@@ -236,9 +244,9 @@ if ARGS.add then
             cmd = "git -C '" .. final .. "' config freechains.url '" .. final .. "'",
         }
         exec {
-            cmd = "ln -s '" .. id .. "/' " .. DIR .. "/" .. ARGS.alias,
+            cmd = "ln -s '" .. cid .. "/' " .. DIR .. "/" .. ARGS.alias,
         }
-        print(id)
+        print(cid)
 
     elseif ARGS.clone then
         -- clone genesis alone: everything else comes later through `recv`
@@ -265,8 +273,8 @@ if ARGS.add then
         exec {
             cmd = "git -C " .. tmp .. " update-ref HEAD " .. gen,
         }
-        local id = "#" .. gen
-        local dir = DIR .. "/" .. id .. "/"
+        local cid = "#" .. gen
+        local dir = DIR .. "/" .. cid .. "/"
         if not os.rename(tmp, dir) then
             exec {
                 cmd = "rm -rf " .. tmp,
@@ -277,7 +285,7 @@ if ARGS.add then
             cmd = "git -C '" .. dir .. "' config freechains.url '" .. dir .. "'",
         }
         exec {
-            cmd = "ln -s '" .. id .. "' " .. DIR .. "/" .. ARGS.alias,
+            cmd = "ln -s '" .. cid .. "' " .. DIR .. "/" .. ARGS.alias,
         }
 
         genesis(dir, gen)
@@ -296,7 +304,7 @@ if ARGS.add then
             ERROR("chains add : clone failed", out)
         end
 
-        print(id)
+        print(cid)
     end
 elseif ARGS.rem then
     local alias = DIR .. "/" .. ARGS.alias

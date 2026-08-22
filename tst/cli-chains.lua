@@ -323,7 +323,7 @@ do
         -- 101 keys: 50000/101 = 495, below the 500 post cost
         FAIL {
             cmd = ENV_EXE .. " chains add '#many' init " .. PIOS(101),
-            err = "ERROR : chains add : too many pioneers",
+            err = "ERROR : chains add : invalid genesis : too many pioneers",
         }
     end
 
