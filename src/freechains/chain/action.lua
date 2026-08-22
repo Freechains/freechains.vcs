@@ -34,28 +34,74 @@ local M = {}
 --  - hardfork/recv (sync.lua): window times, payload re-anchors
 --]]
 function M.read (asr, cid, sign)
-    local out = exec { trim=false, err=false, stderr=false,
-        cmd = "git -C " .. REPO .. " cat-file commit " .. cid
-    }
-    local body = out and out:match("\n\n(.*)$")
-    if body and #body > 0 then
-        -- "t": text only (a binary chunk can crash the VM)
-        -- {} : no globals (the message is DATA, not a program)
-        local f = load(body, "=action", "t", {})
-        if f then
-            local ok, t = pcall(f)
-            if ok then
-                if type(t) == 'table' then
-                    -- `blob` is the one field no rule checks, and it
-                    -- reaches a shell: a hash, or nothing
-                    local b = t.blob
-                    if b==nil or (type(b)=='string' and b:match("^%x+$")) then
-                        return t
-                    end
-                end
-            end
+    do
+        local out = exec { trim=false, err=false, stderr=false,
+            cmd = "git -C " .. REPO .. " cat-file commit " .. cid
+        }
+        if not out then
+            goto ERR
         end
+
+        local time = tonumber(out:match("\nauthor [^\n]* (%d+) [%+%-]%d+\n"))
+        if not time then
+            goto ERR
+        end
+
+        local ls = {}
+        for l in (out:match("\n\n(.*)$") or ""):gmatch("[^\n]+") do
+            ls[#ls+1] = l
+        end
+        if not ls[1] then
+            goto ERR
+        end
+
+        -- post shape: `blob` reaches a shell: a hash, or nothing
+        if ls[1] == 'post' then
+            if #ls ~= 2 then
+                goto ERR
+            end
+            if not ls[2]:match("^%x+$") then
+                goto ERR
+            end
+            return {
+                action = 'post',
+                time   = time,
+                blob   = ls[2],
+                sign   = (sign and ssh.pub.commit(REPO, cid)) or nil,
+            }
+
+        -- vote shape
+        else
+            local kind, n = ls[1]:match("^(%a+) (%-?%d+)$")
+            if not kind then
+                goto ERR
+            end
+            if #ls > 3 then
+                goto ERR
+            end
+            local ty, tgt
+            if ls[2] then
+                ty, tgt = ls[2]:match("^(%a+) (.+)$")
+            end
+            if (ty ~= 'action') and (ty ~= 'author') then
+                goto ERR
+            end
+            local why = ls[3]
+            if why and (not why:match("^%x+$")) then
+                goto ERR
+            end
+            return {
+                action = kind,
+                time   = time,
+                n      = tonumber(n),
+                blob   = why,
+                sign   = (sign and ssh.pub.commit(REPO, cid)) or nil,
+                [ty == 'action' and 'cid' or 'author'] = tgt,
+            }
+        end
+        ::ERR::
     end
+
     if asr then
         error("bug found : no action : " .. cid)
     end
