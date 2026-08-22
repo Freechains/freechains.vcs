@@ -224,9 +224,9 @@ elseif ARGS.recv then
 
         -- merge the last non-failing loser
         if merge then
-            GIT.commit {
+            GIT.commit(true, nil, {
                 parents = { GIT.deref("HEAD"), merge },
-            }
+            })
             -- the merge tip is new: snapshot the final state there
             -- (a merge adds no time: fold its parents' actions)
             G_fst.now = NOW(G_fst, ACTION.backs {

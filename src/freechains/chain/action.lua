@@ -199,17 +199,18 @@ end
 --[[
 -- Commit action `t` with inline message metadata.
 -- Inputs:
+--  - err [string?]: exec err message on failure (nil: bug found)
 --  - t [table]: action, n, cid?|author?, blob?
---    + parents={...}, sign=keypath?, err=msg?
+--    + parents={...}, sign=keypath?
 -- Outputs:
 --  - [string]: the new action's 40-hex cid
 -- Errors:
---  - via exec: t.err or "bug found" on commit-tree failure
+--  - via exec: `err` or "bug found" on commit-tree failure
 -- Callers:
 --  - post (post.lua): mint the post
 --  - like (like.lua): mint the vote
 --]]
-function M.commit (t)
+function M.commit (err, t)
     local msg
     if t.action == 'post' then
         msg = "post\n" .. t.blob .. "\n"
@@ -224,12 +225,12 @@ function M.commit (t)
             msg = msg .. t.blob .. "\n"
         end
     end
-    return GIT.commit({
+    return GIT.commit(false, err, {
         parents = t.parents,
         msg     = msg,
         date    = ARGS.now,
         sign    = t.sign,
-    }, false, t.err)
+    })
 end
 
 -- `merge` is deliberately absent as a kind: a sync merge carries no

@@ -61,13 +61,15 @@ local blob = exec {
 }
 os.remove(path)
 
-local cid = ACTION.commit {
-    parents = { GIT.deref("HEAD") },
-    action  = 'post',
-    blob    = blob,
-    sign    = ARGS.sign,
-    err     = (ARGS.sign and "chain post : invalid sign key") or nil,
-}
+local cid = ACTION.commit(
+    (ARGS.sign and "chain post : invalid sign key") or nil,
+    {
+        parents = { GIT.deref("HEAD") },
+        action  = 'post',
+        blob    = blob,
+        sign    = ARGS.sign,
+    }
+)
 
 -- ONE pipeline for write and replay:
 --  - re-reads the action from minted commit

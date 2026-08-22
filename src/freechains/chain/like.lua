@@ -123,16 +123,18 @@ if ARGS.why then
     os.remove(path)
 end
 
-local cid = ACTION.commit {
-    parents = to_beg and { GIT.deref("HEAD"), GIT.deref(ref) }
-                      or { GIT.deref("HEAD") },
-    action  = kind,
-    n       = num,
-    [ARGS.target] = ARGS.cid,
-    blob    = blob,
-    sign    = ARGS.sign,
-    err     = "chain " .. vote .. " : invalid sign key",
-}
+local cid = ACTION.commit(
+    "chain " .. vote .. " : invalid sign key",
+    {
+        parents = to_beg and { GIT.deref("HEAD"), GIT.deref(ref) }
+                          or { GIT.deref("HEAD") },
+        action  = kind,
+        n       = num,
+        [ARGS.target] = ARGS.cid,
+        blob    = blob,
+        sign    = ARGS.sign,
+    }
+)
 
 -- entry/was_revoked used after the pipeline
 local entry = (ARGS.target == "cid") and G.actions[ARGS.cid] or nil

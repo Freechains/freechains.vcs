@@ -27,22 +27,22 @@ end
 --[[
 -- Mint a commit via commit-tree (no worktree, no index).
 -- Inputs:
---  - t [table]: commit data
+--  - ref [boolean]:    true also moves HEAD; false mints loose only
+--  - err [string?]:    exec err message on failure (nil: bug found)
+--  - t [table]: commit data (what shapes the commit BYTES)
 --      - parents [table]:  {cid [, cid]} parent hashes
 --      - msg [string?]:    message metadata or nil (merge)
 --      - date [integer?]:  unix secs, author+committer DATE or nil (merge, genesis)
 --      - sign [string?]:   ssh private key path -> -S gpgsig
---  - ref [boolean?]:   false, mints loose object only; else also moves HEAD
---  - err [string?]:    exec err message on failure
 -- Outputs:
 --  - [string]: the new commit's 40-hex cid
 -- Errors:
---  - via exec: t.err or "bug found" on commit-tree failure
+--  - via exec: `err` or "bug found" on commit-tree failure
 -- Callers:
 --  - commit (action.lua): action mint
 --  - recv (sync.lua): the loser-branch sync merge
 --]]
-function M.commit (t, ref, err)
+function M.commit (ref, err, t)
     local dt = "GIT_AUTHOR_DATE='@"    .. (t.date or 0) .. " +0000' " ..
                "GIT_COMMITTER_DATE='@" .. (t.date or 0) .. " +0000' "
     local sig = t.sign and
@@ -57,7 +57,7 @@ function M.commit (t, ref, err)
             (t.sign and " -S" or "") .. ps .. " " .. M.tree(),
         err = err,
     }
-    if ref ~= false then
+    if ref then
         exec {
             cmd = "git -C " .. REPO .. " update-ref HEAD " .. cid,
         }
