@@ -277,7 +277,9 @@ do
         local fake = "0000000000000000000000000000000000000000"
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-like' like 1000 action " .. fake .. " --sign " .. KEY2,
-            err = "ERROR : chain like : invalid target : action not found",
+            -- an unknown hash fails at resolution (ACTION.full),
+            -- before the rules' "action not found"
+            err = "ERROR : chain like : invalid target",
         }
     end
 

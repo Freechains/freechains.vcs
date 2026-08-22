@@ -15,6 +15,8 @@
 --  - get (get.lua): refuse a revoked payload
 --  - recv (sync.lua): payload anchor reconcile
 --]]
+function is_revoked (act)
+    local r = act.revoke or {}
     return ((r.author or 0) < 0) or ((r.others or 0) < 0)
 end
 
@@ -32,13 +34,14 @@ end
 -- Callers:
 --  - advance (rules.lua): discount and consolidation scans
 --]]
+local function ordered (G)
     local hs = {}
-    for h in pairs(posts) do
+    for h in pairs(G.actions) do
         hs[#hs+1] = h
     end
     table.sort(hs, function (a, b)
-        local ta = posts[a].time or math.huge
-        local tb = posts[b].time or math.huge
+        local ta = G.actions[a].time or math.huge
+        local tb = G.actions[b].time or math.huge
         if ta == tb then
             return a < b
         else
@@ -89,7 +92,7 @@ function advance (G, env)
 
     -- discount scan (maybe signed at same G.now)
     if env.time>G.now or sign then
-        for _, cid in ipairs(ordered(G.actions)) do
+        for _, cid in ipairs(ordered(G)) do
             local entry = G.actions[cid]
             if entry.maturity == "00-12" then
                 local subs = {}
@@ -127,7 +130,7 @@ function advance (G, env)
 
     -- consolidation scan
     if env.time > G.now then
-        for _, cid in ipairs(ordered(G.actions)) do
+        for _, cid in ipairs(ordered(G)) do
             local entry = G.actions[cid]
             if entry.maturity == "12-24" then
                 if env.time >= entry.time+C.time.full then

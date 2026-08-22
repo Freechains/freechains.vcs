@@ -29,14 +29,9 @@ if not (ARGS.sign or ARGS.beg) then
     ERROR("chain post : requires --sign or --beg")
 end
 
--- the writer's own pubkey, read from the `.pub` file BEFORE the
--- commit: a bad key fails early, nothing enters the object db
-local pub = nil
-if ARGS.sign then
-    pub = ssh.pub.key(ARGS.sign)
-    if not pub then
-        ERROR("chain post : invalid sign key")
-    end
+-- a bad key fails EARLY and clean: nothing reaches git
+if ARGS.sign and (not ssh.pub.key(ARGS.sign)) then
+    ERROR("chain post : invalid sign key")
 end
 
 -- the payload lives OUTSIDE the commit: a loose blob, anchored by
@@ -102,16 +97,15 @@ do
     G.order[#G.order+1] = cid
 end
 
--- the payload enters the object db anchored at its final name:
--- `refs/payloads/<cid>` -> blob. (A crash between the two calls
--- leaves one loose blob for the gc grace period)
-exec {
+-- the payload enters the object db now, UNANCHORED: a rejection
+-- leaves it loose beside the rejected commit, both gc-able
+local blob = exec {
     cmd = "git -C " .. REPO .. " hash-object -w " .. path,
 }
+os.remove(path)
 exec {
     cmd = "git -C " .. REPO .. " update-ref refs/payloads/" .. cid .. " " .. blob,
 }
-os.remove(path)
 
 -- snapshot state at the action commit itself
 STATE.write(G, cid)

@@ -32,7 +32,7 @@
 -- the cid may be abbreviated (`list dag` prints it so)
 local cid = ACTION.full(ARGS.cid)
 
-if not ACTION.is(cid) then
+if not (cid and ACTION.is(cid)) then
     ERROR("chain abandon : invalid action")
 end
 

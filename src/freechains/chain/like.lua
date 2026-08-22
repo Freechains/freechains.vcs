@@ -42,20 +42,14 @@ end
 
 ARGS.cid = ARGS.cid:match("^%s*(.-)%s*$")
 
--- an action target may be abbreviated (`list dag` prints it so);
--- an author target is a pubkey and passes through untouched
-if ARGS.target == "cid" then
-    ARGS.cid = ACTION.full(ARGS.cid)
-end
-
 -- num: dislike and revoke remove reps; like and unrevoke add reps
 local num = ARGS.number
 if ARGS.dislike or ARGS.revoke then
     num = -num
 end
 
--- the action file + vote dir distinguish a revoke-axis vote
--- from a like/dislike (see the commit block below)
+-- the message verb distinguishes a revoke-axis vote from a
+-- like/dislike; the sign of `n` picks the direction
 local kind = (ARGS.revoke or ARGS.unrevoke) and "revoke" or "like"
 
 -- for errors
@@ -64,6 +58,13 @@ local vote = (ARGS.unrevoke and "unrevoke") or (ARGS.revoke and "revoke") or
 
 if (ARGS.target ~= "cid") and (ARGS.target ~= "author") then
     ERROR("chain " .. vote .. " : invalid target")
+end
+
+-- an action target may be abbreviated (`list dag` prints it so);
+-- an author target is a pubkey and passes through untouched
+if ARGS.target == "cid" then
+    ARGS.cid = ACTION.full(ARGS.cid)
+        or ERROR("chain " .. vote .. " : invalid target")
 end
 
 if ARGS.target == "author" then
@@ -102,10 +103,8 @@ if to_beg then
     G.actions[ARGS.cid] = STATE.read(GIT.deref(ref)).actions[ARGS.cid]
 end
 
--- the writer's own pubkey, read from the `.pub` file BEFORE the
--- commit: a bad key fails early, nothing enters the tree
-local pub = ssh.pub.key(ARGS.sign)
-if not pub then
+-- a bad key fails EARLY and clean: nothing reaches git
+if not ssh.pub.key(ARGS.sign) then
     ERROR("chain " .. vote .. " : invalid sign key")
 end
 
@@ -116,10 +115,12 @@ if ARGS.why then
     local f = io.open(path, "w")
     f:write(ARGS.why)
     f:close()
-    -- DRY hash: nothing enters the object db before `apply`
+    -- the why enters the object db now, UNANCHORED: a rejection
+    -- leaves it loose beside the rejected commit, both gc-able
     blob = exec {
-        cmd = "git -C " .. REPO .. " hash-object " .. path,
+        cmd = "git -C " .. REPO .. " hash-object -w " .. path,
     }
+    os.remove(path)
 end
 
 -- the parents of the commit about to be minted: `backs` derives
@@ -146,7 +147,7 @@ local cid = ACTION.pre {
     err     = "chain " .. vote .. " : invalid sign key",
 }
 
--- entry/was_revoked used after apply
+-- entry/was_revoked used after the pipeline
 local entry = (ARGS.target == "cid") and G.actions[ARGS.cid] or nil
 local was_revoked = entry and is_revoked(entry)
 
@@ -216,15 +217,11 @@ if entry then
     end
 end
 
--- the why enters the object db anchored at its final name
+-- accepted: the why is anchored at its final name
 if blob then
-    exec {
-        cmd = "git -C " .. REPO .. " hash-object -w " .. path,
-    }
     exec {
         cmd = "git -C " .. REPO .. " update-ref refs/payloads/" .. cid .. " " .. blob,
     }
-    os.remove(path)
 end
 
 -- accepted: the minted commit becomes the tip (a beg like IS the

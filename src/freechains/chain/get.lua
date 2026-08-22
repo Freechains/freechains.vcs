@@ -20,12 +20,11 @@
 -- abandoned suffix. A parked beg is outside HEAD: unknown here
 local T
 do
-    ARGS.cid = ACTION.full(ARGS.cid)
-    local ok = ARGS.cid:match("^%x+$")
-        and exec { err=false, stderr=false,
-            cmd = "git -C " .. REPO .. " merge-base --is-ancestor " ..
-                ARGS.cid .. " HEAD",
-        }
+    ARGS.cid = ACTION.full(ARGS.cid) or ERROR("chain get : unknown post")
+    local ok = exec { err=false, stderr=false,
+        cmd = "git -C " .. REPO .. " merge-base --is-ancestor " ..
+            ARGS.cid .. " HEAD",
+    }
     if ok then
         T = ACTION.read(false, ARGS.cid, ARGS.metadata)
     end

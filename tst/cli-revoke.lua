@@ -205,7 +205,9 @@ do
         FAIL {
             cmd = ENV_EXE .. " chain '#cli-revoke' revoke 1000 " ..
                 string.rep("0", 40) .. " --sign " .. KEY3,
-            err = "ERROR : chain revoke : invalid target : action not found",
+            -- an unknown hash fails at resolution (ACTION.full),
+            -- before the rules' "action not found"
+            err = "ERROR : chain revoke : invalid target",
         }
     end
 end
