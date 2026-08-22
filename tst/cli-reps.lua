@@ -136,6 +136,22 @@ do
         }
         assert(code==0, "exit code: " .. tostring(code))
         assert(out == "900", "reps: " .. out)   -- post: 0 -> like 2000*90%/2 -> 900
+
+        TEST "reps action accepts a SHORT id"
+        -- ids are printed abbreviated (`list dag`): a prefix must
+        -- resolve (ACTION.full), not silently miss G.actions
+        local out, code = exec {
+            cmd = ENV_EXE .. " chain '#cli-reps' reps action " .. post:sub(1, 7),
+        }
+        assert(code==0, "exit code: " .. tostring(code))
+        assert(out == "900", "short-id reps: " .. out)
+
+        TEST "reps action of an UNKNOWN id is 0 (query semantics)"
+        local out, code = exec {
+            cmd = ENV_EXE .. " chain '#cli-reps' reps action " .. string.rep("0", 40),
+        }
+        assert(code==0, "exit code: " .. tostring(code))
+        assert(out == "0", "unknown reps: " .. out)
     end
 
     do

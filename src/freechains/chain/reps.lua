@@ -21,6 +21,8 @@ if ARGS.key then
     -- author key: string or key file (cli.md "Keys:")
     if ARGS.target == "author" then
         ARGS.key = SSH.pub.any(ARGS.key) or ARGS.key
+    elseif (ARGS.target == "action") or (ARGS.target == "revoke") then
+        ARGS.key = ACTION.full(ARGS.key) or ARGS.key
     end
 end
 

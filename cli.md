@@ -280,7 +280,7 @@ backs [<id>]...                 # back-link actions, sorted
 
 ```
 freechains chain '#chat' get payload b52c62f
-freechains chain '#chat' get metadata d6568e4
+Hello World!
 ```
 
 ```
