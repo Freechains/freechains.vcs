@@ -317,7 +317,7 @@ elseif ARGS.rem then
     }
     os.remove(alias)
 elseif ARGS.dir then
-    local out = exec {
+    local out = exec { trim=false,
         cmd = "find " .. DIR .. " -maxdepth 1 -type l -printf '%f\\n'" .. " | sort",
     }
     io.write(out)
