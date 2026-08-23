@@ -5,6 +5,18 @@
 
 # Open
 
+## `--now` does not traverse clone/push
+
+- `chains add clone` re-execs `sync recv` WITHOUT `--now`
+    - a clone at simulated time validates on the real clock
+    - fix: forward `--now=ARGS.now` in the re-exec (one line)
+- `sync send` cannot carry `--now` at all
+    - the remote hook validates on ITS own real clock
+    - README/guide flip the last hard-fork step to a hub recv
+    - possible fix: push-option `-o now=`, forwarded by the hook
+    - trust question: receiver accepts the sender clock,
+      weakening its own `too new` defense
+
 ## Sandbox `STATE.read` too (T6c leftover)
 
 - `state.lua` `M.read` still does `load(src)()`, with globals

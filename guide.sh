@@ -249,7 +249,7 @@ echo "-- expected failure (the hub is entrenched):"
 FC --root="$A" chain '#chat' sync send localhost:$X_PORT || true
 
 # Alice's escape hatch: abandon the rejected post, receive the settled
-# branch, repost the message on top of it, and send the result
+# branch, repost the message on top of it; the hub then pulls the result
 # DAG (A): untouched since the fork, plus the post the hub refused
 #   like(alice->bob)
 #         |
@@ -259,9 +259,11 @@ FC --root="$A" chain '#chat' sync send localhost:$X_PORT || true
 echo "-- Alice's diverging branch (common history + rejected post):"
 FC --root="$A" chain '#chat' list dag
 FC --root="$A" chain '#chat' abandon "$REJECTED"
-FC --root="$A" chain '#chat' sync recv localhost:$X_PORT
+FC --root="$A" --now=$((FORK+7*DAY)) chain '#chat' sync recv localhost:$X_PORT
 FC --root="$A" --now=$((FORK+7*DAY+400)) chain '#chat' post inline $'Alice takes over\n' --sign="$KEYS/alice"
-FC --root="$A" chain '#chat' sync send localhost:$X_PORT
+# the hub PULLS the updated history: `--now` is local to each
+# command, so the simulated clock cannot travel with a push
+FC --root="$X" --now=$((FORK+7*DAY+400)) chain '#chat' sync recv localhost:$A_PORT
 
 # Alice is compatible again: her repost is ordered after the settled branch
 # DAG (A): the abandoned branch is replaced by the hub's settled one

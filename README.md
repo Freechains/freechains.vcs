@@ -627,20 +627,25 @@ the updated history.
 For that matter, Freechains provides an `abandon` command to permanently drop
 an action along with subsequent ones:
 
+<!-- TODO: last recv should be a send:
+# send updated history
+$ freechains chain '#chat' sync send localhost:8331
+-->
+
 ```
 # revert local history
 $ freechains chain '#chat' abandon 9d0e1f2
 9d0e1f2...
 
-# receive settled branch
-$ freechains chain '#chat' sync recv localhost:8331
+# receive settled branch (at simulated time)
+$ freechains --now=$((NOW+7*DAY)) chain '#chat' sync recv localhost:8331
 
 # repost rejected message
 $ freechains --now=$((NOW+7*DAY)) chain '#chat' post inline $'Alice takes over\n' --sign=/tmp/alice
 3c4d5e6...
 
-# send updated history
-$ freechains chain '#chat' sync send localhost:8331
+# hub receives the updated history (at simulated time)
+$ freechains --root=/tmp/X/ --now=$((NOW+7*DAY)) chain '#chat' sync recv localhost
 
 # show new order (with Alice last)
 $ freechains chain '#chat' list order
