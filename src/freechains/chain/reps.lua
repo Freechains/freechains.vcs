@@ -20,7 +20,7 @@ if ARGS.key then
     ARGS.key = ARGS.key:match("^%s*(.-)%s*$")
     -- author key: string or key file (cli.md "Keys:")
     if ARGS.target == "author" then
-        ARGS.key = SSH.pub.any(ARGS.key) or ARGS.key
+        ARGS.key = SSH.pub(ARGS.key) or ARGS.key
     elseif (ARGS.target == "action") or (ARGS.target == "revoke") then
         ARGS.key = ACTION.full(ARGS.key) or ARGS.key
     end

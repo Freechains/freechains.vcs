@@ -179,7 +179,7 @@ if ARGS.add then
         -- each --pioneer is a key string ("ssh-...") or a key file
         local keys = {}
         for _, v in ipairs(ARGS.pioneer or {}) do
-            local key = SSH.pub.any(v)
+            local key = SSH.pub(v)
             if not key then
                 ERROR("chains add : invalid pioneer : " .. v)
             end

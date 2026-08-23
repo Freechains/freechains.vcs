@@ -101,7 +101,7 @@ function M.winner (G, a, b)
             cmd = "git -C " .. REPO .. " log --reverse --format=%H " .. com .. ".." .. tip
         }
         for cid in out:gmatch("%x+") do
-            local key = SSH.pub.commit(REPO, cid)
+            local key = SSH.signer(REPO, cid)
             if key then
                 keys[key] = true
             end

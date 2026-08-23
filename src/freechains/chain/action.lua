@@ -73,7 +73,7 @@ function M.read (asr, cid, opt)
                 action = 'post',
                 time   = time,
                 blob   = ls[2],
-                sign   = (opt.sign and SSH.pub.commit(REPO, cid)) or nil,
+                sign   = (opt.sign and SSH.signer(REPO, cid)) or nil,
                 backs  = (opt.backs and M.backs(GIT.parents(cid))) or nil,
             }
 
@@ -105,7 +105,7 @@ function M.read (asr, cid, opt)
                 time   = time,
                 n      = tonumber(n),
                 blob   = why,
-                sign   = (opt.sign and SSH.pub.commit(REPO, cid)) or nil,
+                sign   = (opt.sign and SSH.signer(REPO, cid)) or nil,
                 backs  = (opt.backs and M.backs(GIT.parents(cid))) or nil,
                 [ty == 'action' and 'cid' or 'author'] = tgt,
             }

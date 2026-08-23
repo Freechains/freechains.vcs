@@ -28,7 +28,7 @@ if not (ARGS.sign or ARGS.beg) then
 end
 
 -- a bad key fails EARLY and clean: nothing reaches git
-if ARGS.sign and (not SSH.pub.key(ARGS.sign)) then
+if ARGS.sign and (not SSH.pub(ARGS.sign)) then
     ERROR("chain post : invalid sign key")
 end
 

@@ -68,7 +68,7 @@ end
 
 if ARGS.target == "author" then
     -- key string or key file (cli.md "Keys:")
-    ARGS.id = SSH.pub.any(ARGS.id) or ARGS.id
+    ARGS.id = SSH.pub(ARGS.id) or ARGS.id
     if #ARGS.id~=80 or (not ARGS.id:match("^ssh%-ed25519 %S+$")) then
         ERROR("chain " .. vote .. " : invalid author key")
     end
@@ -103,7 +103,7 @@ if to_beg then
 end
 
 -- a bad key fails EARLY and clean: nothing reaches git
-if not SSH.pub.key(ARGS.sign) then
+if not SSH.pub(ARGS.sign) then
     ERROR("chain " .. vote .. " : invalid sign key")
 end
 

@@ -1,34 +1,10 @@
 local M = {}
 
--- Pubkey by source: `key` from a key file, `commit` from a signature.
-M.pub = {}
-
 --[[
--- The pubkey of a private key file, from its `.pub` sibling.
--- Inputs:
---  - path [string]: private key path (reads path .. ".pub")
--- Outputs:
---  - [string?]: "ssh-ed25519 <base64>", nil if unreadable
--- Errors:
---  - none
--- Callers:
---  - post/like: early clean check of --sign before minting
---]]
-function M.pub.key (path)
-    local f = io.open(path .. ".pub")
-    if not f then
-        return nil
-    end
-    local s = f:read("l") or ""
-    f:close()
-    return s:match("^(%S+ %S+)")
-end
-
---[[
--- Resolve a pubkey from
+-- Resolve a pubkey from anything (cli.md "Keys:"):
 --  - a key STRING ("ssh-...")
 --  - a pub key FILE
---  - a pvt key FILE
+--  - a pvt key FILE (ssh-keygen -y)
 -- Inputs:
 --  - v [string]: key string or key file path
 -- Outputs:
@@ -36,11 +12,12 @@ end
 -- Errors:
 --  - none
 -- Callers:
---  - chains add init (chains.lua): each --pioneer
+--  - post/like: early clean check of --sign before minting
 --  - like (like.lua): author target normalization
 --  - reps (reps.lua): author key argument
+--  - chains add init (chains.lua): each --pioneer
 --]]
-function M.pub.any (v)
+function M.pub (v)
     if v:match("^ssh%-") then
         return v:match("^(%S+ %S+)")
     end
@@ -76,7 +53,7 @@ end
 --  - collect_keys (consensus.lua): reps summing per side
 --  - verify (ssh.lua): the key the signature is checked against
 --]]
-function M.pub.commit (repo, cid)
+function M.signer (repo, cid)
     local commit = exec {
         cmd = "git -C " .. repo .. " cat-file commit " .. cid,
     }
@@ -120,7 +97,7 @@ function M.pub.commit (repo, cid)
     -- Errors:
     --  - none
     -- Callers:
-    --  - pub.commit (ssh.lua): SSHSIG wire-format lengths
+    --  - signer (ssh.lua): SSHSIG wire-format lengths
     --]]
     local function u32 (off)
         local a = tonumber(hex:sub(off,    off+1), 16)
@@ -154,7 +131,7 @@ end
 --  - apply (action.lua): authenticates every action
 --]]
 function M.verify (repo, cid)
-    local key = M.pub.commit(repo, cid)
+    local key = M.signer(repo, cid)
     if key == nil then
         return nil, 'unsigned'
     end
