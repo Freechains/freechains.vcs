@@ -254,7 +254,7 @@ do
         cmd.chain[c]._ = cmd.chain._:command(c)
         cmd.chain[c]._:argument("number"):convert(positive)
         cmd.chain[c]._:argument("target")
-        cmd.chain[c]._:argument("id"):target("cid")
+        cmd.chain[c]._:argument("id")
         cmd.chain[c]._:option("--sign"):args("?"):count(1):action(sign)
         cmd.chain[c]._:option("--why")
     end
@@ -264,7 +264,7 @@ do
     for _,c in ipairs { "revoke", "unrevoke" } do
         cmd.chain[c]._ = cmd.chain._:command(c)
         cmd.chain[c]._:argument("number"):convert(positive)
-        cmd.chain[c]._:argument("id"):target("cid")
+        cmd.chain[c]._:argument("id")
         cmd.chain[c]._:option("--sign"):args("?"):count(1):action(sign)
         cmd.chain[c]._:option("--why")
     end

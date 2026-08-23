@@ -6,7 +6,7 @@
 --  - ARGS.like/dislike/revoke/unrevoke [boolean]: the vote
 --  - ARGS.number [integer]: magnitude (> 0)
 --  - ARGS.target [string]: "action"|"author"
---  - ARGS.cid  [string]: target cid (may be short) or pubkey
+--  - ARGS.id  [string]: target cid (may be short) or pubkey
 --  - ARGS.why  [string?]: optional reason payload
 --  - ARGS.file [string?]: payload restore fallback (LIFT)
 --  - ARGS.sign [string]: ssh private key path
@@ -32,13 +32,14 @@
 --]]
 
 -- revoke/unrevoke are content-removal votes:
--- for action payloads, never authors
--- CLI: action -> cid
+-- for action payloads, never authors.
+-- CLI `action` -> `cid`: ARGS.target names the message FIELD;
+-- the value stays ARGS.id (a cid or a pubkey)
 if (ARGS.target == "action") or ARGS.revoke or ARGS.unrevoke then
     ARGS.target = "cid"
 end
 
-ARGS.cid = ARGS.cid:match("^%s*(.-)%s*$")
+ARGS.id = ARGS.id:match("^%s*(.-)%s*$")
 
 -- num: dislike and revoke remove reps; like and unrevoke add reps
 local num = ARGS.number
@@ -61,14 +62,14 @@ end
 -- an action target may be abbreviated (`list dag` prints it so);
 -- an author target is a pubkey and passes through untouched
 if ARGS.target == "cid" then
-    ARGS.cid = ACTION.full(ARGS.cid)
+    ARGS.id = ACTION.full(ARGS.id)
         or ERROR("chain " .. vote .. " : invalid target")
 end
 
 if ARGS.target == "author" then
     -- key string or key file (cli.md "Keys:")
-    ARGS.cid = SSH.pub.any(ARGS.cid) or ARGS.cid
-    if #ARGS.cid~=80 or (not ARGS.cid:match("^ssh%-ed25519 %S+$")) then
+    ARGS.id = SSH.pub.any(ARGS.id) or ARGS.id
+    if #ARGS.id~=80 or (not ARGS.id:match("^ssh%-ed25519 %S+$")) then
         ERROR("chain " .. vote .. " : invalid author key")
     end
 end
@@ -78,13 +79,13 @@ end
 local to_beg = (
     ARGS.like and (ARGS.target == "cid") and
         exec { err=false,
-            cmd = "git -C " .. REPO .. " rev-parse --verify refs/begs/beg-" .. ARGS.cid,
+            cmd = "git -C " .. REPO .. " rev-parse --verify refs/begs/beg-" .. ARGS.id,
         } and true
 )
 
 -- beg: validate parent, merge into main, load beg entry
 -- (the ref is named by the beg's cid)
-local ref = "refs/begs/beg-" .. ARGS.cid
+local ref = "refs/begs/beg-" .. ARGS.id
 if to_beg then
     local up = exec {
         cmd = "git -C " .. REPO .. " log -1 --format=%P " .. ref,
@@ -97,8 +98,8 @@ if to_beg then
         --exec("git -C " .. REPO .. " update-ref -d " .. ref)
         --ERROR("chain like : invalid target : beg post does not exist")
     end
-    G.order[#G.order+1] = ARGS.cid   -- beg post
-    G.actions[ARGS.cid] = STATE.read(GIT.deref(ref)).actions[ARGS.cid]
+    G.order[#G.order+1] = ARGS.id   -- beg post
+    G.actions[ARGS.id] = STATE.read(GIT.deref(ref)).actions[ARGS.id]
 end
 
 -- a bad key fails EARLY and clean: nothing reaches git
@@ -128,14 +129,14 @@ local cid = ACTION.commit(
                           or { GIT.deref("HEAD") },
         action  = kind,
         n       = num,
-        [ARGS.target] = ARGS.cid,
+        [ARGS.target] = ARGS.id,
         blob    = blob,
         sign    = ARGS.sign,
     }
 )
 
 -- entry/was_revoked used after the pipeline
-local entry = (ARGS.target == "cid") and G.actions[ARGS.cid] or nil
+local entry = (ARGS.target == "cid") and G.actions[ARGS.id] or nil
 local was_revoked = entry and RULES.is_revoked(entry)
 
 -- ONE pipeline for write and replay:
@@ -154,12 +155,12 @@ end
 if entry then
     if (not was_revoked) and RULES.is_revoked(entry) then
         exec { err=false, stderr=false,
-            cmd = "git -C " .. REPO .. " update-ref -d refs/payloads/" .. ARGS.cid,
+            cmd = "git -C " .. REPO .. " update-ref -d refs/payloads/" .. ARGS.id,
         }
     elseif was_revoked and (not RULES.is_revoked(entry)) then
         -- every post carries a payload, a vote only with `--why`:
         -- with no bytes to restore there is nothing to gate
-        local T = ACTION.read(true, ARGS.cid)
+        local T = ACTION.read(true, ARGS.id)
         if T.blob then
             local have = exec { err=false, stderr=false,
                 cmd = "git -C " .. REPO .. " cat-file -e " .. T.blob,
@@ -192,7 +193,7 @@ if entry then
             -- `sweep` away from gone
             exec {
                 cmd = "git -C " .. REPO .. " update-ref refs/payloads/" ..
-                    ARGS.cid .. " " .. T.blob,
+                    ARGS.id .. " " .. T.blob,
             }
         end
     end
