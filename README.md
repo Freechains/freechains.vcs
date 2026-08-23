@@ -1,4 +1,4 @@
-# Freechains: Permissionless Peer-to-Peer Communities
+# Freechains: Permissionless Peer-to-Peer Forums
 
 [![Tests](https://github.com/Freechains/freechains.vcs/actions/workflows/tests.yml/badge.svg)](https://github.com/Freechains/freechains.vcs/actions/workflows/tests.yml)
 
