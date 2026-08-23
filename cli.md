@@ -1,16 +1,16 @@
 # Freechains: Command-Line Interface
 
 ```
-freechains v0.20.0
+freechains v0.20
 
 Usage:
     freechains daemon start [--port=<port>] [--hub] [-- <git-opts>...]
     freechains daemon stop
 
+    freechains chains dir
     freechains chains add <alias> init [--pioneer=<pub>]...
     freechains chains add <alias> clone <url>
     freechains chains rem <alias>
-    freechains chains dir
 
     # per-chain
 
@@ -24,8 +24,8 @@ Usage:
     # queries
     freechains chain <alias> list (order | dag | begs | revokes)
     freechains chain <alias> get (metadata | payload) <id>
-    freechains chain <alias> reps (action <id> | author <pub>)
     freechains chain <alias> reps (actions | authors)
+    freechains chain <alias> reps (action <id> | author <pub>)
     freechains chain <alias> reps (revoke <id> | revokes)
 
     # synchronize
@@ -104,6 +104,14 @@ freechains --root=/tmp/X/ daemon stop
 
 Operations over the set of local chains.
 
+## chains dir
+
+Lists all local chains.
+
+```
+freechains chains dir
+```
+
 ## chains add
 
 Creates a chain locally, either from scratch (`init`) or from a remote peer
@@ -114,7 +122,7 @@ freechains chains add <alias> init [--pioneer=<pub>]...
 freechains chains add <alias> clone <url>
 ```
 
-- `<alias>`:                local name of the chain
+- `<alias>`:                local name of the chain (requires prefix `#`)
 - `init`:                   creates new chain
     - `--pioneer=<pub>`:    repeat for each pioneer key
 - `clone <url>`:            fetches existing chain from peer
@@ -126,7 +134,7 @@ Displays the chain id, unique across all peers.
 ```
 freechains chains add '#chat' init --pioneer
 freechains chains add '#chat' init --pioneer=alice.pub --pioneer=bob.pub
-freechains chains add '#chat' clone localhost
+freechains chains --root=/tmp/X/ add '#chat' clone ~/.freechains/chains/
 freechains chains add '#chat' clone localhost:8331/#talks
 ```
 
@@ -142,14 +150,6 @@ freechains chains rem <alias>
 
 ```
 freechains chains rem '#chat'
-```
-
-## chains dir
-
-Lists all local chains.
-
-```
-freechains chains dir
 ```
 
 # Chain
@@ -298,20 +298,20 @@ backs b52c62f...               # back-link actions
 Queries reputation of given action or author.
 
 ```
-freechains chain <alias> reps action  <id>
 freechains chain <alias> reps actions
-freechains chain <alias> reps author  <pub>
 freechains chain <alias> reps authors
-freechains chain <alias> reps revoke  <id>
 freechains chain <alias> reps revokes
+freechains chain <alias> reps action  <id>
+freechains chain <alias> reps author  <pub>
+freechains chain <alias> reps revoke  <id>
 ```
 
-- `action <id>`:    reps of single action
 - `actions`:        all actions, most reputable first
-- `author <pub>`:   reps of single author
 - `authors`:        all authors, most reputable first
-- `revoke <id>`:    revokes single action, as `<author> <others>`
 - `revokes`:        all actions, most revoked first
+- `action <id>`:    reps of single action
+- `author <pub>`:   reps of single author
+- `revoke <id>`:    revokes of single action, as `<author> <others>`
 
 - Examples:
 
