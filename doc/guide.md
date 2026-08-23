@@ -687,10 +687,20 @@ $ freechains chain '#chat' get payload 5d6e7f8
 ERROR : chain get : revoked payload
 ```
 
+In summary, an action has three possible states:
+    *begging*, *accepted*, or *revoked*.
+
+<img src="state.png" align="right" width="500">
+
+If the author has enough `reps`, a new action is immediately *accepted* in the
+chain.
+Otherwise, it is *begging* and requires a like to become part of the chain.
+Once accepted, an action becomes part of the immutable chain history, but its
+payload can still be *revoked* and no longer retransmitted.
+
 Moderation in Freechains is an extra safety layer to protect the community from
 abuse.
 Note that each chain may apply its own "moderation netiquette", since there is
 no global authority to censor content.
 Members that disagree with a revocation are free to fork the chain and carry on
 separately, since nobody is forced to relay unwanted content.
-
