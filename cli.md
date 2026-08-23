@@ -24,9 +24,8 @@ Usage:
     # queries
     freechains chain <alias> list (order | dag | begs | revokes)
     freechains chain <alias> get (metadata | payload) <id>
-    freechains chain <alias> reps (actions | authors)
-    freechains chain <alias> reps (action <id> | author <pub>)
-    freechains chain <alias> reps (revoke <id> | revokes)
+    freechains chain <alias> reps (actions | authors | revokes)
+    freechains chain <alias> reps (action <id> | author <pub> | revoke <id>)
 
     # synchronize
     freechains chain <alias> sync (recv | send) <remote>
@@ -39,9 +38,9 @@ Options:
     -h --help                      displays this help
     -v --version                   displays software version
     --root=<dir>    [all]          data directory [default: ~/.freechains/]
-    --now=<secs>    [all]          overrides current time [default: clock]
-    --sign=<pvt>    [actions]      signs with given key [default: ~/.ssh/id_ed25519]
-    --why=<text>    [votes]        explains reason for the vote
+    --now=<secs>    [all]          overrides current time [default: local clock]
+    --sign=<pvt>    [actions]      signs with key [default: ~/.ssh/id_ed25519]
+    --why=<text>    [votes]        explains vote reason
 
 Chain URLs:
     <host>                         port defaults to 8330
@@ -49,26 +48,28 @@ Chain URLs:
     <path>                         local path (starts with / ~ .)
     <scheme>://<...>               full url
 
-    Optional trailing `/#<chain>` to specify remote chain
-    (defaults to the local `<alias>`).
+    Optional trailing `/<alias>` to specify remote chain
+    (defaults to local `<alias>`).
 
 Keys:
-    ssh-<...>       [pub]          a key STRING
-    <path>          [pub|pvt]      a key FILE, public or private (+ `.pub`)
+    ssh-<...>       [pub]          a key string
+    <path>          [pub|pvt]      a key file, public or private (+ `.pub`)
     <none>          [pub|pvt]      `$HOME/.ssh/id_ed25519`
 
 More Information:
 
-    https://www.freechains.org/
+    https://github.com/Freechains/freechains.vcs/
 
-    Please report bugs at <https://github.com/Freechains/freechains.vcs/>.
+Please report bugs:
+
+    https://github.com/Freechains/freechains.vcs/issues
 ```
 
 # Daemon
 
 ## daemon start
 
-Starts daemon to serve local chains.
+Starts daemon to serve local chains to remote peers.
 
 ```
 freechains daemon start [--port=<port>] [--hub] [-- <git-opts>...]
@@ -106,7 +107,7 @@ Operations over the set of local chains.
 
 ## chains dir
 
-Lists all local chains.
+Lists all chains.
 
 ```
 freechains chains dir
@@ -114,20 +115,19 @@ freechains chains dir
 
 ## chains add
 
-Creates a chain locally, either from scratch (`init`) or from a remote peer
-(`clone`).
+Creates a chain, either from scratch (`init`) or from a remote peer (`clone`).
 
 ```
 freechains chains add <alias> init [--pioneer=<pub>]...
 freechains chains add <alias> clone <url>
 ```
 
-- `<alias>`:                local name of the chain (requires prefix `#`)
+- `<alias>`:                chain name (requires prefix `#`)
 - `init`:                   creates new chain
     - `--pioneer=<pub>`:    repeat for each pioneer key
 - `clone <url>`:            fetches existing chain from peer
 
-Displays the chain id, unique across all peers.
+As result, displays the chain id, unique across all peers.
 
 - Examples:
 
@@ -157,7 +157,7 @@ freechains chains rem '#chat'
 Operations inside a single chain:
 
 - All take the chain `<alias>` as first argument.
-- Action ids may be abbreviated, as printed by `list dag`.
+- Action ids may be abbreviated to first characters.
 
 ## chain post
 
@@ -237,12 +237,12 @@ Lists chain actions.
 freechains chain <alias> list (order | dag | begs | revokes)
 ```
 
-- `order`:      consensus order, one id per line
 - `dag`:        DAG drawn as ASCII
-- `begs`:       pending begs, still parked outside the chain
+- `order`:      consensus order
+- `begs`:       pending begs only
 - `revokes`:    revoked actions only
 
-In `order` and `dag`, actions with revoked payloads appear wrapped as `~<id>~`.
+In `order` and `dag`, actions with revoked payloads appear as `~<id>~`.
 
 - Examples:
 
@@ -263,7 +263,7 @@ freechains chain <alias> get (metadata | payload) <id>
 - `payload`:    dump actual content bytes
     - fails if action is revoked
 
-Metadata template (optional lines in brackets):
+Metadata output template (optional lines in brackets):
 
 ```
 <id>                            # full action id
@@ -334,8 +334,6 @@ freechains chain <alias> sync (recv | send) <remote>
 - `<remote>`:   same url forms of `Chain URLs`
 
 Received actions are validated and replayed.
-If the merge would reorder our settled actions, it is refused
-with `hard fork`.
 
 - Examples:
 
