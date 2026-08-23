@@ -9,10 +9,12 @@ Members spend reputation tokens, known as `reps`, to post new messages and gain
 Members can like and dislike messages from other members, which transfer `reps`
 between them.
 
+Main features:
+
 - Local-first publish-subscribe topic-based model
 - Unstructured peer-to-peer gossip dissemination
-- **Permissionless and Sybil-resistant**
-- **Per-topic reputation system for posts and authors**
+- **Permissionless and Sybil-resistant chains**
+- **Per-chain reputation system for posts and authors**
 - **Consensus via authoring reputation (human work)**
 - **Revocation of abusive content (SPAM, hate speech)**
 - Built on top of Git
@@ -24,7 +26,7 @@ between them.
 
 *(In bold we highlight what we believe is particular to Freechains.)*
 
-By "Sybil-resistant", we mean that extra identities grant no power:
+By "Sybil-resistant", we mean that extra identities are innocuous:
     a fresh key holds zero `reps` and cannot post in a chain.
 By "permissionless", we mean that no central authority controls membership:
     any member can welcome any newcomer in a chain.
@@ -69,22 +71,24 @@ sudo luarocks --lua-version=5.4 install freechains
 Verify that `freechains` is installed:
 
 ```
-which freechains
+freechains --version
 ```
 
 ## Guide
 
-The command-line API of Freechains is straightforward:
+The command-line [API](cli.md) of Freechains is straightforward:
 
-- `freechains chains add ...`:       create or clone chain locally
-- `freechains chain post ...`:       post to chain
-- `freechains chain list ...`:       list actions
-- `freechains chain (dis)like ...`:  rate an action or author
-- `freechains chain (un)revoke ...`: remove or restore payload
-- `freechains chain reps ...`:       query reputation
-- `freechains chain sync send/recv`: synchronize with remote peer
-- `freechains chain abandon ...`:    drop history branch
-- `freechains chain sweep`:          erase revoked payloads
+| Command                          | Description                  |
+|----------------------------------|------------------------------|
+| `freechains chains add ...`      | create or clone chain locally|
+| `freechains chain post ...`      | post to chain                |
+| `freechains chain list ...`      | list actions                 |
+| `freechains chain (dis)like ...` | rate action or author        |
+| `freechains chain (un)revoke ...`| remove or restore payload    |
+| `freechains chain reps ...`      | query reputation             |
+| `freechains chain sync ...`      | synchronize with remote peer |
+| `freechains chain abandon ...`   | drop history branch          |
+| `freechains chain sweep`         | erase revoked payloads       |
 
 <!--
 For testing purposes, you may prepend an alternative path to store the chains:
