@@ -172,12 +172,14 @@ do
     print("==> freechains chains dir")
 
     do
-        TEST "dir one chain"
-        local out, code = exec {
+        TEST "dir one chain (newline-terminated)"
+        -- trim=false: assert the EXACT bytes, one alias per line
+        -- with a trailing newline (a shell prompt must not glue)
+        local out, code = exec { trim=false,
             cmd = EXE .. " chains dir",
         }
         assert(code == 0, "exit code: " .. tostring(code))
-        assert(out == "#cli-chains", "list: " .. out)
+        assert(out == "#cli-chains\n", "list: " .. out)
     end
 
     do
@@ -185,7 +187,7 @@ do
         exec {
             cmd = EXE .. " chains add '#other' init " .. GEN_0,
         }
-        local out, code = exec {
+        local out, code = exec { trim=false,
             cmd = EXE .. " chains dir",
         }
         assert(code == 0, "exit code: " .. tostring(code))
