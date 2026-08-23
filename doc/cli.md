@@ -1,6 +1,10 @@
 # Freechains: Command-Line Interface
 
-TODO: menu
+[
+    [Daemon](#daemon) |
+    [Chains](#chains) |
+    [Chain](#chain)
+]
 
 ```
 freechains v0.20

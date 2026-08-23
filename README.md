@@ -3,12 +3,9 @@
 [![Tests](https://github.com/Freechains/freechains.vcs/actions/workflows/tests.yml/badge.svg)](https://github.com/Freechains/freechains.vcs/actions/workflows/tests.yml)
 
 [
-    [About](#about)                 |
-    [Hello World!](#hello-world)    |
-    [Install & Run](#install--run)  |
-    [Documentation](#documentation) |
-    [Environments](#environments)   |
-    [Resources](#resources)
+    [About](#about)     |
+    [Install](#install) |
+    [Docs](#docs)
 ]
 
 <img src="atmos-logo.png" width="250" align="right">
@@ -68,14 +65,14 @@ freechains --version
 
 ## Docs
 
-- [Command-line API](TODO): TODO
-- [Guide](TODO): TODO
-    - Basics: TODO
-    - Synchronization: TODO
-    - Reputation: TODO
-    - Consensus: TODO
-    - Hard Forks: TODO
-    - Moderation: TODO
+- [Command-line API](doc/cli.md): reference of all `freechains` commands
+- [Guide](doc/guide.md):          step-by-step walkthrough of the main concepts
+    - Basics:                     create keys and chains, post and read content
+    - Synchronization:            serve and exchange chains between peers
+    - Reputation:                 spend and transfer `reps` to post and welcome members
+    - Consensus:                  order diverging branches by authoring reputation
+    - Hard Forks:                 protect settled branches from late reorderings
+    - Moderation:                 revoke and restore abusive payloads
 
 <!--
 - Main concepts:

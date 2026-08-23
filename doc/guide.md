@@ -1,6 +1,13 @@
-## Guide
+# Guide
 
-TODO: menu
+[
+    [Basics](#basics)                   |
+    [Synchronization](#synchronization) |
+    [Reputation](#reputation)           |
+    [Consensus](#consensus)             |
+    [Hard Forks](#hard-forks)           |
+    [Moderation](#moderation)
+]
 
 The command-line [API](cli.md) of Freechains is straightforward:
 
@@ -24,7 +31,7 @@ freechains --root=/tmp/tests/ ...
 ```
 -->
 
-### Basics
+# Basics
 
 To operate on the chains, `Alice` first needs to create an SSH keypair:
 
@@ -130,7 +137,7 @@ addressing, integrity, signing, and replication for free.
 On top of it, Freechains adds what Git alone cannot provide:
     reputation, consensus, and moderation.
 
-### Synchronization
+# Synchronization
 
 Peers can share chains over the Internet.
 
@@ -195,7 +202,7 @@ through `recv` (or `send`) commands.
 Synchronization is also backed by Git commands like `daemon`, `push` and
 `fetch`.
 
-### Reputation
+# Reputation
 
 Members need reputation tokens, known as `reps`, to post on the chains.
 Without this protection, chains would be open to spam and abuse from malicious
@@ -305,7 +312,7 @@ In summary, the reputation system makes Freechains
     **(a)** Sybil-resistant: write operations require and spend `reps`; and
     **(b)** permissionless: any insider can transfer `reps` to welcome any outsider.
 
-### Posts Reputation & Begging
+## Posts Reputation & Begging
 
 As with authors, posts also have associated `reps` and can receive likes and
 dislikes:
@@ -377,7 +384,7 @@ In addition, the begging mechanism highlights its permissionless nature,
 allowing any insider to welcome a total stranger based purely on content
 quality.
 
-### Consensus
+# Consensus
 
 Freechains provides a consensus mechanism that enforces the same order for all
 actions in all peers, whatever the order they arrive.
@@ -493,7 +500,7 @@ synchronize, including `B`.
 Consensus via authoring reputation is the key aspect of Freechains, making all
 peers reach the same state without any central authority.
 
-### Hard Forks
+# Hard Forks
 
 As a measure against malicious members with strong past reputation, Freechains
 protects settled local branches from unexpected consensus reorderings.
@@ -621,7 +628,7 @@ Since it is not possible to judge the reasons behind partitions, Freechains
 simply makes them incommunicable, requiring manual intervention to restore
 compatibility.
 
-### Moderation
+# Moderation
 
 Even considering that posts are rated through likes and dislikes, chains are
 still subject to abuse, including SPAM, hate speech, and possibly illegal
