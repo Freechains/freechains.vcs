@@ -454,10 +454,10 @@ quality.
 ### Consensus
 
 Freechains provides a consensus mechanism that enforces the same order for all
-actions in all peers, regardless of the receiving order in each peer.
+actions in all peers, whatever the order they arrive.
 Since Git itself provides no consensus mechanism for diverging branches,
-Freechains applies a custom hook to order first branches whose authors hold
-more `reps`.
+Freechains applies a custom hook to favor branches whose authors hold more
+`reps`.
 
 To illustrate how consensus resolves, let's introduce a neutral peer `X` that
 never posts, acting only as a hub to which other peers push their posts:
