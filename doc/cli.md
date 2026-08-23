@@ -1,5 +1,7 @@
 # Freechains: Command-Line Interface
 
+TODO: menu
+
 ```
 freechains v0.20
 
