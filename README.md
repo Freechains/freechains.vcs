@@ -2,8 +2,8 @@
 
 [![Tests](https://github.com/Freechains/freechains.vcs/actions/workflows/tests.yml/badge.svg)](https://github.com/Freechains/freechains.vcs/actions/workflows/tests.yml)
 
-A member posts a message to a chain (a topic) and other members in the same
-chain eventually receive the message.
+A member posts a message to a chain (a forum topic) and other members in the
+same chain eventually receive the message.
 Members spend reputation tokens, known as `reps`, to post new messages and gain
 `reps` as they consolidate.
 Members can like and dislike messages from other members, which transfer `reps`
@@ -179,8 +179,28 @@ sign ssh-ed25519 ...vzTc96I    # author public key
 backs b52c62f...               # back-link actions
 ```
 
+Since chains are ordinary Git repositories, we can inspect them with standard
+tools:
+
+```
+$ git -C ~/.freechains/chains/'#chat'/ log --oneline
+d6568e4 post 90c7c77...                    # 'I am here'
+b52c62f post 6d5a844...                    # 'Hello World'
+461cfb4 0.20.0 8631642870 ssh-ed25519 ...  # genesis
+```
+
+Freechains actions are Git commits, sharing the same identifiers.
+Nevertheless, we must interface here only through `freechains` commands, since
+it enforces the protocol rules.
+
 These are the basic steps in Freechains to create keys and chains, and to post
 and read content locally.
+Chains are Git repositories with actions as commits, payloads as blobs, and
+identifiers as hashes.
+This transparent design brings a familiar and solid basis, providing content
+addressing, integrity, signing, and replication for free.
+On top of it, Freechains adds what Git alone cannot provide:
+    reputation, consensus, and moderation.
 
 ### Synchronization
 
