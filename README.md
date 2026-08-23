@@ -78,17 +78,17 @@ freechains --version
 
 The command-line [API](cli.md) of Freechains is straightforward:
 
-| Command                          | Description                  |
-|----------------------------------|------------------------------|
-| `freechains chains add ...`      | create or clone chain locally|
-| `freechains chain post ...`      | post to chain                |
-| `freechains chain list ...`      | list actions                 |
-| `freechains chain (dis)like ...` | rate action or author        |
-| `freechains chain (un)revoke ...`| remove or restore payload    |
-| `freechains chain reps ...`      | query reputation             |
-| `freechains chain sync ...`      | synchronize with remote peer |
-| `freechains chain abandon ...`   | drop history branch          |
-| `freechains chain sweep`         | erase revoked payloads       |
+```
+freechains chains add ...           # create or clone chain locally
+freechains chain post ...           # post to chain
+freechains chain list ...           # list actions
+freechains chain (dis)like ...      # rate action or author
+freechains chain (un)revoke ...     # remove or restore payload
+freechains chain reps ...           # query reputation
+freechains chain sync ...           # synchronize with remote peer
+freechains chain abandon ...        # drop history branch
+freechains chain sweep              # erase revoked payloads
+```
 
 <!--
 For testing purposes, you may prepend an alternative path to store the chains:
@@ -114,7 +114,7 @@ $ freechains chains add '#chat' init --pioneer=/tmp/alice
 ```
 
 This creates the chain with `Alice` as the sole pioneer.
-The output is the chain's unique identifier across all peers.
+The output is the chain identifier, unique across all peers.
 
 A chain is backed by a Git repository, with an independent commit history.
 
@@ -136,10 +136,7 @@ $ freechains chain '#chat' post inline $'I am here\n'   --sign=/tmp/alice
 d6568e4...
 ```
 
-The output is each post's unique identifier.
-
-Each member action in Freechains -- post, like or revoke -- is a Git commit in
-the chain repository.
+The output is the unique identifier of each post.
 
 We can list all posts in the chain...
 
@@ -183,8 +180,8 @@ sign ssh-ed25519 ...vzTc96I    # author public key
 backs b52c62f...               # back-link actions
 ```
 
-Since chains are ordinary Git repositories, we can inspect them with standard
-tools:
+Since chains are ordinary Git repositories, we can also inspect them through
+standard tools:
 
 ```
 $ git -C ~/.freechains/chains/'#chat'/ log --oneline
@@ -193,9 +190,10 @@ b52c62f post 6d5a844...                    # 'Hello World'
 461cfb4 0.20.0 8631642870 ssh-ed25519 ...  # genesis
 ```
 
-Freechains actions are Git commits, sharing the same identifiers.
-Nevertheless, we must interface here only through `freechains` commands, since
-it enforces the protocol rules.
+Each member action in Freechains -- post, like or revoke -- is a Git commit in
+the chain repository, sharing the same identifier.
+Nevertheless, we must operate only through `freechains` commands, since they
+enforce the protocol rules.
 
 These are the basic steps in Freechains to create keys and chains, and to post
 and read content locally.
