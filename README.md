@@ -263,10 +263,11 @@ d6568e4       # 'I am here'
 e1f2a3b       # 'Sync me'
 ```
 
-Note that synchronization in Freechains is always explicitly peer-to-peer,
+Note that synchronization in Freechains is always explicit and peer-to-peer
 through `recv` (or `send`) commands.
 
-Synchronization is backed by Git commands like `daemon`, `push` and `fetch`.
+Synchronization is also backed by Git commands like `daemon`, `push` and
+`fetch`.
 
 ### Reputation
 
@@ -302,8 +303,8 @@ $ freechains chain '#chat' reps author /tmp/bob.pub
 0
 ```
 
-As the chain pioneer, `Alice` still has `49500 reps` to use, whereas `Bob` has
-no reputation and cannot post on the chain.
+As the chain pioneer, `Alice` still has `49500 reps` to use (from initial
+default `50000`), whereas `Bob` has no reputation and cannot post on the chain.
 
 To welcome new members into the chain, the pioneer needs to redistribute a
 share of its `reps`:
@@ -375,8 +376,8 @@ After a few interactions, we already have `Alice`, `Bob`, and `Charlie` with
 non-zero reputations in the chain.
 
 In summary, the reputation system makes Freechains
-    (a) Sybil-resistant: write operations require and spend `reps`; and
-    (b) permissionless: any insider can transfer `reps` to welcome any outsider.
+    **(a)** Sybil-resistant: write operations require and spend `reps`; and
+    **(b)** permissionless: any insider can transfer `reps` to welcome any outsider.
 
 ### Posts Reputation & Begging
 
