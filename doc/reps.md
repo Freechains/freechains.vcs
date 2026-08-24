@@ -145,6 +145,5 @@ they drain nearly twice the amount into the void.
 On the one hand, we believe that this fact contributes to sustain healthy
 discussions with a reasonable degree of disagreement, otherwise the economy of
 chains would collapse with an outbreak of dislikes.
-On the other hand, obvious undesired content like SPAM is rapidly erased (along
-with its author's reputation) with a few revokes that do not affect the chain
-economy.
+On the other hand, obvious undesired content like SPAM is rapidly banned (along
+with its author) with a few revokes that do not affect the chain economy.
