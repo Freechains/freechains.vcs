@@ -1,4 +1,4 @@
-# Guide
+# Freechains: Guide
 
 [
     [Basics](#basics)                   |
@@ -207,6 +207,7 @@ Synchronization is also backed by Git commands like `daemon`, `push` and
 Members need reputation tokens, known as `reps`, to post on the chains.
 Without this protection, chains would be open to spam and abuse from malicious
 users.
+See [Reputation System](reps.md) for full details.
 
 Let's introduce new user `Bob` who will act through peer `B`:
 

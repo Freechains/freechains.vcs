@@ -65,22 +65,27 @@ freechains --version
 
 ## Docs
 
-- [Command-line API](doc/cli.md): reference of all `freechains` commands
-- [Guide](doc/guide.md):          step-by-step walkthrough of the main concepts
+- [Command-line interface](doc/cli.md)
+    - reference of all `freechains` commands
+- [Guide](doc/guide.md)
+    - basics, synchronization, reputation, consensus, hard forks, moderation
+- [Reputation system](doc/reps.md)
+    - rules and design goals
+
+<!--
     - Basics:                     create keys and chains, post and read content
     - Synchronization:            serve and exchange chains between peers
     - Reputation:                 spend and transfer `reps` to post and welcome members
     - Consensus:                  order diverging branches by authoring reputation
     - Hard Forks:                 protect settled branches from late reorderings
     - Moderation:                 revoke and restore abusive payloads
+-->
 
 <!--
 - Main concepts:
     - [Chain](docs/chains.md):   list of blocks (aka topic or feed]
     - [Block](docs/blocks.md):   unit of information (aka post or message)
-    - [Reps](docs/reps.md):      reputation system of chains
     - [Consensus](docs/cons.md): consensus order of chains
-- [Commands](docs/cmds.md): list of all protocol commands
 - [Other systems](docs/others.md): comparison with other systems
 - [Google group](https://groups.google.com/forum/#!forum/freechains):
     discussion group about Freechains
