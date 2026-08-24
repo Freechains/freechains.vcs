@@ -1,5 +1,9 @@
 # Freechains: Reputation System
 
+<!--
+https://docs.google.com/spreadsheets/d/1K9vqrDHXvDQdqdGE7h-y1Bp_Phwt3CszXyGP962Wpsk/edit?gid=1850503300#gid=1850503300
+-->
+
 [
     [Rules](#rules)               |
     [Design Goals](#design-goals)
