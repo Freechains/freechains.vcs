@@ -8,7 +8,7 @@
     [Docs](#docs)
 ]
 
-<img src="atmos-logo.png" width="250" align="right">
+<img src="doc/freechains.png" width="250" align="right">
 
 # About
 
