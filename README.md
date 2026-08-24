@@ -8,8 +8,6 @@
     [Docs](#docs)
 ]
 
-<img src="doc/freechains.png" width="250" align="right">
-
 # About
 
 A member posts a message to a chain (a forum topic) and other members in the
@@ -18,6 +16,8 @@ Members spend reputation tokens, known as `reps`, to post new messages and gain
 `reps` as they consolidate.
 Members can like and dislike messages from other members, which transfer `reps`
 between them.
+
+<img src="doc/freechains.png" width="250" align="right">
 
 Main features:
 
