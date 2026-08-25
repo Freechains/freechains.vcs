@@ -57,6 +57,13 @@ Install via LuaRocks:
 sudo luarocks --lua-version=5.4 install freechains
 ```
 
+Local installation (without `sudo`):
+
+```
+luarocks --local --lua-version=5.4 install freechains
+eval "$(luarocks path --bin)"   # (or add to your path)
+```
+
 Verify that `freechains` is installed:
 
 ```
