@@ -3,7 +3,7 @@
 -- Bind the chain globals, check the chain exists, load G, dispatch to
 -- subcommand file.
 -- Inputs:
---  - ARGS.alias [string]: the chain
+--  - ARGS.alias [string]: the chain: "/alias", "<cid>" or "/<cid>"
 --  - ARGS.root  [string]: freechains root dir
 --  - ARGS.<subcommand> [boolean]: what to dispatch
 -- Outputs:

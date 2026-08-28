@@ -49,13 +49,16 @@ Options:
     --why=<text>    [votes]        explains vote reason
 
 Chain URLs:
+    - Prefix (directory):
     <host>                         port defaults to 8330
     <host>:<port>                  explicit port
     <path>                         local path (starts with / ~ .)
     <scheme>://<...>               full url
 
-    Optional trailing `/<alias>` to specify remote chain
-    (defaults to local `<alias>`).
+    - Suffix (chain):
+    (none)                         default local <alias> (unless `/` in prefix)
+    /<alias>                       remote alias
+    /<cid>                         remote chain id
 
 Keys:
     ssh-<...>       [pub]          a key string
@@ -128,7 +131,7 @@ freechains chains add <alias> init [--pioneer=<pub>]...
 freechains chains add <alias> clone <url>
 ```
 
-- `<alias>`:                chain name (requires prefix `#`)
+- `<alias>`:                chain name (requires prefix `/`)
 - `init`:                   creates new chain
     - `--pioneer=<pub>`:    repeat for each pioneer key
 - `clone <url>`:            fetches existing chain from peer
@@ -138,10 +141,10 @@ As result, displays the chain id, unique across all peers.
 - Examples:
 
 ```
-freechains chains add '#chat' init --pioneer
-freechains chains add '#chat' init --pioneer=alice.pub --pioneer=bob.pub
-freechains chains --root=/tmp/X/ add '#chat' clone ~/.freechains/chains/
-freechains chains add '#chat' clone localhost:8331/#talks
+freechains chains add /chat init --pioneer
+freechains chains add /chat init --pioneer=alice.pub --pioneer=bob.pub
+freechains chains --root=/tmp/X/ add /chat clone ~/.freechains/chains/chat
+freechains chains add /chat clone localhost:8331/talks
 ```
 
 ## chains rem
@@ -155,7 +158,7 @@ freechains chains rem <alias>
 - Examples:
 
 ```
-freechains chains rem '#chat'
+freechains chains rem /chat
 ```
 
 # Chain
@@ -184,8 +187,8 @@ Either `--sign` or `--beg` is required.
 - Examples:
 
 ```
-freechains chain '#chat' post file ./pic.jpg --sign=/tmp/alice
-freechains chain '#chat' post inline $'A great post!\n' --beg
+freechains chain /chat post file ./pic.jpg --sign=/tmp/alice
+freechains chain /chat post inline $'A great post!\n' --beg
 ```
 
 ## chain like / dislike
@@ -207,9 +210,9 @@ freechains chain <alias> dislike <n> (action <id> | author <pub>) [--why=<text>]
 - Examples:
 
 ```
-freechains chain '#chat' like 1000 action b52c62f --sign=/tmp/charlie
-freechains chain '#chat' like 10000 author /tmp/bob.pub --sign=/tmp/alice
-freechains chain '#chat' dislike 1000 action d6568e4 --sign=/tmp/bob --why='SPAM'
+freechains chain /chat like 1000 action b52c62f --sign=/tmp/charlie
+freechains chain /chat like 10000 author /tmp/bob.pub --sign=/tmp/alice
+freechains chain /chat dislike 1000 action d6568e4 --sign=/tmp/bob --why='SPAM'
 ```
 
 ## chain revoke / unrevoke
@@ -231,8 +234,8 @@ A revoked payload becomes immediately unavailable to `get`.
 - Examples:
 
 ```
-freechains chain '#chat' revoke 1000 4a5b6c7 --sign=/tmp/alice
-freechains chain '#chat' unrevoke 1000 4a5b6c7 --sign=/tmp/alice --file=/tmp/f.txt
+freechains chain /chat revoke 1000 4a5b6c7 --sign=/tmp/alice
+freechains chain /chat unrevoke 1000 4a5b6c7 --sign=/tmp/alice --file=/tmp/f.txt
 ```
 
 ## chain list
@@ -253,8 +256,8 @@ In `order` and `dag`, actions with revoked payloads appear as `~<id>~`.
 - Examples:
 
 ```
-freechains chain '#chat' list dag
-freechains chain '#chat' list order
+freechains chain /chat list dag
+freechains chain /chat list order
 ```
 
 ## chain get
@@ -285,12 +288,12 @@ backs [<id>]...                 # back-link actions, sorted
 - Examples:
 
 ```
-freechains chain '#chat' get payload b52c62f
+freechains chain /chat get payload b52c62f
 Hello World!
 ```
 
 ```
-$ freechains chain '#chat' get metadata d6568e4
+$ freechains chain /chat get metadata d6568e4
 d6568e4...                     # full action id
 action post                    # post, like or revoke
 time 1780088002                # local creation time
@@ -322,8 +325,8 @@ freechains chain <alias> reps revoke  <id>
 - Examples:
 
 ```
-freechains chain '#chat' reps author /tmp/alice.pub
-freechains chain '#chat' reps actions
+freechains chain /chat reps author /tmp/alice.pub
+freechains chain /chat reps actions
 ```
 
 ## chain sync
@@ -344,8 +347,8 @@ Received actions are validated and replayed.
 - Examples:
 
 ```
-freechains chain '#chat' sync recv localhost
-freechains chain '#chat' sync send localhost:8331
+freechains chain /chat sync recv localhost
+freechains chain /chat sync send localhost:8331
 ```
 
 ## chain abandon
@@ -362,8 +365,8 @@ freechains chain <alias> abandon <id> [--keep]
 - Examples:
 
 ```
-freechains chain '#chat' abandon 9d0e1f2
-freechains chain '#chat' abandon --keep 560a55c
+freechains chain /chat abandon 9d0e1f2
+freechains chain /chat abandon --keep 560a55c
 ```
 
 ## chain sweep

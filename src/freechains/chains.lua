@@ -7,13 +7,14 @@
 --    or ARGS.clone (+ ARGS.url)
 --  - ARGS.rem [boolean]: delete repo + alias
 --  - ARGS.dir [boolean]: list aliases
---  - ARGS.alias [string]: "#..." chain alias
+--  - ARGS.alias [string]: "/..." chain alias
 --  - ARGS.root  [string]: freechains root dir
 -- Outputs:
---  - stdout: the chain cid ("#<genesis>"), or the alias listing
+--  - stdout: the chain cid ("<genesis>"), or the alias listing
 --  - fs: repo dir under chains/ + alias symlink (add/rem)
 -- Errors:
---  - "chains add : invalid alias : expected '#'"
+--  - "chains add : invalid alias : expected '/'"
+--  - "chains add : invalid alias : nested alias not supported"
 --  - "chains add : alias already exists"
 --  - "chains add : invalid pioneer : <v>"
 --  - "chains add : git init failed" | "init failed"
@@ -166,10 +167,14 @@ end
 local DIR = ARGS.root .. "/chains/"
 
 if ARGS.add then
-    if ARGS.alias:sub(1,1) ~= "#" then
-        ERROR("chains add : invalid alias : expected '#'")
+    if ARGS.alias:sub(1,1) ~= "/" then
+        ERROR("chains add : invalid alias : expected '/'")
     end
-    if io.open(DIR .. "/" .. ARGS.alias) then
+    -- flat for now: "/a/b" reserved
+    if ARGS.alias:find("/", 2, true) then
+        ERROR("chains add : invalid alias : unexpected '/'")
+    end
+    if io.open(DIR .. ARGS.alias) then
         ERROR("chains add : alias already exists")
     end
 
@@ -232,21 +237,20 @@ if ARGS.add then
 
         genesis(tmp, gen)
 
-        local cid = "#" .. gen
-        local final = DIR .. "/" .. cid
-        if not os.rename(tmp, final) then
+        local dir = DIR .. "/" .. gen
+        if not os.rename(tmp, dir) then
             exec {
                 cmd = "rm -rf " .. tmp,
             }
             ERROR("chains add : init failed")
         end
         exec {
-            cmd = "git -C '" .. final .. "' config freechains.url '" .. final .. "'",
+            cmd = "git -C '" .. dir .. "' config freechains.url '" .. dir .. "'",
         }
         exec {
-            cmd = "ln -s '" .. cid .. "/' " .. DIR .. "/" .. ARGS.alias,
+            cmd = "ln -s '" .. gen .. "/' " .. DIR .. ARGS.alias,
         }
-        print(cid)
+        print(gen)
 
     elseif ARGS.clone then
         -- clone genesis alone: everything else comes later through `recv`
@@ -273,8 +277,8 @@ if ARGS.add then
         exec {
             cmd = "git -C " .. tmp .. " update-ref HEAD " .. gen,
         }
-        local cid = "#" .. gen
-        local dir = DIR .. "/" .. cid .. "/"
+
+        local dir = DIR .. "/" .. gen .. "/"
         if not os.rename(tmp, dir) then
             exec {
                 cmd = "rm -rf " .. tmp,
@@ -285,7 +289,7 @@ if ARGS.add then
             cmd = "git -C '" .. dir .. "' config freechains.url '" .. dir .. "'",
         }
         exec {
-            cmd = "ln -s '" .. cid .. "' " .. DIR .. "/" .. ARGS.alias,
+            cmd = "ln -s '" .. gen .. "/' " .. DIR .. ARGS.alias,
         }
 
         genesis(dir, gen)
@@ -297,17 +301,17 @@ if ARGS.add then
                 .. " sync recv '" .. ARGS.url .. "'",
         }
         if not ok then
-            os.remove(DIR .. "/" .. ARGS.alias)
+            os.remove(DIR .. ARGS.alias)
             exec {
                 cmd = "rm -rf '" .. dir .. "'",
             }
             ERROR("chains add : clone failed", out)
         end
 
-        print(cid)
+        print(gen)
     end
 elseif ARGS.rem then
-    local alias = DIR .. "/" .. ARGS.alias
+    local alias = DIR .. ARGS.alias
     local lnk = exec {
         cmd = "readlink " .. alias,
         err = "chains rem : invalid chain",
@@ -318,7 +322,7 @@ elseif ARGS.rem then
     os.remove(alias)
 elseif ARGS.dir then
     local out = exec { trim=false,
-        cmd = "find " .. DIR .. " -maxdepth 1 -type l -printf '%f\\n'" .. " | sort",
+        cmd = "find " .. DIR .. " -maxdepth 1 -type l -printf '/%f\\n'" .. " | sort",
     }
     io.write(out)
 end

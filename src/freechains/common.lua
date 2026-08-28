@@ -143,10 +143,11 @@ end
 
 --[[
 -- Expand a user remote into a git URL: append the chain alias
--- when missing, default to git:// host with the freechains PORT.
+-- to a bare host, default to git:// host with the freechains PORT.
 -- Inputs:
 --  - raw   [string]: path, host[:port][/path], or full URL
---  - alias [string]: chain alias ("#..."), appended if absent
+--  - alias [string]: chain "/alias" or bare "<cid>", appended to
+--    bare hosts; any path or URL is explicit
 -- Outputs:
 --  - [string]: local path or "git://host:port/path"
 -- Errors:
@@ -156,9 +157,12 @@ end
 --  - sync send/recv (sync.lua): push/fetch remotes
 --]]
 function URL (raw, alias)
-    if not raw:find("#") then
-        local sep = (raw:sub(-1) == "/") and "" or "/"
-        raw = raw .. sep .. alias
+    -- bare host[:port]: append alias; any path/URL is explicit
+    if not raw:find("/") then
+        if alias:sub(1,1) ~= "/" then
+            alias = "/" .. alias
+        end
+        raw = raw .. alias
     end
     if raw:match("^[/~.]") or raw:find("://") then
         return raw

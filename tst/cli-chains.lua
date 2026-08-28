@@ -135,7 +135,7 @@ fatal: cannot mkdir /dev/null/chains//tmp-N/: File exists
         assert(err == [[
 ERROR : chains add : clone failed
 >>>
-fatal: '/nonexistent/repo/#x' does not appear to be a git repository
+fatal: '/nonexistent/repo' does not appear to be a git repository
 fatal: Could not read from remote repository.
 
 Please make sure you have the correct access rights
@@ -149,6 +149,28 @@ and the repository exists.
         FAIL {
             cmd = EXE .. " chains add /clone-dup clone " .. ROOT .. "/chains/cli-chains",
             err = "ERROR : chains add : clone failed",
+        }
+    end
+
+    do
+        TEST "by cid: bare hash and /hash both work"
+        local cid = exec {
+            cmd = "basename $(readlink -f " .. DIR .. ")",
+        }
+        exec {
+            cmd = EXE .. " chain " .. cid .. " list order",
+        }
+        exec {
+            cmd = EXE .. " chain /" .. cid .. " list order",
+        }
+        TEST "clone by cid path"
+        local EXE_B = "../src/freechains.lua --root " .. ROOT .. "/B/"
+        local out = exec {
+            cmd = EXE_B .. " chains add /by-cid clone " .. ROOT .. "/chains/" .. cid .. "/",
+        }
+        assert(out == cid, "cid: " .. out)
+        exec {
+            cmd = EXE_B .. " chain " .. cid .. " list order",
         }
     end
 
@@ -192,6 +214,24 @@ do
         }
         assert(code == 0, "exit code: " .. tostring(code))
         assert(out == "/cli-chains\n/other\n", "list: " .. out)
+    end
+
+    do
+        TEST "nested alias not supported"
+        for _, a in ipairs { "/comp/lang", "/comp/" } do
+            FAIL {
+                cmd = EXE .. " chains add " .. a .. " init " .. GEN_0,
+                err = "ERROR : chains add : invalid alias : unexpected '/'",
+            }
+        end
+
+        TEST "invalid aliases"
+        for _, a in ipairs { "comp", "'#x'" } do
+            FAIL {
+                cmd = EXE .. " chains add " .. a .. " init " .. GEN_0,
+                err = "ERROR : chains add : invalid alias : expected '/'",
+            }
+        end
     end
 end
 
