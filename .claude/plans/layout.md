@@ -21,9 +21,8 @@ A Freechains host is a directory with two top-level subdirectories, each backed 
         authors.lua                <- tracked: author → {reps, time}
         posts.lua                  <- tracked: post → {author, time, state, reps}
         now.lua                    <- UNTRACKED: last time effects timestamp
-    @francisco -> <chain-id>/     <- symlink alias (human-readable name)
-    #sports    -> <chain-id>/     <- symlink alias
-    $friends   -> <chain-id>/     <- symlink alias
+    sports     -> <chain-id>/     <- symlink alias (`/sports`)
+    friends    -> <chain-id>/     <- symlink alias (`/friends`)
 ```
 
 ### config/
@@ -44,13 +43,13 @@ owner/non-owner sync rules and trust levels.
 
 ## Chain naming and aliases
 
-Symlinks give human-readable names while actual storage is content-addressed, mirroring Freechains' own naming convention (`@pubkey`, `#topic`, `$private`):
-
-| Symlink name | Meaning |
-|---|---|
-| `@<pubkey>` | Single-author identity chain |
-| `#<topic>` | Public topic chain |
-| `$<name>` | Private shared chain |
+Symlinks give human-readable names while actual storage is
+content-addressed.
+Aliases are written `/<name>` on the command line (shell-safe,
+no quotes) and stored as `chains/<name>`; nested `/a/b` is reserved.
+Chain types (public, private, identity) belong to the genesis, not
+to the alias.
+See [260828-slash.md](260828-slash.md).
 
 The `.freechains/` directory inside each chain repo holds
 genesis and reputation state as Lua tables — all tracked

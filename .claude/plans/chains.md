@@ -8,21 +8,19 @@ network.
 
 ## Identification
 
-A chain is univocally identified by its **typed genesis hash**:
+A chain is univocally identified by its **genesis hash**:
 
 ```
-chain_id = <type> .. git_commit_hash(genesis)
+chain_id = git_commit_hash(genesis)
 ```
 
-`<type>` is the type character from the genesis block
-(currently only `#`).
 Each `chains add init` call creates a unique genesis commit
-(real pubkey + timestamp), so the chain id is unique per creation.
+(pioneers + nonce), so the chain id is unique per creation.
 To join an existing chain, use `chains add <alias> clone <url>`.
 
-The type prefix shares its shape with aliases (`#sports`),
-making any chain id self-describing.
-Aliases beyond the prefix remain application-layer conventions.
+Aliases start with `/` (`/sports`) and are local conventions;
+the bare hash never carries a prefix.
+See [260828-slash.md](260828-slash.md).
 
 ## Types
 
@@ -107,7 +105,7 @@ git push <chain-id>
 To join an existing chain from a peer:
 
 ```bash
-freechains chains add #myalias clone <url>
+freechains chains add /myalias clone <url>
 ```
 
 ## Index and Aliases
@@ -118,20 +116,18 @@ Aliases are symlinks in the `chains/` directory:
 
 ```
 <root>/chains/
-  <chain-id>/              git repo (working tree)
-  #sports -> <chain-id>/   symlink alias
-  $family -> <chain-id>/   symlink alias
-  @me     -> <chain-id>/   symlink alias
+  <chain-id>/              bare git repo
+  sports -> <chain-id>/    symlink alias (`/sports`)
+  family -> <chain-id>/    symlink alias (`/family`)
 ```
 
 Aliases are **local to each peer** — two peers may use different
 aliases for the same chain.
 The genesis hash is always the authoritative identifier.
 
-Aliases **must start with the type marker** (`#`, `$`, `@`) — the
-same one in the genesis `type` field.
-`chains add <alias> ...` rejects aliases without a type marker.
-Currently only `#` is implemented; `$` and `@` are reserved.
+Aliases **must start with `/`**; `chains add <alias> ...` rejects
+others, and nested `/a/b` is reserved (not yet supported).
+Chain types (`$`, `@`) are a genesis field, never an alias prefix.
 
 ## Layers
 

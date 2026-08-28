@@ -243,6 +243,11 @@ do
             cmd = "git -C " .. REPO_B .. " rev-list --count HEAD",
         }
         assert(count == "6", "count: " .. count)
+
+        TEST "B recvs A by cid, bare host (URL appends /<cid>)"
+        exec {
+            cmd = EXE_B .. " chain " .. CHAIN_HASH .. " sync recv 127.0.0.1:" .. PORT_A,
+        }
     end
 
     do
