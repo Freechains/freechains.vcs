@@ -20,7 +20,7 @@ To join an existing chain, use `chains add <alias> clone <url>`.
 
 Aliases start with `/` (`/sports`) and are local conventions;
 the bare hash never carries a prefix.
-See [260828-slash.md](260828-slash.md).
+See [260828-slash.md](done/260828-slash.md).
 
 ## Types
 

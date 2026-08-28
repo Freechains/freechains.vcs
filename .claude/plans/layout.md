@@ -49,7 +49,7 @@ Aliases are written `/<name>` on the command line (shell-safe,
 no quotes) and stored as `chains/<name>`; nested `/a/b` is reserved.
 Chain types (public, private, identity) belong to the genesis, not
 to the alias.
-See [260828-slash.md](260828-slash.md).
+See [260828-slash.md](done/260828-slash.md).
 
 The `.freechains/` directory inside each chain repo holds
 genesis and reputation state as Lua tables — all tracked
