@@ -59,7 +59,7 @@ for _, dir in ipairs { ROOT_A, ROOT_B, ROOT_C, ROOT_D } do
 end
 
 local function CHAIN (root)
-    return root .. "/chains/#bca/"
+    return root .. "/chains/bca/"
 end
 
 do
@@ -68,81 +68,81 @@ do
     -- A: G
     TEST "A creates chain"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#bca' init " .. GEN_4,
+        cmd = EXE_A .. " --now=1000 chains add /bca init " .. GEN_4,
     }
 
     -- B clones at G, so its post forks AT genesis
     TEST "B clones bca (at G)"
     exec {
-        cmd = EXE_B .. " chains add '#bca' clone " .. CHAIN(ROOT_A),
+        cmd = EXE_B .. " chains add /bca clone " .. CHAIN(ROOT_A),
     }
 
     -- A: G -- n2[K1]
     TEST "A posts n2 (child of G)"
     local n2 = exec {
-        cmd = EXE_A .. " --now=1010 chain '#bca' post inline 'n2\n' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1010 chain /bca post inline 'n2\n' --sign " .. KEY1,
     }
 
     -- C clones at S2: it never sees M0, so its post stays below it
     TEST "C clones bca (at S2, below the future M0)"
     exec {
-        cmd = EXE_C .. " chains add '#bca' clone " .. CHAIN(ROOT_A),
+        cmd = EXE_C .. " chains add /bca clone " .. CHAIN(ROOT_A),
     }
 
     -- B: G -- n1[K2]
     TEST "B posts n1 (child of G)"
     local n1 = exec {
-        cmd = EXE_B .. " --now=1020 chain '#bca' post inline 'n1\n' --sign " .. KEY2,
+        cmd = EXE_B .. " --now=1020 chain /bca post inline 'n1\n' --sign " .. KEY2,
     }
 
     -- A: G -- {S2, S1} -- M0        (criss-cross: both sides fork at G)
     TEST "A recvs B -> M0 = merge(S2, S1)"
     exec {
-        cmd = EXE_A .. " --now=1030 chain '#bca' sync recv " .. CHAIN(ROOT_B),
+        cmd = EXE_A .. " --now=1030 chain /bca sync recv " .. CHAIN(ROOT_B),
     }
 
     -- A: ... M0 -- n3[K1]
     TEST "A posts n3 (child of M0)"
     local n3 = exec {
-        cmd = EXE_A .. " --now=1040 chain '#bca' post inline 'n3\n' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1040 chain /bca post inline 'n3\n' --sign " .. KEY1,
     }
 
     -- D clones at S3: the fork between n4 and n5 sits ABOVE M0
     TEST "D clones bca (at S3)"
     exec {
-        cmd = EXE_D .. " chains add '#bca' clone " .. CHAIN(ROOT_A),
+        cmd = EXE_D .. " chains add /bca clone " .. CHAIN(ROOT_A),
     }
 
     -- A: ... S3 -- n4[K1]      D: ... S3 -- n5[K4]
     TEST "A posts n4, D posts n5 (concurrent, fork at S3)"
     local n4 = exec {
-        cmd = EXE_A .. " --now=1050 chain '#bca' post inline 'n4\n' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1050 chain /bca post inline 'n4\n' --sign " .. KEY1,
     }
     local n5 = exec {
-        cmd = EXE_D .. " --now=1060 chain '#bca' post inline 'n5\n' --sign " .. KEY4,
+        cmd = EXE_D .. " --now=1060 chain /bca post inline 'n5\n' --sign " .. KEY4,
     }
 
     -- C: ... S2 -- n6[K3]      (the deep attachment point)
     TEST "C posts n6 (child of S2, below M0)"
     local n6 = exec {
-        cmd = EXE_C .. " --now=1070 chain '#bca' post inline 'n6\n' --sign " .. KEY3,
+        cmd = EXE_C .. " --now=1070 chain /bca post inline 'n6\n' --sign " .. KEY3,
     }
 
     -- A: ... -- M1 = merge(S4, S6)
     -- K1+K2 beat K3, so A's side wins and n6 becomes the second parent
     TEST "A recvs C -> M1 = merge(S4, S6)"
     exec {
-        cmd = EXE_A .. " --now=1080 chain '#bca' sync recv " .. CHAIN(ROOT_C),
+        cmd = EXE_A .. " --now=1080 chain /bca sync recv " .. CHAIN(ROOT_C),
     }
 
     -- rem = M1 is a merge whose octopus underflows to genesis
     TEST "D recvs A: climb must stop at its floor (no underflow)"
     exec {
-        cmd = EXE_D .. " --now=1090 chain '#bca' sync recv " .. CHAIN(ROOT_A),
+        cmd = EXE_D .. " --now=1090 chain /bca sync recv " .. CHAIN(ROOT_A),
     }
 
     TEST "D's order holds every post"
-    local _, S = ORDER(EXE_D, "#bca")
+    local _, S = ORDER(EXE_D, "/bca")
     for _, t in ipairs {
         { n1, "n1" }, { n2, "n2" }, { n3, "n3" },
         { n4, "n4" }, { n5, "n5" }, { n6, "n6" },

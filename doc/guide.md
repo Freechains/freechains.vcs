@@ -39,11 +39,11 @@ To operate on the chains, `Alice` first needs to create an SSH keypair:
 $ ssh-keygen -t ed25519 -C '' -f /tmp/alice
 ```
 
-`Alice` can now create a chain `#chat` locally:
+`Alice` can now create a chain `/chat` locally:
 
 ```
-$ freechains chains add '#chat' init --pioneer=/tmp/alice
-#461cfb4...
+$ freechains chains add /chat init --pioneer=/tmp/alice
+461cfb4...
 ```
 
 This creates the chain with `Alice` as the sole pioneer.
@@ -63,9 +63,9 @@ $ ls ~/.freechains/chains/
 With the chain set, we can now post some content:
 
 ```
-$ freechains chain '#chat' post inline $'Hello World\n' --sign=/tmp/alice
+$ freechains chain /chat post inline $'Hello World\n' --sign=/tmp/alice
 b52c62f...
-$ freechains chain '#chat' post inline $'I am here\n'   --sign=/tmp/alice
+$ freechains chain /chat post inline $'I am here\n'   --sign=/tmp/alice
 d6568e4...
 ```
 
@@ -76,7 +76,7 @@ We can list all posts in the chain...
 - ...as a DAG:
 
 ```
-$ freechains chain '#chat' list dag
+$ freechains chain /chat list dag
 b52c62f       # 'Hello World'
    |
 d6568e4       # 'I am here'
@@ -85,7 +85,7 @@ d6568e4       # 'I am here'
 - ...or in consensus order:
 
 ```
-$ freechains chain '#chat' list order
+$ freechains chain /chat list order
 b52c62f...    # 'Hello World'
 d6568e4...    # 'I am here'
 ```
@@ -95,16 +95,16 @@ We can also query each action individually:
 - Post payload:
 
 ```
-$ freechains chain '#chat' get payload b52c62f
+$ freechains chain /chat get payload b52c62f
 Hello World
-$ freechains chain '#chat' get payload d6568e4
+$ freechains chain /chat get payload d6568e4
 I am here
 ```
 
 - Post metadata:
 
 ```
-$ freechains chain '#chat' get metadata d6568e4
+$ freechains chain /chat get metadata d6568e4
 d6568e4...                     # the full action id
 action post                    # post, like or revoke
 time 1780088002                # local creation time
@@ -117,7 +117,7 @@ Since chains are ordinary Git repositories, we can also inspect them through
 standard tools:
 
 ```
-$ git -C ~/.freechains/chains/'#chat'/ log --oneline
+$ git -C ~/.freechains/chains/chat/ log --oneline
 d6568e4 post 90c7c77...                    # 'I am here'
 b52c62f post 6d5a844...                    # 'Hello World'
 461cfb4 0.20.0 8631642870 ssh-ed25519 ...  # genesis
@@ -154,19 +154,19 @@ As peer `A`, we now listen for requests on default port `8330`.
 To simulate a remote peer `B`, we will use a separate `--root` as the prefix of
 all commands.
 
-Now, as peer `B`, we clone the chain `#chat` served by peer `A` at `localhost`:
+Now, as peer `B`, we clone the chain `/chat` served by peer `A` at `localhost`:
 
 ```
-$ freechains --root=/tmp/B/ chains add '#chat' clone localhost
-#461cfb4...
+$ freechains --root=/tmp/B/ chains add /chat clone localhost
+461cfb4...
 ```
 
-Note that the chain id is the same in both peers (`#461cfb4...`).
+Note that the chain id is the same in both peers (`461cfb4...`).
 
 We may now list the posts in peer `B`:
 
 ```
-$ freechains --root=/tmp/B/ chain '#chat' list dag
+$ freechains --root=/tmp/B/ chain /chat list dag
 b52c62f       # 'Hello World'
    |
 d6568e4       # 'I am here'
@@ -175,20 +175,20 @@ d6568e4       # 'I am here'
 To illustrate how peers synchronize over time, let's post again in peer `A`:
 
 ```
-$ freechains chain '#chat' post inline $'Sync me\n' --sign=/tmp/alice
+$ freechains chain /chat post inline $'Sync me\n' --sign=/tmp/alice
 e1f2a3b...
 ```
 
 Peer `B` is now outdated and needs to synchronize:
 
 ```
-$ freechains --root=/tmp/B/ chain '#chat' sync recv localhost
+$ freechains --root=/tmp/B/ chain /chat sync recv localhost
 ```
 
 Peer `B` now holds the new post from `A`:
 
 ```
-$ freechains --root=/tmp/B/ chain '#chat' list dag
+$ freechains --root=/tmp/B/ chain /chat list dag
 b52c62f       # 'Hello World'
    |
 d6568e4       # 'I am here'
@@ -218,7 +218,7 @@ $ ssh-keygen -t ed25519 -C '' -f /tmp/bob
 Since `Bob` has no previous reputation, he cannot yet post on the chain:
 
 ```
-$ freechains --root=/tmp/B/ chain '#chat' post inline $'Possibly SPAM\n' --sign=/tmp/bob
+$ freechains --root=/tmp/B/ chain /chat post inline $'Possibly SPAM\n' --sign=/tmp/bob
 ERROR : chain post : insufficient reputation
 ```
 
@@ -231,9 +231,9 @@ to its own reputation rules.
 We can query the reputation of members passing their public keys:
 
 ```
-$ freechains chain '#chat' reps author /tmp/alice.pub
+$ freechains chain /chat reps author /tmp/alice.pub
 49500
-$ freechains chain '#chat' reps author /tmp/bob.pub
+$ freechains chain /chat reps author /tmp/bob.pub
 0
 ```
 
@@ -244,17 +244,17 @@ To welcome new members into the chain, the pioneer needs to redistribute a
 share of its `reps`:
 
 ```
-$ freechains chain '#chat' like 10000 author /tmp/bob.pub --sign=/tmp/alice
+$ freechains chain /chat like 10000 author /tmp/bob.pub --sign=/tmp/alice
 560a55c...
 ```
 
 `Alice` just transferred `10000 reps` to `Bob`:
 
 ```
-$ freechains --root=/tmp/B/ chain '#chat' sync recv localhost
-$ freechains --root=/tmp/B/ chain '#chat' reps author /tmp/alice.pub
+$ freechains --root=/tmp/B/ chain /chat sync recv localhost
+$ freechains --root=/tmp/B/ chain /chat reps author /tmp/alice.pub
 40000
-$ freechains --root=/tmp/B/ chain '#chat' reps author /tmp/bob.pub
+$ freechains --root=/tmp/B/ chain /chat reps author /tmp/bob.pub
 9000
 ```
 
@@ -296,13 +296,13 @@ Let's now introduce new member `Charlie`, who is welcomed by `Bob` in peer `B`:
 
 ```
 $ ssh-keygen -t ed25519 -C '' -f /tmp/charlie
-$ freechains --root=/tmp/B/ chain '#chat' like 5000 author /tmp/charlie.pub --sign=/tmp/bob
+$ freechains --root=/tmp/B/ chain /chat like 5000 author /tmp/charlie.pub --sign=/tmp/bob
 e6d7626...
-$ freechains --root=/tmp/B/ chain '#chat' reps author /tmp/alice.pub
+$ freechains --root=/tmp/B/ chain /chat reps author /tmp/alice.pub
 40000
-$ freechains --root=/tmp/B/ chain '#chat' reps author /tmp/bob.pub
+$ freechains --root=/tmp/B/ chain /chat reps author /tmp/bob.pub
 4000
-$ freechains --root=/tmp/B/ chain '#chat' reps author /tmp/charlie.pub
+$ freechains --root=/tmp/B/ chain /chat reps author /tmp/charlie.pub
 4500
 ```
 
@@ -319,9 +319,9 @@ As with authors, posts also have associated `reps` and can receive likes and
 dislikes:
 
 ```
-$ freechains --root=/tmp/B/ chain '#chat' like    1000 action b52c62f --sign=/tmp/charlie
+$ freechains --root=/tmp/B/ chain /chat like    1000 action b52c62f --sign=/tmp/charlie
 a9b0c1d...
-$ freechains --root=/tmp/B/ chain '#chat' dislike 1000 action d6568e4 --sign=/tmp/bob
+$ freechains --root=/tmp/B/ chain /chat dislike 1000 action d6568e4 --sign=/tmp/bob
 b0c1d2e...
 ```
 
@@ -329,12 +329,12 @@ A like transfers `reps` from the caster to the post and to its author, half
 each after the tax, whereas a dislike drains `reps` from them:
 
 ```
-$ freechains --root=/tmp/B/ chain '#chat' reps actions
+$ freechains --root=/tmp/B/ chain /chat reps actions
 b52c62f... 450     # 'Hello World'
 e1f2a3b... 0       # 'Sync me'
 ...                # (likes are actions too)
 d6568e4... -450    # 'I am here'
-$ freechains --root=/tmp/B/ chain '#chat' reps authors
+$ freechains --root=/tmp/B/ chain /chat reps authors
 ssh-ed25519 ...vzTc96I 40000   # Alice (unaffected)
 ssh-ed25519 ...Ks9pL2v 3500    # Charlie (his like cost him 1000)
 ssh-ed25519 ...je8+xIa 3000    # Bob (his dislike cost him 1000)
@@ -345,7 +345,7 @@ Let's introduce `Dave`, who wants to join the community, but holds no `reps`:
 
 ```
 $ ssh-keygen -t ed25519 -C '' -f /tmp/dave
-$ freechains chain '#chat' post inline $'A great post!\n' --beg --sign=/tmp/dave
+$ freechains chain /chat post inline $'A great post!\n' --beg --sign=/tmp/dave
 c7d8e9f...
 ```
 
@@ -353,18 +353,18 @@ The `--beg` flag allows to post without `reps`, but the post is parked apart
 from the chain, waiting for a like:
 
 ```
-$ freechains chain '#chat' list begs
+$ freechains chain /chat list begs
 c7d8e9f...
 ```
 
 `Alice` reads the post and likes it, spending `4000 reps`:
 
 ```
-$ freechains chain '#chat' like 4000 action c7d8e9f --sign=/tmp/alice
+$ freechains chain /chat like 4000 action c7d8e9f --sign=/tmp/alice
 d8e9f0a...
-$ freechains chain '#chat' list begs
+$ freechains chain /chat list begs
 # (empty)
-$ freechains chain '#chat' list dag
+$ freechains chain /chat list dag
   ...
    |
 560a55c       # like: alice -> bob
@@ -397,8 +397,8 @@ To illustrate how consensus resolves, let's introduce a neutral peer `X` that
 never posts, acting only as a hub to which other peers push their posts:
 
 ```
-$ freechains --root=/tmp/X/ chains add '#chat' clone localhost
-#461cfb4...
+$ freechains --root=/tmp/X/ chains add /chat clone localhost
+461cfb4...
 # (switch to new terminal)
 $ freechains --root=/tmp/X/ daemon start --hub --port=8331
 Serving on port 8331...
@@ -408,9 +408,9 @@ Now `Alice` and `Charlie` post at the same time, from peers `A` and `B`,
 without synchronizing:
 
 ```
-$ freechains chain '#chat' post inline $'Alice was here\n' --sign=/tmp/alice
+$ freechains chain /chat post inline $'Alice was here\n' --sign=/tmp/alice
 a1b2c3d...
-$ freechains --root=/tmp/B/ chain '#chat' post inline $'Charlie was here\n' --sign=/tmp/charlie
+$ freechains --root=/tmp/B/ chain /chat post inline $'Charlie was here\n' --sign=/tmp/charlie
 f4e5d6c...
 ```
 
@@ -421,7 +421,7 @@ Therefore, the posts have no reliable order between them.
 Each peer now holds a diverging history with its own exclusive post:
 
 ```
-$ freechains chain '#chat' list dag
+$ freechains chain /chat list dag
   ...
    |
 560a55c       # like: alice -> bob (common)
@@ -431,7 +431,7 @@ c7d8e9f       # 'A great post!'
 d8e9f0a       # like: alice -> 'A great post!'
    |
 a1b2c3d       # 'Alice was here'
-$ freechains --root=/tmp/B/ chain '#chat' list dag
+$ freechains --root=/tmp/B/ chain /chat list dag
   ...
    |
 560a55c       # like: alice -> bob (common)
@@ -457,14 +457,14 @@ In our example, after the action in common (`560a55c`),
 Then, both peers `A` and `B` send their posts to the neutral hub `X`:
 
 ```
-$ freechains chain '#chat' sync send localhost:8331
-$ freechains --root=/tmp/B/ chain '#chat' sync send localhost:8331
+$ freechains chain /chat sync send localhost:8331
+$ freechains --root=/tmp/B/ chain /chat sync send localhost:8331
 ```
 
 `X` now holds both branches as an actual fork in its DAG:
 
 ```
-$ freechains --root=/tmp/X/ chain '#chat' list dag
+$ freechains --root=/tmp/X/ chain /chat list dag
         ...
          |
       560a55c              # like: alice -> bob (common)
@@ -481,7 +481,7 @@ c7d8e9f     e6d7626        # 'A great post!'  | like: bob -> charlie
 We can also list the posts in consensus order to see which branch wins:
 
 ```
-$ freechains --root=/tmp/X/ chain '#chat' list order
+$ freechains --root=/tmp/X/ chain /chat list order
 ...
 560a55c...    # common
 c7d8e9f...    # [A
@@ -524,9 +524,9 @@ We simulate the passage of time passing `--now` to the commands:
 ```
 $ DAY=86400             # one day in seconds
 $ NOW=$(date +%s)       # current time in seconds
-$ freechains --root=/tmp/X/ --now=$((NOW+1*DAY)) chain '#chat' post inline $'day 1\n' --sign=/tmp/bob
+$ freechains --root=/tmp/X/ --now=$((NOW+1*DAY)) chain /chat post inline $'day 1\n' --sign=/tmp/bob
 1a2b3c4...
-$ freechains --root=/tmp/X/ --now=$((NOW+7*DAY)) chain '#chat' post inline $'day 7\n' --sign=/tmp/charlie
+$ freechains --root=/tmp/X/ --now=$((NOW+7*DAY)) chain /chat post inline $'day 7\n' --sign=/tmp/charlie
 7d8e9f0...
 ```
 
@@ -537,14 +537,14 @@ Then, `Alice` comes back and posts locally in peer `A`, on the same branch she
 left behind:
 
 ```
-$ freechains chain '#chat' post inline $'Alice takes over\n' --sign=/tmp/alice
+$ freechains chain /chat post inline $'Alice takes over\n' --sign=/tmp/alice
 9d0e1f2...
 ```
 
 When she tries to send it, the hub refuses to merge:
 
 ```
-$ freechains chain '#chat' sync send localhost:8331
+$ freechains chain /chat sync send localhost:8331
 remote: ERROR : chain sync : hard fork
 ```
 
@@ -563,26 +563,26 @@ an action along with subsequent ones:
 
 <!-- TODO: last recv should be a send:
 # send updated history
-$ freechains chain '#chat' sync send localhost:8331
+$ freechains chain /chat sync send localhost:8331
 -->
 
 ```
 # revert local history
-$ freechains chain '#chat' abandon 9d0e1f2
+$ freechains chain /chat abandon 9d0e1f2
 9d0e1f2...
 
 # receive settled branch (at simulated time)
-$ freechains --now=$((NOW+7*DAY)) chain '#chat' sync recv localhost:8331
+$ freechains --now=$((NOW+7*DAY)) chain /chat sync recv localhost:8331
 
 # repost rejected message
-$ freechains --now=$((NOW+7*DAY)) chain '#chat' post inline $'Alice takes over\n' --sign=/tmp/alice
+$ freechains --now=$((NOW+7*DAY)) chain /chat post inline $'Alice takes over\n' --sign=/tmp/alice
 3c4d5e6...
 
 # hub receives the updated history (at simulated time)
-$ freechains --root=/tmp/X/ --now=$((NOW+7*DAY)) chain '#chat' sync recv localhost
+$ freechains --root=/tmp/X/ --now=$((NOW+7*DAY)) chain /chat sync recv localhost
 
 # show new order (with Alice last)
-$ freechains chain '#chat' list order
+$ freechains chain /chat list order
 ...
 1a2b3c4...    # 'day 1'
 7d8e9f0...    # 'day 7'
@@ -599,7 +599,7 @@ never happened in the reverted history.
 Follows the final state of the chain from `Alice`'s point of view:
 
 ```
-$ freechains chain '#chat' list dag
+$ freechains chain /chat list dag
       b52c62f              # 'Hello World'
          |
       d6568e4              # 'I am here'
@@ -641,7 +641,7 @@ For the sake of simplicity, let's revert the 7-day simulation of the previous
 section:
 
 ```
-$ freechains chain '#chat' abandon 1a2b3c4
+$ freechains chain /chat abandon 1a2b3c4
 1a2b3c4...    # 'day 1'
 7d8e9f0...    # 'day 7'
 3c4d5e6...    # 'Alice takes over' (repost)
@@ -650,21 +650,21 @@ $ freechains chain '#chat' abandon 1a2b3c4
 Now, to illustrate moderation, suppose `Dave` posts some spam:
 
 ```
-$ freechains chain '#chat' post inline $'BUY NOW\n' --sign=/tmp/dave
+$ freechains chain /chat post inline $'BUY NOW\n' --sign=/tmp/dave
 4a5b6c7...
 ```
 
 `Alice` detects the SPAM and revokes it:
 
 ```
-$ freechains chain '#chat' revoke 1000 4a5b6c7 --sign=/tmp/alice
+$ freechains chain /chat revoke 1000 4a5b6c7 --sign=/tmp/alice
 8f9a0b1...
 ```
 
 The payload of a revoked action becomes immediately unavailable:
 
 ```
-$ freechains chain '#chat' get payload 4a5b6c7
+$ freechains chain /chat get payload 4a5b6c7
 ERROR : chain get : revoked payload
 ```
 
@@ -680,11 +680,11 @@ free.
 Let's say `Bob` posts something he immediately regrets:
 
 ```
-$ freechains chain '#chat' post inline $'my address is ...\n' --sign=/tmp/bob
+$ freechains chain /chat post inline $'my address is ...\n' --sign=/tmp/bob
 5d6e7f8...
-$ freechains chain '#chat' revoke 1000 5d6e7f8 --sign=/tmp/bob
+$ freechains chain /chat revoke 1000 5d6e7f8 --sign=/tmp/bob
 6e7f8a9...
-$ freechains chain '#chat' get payload 5d6e7f8
+$ freechains chain /chat get payload 5d6e7f8
 ERROR : chain get : revoked payload
 ```
 

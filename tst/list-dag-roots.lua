@@ -8,7 +8,7 @@ local ROOT_B = ROOT .. "/list-dag-roots/B/"
 local EXE_A  = ENV .. " ../src/freechains.lua --root " .. ROOT_A
 local EXE_B  = ENV .. " ../src/freechains.lua --root " .. ROOT_B
 
-local REPO_A = ROOT_A .. "/chains/#roots/"
+local REPO_A = ROOT_A .. "/chains/roots/"
 
 exec {
     cmd = "mkdir -p " .. ROOT_A,
@@ -35,31 +35,31 @@ do
 
     TEST "A creates chain (no post yet)"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#roots' init --pioneer=" .. KEY1,
+        cmd = EXE_A .. " --now=1000 chains add /roots init --pioneer=" .. KEY1,
     }
 
     TEST "B clones before any post exists"
     exec {
-        cmd = EXE_B .. " chains add '#roots' clone " .. REPO_A,
+        cmd = EXE_B .. " chains add /roots clone " .. REPO_A,
     }
 
     TEST "A and B post concurrently (both fork at genesis)"
     exec {
-        cmd = EXE_A .. " --now=1100 chain '#roots' post inline 'AW' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1100 chain /roots post inline 'AW' --sign " .. KEY1,
     }
     exec {
-        cmd = EXE_B .. " --now=1100 chain '#roots' post inline 'CW' --sign " .. KEY1,
+        cmd = EXE_B .. " --now=1100 chain /roots post inline 'CW' --sign " .. KEY1,
     }
 
     TEST "B recvs from A"
     exec {
-        cmd = EXE_B .. " --now=1200 chain '#roots' sync recv " .. REPO_A,
+        cmd = EXE_B .. " --now=1200 chain /roots sync recv " .. REPO_A,
     }
 
     TEST "B order has both posts"
     local lines = {}
     for line in (exec {
-        cmd = EXE_B .. " chain '#roots' list order",
+        cmd = EXE_B .. " chain /roots list order",
     }):gmatch("[^\n]+") do
         lines[#lines+1] = line
     end
@@ -69,7 +69,7 @@ do
     TEST "B dag draws both roots on one row"
     assert(
         exec {
-            cmd = EXE_B .. " chain '#roots' list dag",
+            cmd = EXE_B .. " chain /roots list dag",
         } ==
         -- single-line output: `exec` strips the trailing newline
         string.format("%s     %s", fst:sub(1,7), snd:sub(1,7))

@@ -42,59 +42,59 @@ do
     -- A: G -- seed[K1]
     TEST "A creates chain + seeds seed.txt"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#cu' init " .. GEN_2,
+        cmd = EXE_A .. " --now=1000 chains add /cu init " .. GEN_2,
     }
     local seed = exec {
-        cmd = EXE_A .. " --now=1020 chain '#cu' post inline 'seed\n' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1020 chain /cu post inline 'seed\n' --sign " .. KEY1,
     }
 
     -- K2 pays 1, 10% burned, half credited to K1 -> K1 > K2 (no hash tiebreak)
     TEST "KEY2 likes seed (loses reps, KEY1 > KEY2 at fork)"
     exec {
-        cmd = EXE_A .. " --now=1040 chain '#cu' like 1000 action " .. seed .. " --sign " .. KEY2,
+        cmd = EXE_A .. " --now=1040 chain /cu like 1000 action " .. seed .. " --sign " .. KEY2,
     }
 
     -- A: G -- seed -- L      B: G -- seed -- L
     TEST "B clones cu (at the like = F1)"
     exec {
-        cmd = EXE_B .. " chains add '#cu' clone " .. ROOT_A .. "/chains/#cu/",
+        cmd = EXE_B .. " chains add /cu clone " .. ROOT_A .. "/chains/cu/",
     }
 
     -- A: ... -- AW[K1]      B: ... -- CW[K2]     (both fork at F1)
     TEST "A posts AW (higher reps), B posts CW (concurrent, fork at F1)"
     exec {
-        cmd = EXE_A .. " --now=1100 chain '#cu' post inline 'AW\n' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1100 chain /cu post inline 'AW\n' --sign " .. KEY1,
     }
     exec {
-        cmd = EXE_B .. " --now=1100 chain '#cu' post inline 'CW\n' --sign " .. KEY2,
+        cmd = EXE_B .. " --now=1100 chain /cu post inline 'CW\n' --sign " .. KEY2,
     }
 
     -- B: G -- {CW, AW} -- M1        (inner merge, fork = genesis = F1)
     TEST "B recvs A -> inner merge M1 = merge(CW, AW)"
     exec {
-        cmd = EXE_B .. " --now=1200 chain '#cu' sync recv " .. ROOT_A .. "/chains/#cu/",
+        cmd = EXE_B .. " --now=1200 chain /cu sync recv " .. ROOT_A .. "/chains/cu/",
     }
 
     -- A: G -- AW -- takeover[K1]    (AW = F2, still no M1 on A)
     TEST "A posts takeover (child of AW = F2)"
     local takeover = exec {
-        cmd = EXE_A .. " --now=1300 chain '#cu' post inline 'takeover\n' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1300 chain /cu post inline 'takeover\n' --sign " .. KEY1,
     }
 
     -- A: ... -- M2 = merge(takeover, M1)   (outer merge, fork = AW = F2)
     TEST "A recvs B -> outer merge M2 (fork = AW), nesting M1"
     exec {
-        cmd = EXE_A .. " --now=1400 chain '#cu' sync recv " .. ROOT_B .. "/chains/#cu/",
+        cmd = EXE_A .. " --now=1400 chain /cu sync recv " .. ROOT_B .. "/chains/cu/",
     }
 
     -- B has M1 but not takeover; climbing A's M2 re-enters M1 at F1 < F2.
     TEST "B recvs A: must not underflow climb (nested merges)"
     exec {
-        cmd = EXE_B .. " --now=1500 chain '#cu' sync recv " .. ROOT_A .. "/chains/#cu/",
+        cmd = EXE_B .. " --now=1500 chain /cu sync recv " .. ROOT_A .. "/chains/cu/",
     }
 
     TEST "B's order contains takeover"
-    local _, S = ORDER(EXE_B, "#cu")
+    local _, S = ORDER(EXE_B, "/cu")
     assert(S[takeover], "takeover missing from B order (climb underflow)")
 end
 

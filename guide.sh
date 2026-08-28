@@ -55,23 +55,23 @@ echo
 
 ssh-keygen -t ed25519 -C '' -N '' -q -f "$KEYS/alice"
 
-FC --root="$A" --now=$((T0+0))  chains add '#chat' init --pioneer="$KEYS/alice"
-FCH --root="$A" --now=$((T0+10)) chain '#chat' post inline $'Hello World\n' --sign="$KEYS/alice"
+FC --root="$A" --now=$((T0+0))  chains add /chat init --pioneer="$KEYS/alice"
+FCH --root="$A" --now=$((T0+10)) chain /chat post inline $'Hello World\n' --sign="$KEYS/alice"
 HELLO=$HASH
-FCH --root="$A" --now=$((T0+20)) chain '#chat' post inline $'I am here\n'   --sign="$KEYS/alice"
+FCH --root="$A" --now=$((T0+20)) chain /chat post inline $'I am here\n'   --sign="$KEYS/alice"
 HERE=$HASH
 
 # DAG (A):
 #   'Hello World'
 #         |
 #   'I am here'
-FC --root="$A" chain '#chat' list dag
-FC --root="$A" chain '#chat' list order
+FC --root="$A" chain /chat list dag
+FC --root="$A" chain /chat list order
 
 # each action can be queried individually: its payload and its metadata
-FC --root="$A" chain '#chat' get payload "$HELLO"
-FC --root="$A" chain '#chat' get payload "$HERE"
-FC --root="$A" chain '#chat' get metadata "$HERE"
+FC --root="$A" chain /chat get payload "$HELLO"
+FC --root="$A" chain /chat get payload "$HERE"
+FC --root="$A" chain /chat get metadata "$HERE"
 
 echo
 echo "############ Synchronization ############"
@@ -83,16 +83,16 @@ echo
 FC --root="$A" daemon start --port=$A_PORT -- --listen=127.0.0.1 --reuseaddr &
 sleep 1
 
-FC --root="$B" chains add '#chat' clone localhost:$A_PORT
+FC --root="$B" chains add /chat clone localhost:$A_PORT
 
 # DAG (B): same as A after the clone
 #   'Hello World'
 #         |
 #   'I am here'
-FC --root="$B" chain '#chat' list dag
+FC --root="$B" chain /chat list dag
 
-FC --root="$A" --now=$((T0+30)) chain '#chat' post inline $'Sync me\n' --sign="$KEYS/alice"
-FC --root="$B" chain '#chat' sync recv localhost:$A_PORT
+FC --root="$A" --now=$((T0+30)) chain /chat post inline $'Sync me\n' --sign="$KEYS/alice"
+FC --root="$B" chain /chat sync recv localhost:$A_PORT
 
 # DAG (B): grows with the received post
 #   'Hello World'
@@ -100,7 +100,7 @@ FC --root="$B" chain '#chat' sync recv localhost:$A_PORT
 #   'I am here'
 #         |
 #   'Sync me'
-FC --root="$B" chain '#chat' list dag
+FC --root="$B" chain /chat list dag
 
 echo
 echo "############ Reputation ############"
@@ -110,21 +110,21 @@ ssh-keygen -t ed25519 -C '' -N '' -q -f "$KEYS/bob"
 
 # Bob has no reps yet: this post is expected to fail
 echo "-- expected failure:"
-FC --root="$B" --now=$((T0+50)) chain '#chat' post inline $'Possibly malicious\n' --sign="$KEYS/bob" || true
+FC --root="$B" --now=$((T0+50)) chain /chat post inline $'Possibly malicious\n' --sign="$KEYS/bob" || true
 
-FC --root="$A" --now=$((T0+50)) chain '#chat' reps author "$KEYS/alice.pub"
-FC --root="$B" --now=$((T0+50)) chain '#chat' reps author "$KEYS/bob.pub"
+FC --root="$A" --now=$((T0+50)) chain /chat reps author "$KEYS/alice.pub"
+FC --root="$B" --now=$((T0+50)) chain /chat reps author "$KEYS/bob.pub"
 
 # Alice welcomes Bob with 10000 reps
-FC --root="$A" --now=$((T0+60)) chain '#chat' like 10000 author "$KEYS/bob.pub" --sign="$KEYS/alice"
-FC --root="$B" chain '#chat' sync recv localhost:$A_PORT
-FC --root="$B" --now=$((T0+70)) chain '#chat' reps author "$KEYS/alice.pub"
-FC --root="$B" --now=$((T0+70)) chain '#chat' reps author "$KEYS/bob.pub"
+FC --root="$A" --now=$((T0+60)) chain /chat like 10000 author "$KEYS/bob.pub" --sign="$KEYS/alice"
+FC --root="$B" chain /chat sync recv localhost:$A_PORT
+FC --root="$B" --now=$((T0+70)) chain /chat reps author "$KEYS/alice.pub"
+FC --root="$B" --now=$((T0+70)) chain /chat reps author "$KEYS/bob.pub"
 
 # Bob welcomes Charlie with 5000 reps
 ssh-keygen -t ed25519 -C '' -N '' -q -f "$KEYS/charlie"
-FC --root="$B" --now=$((T0+80)) chain '#chat' like 5000 author "$KEYS/charlie.pub" --sign="$KEYS/bob"
-FC --root="$B" --now=$((T0+80)) chain '#chat' reps author "$KEYS/charlie.pub"
+FC --root="$B" --now=$((T0+80)) chain /chat like 5000 author "$KEYS/charlie.pub" --sign="$KEYS/bob"
+FC --root="$B" --now=$((T0+80)) chain /chat reps author "$KEYS/charlie.pub"
 
 echo
 echo "############ Posts Reputation & Begging ############"
@@ -133,27 +133,27 @@ echo
 # Charlie likes and Bob dislikes Alice's first two posts: the target is a
 # post, not an author, so the reps land on the content (half) and on
 # Alice (half)
-FC --root="$B" --now=$((T0+81)) chain '#chat' like    1000 action "$HELLO" --sign="$KEYS/charlie"
-FC --root="$B" --now=$((T0+82)) chain '#chat' dislike 1000 action "$HERE"  --sign="$KEYS/bob"
+FC --root="$B" --now=$((T0+81)) chain /chat like    1000 action "$HELLO" --sign="$KEYS/charlie"
+FC --root="$B" --now=$((T0+82)) chain /chat dislike 1000 action "$HERE"  --sign="$KEYS/bob"
 
 # expected: 'Hello World' 450 , 'Sync me' 0 , 'I am here' -450
-FC --root="$B" --now=$((T0+82)) chain '#chat' reps actions
+FC --root="$B" --now=$((T0+82)) chain /chat reps actions
 
 # expected: alice 40000 (her two received votes cancel out), while bob
 # and charlie each pay in full for the single vote they cast
-FC --root="$B" --now=$((T0+82)) chain '#chat' reps authors
+FC --root="$B" --now=$((T0+82)) chain /chat reps authors
 
 # Dave holds no reps at all, so he begs: the post is parked on
 # refs/begs/, outside the chain, until someone likes it
 ssh-keygen -t ed25519 -C '' -N '' -q -f "$KEYS/dave"
-FCH --root="$A" --now=$((T0+83)) chain '#chat' post inline $'A great post!\n' --beg --sign="$KEYS/dave"
+FCH --root="$A" --now=$((T0+83)) chain /chat post inline $'A great post!\n' --beg --sign="$KEYS/dave"
 BEG=$HASH
-FC --root="$A" chain '#chat' list begs
+FC --root="$A" chain /chat list begs
 
 # Alice likes the beg, which admits both the post and its author
-FC --root="$A" --now=$((T0+84)) chain '#chat' like 4000 action "$BEG" --sign="$KEYS/alice"
+FC --root="$A" --now=$((T0+84)) chain /chat like 4000 action "$BEG" --sign="$KEYS/alice"
 echo "-- no begs pending anymore:"
-FC --root="$A" chain '#chat' list begs
+FC --root="$A" chain /chat list begs
 
 # DAG (A): the beg merges in line (same column), and the like backs two
 # posts, so the older one shows up as a (^cid) annotation row
@@ -163,20 +163,20 @@ FC --root="$A" chain '#chat' list begs
 #         |
 #   like(alice->beg)
 #   (^like(alice->bob))
-FC --root="$A" chain '#chat' list dag
+FC --root="$A" chain /chat list dag
 
 echo
 echo "############ Consensus ############"
 echo
 
 # neutral hub X clones from A, then serves on $X_PORT (hub: recv + upload)
-FC --root="$X" chains add '#chat' clone localhost:$A_PORT
+FC --root="$X" chains add /chat clone localhost:$A_PORT
 FC --root="$X" daemon start --hub --port=$X_PORT -- --listen=127.0.0.1 --reuseaddr &
 sleep 1
 
 # Alice and Charlie post at the same time, without syncing
-FC --root="$A" --now=$((T0+90)) chain '#chat' post inline $'Alice was here\n'   --sign="$KEYS/alice"
-FC --root="$B" --now=$((T0+90)) chain '#chat' post inline $'Charlie was here\n' --sign="$KEYS/charlie"
+FC --root="$A" --now=$((T0+90)) chain /chat post inline $'Alice was here\n'   --sign="$KEYS/alice"
+FC --root="$B" --now=$((T0+90)) chain /chat post inline $'Charlie was here\n' --sign="$KEYS/charlie"
 
 # DAG (A): grows with the admitted beg and Alice's own post
 #   like(alice->bob)
@@ -186,7 +186,7 @@ FC --root="$B" --now=$((T0+90)) chain '#chat' post inline $'Charlie was here\n' 
 #   like(alice->beg)
 #         |
 #   'Alice was here'
-FC --root="$A" chain '#chat' list dag
+FC --root="$A" chain /chat list dag
 
 # DAG (B): same trunk up to the like on Bob, then B's own votes and post
 #   like(alice->bob)
@@ -198,11 +198,11 @@ FC --root="$A" chain '#chat' list dag
 #   dislike(charlie->'I am here')
 #         |
 #   'Charlie was here'
-FC --root="$B" chain '#chat' list dag
+FC --root="$B" chain /chat list dag
 
 # both send to the hub, which merges the fork by reps (Alice first)
-FC --root="$A" chain '#chat' sync send localhost:$X_PORT
-FC --root="$B" chain '#chat' sync send localhost:$X_PORT
+FC --root="$A" chain /chat sync send localhost:$X_PORT
+FC --root="$B" chain /chat sync send localhost:$X_PORT
 
 # DAG (X): both branches arrive and the DAG forks at the like on Bob,
 # which is where B last synced from A
@@ -215,8 +215,8 @@ FC --root="$B" chain '#chat' sync send localhost:$X_PORT
 #   'Alice was here'     dislike(charlie->'I am here')
 #                               |
 #                        'Charlie was here'
-FC --root="$X" chain '#chat' list dag
-FC --root="$X" chain '#chat' list order
+FC --root="$X" chain /chat list dag
+FC --root="$X" chain /chat list order
 
 echo
 echo "############ Hard Forks ############"
@@ -228,25 +228,25 @@ FORK=$((T0+90))
 # Bob and Charlie keep posting directly THROUGH the hub peer X (a
 # peer is just a device), which already holds the merged branches.
 # Alice (peer A) stays offline the whole time.
-FCH --root="$X" --now=$((FORK+1*DAY)) chain '#chat' post inline $'day 1\n' --sign="$KEYS/bob"
+FCH --root="$X" --now=$((FORK+1*DAY)) chain /chat post inline $'day 1\n' --sign="$KEYS/bob"
 DAY1=$HASH
-FC --root="$X" --now=$((FORK+7*DAY)) chain '#chat' post inline $'day 7\n' --sign="$KEYS/charlie"
+FC --root="$X" --now=$((FORK+7*DAY)) chain /chat post inline $'day 7\n' --sign="$KEYS/charlie"
 
 # the hub is now entrenched: measured back from its newest message, its
 # history reaches 7 days (day 7 vs the fork-era posts), so everything
 # before that point is settled
 echo "-- hub X order (day 1 ... day 7):"
-FC --root="$X" chain '#chat' list order
+FC --root="$X" chain /chat list order
 
 # Alice comes back and posts on her own branch, which the hub has not seen
-FCH --root="$A" --now=$((FORK+7*DAY+100)) chain '#chat' post inline $'Alice takes over\n' --sign="$KEYS/alice"
+FCH --root="$A" --now=$((FORK+7*DAY+100)) chain /chat post inline $'Alice takes over\n' --sign="$KEYS/alice"
 
 # the post she just made (its printed cid)
 REJECTED=$HASH
 
 # A sends to X: the hub is entrenched and REFUSES to merge Alice's fork
 echo "-- expected failure (the hub is entrenched):"
-FC --root="$A" chain '#chat' sync send localhost:$X_PORT || true
+FC --root="$A" chain /chat sync send localhost:$X_PORT || true
 
 # Alice's escape hatch: abandon the rejected post, receive the settled
 # branch, repost the message on top of it; the hub then pulls the result
@@ -257,13 +257,13 @@ FC --root="$A" chain '#chat' sync send localhost:$X_PORT || true
 #         |
 #   'Alice takes over'     <-- rejected post ($REJECTED)
 echo "-- Alice's diverging branch (common history + rejected post):"
-FC --root="$A" chain '#chat' list dag
-FC --root="$A" chain '#chat' abandon "$REJECTED"
-FC --root="$A" --now=$((FORK+7*DAY)) chain '#chat' sync recv localhost:$X_PORT
-FC --root="$A" --now=$((FORK+7*DAY+400)) chain '#chat' post inline $'Alice takes over\n' --sign="$KEYS/alice"
+FC --root="$A" chain /chat list dag
+FC --root="$A" chain /chat abandon "$REJECTED"
+FC --root="$A" --now=$((FORK+7*DAY)) chain /chat sync recv localhost:$X_PORT
+FC --root="$A" --now=$((FORK+7*DAY+400)) chain /chat post inline $'Alice takes over\n' --sign="$KEYS/alice"
 # the hub PULLS the updated history: `--now` is local to each
 # command, so the simulated clock cannot travel with a push
-FC --root="$X" --now=$((FORK+7*DAY+400)) chain '#chat' sync recv localhost:$A_PORT
+FC --root="$X" --now=$((FORK+7*DAY+400)) chain /chat sync recv localhost:$A_PORT
 
 # Alice is compatible again: her repost is ordered after the settled branch
 # DAG (A): the abandoned branch is replaced by the hub's settled one
@@ -276,8 +276,8 @@ FC --root="$X" --now=$((FORK+7*DAY+400)) chain '#chat' sync recv localhost:$A_PO
 #                 'day 7'
 #                    |
 #           'Alice takes over'    <-- repost (new cid, new time)
-FC --root="$A" chain '#chat' list dag
-FC --root="$A" chain '#chat' list order
+FC --root="$A" chain /chat list dag
+FC --root="$A" chain /chat list order
 
 echo
 echo "############ Moderation ############"
@@ -286,27 +286,27 @@ echo
 # the 7-day fork was only a simulation: abandon it in A to return to
 # the present, so the next commands need no future clock (here the
 # "present" is the consensus era, right after the fork reference)
-FC --root="$A" chain '#chat' abandon "$DAY1"
+FC --root="$A" chain /chat abandon "$DAY1"
 
 MOD=$((FORK+100))
 
 # all members now act through peer A on the current clock
 # Dave still holds the reps from his admitted beg, enough to post spam
-FCH --root="$A" --now=$((MOD+0)) chain '#chat' post inline $'BUY NOW\n' --sign="$KEYS/dave"
+FCH --root="$A" --now=$((MOD+0)) chain /chat post inline $'BUY NOW\n' --sign="$KEYS/dave"
 SPAM=$HASH
 
 # Alice detects the spam and revokes it with 1000 reps: the payload vanishes
-FC --root="$A" --now=$((MOD+10)) chain '#chat' revoke 1000 "$SPAM" --sign="$KEYS/alice"
+FC --root="$A" --now=$((MOD+10)) chain /chat revoke 1000 "$SPAM" --sign="$KEYS/alice"
 echo "-- expected failure (revoked payload):"
-FC --root="$A" chain '#chat' get payload "$SPAM" || true
+FC --root="$A" chain /chat get payload "$SPAM" || true
 
 # Bob posts something he regrets and self-revokes: a self-revoke is
 # free (ungated) and absolute (no community reps lift it)
-FCH --root="$A" --now=$((MOD+20)) chain '#chat' post inline $'my address is ...\n' --sign="$KEYS/bob"
+FCH --root="$A" --now=$((MOD+20)) chain /chat post inline $'my address is ...\n' --sign="$KEYS/bob"
 REGRET=$HASH
-FC --root="$A" --now=$((MOD+30)) chain '#chat' revoke 1000 "$REGRET" --sign="$KEYS/bob"
+FC --root="$A" --now=$((MOD+30)) chain /chat revoke 1000 "$REGRET" --sign="$KEYS/bob"
 echo "-- expected failure (self-revoke is absolute):"
-FC --root="$A" chain '#chat' get payload "$REGRET" || true
+FC --root="$A" chain /chat get payload "$REGRET" || true
 
 echo
 echo "############ DONE ############"

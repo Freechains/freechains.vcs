@@ -16,7 +16,7 @@
 
 require "tests"
 
-local CHAIN  = "#cid-edges"
+local CHAIN  = "/cid-edges"
 local ROOT_A = ROOT .. "/cid-edges/A/"
 local ROOT_B = ROOT .. "/cid-edges/B/"
 local EXE_A  = ENV .. " ../src/freechains.lua --root " .. ROOT_A

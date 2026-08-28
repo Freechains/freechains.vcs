@@ -57,48 +57,48 @@ do
     -- A: G -- S[K1]
     TEST "A creates chain + seeds seed.txt"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#cg2' init " .. GEN_2,
+        cmd = EXE_A .. " --now=1000 chains add /cg2 init " .. GEN_2,
     }
     local seed = exec {
-        cmd = EXE_A .. " --now=1100 chain '#cg2' post inline 'seed\n' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1100 chain /cg2 post inline 'seed\n' --sign " .. KEY1,
     }
 
     -- K2 pays 1, 10% burned, half credited to K1 -> K1 > K2
     TEST "KEY2 likes seed (loses reps, KEY1 > KEY2 at fork)"
     local like = exec {
-        cmd = EXE_A .. " --now=1200 chain '#cg2' like 1000 action " .. seed .. " --sign " .. KEY2,
+        cmd = EXE_A .. " --now=1200 chain /cg2 like 1000 action " .. seed .. " --sign " .. KEY2,
     }
 
     -- A: G -- S -- L      B: G -- S -- L      C: G -- S -- L
     TEST "B and C clone cg2"
     exec {
-        cmd = EXE_B .. " chains add '#cg2' clone " .. ROOT_A .. "/chains/#cg2/",
+        cmd = EXE_B .. " chains add /cg2 clone " .. ROOT_A .. "/chains/cg2/",
     }
     exec {
-        cmd = EXE_C .. " chains add '#cg2' clone " .. ROOT_A .. "/chains/#cg2/",
+        cmd = EXE_C .. " chains add /cg2 clone " .. ROOT_A .. "/chains/cg2/",
     }
 
     -- B: ... L -- low[K2]        (lower reps, EARLIER)
     TEST "B posts low with KEY2"
     local low = exec {
-        cmd = EXE_B .. " --now=1300 chain '#cg2' post inline 'low\n' --sign " .. KEY2,
+        cmd = EXE_B .. " --now=1300 chain /cg2 post inline 'low\n' --sign " .. KEY2,
     }
 
     -- A: ... L -- high[K1]       (higher reps, 2 HOURS LATER)
     TEST "A posts high with KEY1, 2 hours after low"
     local high = exec {
-        cmd = EXE_A .. " --now=" .. (1300+2*HOUR) .. " chain '#cg2' post inline 'high\n' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=" .. (1300+2*HOUR) .. " chain /cg2 post inline 'high\n' --sign " .. KEY1,
     }
 
     -- A: ... L -- {high, low} -- M     KEY1 wins: high is ordered FIRST
     TEST "A recvs B: KEY1 wins, so the newer post is ordered first"
     exec {
-        cmd = EXE_A .. " --now=" .. (1300+3*HOUR) .. " chain '#cg2' sync recv " .. ROOT_B .. "/chains/#cg2/",
+        cmd = EXE_A .. " --now=" .. (1300+3*HOUR) .. " chain /cg2 sync recv " .. ROOT_B .. "/chains/cg2/",
     }
 
     TEST "A order: seed, like, high, low"
     do
-        local O = ORDER(EXE_A, "#cg2")
+        local O = ORDER(EXE_A, "/cg2")
         assert(#O == 4, "expected 4 entries, got " .. #O)
         assert(O[3] == high, "high should precede low")
         assert(O[4] == low,  "low should be last")
@@ -106,13 +106,13 @@ do
 
     TEST "C recvs A: replaying that order must not be rejected"
     exec {
-        cmd = EXE_C .. " --now=" .. (1300+4*HOUR) .. " chain '#cg2' sync recv " .. ROOT_A .. "/chains/#cg2/",
+        cmd = EXE_C .. " --now=" .. (1300+4*HOUR) .. " chain /cg2 sync recv " .. ROOT_A .. "/chains/cg2/",
     }
 
     TEST "C holds the same order as A"
     do
-        local OA = ORDER(EXE_A, "#cg2")
-        local OC = ORDER(EXE_C, "#cg2")
+        local OA = ORDER(EXE_A, "/cg2")
+        local OC = ORDER(EXE_C, "/cg2")
         assert(#OC == #OA, "order length differs: A=" .. #OA .. " C=" .. #OC)
         for i = 1, #OA do
             assert(OC[i] == OA[i], "order differs at " .. i .. ": A=" .. OA[i] .. " C=" .. OC[i])

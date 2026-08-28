@@ -31,19 +31,19 @@ end
 do
     print("==> sync rejects post with insufficient reputation")
 
-    local REPO_A1 = ROOT_A .. "/chains/#err-reps/"
+    local REPO_A1 = ROOT_A .. "/chains/err-reps/"
 
     TEST "A creates chain + post"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#err-reps' init " .. GEN_1,
+        cmd = EXE_A .. " --now=1000 chains add /err-reps init " .. GEN_1,
     }
     local legit = exec {
-        cmd = EXE_A .. " --now=2000 chain '#err-reps' post inline 'legit' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=2000 chain /err-reps post inline 'legit' --sign " .. KEY1,
     }
 
     TEST "B clones from A"
     exec {
-        cmd = EXE_B .. " chains add '#err-reps' clone " .. REPO_A1,
+        cmd = EXE_B .. " chains add /err-reps clone " .. REPO_A1,
     }
 
     TEST "A crafts post signed by non-pioneer (0 reps)"
@@ -51,7 +51,7 @@ do
 
     TEST "B rejects post with insufficient reps on sync"
     FAIL {
-        cmd = EXE_B .. " --now=3000 chain '#err-reps' sync recv " .. REPO_A1,
+        cmd = EXE_B .. " --now=3000 chain /err-reps sync recv " .. REPO_A1,
         err = "ERROR : chain sync : invalid post : insufficient reputation",
     }
 end
@@ -60,19 +60,19 @@ end
 do
     print("==> sync rejects post with too old timestamp")
 
-    local REPO_A2 = ROOT_A .. "/chains/#err-time/"
+    local REPO_A2 = ROOT_A .. "/chains/err-time/"
 
     TEST "A creates chain + post"
     exec {
-        cmd = EXE_A .. " --now=10000 chains add '#err-time' init " .. GEN_1,
+        cmd = EXE_A .. " --now=10000 chains add /err-time init " .. GEN_1,
     }
     local legit = exec {
-        cmd = EXE_A .. " --now=11000 chain '#err-time' post inline 'legit' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=11000 chain /err-time post inline 'legit' --sign " .. KEY1,
     }
 
     TEST "B clones from A"
     exec {
-        cmd = EXE_B .. " chains add '#err-time' clone " .. REPO_A2,
+        cmd = EXE_B .. " chains add /err-time clone " .. REPO_A2,
     }
 
     TEST "A crafts post with old timestamp"
@@ -80,7 +80,7 @@ do
 
     TEST "B rejects post with old timestamp on sync"
     FAIL {
-        cmd = EXE_B .. " --now=11000 chain '#err-time' sync recv " .. REPO_A2,
+        cmd = EXE_B .. " --now=11000 chain /err-time sync recv " .. REPO_A2,
         err = "ERROR : chain sync : invalid post : too old",
     }
 end
@@ -91,29 +91,29 @@ end
 do
     print("==> sync rejects post with future timestamp")
 
-    local REPO_A5 = ROOT_A .. "/chains/#err-future/"
+    local REPO_A5 = ROOT_A .. "/chains/err-future/"
 
     TEST "A creates chain + post"
     exec {
-        cmd = EXE_A .. " --now=10000 chains add '#err-future' init " .. GEN_1,
+        cmd = EXE_A .. " --now=10000 chains add /err-future init " .. GEN_1,
     }
     exec {
-        cmd = EXE_A .. " --now=11000 chain '#err-future' post inline 'legit' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=11000 chain /err-future post inline 'legit' --sign " .. KEY1,
     }
 
     TEST "B clones from A"
     exec {
-        cmd = EXE_B .. " chains add '#err-future' clone " .. REPO_A5,
+        cmd = EXE_B .. " chains add /err-future clone " .. REPO_A5,
     }
 
     TEST "A posts far in the future (its own clock, its own rule)"
     exec {
-        cmd = EXE_A .. " --now=99999999 chain '#err-future' post inline 'ahead' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=99999999 chain /err-future post inline 'ahead' --sign " .. KEY1,
     }
 
     TEST "B rejects the future post on sync"
     FAIL {
-        cmd = EXE_B .. " --now=12000 chain '#err-future' sync recv " .. REPO_A5,
+        cmd = EXE_B .. " --now=12000 chain /err-future sync recv " .. REPO_A5,
         err = "ERROR : chain sync : invalid post : too new",
     }
 end
@@ -122,24 +122,24 @@ end
 do
     print("==> sync rejects forged signature post")
 
-    local REPO_A3 = ROOT_A .. "/chains/#err-forge/"
+    local REPO_A3 = ROOT_A .. "/chains/err-forge/"
 
     TEST "A creates chain + post"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#err-forge' init " .. GEN_1,
+        cmd = EXE_A .. " --now=1000 chains add /err-forge init " .. GEN_1,
     }
     exec {
-        cmd = EXE_A .. " --now=2000 chain '#err-forge' post inline 'legit' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=2000 chain /err-forge post inline 'legit' --sign " .. KEY1,
     }
 
     TEST "B clones from A"
     exec {
-        cmd = EXE_B .. " chains add '#err-forge' clone " .. REPO_A3,
+        cmd = EXE_B .. " chains add /err-forge clone " .. REPO_A3,
     }
 
     TEST "A crafts a post with forged signature"
     exec {
-        cmd = EXE_A .. " --now=3000 chain '#err-forge' post inline 'original content' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=3000 chain /err-forge post inline 'original content' --sign " .. KEY1,
     }
     -- Tamper the SIGNED action (the message): flip the time digit
     -- so the body still parses but the ssh signature no longer
@@ -162,7 +162,7 @@ do
 
     TEST "B rejects forged signature on sync"
     FAIL {
-        cmd = EXE_B .. " --now=3000 chain '#err-forge' sync recv " .. REPO_A3,
+        cmd = EXE_B .. " --now=3000 chain /err-forge sync recv " .. REPO_A3,
         err = "ERROR : chain sync : malformed commit : invalid signature",
     }
 end
@@ -173,12 +173,12 @@ do
 
     TEST "sync recv from nonexistent remote"
     local err = FAIL {
-        cmd = EXE_A .. " chain '#err-forge' sync recv /nonexistent/repo",
+        cmd = EXE_A .. " chain /err-forge sync recv /nonexistent/repo",
     }
     assert(err == [[
 ERROR : chain sync : fetch failed
 >>>
-fatal: '/nonexistent/repo/#err-forge' does not appear to be a git repository
+fatal: '/nonexistent/repo' does not appear to be a git repository
 fatal: Could not read from remote repository.
 
 Please make sure you have the correct access rights

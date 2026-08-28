@@ -10,9 +10,9 @@ local EXE_A  = ENV .. " ../src/freechains.lua --root " .. ROOT_A
 local EXE_B  = ENV .. " ../src/freechains.lua --root " .. ROOT_B
 local EXE_X  = ENV .. " ../src/freechains.lua --root " .. ROOT_X
 
-local REPO_A = ROOT_A .. "/chains/#test/"
-local REPO_B = ROOT_B .. "/chains/#test/"
-local REPO_X = ROOT_X .. "/chains/#test/"
+local REPO_A = ROOT_A .. "/chains/test/"
+local REPO_B = ROOT_B .. "/chains/test/"
+local REPO_X = ROOT_X .. "/chains/test/"
 
 exec {
     cmd = "mkdir -p " .. ROOT_A,
@@ -26,10 +26,10 @@ exec {
 
 -- shared setup: A creates chain, B clones
 exec {
-    cmd = EXE_A .. " --now=1000 chains add '#test' init " .. GEN_1,
+    cmd = EXE_A .. " --now=1000 chains add /test init " .. GEN_1,
 }
 exec {
-    cmd = EXE_B .. " chains add '#test' clone " .. REPO_A,
+    cmd = EXE_B .. " chains add /test clone " .. REPO_A,
 }
 -- A:  G
 -- B:  G
@@ -54,14 +54,14 @@ do
 
     TEST "A posts"
     P1 = exec {
-        cmd = EXE_A .. " --now=2000 chain '#test' post inline 'p1' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=2000 chain /test post inline 'p1' --sign " .. KEY1,
     }
     -- A:  G ── [post] P1
     -- B:  G
 
     TEST "B recvs from A"
     exec {
-        cmd = EXE_B .. " chain '#test' sync recv " .. REPO_A,
+        cmd = EXE_B .. " chain /test sync recv " .. REPO_A,
     }
     -- A:  G ── P1
     -- B:  G ── P1
@@ -76,14 +76,14 @@ do
 
     TEST "A posts"
     exec {
-        cmd = EXE_A .. " --now=3000 chain '#test' post inline 'p2' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=3000 chain /test post inline 'p2' --sign " .. KEY1,
     }
     -- A:  G ── P1 ── [post] P2
     -- B:  G ── P1
 
     TEST "A sends to B"
     exec {
-        cmd = EXE_A .. " chain '#test' sync send " .. REPO_B,
+        cmd = EXE_A .. " chain /test sync send " .. REPO_B,
     }
     -- A:  G ── P1 ── P2
     -- B:  G ── P1 ── P2
@@ -98,7 +98,7 @@ do
 
     TEST "A creates a beg"
     BEG_K2 = exec {
-        cmd = EXE_A .. " --now=4000 chain '#test' post inline 'please' --beg --sign " .. KEY2,
+        cmd = EXE_A .. " --now=4000 chain /test post inline 'please' --beg --sign " .. KEY2,
     }
     assert(#BEG_K2 == 40)
     assert(begs(REPO_A):match("beg%-" .. BEG_K2))
@@ -108,7 +108,7 @@ do
 
     TEST "B recvs from A"
     exec {
-        cmd = EXE_B .. " chain '#test' sync recv " .. REPO_A,
+        cmd = EXE_B .. " chain /test sync recv " .. REPO_A,
     }
     -- A:  G ── P1 ── P2        refs/begs/beg-BEG -> BEG
     --                └── [beg] BEG
@@ -125,7 +125,7 @@ do
 
     TEST "A creates another beg"
     BEG_K3 = exec {
-        cmd = EXE_A .. " --now=5000 chain '#test' post inline 'help' --beg --sign " .. KEY3,
+        cmd = EXE_A .. " --now=5000 chain /test post inline 'help' --beg --sign " .. KEY3,
     }
     assert(#BEG_K3 == 40)
     -- A:  G ── P1 ── P2        refs/begs/{BEG1, BEG2}
@@ -136,7 +136,7 @@ do
 
     TEST "A sends to B"
     exec {
-        cmd = EXE_A .. " chain '#test' sync send " .. REPO_B,
+        cmd = EXE_A .. " chain /test sync send " .. REPO_B,
     }
     -- A:  G ── P1 ── P2        refs/begs/{BEG1, BEG2}
     --                ├── BEG1
@@ -156,7 +156,7 @@ do
     TEST "A likes BEG_K2 (promote + prune ref on A)"
     local beg = BEG_K2
     L_K2 = exec {
-        cmd = EXE_A .. " --now=6000 chain '#test' like 1000 action " .. beg .. " --sign " .. KEY1,
+        cmd = EXE_A .. " --now=6000 chain /test like 1000 action " .. beg .. " --sign " .. KEY1,
     }
     assert(not begs(REPO_A):match(beg), "A's beg ref should be pruned")
     -- A:  G ── P1 ── P2 ── [like] L      refs/begs/{BEG2}
@@ -167,7 +167,7 @@ do
 
     TEST "B recvs from A"
     exec {
-        cmd = EXE_B .. " chain '#test' sync recv " .. REPO_A,
+        cmd = EXE_B .. " chain /test sync recv " .. REPO_A,
     }
     -- A:  G ── P1 ── P2 ── L      refs/begs/{BEG2}
     --                └── BEG2
@@ -184,7 +184,7 @@ do
 
     TEST "X clones from B"
     exec {
-        cmd = EXE_X .. " chains add '#test' clone " .. REPO_B,
+        cmd = EXE_X .. " chains add /test clone " .. REPO_B,
     }
 
     TEST "X crafts a raw like signed by KEY3 (0 reps) targeting P1"
@@ -197,7 +197,7 @@ do
 
     TEST "X sends to B: rejected"
     local err = FAIL {
-        cmd = EXE_X .. " chain '#test' sync send " .. REPO_B,
+        cmd = EXE_X .. " chain /test sync send " .. REPO_B,
     }
     assert (
         err and err:find("insufficient reputation"),
@@ -211,7 +211,7 @@ do
 
     TEST "A likes BEG_K3 (promote + prune ref on A)"
     exec {
-        cmd = EXE_A .. " --now=8000 chain '#test' like 1000 action " .. BEG_K3 .. " --sign " .. KEY1,
+        cmd = EXE_A .. " --now=8000 chain /test like 1000 action " .. BEG_K3 .. " --sign " .. KEY1,
     }
     assert(not begs(REPO_A):match(BEG_K3), "A's beg ref should be pruned")
     -- A:  ... ── L_K2 ── [like] L_K3      refs/begs/{}
@@ -220,7 +220,7 @@ do
 
     TEST "A sends to B"
     exec {
-        cmd = EXE_A .. " chain '#test' sync send " .. REPO_B,
+        cmd = EXE_A .. " chain /test sync send " .. REPO_B,
     }
     -- A:  ... ── L_K2 ── L_K3      refs/begs/{}
     -- B:  ... ── L_K2 ── L_K3      refs/begs/{}

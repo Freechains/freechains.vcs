@@ -55,8 +55,8 @@
 
 require "tests"
 
-local DIR1 = ROOT .. "/chains/#cli-abandon-1/"
-local DIR2 = ROOT .. "/chains/#cli-abandon-2/"
+local DIR1 = ROOT .. "/chains/cli-abandon-1/"
+local DIR2 = ROOT .. "/chains/cli-abandon-2/"
 
 local WEEK = 7 * 24 * 60 * 60
 
@@ -72,27 +72,27 @@ do
     -- G
     TEST "create chain"
     exec {
-        cmd = ENV_EXE .. " chains add '#cli-abandon-1' init " .. GEN_1,
+        cmd = ENV_EXE .. " chains add /cli-abandon-1 init " .. GEN_1,
     }
 
     -- G -- p1[K1]
     TEST "post p1"
     local p1 = exec {
-        cmd = ENV_EXE .. " chain '#cli-abandon-1' post inline 'p1\n' --sign " .. KEY1,
+        cmd = ENV_EXE .. " chain /cli-abandon-1 post inline 'p1\n' --sign " .. KEY1,
     }
-    local at_p1 = REPS(ENV_EXE, "#cli-abandon-1", PUB1)
+    local at_p1 = REPS(ENV_EXE, "/cli-abandon-1", PUB1)
 
     -- G -- p1[K1] -- p2[K1]
     TEST "post p2"
     local p2 = exec {
-        cmd = ENV_EXE .. " chain '#cli-abandon-1' post inline 'p2\n' --sign " .. KEY1,
+        cmd = ENV_EXE .. " chain /cli-abandon-1 post inline 'p2\n' --sign " .. KEY1,
     }
-    local at_p2 = REPS(ENV_EXE, "#cli-abandon-1", PUB1)
+    local at_p2 = REPS(ENV_EXE, "/cli-abandon-1", PUB1)
 
     -- G -- p1[K1] -- p2[K1] -- p3[K1]
     TEST "post p3"
     local p3 = exec {
-        cmd = ENV_EXE .. " chain '#cli-abandon-1' post inline 'p3\n' --sign " .. KEY1,
+        cmd = ENV_EXE .. " chain /cli-abandon-1 post inline 'p3\n' --sign " .. KEY1,
     }
 
     -- capture p2's commit + its state blob BEFORE abandon, to prove
@@ -107,7 +107,7 @@ do
     do
         TEST "abandon lists every abandoned post"
         local out = exec {
-            cmd = ENV_EXE .. " chain '#cli-abandon-1' abandon " .. p2,
+            cmd = ENV_EXE .. " chain /cli-abandon-1 abandon " .. p2,
         }
         local T = {}
         for h in out:gmatch("[^\n]+") do
@@ -134,7 +134,7 @@ do
         -- `get` is a DISK query: the abandoned bytes are still on
         -- disk (unreferenced), so readable until the gc below
         local v = exec {
-            cmd = ENV_EXE .. " chain '#cli-abandon-1' get payload " .. p2,
+            cmd = ENV_EXE .. " chain /cli-abandon-1 get payload " .. p2,
         }
         assert(v == "p2", "p2 still on disk before gc: " .. v)
     end
@@ -163,7 +163,7 @@ do
 
     do
         TEST "abandoned posts are out of the order"
-        local O, S = ORDER(ENV_EXE, "#cli-abandon-1")
+        local O, S = ORDER(ENV_EXE, "/cli-abandon-1")
         assert(#O == 1, "expected 1 entry, got " .. #O)
         assert(O[1] == p1, "p1 should be the only entry")
         assert(not S[p2], "p2 must be gone")
@@ -175,15 +175,15 @@ do
         -- the gc above reclaimed the abandoned bytes: only now
         -- does `get` stop serving them
         local v = exec {
-            cmd = ENV_EXE .. " chain '#cli-abandon-1' get payload " .. p1,
+            cmd = ENV_EXE .. " chain /cli-abandon-1 get payload " .. p1,
         }
         assert(v == "p1", "p1 payload should remain: " .. v)
         FAIL {
-            cmd = ENV_EXE .. " chain '#cli-abandon-1' get payload " .. p2,
+            cmd = ENV_EXE .. " chain /cli-abandon-1 get payload " .. p2,
             err = "ERROR : chain get : unknown post",
         }
         FAIL {
-            cmd = ENV_EXE .. " chain '#cli-abandon-1' get payload " .. p3,
+            cmd = ENV_EXE .. " chain /cli-abandon-1 get payload " .. p3,
             err = "ERROR : chain get : unknown post",
         }
     end
@@ -201,7 +201,7 @@ do
     -- state reverts with the snapshot: the abandoned posts never happened
     do
         TEST "reps are restored"
-        local now = REPS(ENV_EXE, "#cli-abandon-1", PUB1)
+        local now = REPS(ENV_EXE, "/cli-abandon-1", PUB1)
         assert(now == at_p1, "expected " .. at_p1 .. " reps, got " .. now)
     end
 
@@ -212,9 +212,9 @@ do
         -- the abandoned posts cost nothing, they never happened
         TEST "repost after abandon costs no extra reps"
         p2b = exec {
-            cmd = ENV_EXE .. " chain '#cli-abandon-1' post inline 'p2\n' --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain /cli-abandon-1 post inline 'p2\n' --sign " .. KEY1,
         }
-        local now = REPS(ENV_EXE, "#cli-abandon-1", PUB1)
+        local now = REPS(ENV_EXE, "/cli-abandon-1", PUB1)
         assert(now == at_p2, "expected " .. at_p2 .. " reps, got " .. now)
     end
 
@@ -223,10 +223,10 @@ do
         TEST "abandon the newest post removes just it (SHORT id)"
         -- ids may be abbreviated, as `list dag` prints them
         local out = exec {
-            cmd = ENV_EXE .. " chain '#cli-abandon-1' abandon " .. p2b:sub(1, 7),
+            cmd = ENV_EXE .. " chain /cli-abandon-1 abandon " .. p2b:sub(1, 7),
         }
         assert(out == p2b, "should list p2' in full: " .. out)
-        local O = ORDER(ENV_EXE, "#cli-abandon-1")
+        local O = ORDER(ENV_EXE, "/cli-abandon-1")
         assert(#O == 1, "expected 1 entry, got " .. #O)
         assert(O[1] == p1, "p1 should be the only entry")
     end
@@ -240,7 +240,7 @@ do
     -- G
     TEST "create chain"
     exec {
-        cmd = ENV_EXE .. " chains add '#cli-abandon-2' init " .. GEN_1,
+        cmd = ENV_EXE .. " chains add /cli-abandon-2 init " .. GEN_1,
     }
     local gen = exec {
         cmd = "git -C " .. DIR2 .. " rev-parse HEAD",
@@ -249,7 +249,7 @@ do
     do
         TEST "unknown hash rejects"
         FAIL {
-            cmd = ENV_EXE .. " chain '#cli-abandon-2' abandon nohash",
+            cmd = ENV_EXE .. " chain /cli-abandon-2 abandon nohash",
             err = "ERROR : chain abandon : invalid action",
         }
     end
@@ -258,7 +258,7 @@ do
     do
         TEST "genesis rejects"
         FAIL {
-            cmd = ENV_EXE .. " chain '#cli-abandon-2' abandon " .. gen,
+            cmd = ENV_EXE .. " chain /cli-abandon-2 abandon " .. gen,
             err = "ERROR : chain abandon : invalid action",
         }
     end
@@ -267,13 +267,13 @@ do
     -- a beg lives on its own ref, outside `main`
     TEST "beg b0 off the genesis"
     local b0 = exec {
-        cmd = ENV_EXE .. " chain '#cli-abandon-2' post inline 'b0\n' --beg --sign " .. KEY2,
+        cmd = ENV_EXE .. " chain /cli-abandon-2 post inline 'b0\n' --beg --sign " .. KEY2,
     }
 
     -- G -- b0[K2], b2[K2]                  (a second beg, to abandon alone)
     TEST "beg b2 off the genesis"
     local b2 = exec {
-        cmd = ENV_EXE .. " chain '#cli-abandon-2' post inline 'b2\n' --beg --sign " .. KEY2,
+        cmd = ENV_EXE .. " chain /cli-abandon-2 post inline 'b2\n' --beg --sign " .. KEY2,
     }
 
     -- G -- b0[K2]                          (b2 abandoned: nothing follows)
@@ -283,7 +283,7 @@ do
             cmd = "git -C " .. DIR2 .. " rev-parse HEAD",
         }
         local out = exec {
-            cmd = ENV_EXE .. " chain '#cli-abandon-2' abandon " .. b2,
+            cmd = ENV_EXE .. " chain /cli-abandon-2 abandon " .. b2,
         }
         assert(out == b2, "should list b2 alone: " .. out)
         local now = exec {
@@ -300,21 +300,21 @@ do
     -- G -- p1[K1]                         (b0 still off G)
     TEST "post p1"
     local p1 = exec {
-        cmd = ENV_EXE .. " chain '#cli-abandon-2' post inline 'p1\n' --sign " .. KEY1,
+        cmd = ENV_EXE .. " chain /cli-abandon-2 post inline 'p1\n' --sign " .. KEY1,
     }
 
     -- G -- p1[K1] -- b1[K2]
     -- b0 hangs off the genesis, b1 off p1: only b1 is orphaned below
     TEST "beg b1 off p1"
     local b1 = exec {
-        cmd = ENV_EXE .. " chain '#cli-abandon-2' post inline 'b1\n' --beg --sign " .. KEY2,
+        cmd = ENV_EXE .. " chain /cli-abandon-2 post inline 'b1\n' --beg --sign " .. KEY2,
     }
 
     -- G                                    (p1 abandoned, b1 unattachable)
     do
         TEST "abandon removes only the orphaned beg"
         exec {
-            cmd = ENV_EXE .. " chain '#cli-abandon-2' abandon " .. p1,
+            cmd = ENV_EXE .. " chain /cli-abandon-2 abandon " .. p1,
         }
         local head = exec {
             cmd = "git -C " .. DIR2 .. " rev-parse HEAD",
@@ -342,40 +342,40 @@ do
     -- A: G -- S[K1]
     TEST "A creates chain + seeds seed.txt"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#abandon-fork' init " .. GEN_2,
+        cmd = EXE_A .. " --now=1000 chains add /abandon-fork init " .. GEN_2,
     }
     local seed = exec {
-        cmd = EXE_A .. " --now=1100 chain '#abandon-fork' post inline 'seed\n' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1100 chain /abandon-fork post inline 'seed\n' --sign " .. KEY1,
     }
 
     -- A: G -- S      B: G -- S            (fork point = S, at t=1100)
     TEST "B clones abandon-fork"
     exec {
-        cmd = EXE_B .. " chains add '#abandon-fork' clone " .. ROOT_A .. "/chains/#abandon-fork/",
+        cmd = EXE_B .. " chains add /abandon-fork clone " .. ROOT_A .. "/chains/abandon-fork/",
     }
 
     -- A: G -- S -- a1[K1]                  (right after the fork)
     TEST "A posts a1, right after the fork"
     local a1 = exec {
-        cmd = EXE_A .. " --now=1200 chain '#abandon-fork' post inline 'a1\n' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1200 chain /abandon-fork post inline 'a1\n' --sign " .. KEY1,
     }
 
     -- A: G -- S -- a1[K1] -- a2[K1]        (a1..a2 spans 7d: entrenched)
     TEST "A posts a2 7 days later: A's exclusive commits now span 7d"
     local a2 = exec {
-        cmd = EXE_A .. " --now=" .. (1200+WEEK) .. " chain '#abandon-fork' post inline 'a2\n' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=" .. (1200+WEEK) .. " chain /abandon-fork post inline 'a2\n' --sign " .. KEY1,
     }
 
     -- B: G -- S -- beta[K2]                (single post: no span)
     TEST "B posts beta"
     local beta = exec {
-        cmd = EXE_B .. " --now=" .. (1200+WEEK) .. " chain '#abandon-fork' post inline 'beta\n' --sign " .. KEY2,
+        cmd = EXE_B .. " --now=" .. (1200+WEEK) .. " chain /abandon-fork post inline 'beta\n' --sign " .. KEY2,
     }
 
     -- A is entrenched, so it refuses to reconcile with B at all
     TEST "A recvs from B: hard fork"
     FAIL {
-        cmd = EXE_A .. " --now=" .. (1200+WEEK+100) .. " chain '#abandon-fork' sync recv " .. ROOT_B .. "/chains/#abandon-fork/",
+        cmd = EXE_A .. " --now=" .. (1200+WEEK+100) .. " chain /abandon-fork sync recv " .. ROOT_B .. "/chains/abandon-fork/",
         err = "ERROR : chain sync : hard fork",
     }
 
@@ -383,7 +383,7 @@ do
     TEST "A abandons from its first post after the fork"
     do
         local out = exec {
-            cmd = EXE_A .. " chain '#abandon-fork' abandon " .. a1,
+            cmd = EXE_A .. " chain /abandon-fork abandon " .. a1,
         }
         local T = {}
         for h in out:gmatch("[^\n]+") do
@@ -396,12 +396,12 @@ do
     -- A: G -- S -- beta[K2]                (plain fast-forward)
     TEST "A recvs from B: accepted"
     exec {
-        cmd = EXE_A .. " --now=" .. (1200+WEEK+200) .. " chain '#abandon-fork' sync recv " .. ROOT_B .. "/chains/#abandon-fork/",
+        cmd = EXE_A .. " --now=" .. (1200+WEEK+200) .. " chain /abandon-fork sync recv " .. ROOT_B .. "/chains/abandon-fork/",
     }
 
     TEST "A holds B's branch"
     do
-        local O, S = ORDER(EXE_A, "#abandon-fork")
+        local O, S = ORDER(EXE_A, "/abandon-fork")
         assert(#O == 2, "expected 2 entries, got " .. #O)
         assert(O[1] == seed, "seed should be first")
         assert(O[2] == beta, "beta should be second")
@@ -410,20 +410,20 @@ do
     -- A: G -- S -- beta[K2] -- a3[K1]      (a1 reposted: new hash)
     TEST "A reposts on top of the settled branch"
     local a3 = exec {
-        cmd = EXE_A .. " --now=" .. (1200+WEEK+300) .. " chain '#abandon-fork' post inline 'a1\n' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=" .. (1200+WEEK+300) .. " chain /abandon-fork post inline 'a1\n' --sign " .. KEY1,
     }
     assert(a3 ~= a1, "repost should be a new post")
 
     -- B: G -- S -- beta[K2] -- a3[K1]      (both peers converge)
     TEST "B recvs from A: back in sync"
     exec {
-        cmd = EXE_B .. " --now=" .. (1200+WEEK+400) .. " chain '#abandon-fork' sync recv " .. ROOT_A .. "/chains/#abandon-fork/",
+        cmd = EXE_B .. " --now=" .. (1200+WEEK+400) .. " chain /abandon-fork sync recv " .. ROOT_A .. "/chains/abandon-fork/",
     }
 
     TEST "both peers agree on the order"
     do
-        local OA = ORDER(EXE_A, "#abandon-fork")
-        local OB = ORDER(EXE_B, "#abandon-fork")
+        local OA = ORDER(EXE_A, "/abandon-fork")
+        local OB = ORDER(EXE_B, "/abandon-fork")
         assert(#OA == 3, "expected 3 entries in A, got " .. #OA)
         assert(#OB == 3, "expected 3 entries in B, got " .. #OB)
         for i = 1, 3 do

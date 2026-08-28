@@ -15,9 +15,9 @@ local EXE_A  = ENV .. " ../src/freechains.lua --root=" .. ROOT_A
 local EXE_B  = ENV .. " ../src/freechains.lua --root=" .. ROOT_B
 local EXE_C  = ENV .. " ../src/freechains.lua --root=" .. ROOT_C
 
-local REPO_A = ROOT_A .. "/chains/#test/"
-local REPO_B = ROOT_B .. "/chains/#test/"
-local REPO_C = ROOT_C .. "/chains/#test/"
+local REPO_A = ROOT_A .. "/chains/test/"
+local REPO_B = ROOT_B .. "/chains/test/"
+local REPO_C = ROOT_C .. "/chains/test/"
 
 exec {
     cmd = "mkdir -p " .. ROOT_A .. "/chains",
@@ -78,16 +78,16 @@ do
     do
         TEST "chain created"
         CHAIN_HASH = exec {
-            cmd = EXE_A .. " chains add '#test' init " .. GEN_0,
+            cmd = EXE_A .. " chains add /test init " .. GEN_0,
         }
-        assert(#CHAIN_HASH == 41, "hash: " .. CHAIN_HASH)
-        assert(CHAIN_HASH:match("^#%x+$"), "not hex")
+        assert(#CHAIN_HASH == 40, "hash: " .. CHAIN_HASH)
+        assert(CHAIN_HASH:match("^%x+$"), "not hex")
     end
 
     do
         TEST "beg on A"
         local out = exec {
-            cmd = EXE_A .. " chain '#test' post inline 'post from A' --beg",
+            cmd = EXE_A .. " chain /test post inline 'post from A' --beg",
         }
         assert(#out == 40, "hash: " .. out)
         assert(out:match("^%x+$"), "not hex")
@@ -101,7 +101,7 @@ do
     do
         TEST "clone succeeds"
         exec {
-            cmd = EXE_B .. " chains add '#test' clone '" .. URL_A .. "#test/'",
+            cmd = EXE_B .. " chains add /test clone '" .. URL_A .. "test/'",
         }
     end
 
@@ -131,7 +131,7 @@ do
     do
         TEST "beg on B"
         local out = exec {
-            cmd = EXE_B .. " chain '#test' post inline 'post from B' --beg",
+            cmd = EXE_B .. " chain /test post inline 'post from B' --beg",
         }
         assert(#out == 40, "hash: " .. out)
         assert(out:match("^%x+$"), "not hex")
@@ -145,13 +145,13 @@ do
     do
         TEST "A fetches begs from B"
         local _, code = exec {
-            cmd = "git -C " .. REPO_A .. " fetch '" .. URL_B .. "#test/' refs/begs/*:refs/begs/*",
+            cmd = "git -C " .. REPO_A .. " fetch '" .. URL_B .. "test/' refs/begs/*:refs/begs/*",
         }
         assert(code == 0, "fetch failed")
 
         TEST "B fetches begs from A"
         local _, code = exec {
-            cmd = "git -C " .. REPO_B .. " fetch '" .. URL_A .. "#test/' refs/begs/*:refs/begs/*",
+            cmd = "git -C " .. REPO_B .. " fetch '" .. URL_A .. "test/' refs/begs/*:refs/begs/*",
         }
         assert(code == 0, "fetch failed")
     end
@@ -170,13 +170,13 @@ do
     do
         TEST "A begs again"
         local out = exec {
-            cmd = EXE_A .. " chain '#test' post inline 'second from A' --beg",
+            cmd = EXE_A .. " chain /test post inline 'second from A' --beg",
         }
         assert(#out == 40, "hash: " .. out)
 
         TEST "B begs again"
         local out = exec {
-            cmd = EXE_B .. " chain '#test' post inline 'second from B' --beg",
+            cmd = EXE_B .. " chain /test post inline 'second from B' --beg",
         }
         assert(#out == 40, "hash: " .. out)
     end
@@ -184,10 +184,10 @@ do
     do
         TEST "exchange again: 4 beg refs each, equal"
         exec {
-            cmd = "git -C " .. REPO_A .. " fetch '" .. URL_B .. "#test/' refs/begs/*:refs/begs/*",
+            cmd = "git -C " .. REPO_A .. " fetch '" .. URL_B .. "test/' refs/begs/*:refs/begs/*",
         }
         exec {
-            cmd = "git -C " .. REPO_B .. " fetch '" .. URL_A .. "#test/' refs/begs/*:refs/begs/*",
+            cmd = "git -C " .. REPO_B .. " fetch '" .. URL_A .. "test/' refs/begs/*:refs/begs/*",
         }
         local a = exec {
             cmd = "git -C " .. REPO_A .. " for-each-ref refs/begs/ --sort=refname --format='%(refname) %(objectname)'",
@@ -207,14 +207,14 @@ do
     print("==> Unrelated histories rejected")
 
     local h = exec {
-        cmd = EXE_C .. " chains add '#test' init " .. GEN_0,
+        cmd = EXE_C .. " chains add /test init " .. GEN_0,
     }
     assert(h ~= CHAIN_HASH, "should differ")
 
     do
         TEST "fetch begs from A succeeds"
         local _, code = exec {
-            cmd = "git -C " .. REPO_C .. " fetch '" .. URL_A .. "#test/' refs/begs/*:refs/begs/*",
+            cmd = "git -C " .. REPO_C .. " fetch '" .. URL_A .. "test/' refs/begs/*:refs/begs/*",
         }
         assert(code == 0, "fetch should succeed")
     end
@@ -296,7 +296,7 @@ do
     do
         TEST "B fetches HEAD from A"
         local _, code = exec {
-            cmd = "git -C " .. REPO_B .. " fetch '" .. URL_A .. "#test/' main",
+            cmd = "git -C " .. REPO_B .. " fetch '" .. URL_A .. "test/' main",
         }
         assert(code == 0, "fetch HEAD failed")
 

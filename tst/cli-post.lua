@@ -2,10 +2,10 @@
 
 require "tests"
 
-local DIR = ROOT .. "/chains/#cli-post/"
+local DIR = ROOT .. "/chains/cli-post/"
 
 exec {
-    cmd = ENV_EXE .. " chains add '#cli-post' init --pioneer=" .. KEY1,
+    cmd = ENV_EXE .. " chains add /cli-post init --pioneer=" .. KEY1,
 }
 
 -- POST FILE
@@ -16,7 +16,7 @@ do
     do
         TEST "post file success"
         local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-post' post file hello.txt --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain /cli-post post file hello.txt --sign " .. KEY1,
         }
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -27,7 +27,7 @@ do
     do
         TEST "payload retrievable (out of the tree)"
         local v = exec {
-            cmd = ENV_EXE .. " chain '#cli-post' get payload " .. P1,
+            cmd = ENV_EXE .. " chain /cli-post get payload " .. P1,
         }
         assert(v == "Hello World!", "content: " .. v)
     end
@@ -63,15 +63,15 @@ do
         f:write("collision attempt\n")
         f:close()
         local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-post' post file " .. tmp .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain /cli-post post file " .. tmp .. " --sign " .. KEY1,
         }
         assert(code == 0, "exit code: " .. tostring(code))
         local v2 = exec {
-            cmd = ENV_EXE .. " chain '#cli-post' get payload " .. out,
+            cmd = ENV_EXE .. " chain /cli-post get payload " .. out,
         }
         assert(v2 == "collision attempt", "content: " .. v2)
         local v1 = exec {
-            cmd = ENV_EXE .. " chain '#cli-post' get payload " .. P1,
+            cmd = ENV_EXE .. " chain /cli-post get payload " .. P1,
         }
         assert(v1 == "Hello World!", "first payload should be intact: " .. v1)
     end
@@ -84,12 +84,12 @@ do
     do
         TEST "inline payload retrievable"
         local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-post' post inline 'Quick note' --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain /cli-post post inline 'Quick note' --sign " .. KEY1,
         }
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
         local v = exec {
-            cmd = ENV_EXE .. " chain '#cli-post' get payload " .. out,
+            cmd = ENV_EXE .. " chain /cli-post get payload " .. out,
         }
         assert(v == "Quick note", "content: " .. v)
     end
@@ -111,7 +111,7 @@ do
     do
         TEST "post rejects --why"
         local _, code = exec { err=false, stderr=false,
-            cmd = ENV_EXE .. " chain '#cli-post' post inline 'some text' --sign " .. KEY1 .. " --why 'reason'",
+            cmd = ENV_EXE .. " chain /cli-post post inline 'some text' --sign " .. KEY1 .. " --why 'reason'",
         }
         assert(code ~= 0, "--why should be rejected")
     end
@@ -119,7 +119,7 @@ do
     do
         TEST "post commit message IS the action table"
         local p = exec {
-            cmd = ENV_EXE .. " chain '#cli-post' post inline 'no reason' --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain /cli-post post inline 'no reason' --sign " .. KEY1,
         }
         local msg = exec { trim=false,
             cmd = "git -C " .. DIR .. " log -1 --format=%B HEAD",
@@ -142,15 +142,15 @@ do
         TEST "post to nonexistent chain fails"
         local tmp = TMP .. "/hello.txt"
         FAIL {
-            cmd = ENV_EXE .. " chain '#nochain' post file " .. tmp .. " --sign " .. KEY1,
-            err = "ERROR : chain #nochain : not found",
+            cmd = ENV_EXE .. " chain /nochain post file " .. tmp .. " --sign " .. KEY1,
+            err = "ERROR : chain /nochain : not found",
         }
     end
 
     do
         TEST "post inline rejects --file"
         local err = FAIL {
-            cmd = ENV_EXE .. " chain '#cli-post' post inline 'x' --file /tmp/x --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain /cli-post post inline 'x' --file /tmp/x --sign " .. KEY1,
         }
         assert(err:match("Error: unknown option '%-%-file'"), "should reject --file")
     end
@@ -159,7 +159,7 @@ do
         TEST "post file copy failed"
         -- the error carries cp's own detail (>>> ... <<<)
         local err = FAIL {
-            cmd = ENV_EXE .. " chain '#cli-post' post file /tmp/nonexistent-file.txt --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain /cli-post post file /tmp/nonexistent-file.txt --sign " .. KEY1,
         }
         assert(err == [[
 ERROR : chain post : invalid path

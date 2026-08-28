@@ -2,17 +2,17 @@
 
 require "tests"
 
-local DIR = ROOT .. "/chains/#cli-get/"
+local DIR = ROOT .. "/chains/cli-get/"
 local UNKNOWN = "0000000000000000000000000000000000000000"
 
 exec {
-    cmd = ENV_EXE .. " chains add '#cli-get' init " .. GEN_2,
+    cmd = ENV_EXE .. " chains add /cli-get init " .. GEN_2,
 }
 local POST = exec {
-    cmd = ENV_EXE .. " chain '#cli-get' post inline 'hello world' --sign " .. KEY1,
+    cmd = ENV_EXE .. " chain /cli-get post inline 'hello world' --sign " .. KEY1,
 }
 local LIKE = exec {
-    cmd = ENV_EXE .. " chain '#cli-get' like 1000 action " .. POST .. " --sign " .. KEY2,
+    cmd = ENV_EXE .. " chain /cli-get like 1000 action " .. POST .. " --sign " .. KEY2,
 }
 local GENESIS = exec {
     cmd = "git -C " .. DIR .. " rev-list --max-parents=0 HEAD",
@@ -21,19 +21,19 @@ local GENESIS = exec {
 -- unsigned post: --beg stores it in refs/begs/, then a like merges it
 -- back into the main chain so it becomes reachable from HEAD
 local UNSIGNED = exec {
-    cmd = ENV_EXE .. " chain '#cli-get' post inline 'unsigned content' --beg",
+    cmd = ENV_EXE .. " chain /cli-get post inline 'unsigned content' --beg",
 }
 local MERGE_LIKE = exec {
-    cmd = ENV_EXE .. " chain '#cli-get' like 1000 action " .. UNSIGNED .. " --sign " .. KEY2,
+    cmd = ENV_EXE .. " chain /cli-get like 1000 action " .. UNSIGNED .. " --sign " .. KEY2,
 }
 
 -- a separate post + a community revoke of it, to exercise the revoke
 -- kind (revoking POST would hide it and break the payload test above)
 local RPOST = exec {
-    cmd = ENV_EXE .. " chain '#cli-get' post inline 'to be revoked' --sign " .. KEY1,
+    cmd = ENV_EXE .. " chain /cli-get post inline 'to be revoked' --sign " .. KEY1,
 }
 local REVOKE = exec {
-    cmd = ENV_EXE .. " chain '#cli-get' revoke 1000 " .. RPOST .. " --sign " .. KEY2,
+    cmd = ENV_EXE .. " chain /cli-get revoke 1000 " .. RPOST .. " --sign " .. KEY2,
 }
 
 -- GET PAYLOAD
@@ -43,7 +43,7 @@ do
     do
         TEST "payload of post"
         local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-get' get payload " .. POST,
+            cmd = ENV_EXE .. " chain /cli-get get payload " .. POST,
         }
         assert(code == 0, "exit code: " .. tostring(code))
         assert(out == "hello world", "content: " .. out)
@@ -52,7 +52,7 @@ do
     do
         TEST "payload of like (no --why): empty"
         local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-get' get payload " .. LIKE,
+            cmd = ENV_EXE .. " chain /cli-get get payload " .. LIKE,
         }
         assert(code == 0, "exit code: " .. tostring(code))
         assert(out == "", "content: " .. out)
@@ -61,7 +61,7 @@ do
     do
         TEST "payload of revoke (no --why): empty"
         local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-get' get payload " .. REVOKE,
+            cmd = ENV_EXE .. " chain /cli-get get payload " .. REVOKE,
         }
         assert(code == 0, "exit code: " .. tostring(code))
         assert(out == "", "content: " .. out)
@@ -72,7 +72,7 @@ do
         -- ids are printed abbreviated (`list dag`), so a prefix must
         -- resolve, like git does with commit hashes
         local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-get' get payload " .. POST:sub(1, 7),
+            cmd = ENV_EXE .. " chain /cli-get get payload " .. POST:sub(1, 7),
         }
         assert(code == 0, "exit code: " .. tostring(code))
         assert(out == "hello world", "content: " .. out)
@@ -82,7 +82,7 @@ do
         TEST "payload of a TOO SHORT id"
         -- one char cannot even name the bucket
         FAIL {
-            cmd = ENV_EXE .. " chain '#cli-get' get payload " .. POST:sub(1, 1),
+            cmd = ENV_EXE .. " chain /cli-get get payload " .. POST:sub(1, 1),
             err = "ERROR : chain get : unknown post",
         }
     end
@@ -90,7 +90,7 @@ do
     do
         TEST "metadata of a SHORT id"
         local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-get' get metadata " .. POST:sub(1, 7),
+            cmd = ENV_EXE .. " chain /cli-get get metadata " .. POST:sub(1, 7),
         }
         assert(code == 0, "exit code: " .. tostring(code))
         local T = META(out)
@@ -102,17 +102,17 @@ do
         -- a beg must be READABLE before it is liked (admission is
         -- a judgment on content): getable while still parked
         local BEG = exec {
-            cmd = ENV_EXE .. " chain '#cli-get' post inline 'read me first' --beg",
+            cmd = ENV_EXE .. " chain /cli-get post inline 'read me first' --beg",
         }
         local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-get' get payload " .. BEG,
+            cmd = ENV_EXE .. " chain /cli-get get payload " .. BEG,
         }
         assert(code == 0, "exit code: " .. tostring(code))
         assert(out == "read me first", "content: " .. out)
 
         TEST "metadata of a PARKED beg"
         local T = META(exec {
-            cmd = ENV_EXE .. " chain '#cli-get' get metadata " .. BEG,
+            cmd = ENV_EXE .. " chain /cli-get get metadata " .. BEG,
         })
         assert(T.action == "post", "action: " .. tostring(T.action))
         assert(T.sign == nil, "beg is unsigned: " .. tostring(T.sign))
@@ -121,7 +121,7 @@ do
     do
         TEST "payload of genesis"
         FAIL {
-            cmd = ENV_EXE .. " chain '#cli-get' get payload " .. GENESIS,
+            cmd = ENV_EXE .. " chain /cli-get get payload " .. GENESIS,
             err = "ERROR : chain get : unknown post",
         }
     end
@@ -129,7 +129,7 @@ do
     do
         TEST "payload of unknown"
         FAIL {
-            cmd = ENV_EXE .. " chain '#cli-get' get payload " .. UNKNOWN,
+            cmd = ENV_EXE .. " chain /cli-get get payload " .. UNKNOWN,
             err = "ERROR : chain get : unknown post",
         }
     end
@@ -142,7 +142,7 @@ do
     do
         TEST "metadata of post"
         local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-get' get metadata " .. POST,
+            cmd = ENV_EXE .. " chain /cli-get get metadata " .. POST,
         }
         assert(code == 0, "exit code: " .. tostring(code))
         local T = META(out)
@@ -162,7 +162,7 @@ do
     do
         TEST "metadata of like"
         local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-get' get metadata " .. LIKE,
+            cmd = ENV_EXE .. " chain /cli-get get metadata " .. LIKE,
         }
         assert(code == 0, "exit code: " .. tostring(code))
         local T = META(out)
@@ -181,7 +181,7 @@ do
     do
         TEST "metadata of revoke"
         local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-get' get metadata " .. REVOKE,
+            cmd = ENV_EXE .. " chain /cli-get get metadata " .. REVOKE,
         }
         assert(code == 0, "exit code: " .. tostring(code))
         local T = META(out)
@@ -194,7 +194,7 @@ do
     do
         TEST "metadata of genesis"
         FAIL {
-            cmd = ENV_EXE .. " chain '#cli-get' get metadata " .. GENESIS,
+            cmd = ENV_EXE .. " chain /cli-get get metadata " .. GENESIS,
             err = "ERROR : chain get : unknown post",
         }
     end
@@ -202,7 +202,7 @@ do
     do
         TEST "metadata of unknown"
         FAIL {
-            cmd = ENV_EXE .. " chain '#cli-get' get metadata " .. UNKNOWN,
+            cmd = ENV_EXE .. " chain /cli-get get metadata " .. UNKNOWN,
             err = "ERROR : chain get : unknown post",
         }
     end
@@ -210,7 +210,7 @@ do
     do
         TEST "metadata of unsigned post"
         local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-get' get metadata " .. UNSIGNED,
+            cmd = ENV_EXE .. " chain /cli-get get metadata " .. UNSIGNED,
         }
         assert(code == 0, "exit code: " .. tostring(code))
         local T = META(out)

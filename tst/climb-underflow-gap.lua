@@ -62,79 +62,79 @@ do
     -- A: G -- seed[K1]
     TEST "A creates chain + seeds seed.txt"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#cg' init " .. GEN_2,
+        cmd = EXE_A .. " --now=1000 chains add /cg init " .. GEN_2,
     }
     local seed = exec {
-        cmd = EXE_A .. " --now=1020 chain '#cg' post inline 'seed\n' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1020 chain /cg post inline 'seed\n' --sign " .. KEY1,
     }
 
     -- K2 pays 1, 10% burned, half credited to K1 -> K1 > K2 (no hash tiebreak)
     TEST "KEY2 likes seed (loses reps, KEY1 > KEY2 at fork)"
     exec {
-        cmd = EXE_A .. " --now=1040 chain '#cg' like 1000 action " .. seed .. " --sign " .. KEY2,
+        cmd = EXE_A .. " --now=1040 chain /cg like 1000 action " .. seed .. " --sign " .. KEY2,
     }
 
     -- A / B / H all at the like (= F1)
     TEST "B and H clone cg (at the like = F1)"
     exec {
-        cmd = EXE_B .. " chains add '#cg' clone " .. ROOT_A .. "/chains/#cg/",
+        cmd = EXE_B .. " chains add /cg clone " .. ROOT_A .. "/chains/cg/",
     }
     exec {
-        cmd = EXE_H .. " chains add '#cg' clone " .. ROOT_A .. "/chains/#cg/",
+        cmd = EXE_H .. " chains add /cg clone " .. ROOT_A .. "/chains/cg/",
     }
 
     -- A: ... -- AW[K1]      B: ... -- CW[K2]     (both fork at F1)
     TEST "A posts AW (higher reps), B posts CW (fork at F1)"
     exec {
-        cmd = EXE_A .. " --now=1100 chain '#cg' post inline 'AW\n' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1100 chain /cg post inline 'AW\n' --sign " .. KEY1,
     }
     exec {
-        cmd = EXE_B .. " --now=1100 chain '#cg' post inline 'CW\n' --sign " .. KEY2,
+        cmd = EXE_B .. " --now=1100 chain /cg post inline 'CW\n' --sign " .. KEY2,
     }
 
     -- B: G -- {AW, CW} -- M1        (inner merge, forks at genesis = F1)
     TEST "B recvs A -> inner merge M1 = merge(AW, CW)"
     exec {
-        cmd = EXE_B .. " --now=1150 chain '#cg' sync recv " .. ROOT_A .. "/chains/#cg/",
+        cmd = EXE_B .. " --now=1150 chain /cg sync recv " .. ROOT_A .. "/chains/cg/",
     }
 
     -- B: ... M1 -- d1[K2] -- d2[K2]        (3h apart: crosses time.diff)
     TEST "B posts d1, then d2 three hours later"
     exec {
-        cmd = EXE_B .. " --now=1200 chain '#cg' post inline 'd1\n' --sign " .. KEY2,
+        cmd = EXE_B .. " --now=1200 chain /cg post inline 'd1\n' --sign " .. KEY2,
     }
     exec {
-        cmd = EXE_B .. " --now=" .. (1200+3*HOUR) .. " chain '#cg' post inline 'd2\n' --sign " .. KEY2,
+        cmd = EXE_B .. " --now=" .. (1200+3*HOUR) .. " chain /cg post inline 'd2\n' --sign " .. KEY2,
     }
 
     -- H: ... M1 -- d1 -- d2      (no takeover)
     TEST "H recvs B"
     exec {
-        cmd = EXE_H .. " --now=" .. (1200+3*HOUR+10) .. " chain '#cg' sync recv " .. ROOT_B .. "/chains/#cg/",
+        cmd = EXE_H .. " --now=" .. (1200+3*HOUR+10) .. " chain /cg sync recv " .. ROOT_B .. "/chains/cg/",
     }
 
     -- A: G -- AW -- takeover[K1]     (AW = F2, A still has no M1)
     TEST "A posts takeover (child of AW = F2)"
     exec {
-        cmd = EXE_A .. " --now=" .. (1200+4*HOUR) .. " chain '#cg' post inline 'takeover\n' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=" .. (1200+4*HOUR) .. " chain /cg post inline 'takeover\n' --sign " .. KEY1,
     }
 
     -- A: ... -- M2 = merge(takeover, d2)   (outer merge, forks at AW = F2)
     TEST "A recvs B -> outer merge M2 (fork = AW), nesting M1"
     exec {
-        cmd = EXE_A .. " --now=" .. (1200+5*HOUR) .. " chain '#cg' sync recv " .. ROOT_B .. "/chains/#cg/",
+        cmd = EXE_A .. " --now=" .. (1200+5*HOUR) .. " chain /cg sync recv " .. ROOT_B .. "/chains/cg/",
     }
 
     -- H holds M1/d1/d2 but not takeover; replaying A's M2 walks the nested
     -- merge AND applies posts out of chronological order.
     TEST "H recvs A (nested merge, posts hours apart)"
     exec {
-        cmd = EXE_H .. " --now=" .. (1200+6*HOUR) .. " chain '#cg' sync recv " .. ROOT_A .. "/chains/#cg/",
+        cmd = EXE_H .. " --now=" .. (1200+6*HOUR) .. " chain /cg sync recv " .. ROOT_A .. "/chains/cg/",
     }
 
     TEST "H's order equals A's order"
-    local a = ORDER(EXE_A, "#cg")
-    local h = ORDER(EXE_H, "#cg")
+    local a = ORDER(EXE_A, "/cg")
+    local h = ORDER(EXE_H, "/cg")
     assert(#a == #h, "order length differs: A=" .. #a .. " H=" .. #h)
     for i = 1, #a do
         assert(a[i] == h[i], "order differs at " .. i .. ": A=" .. a[i] .. " H=" .. h[i])

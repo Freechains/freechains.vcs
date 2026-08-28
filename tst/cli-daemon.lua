@@ -32,10 +32,10 @@ print("==> daemon start / stop")
 do
     TEST "A creates chain + post"
     exec {
-        cmd = EXE_A .. " chains add '#cli-daemon' init " .. GEN_1,
+        cmd = EXE_A .. " chains add /cli-daemon init " .. GEN_1,
     }
     local post = exec {
-        cmd = EXE_A .. " chain '#cli-daemon' post inline 'served' --sign " .. KEY1,
+        cmd = EXE_A .. " chain /cli-daemon post inline 'served' --sign " .. KEY1,
     }
 
     TEST "start serves in the background"
@@ -60,9 +60,9 @@ do
 
     TEST "B clones through the daemon (it really serves)"
     exec {
-        cmd = EXE_B .. " chains add '#cli-daemon' clone localhost:" .. PORT,
+        cmd = EXE_B .. " chains add /cli-daemon clone localhost:" .. PORT,
     }
-    local O = ORDER(EXE_B, "#cli-daemon")
+    local O = ORDER(EXE_B, "/cli-daemon")
     assert(#O == 1 and O[1] == post, "B did not receive the post")
 
     TEST "stop prints the pid it killed and removes the file"

@@ -40,14 +40,14 @@ do
     -- A: G
     TEST "A creates chain"
     exec {
-        cmd = EXE_A .. " --now=" .. FORK .. " chains add '#fork-100' init " .. GEN_3,
+        cmd = EXE_A .. " --now=" .. FORK .. " chains add /fork-100 init " .. GEN_3,
     }
 
     -- A: G
     -- B: G                        (fork point = G, at t=FORK)
     TEST "B clones fork-100"
     exec {
-        cmd = EXE_B .. " chains add '#fork-100' clone " .. ROOT_A .. "/chains/#fork-100/",
+        cmd = EXE_B .. " chains add /fork-100 clone " .. ROOT_A .. "/chains/fork-100/",
     }
 
     -- A: G -- P1[K3] -- ... -- P100[K3]    (1.5h steps, tip at FORK+150h)
@@ -56,7 +56,7 @@ do
     local A = {}
     for i = 1, N do
         A[i] = exec {
-            cmd = EXE_A .. " --now=" .. (FORK+i*STEP) .. " chain '#fork-100' post inline 'p" .. i .. "\n' --sign " .. KEY3,
+            cmd = EXE_A .. " --now=" .. (FORK+i*STEP) .. " chain /fork-100 post inline 'p" .. i .. "\n' --sign " .. KEY3,
         }
     end
 
@@ -64,10 +64,10 @@ do
     -- B: G -- Q1[K1] -- Q2[K2]
     TEST "B posts twice with KEY1+KEY2 (higher prefix reps)"
     local Q1 = exec {
-        cmd = EXE_B .. " --now=" .. (FORK+N*STEP) .. " chain '#fork-100' post inline 'q1\n' --sign " .. KEY1,
+        cmd = EXE_B .. " --now=" .. (FORK+N*STEP) .. " chain /fork-100 post inline 'q1\n' --sign " .. KEY1,
     }
     local Q2 = exec {
-        cmd = EXE_B .. " --now=" .. (FORK+N*STEP) .. " chain '#fork-100' post inline 'q2\n' --sign " .. KEY2,
+        cmd = EXE_B .. " --now=" .. (FORK+N*STEP) .. " chain /fork-100 post inline 'q2\n' --sign " .. KEY2,
     }
 
     --      P1[K3] -- ... -- P100[K3] --\
@@ -81,13 +81,13 @@ do
     -- with B at all (rather than merging and ordering itself first)
     TEST "A recvs from B: refused by rule 1"
     FAIL {
-        cmd = EXE_A .. " --now=" .. (FORK+N*STEP+HOUR) .. " chain '#fork-100' sync recv " .. ROOT_B .. "/chains/#fork-100/",
+        cmd = EXE_A .. " --now=" .. (FORK+N*STEP+HOUR) .. " chain /fork-100 sync recv " .. ROOT_B .. "/chains/fork-100/",
         err = "ERROR : chain sync : hard fork",
     }
 
     TEST "A keeps its own branch untouched (no remote posts)"
     do
-        local O, S = ORDER(EXE_A, "#fork-100")
+        local O, S = ORDER(EXE_A, "/fork-100")
         assert(#O == N, "expected " .. N .. " entries, got " .. #O)
         for i = 1, N do
             assert(O[i] == A[i], "local post " .. i .. " out of order")

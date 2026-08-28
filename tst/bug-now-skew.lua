@@ -32,7 +32,7 @@ local ROOT_X = ROOT .. "/bug-now-skew/X/"
 local EXE_A  = ENV .. " ../src/freechains.lua --root " .. ROOT_A
 local EXE_X  = ENV .. " ../src/freechains.lua --root " .. ROOT_X
 
-local REPO_A = ROOT_A .. "chains/#ns/"
+local REPO_A = ROOT_A .. "chains/ns/"
 
 exec {
     cmd = "mkdir -p " .. ROOT_A,
@@ -47,15 +47,15 @@ do
     -- everything runs on the REAL clock: no --now anywhere
     TEST "A creates chain + seeds s.txt"
     exec {
-        cmd = EXE_A .. " chains add '#ns' init " .. GEN_2,
+        cmd = EXE_A .. " chains add /ns init " .. GEN_2,
     }
     exec {
-        cmd = EXE_A .. " chain '#ns' post inline 'seed\n' --sign " .. KEY1,
+        cmd = EXE_A .. " chain /ns post inline 'seed\n' --sign " .. KEY1,
     }
 
     TEST "X clones ns"
     exec {
-        cmd = EXE_X .. " chains add '#ns' clone " .. REPO_A,
+        cmd = EXE_X .. " chains add /ns clone " .. REPO_A,
     }
 
     -- the tick: git stamps the commit 60s after os.time(); the state
@@ -66,7 +66,7 @@ do
         exec {
             cmd = "GIT_AUTHOR_DATE='@" .. future .. " +0000'" ..
                 " GIT_COMMITTER_DATE='@" .. future .. " +0000' " ..
-                EXE_A .. " chain '#ns' post inline 'skew\n' --sign " .. KEY1,
+                EXE_A .. " chain /ns post inline 'skew\n' --sign " .. KEY1,
         }
     end
 
@@ -75,13 +75,13 @@ do
     -- "invalid state : now", punishing A for its own clock.
     TEST "X recvs A: the honest chain must be accepted"
     exec {
-        cmd = EXE_X .. " chain '#ns' sync recv " .. REPO_A,
+        cmd = EXE_X .. " chain /ns sync recv " .. REPO_A,
     }
 
     TEST "X has both posts (seed + skew)"
     do
         local out = exec {
-            cmd = EXE_X .. " chain '#ns' list order",
+            cmd = EXE_X .. " chain /ns list order",
         }
         local n = 0
         for _ in out:gmatch("[^\n]+") do n = n + 1 end

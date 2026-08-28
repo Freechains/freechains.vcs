@@ -3,10 +3,10 @@
 require "tests"
 local ssh = require "freechains.chain.ssh"
 
-local DIR = ROOT .. "/chains/#cli-sign/"
+local DIR = ROOT .. "/chains/cli-sign/"
 
 exec {
-    cmd = "HOME=" .. SSH .. "home " .. ENV_EXE .. " chains add '#cli-sign' init --pioneer",
+    cmd = "HOME=" .. SSH .. "home " .. ENV_EXE .. " chains add /cli-sign init --pioneer",
 }
 
 -- SIGNED POST
@@ -16,7 +16,7 @@ do
     do
         TEST "signed post succeeds"
         local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-sign' post file hello.txt --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain /cli-sign post file hello.txt --sign " .. KEY1,
         }
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -48,7 +48,7 @@ do
     do
         TEST "beg post succeeds"
         local out, code = exec {
-            cmd = ENV_EXE .. " chain '#cli-sign' post inline unsigned --beg",
+            cmd = ENV_EXE .. " chain /cli-sign post inline unsigned --beg",
         }
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
@@ -69,7 +69,7 @@ do
     do
         TEST "post without --sign or --beg fails"
         FAIL {
-            cmd = ENV_EXE .. " chain '#cli-sign' post inline 'no auth'",
+            cmd = ENV_EXE .. " chain /cli-sign post inline 'no auth'",
             err = "ERROR : chain post : requires --sign or --beg",
         }
     end
@@ -82,7 +82,7 @@ do
     do
         TEST "post with invalid GPG key fails"
         FAIL {
-            cmd = ENV_EXE .. " chain '#cli-sign' post inline 'bad key' --sign bad-key",
+            cmd = ENV_EXE .. " chain /cli-sign post inline 'bad key' --sign bad-key",
             err = "ERROR : chain post : invalid sign key",
         }
     end

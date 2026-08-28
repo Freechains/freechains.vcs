@@ -24,7 +24,7 @@
 
 require "tests"
 
-local CHAIN  = "#abandon-strange"
+local CHAIN  = "/abandon-strange"
 local ROOT_A = ROOT .. "/abandon-strange/A/"
 local ROOT_B = ROOT .. "/abandon-strange/B/"
 local EXE_A  = ENV .. " ../src/freechains.lua --root " .. ROOT_A

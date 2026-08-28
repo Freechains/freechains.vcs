@@ -15,9 +15,9 @@ local EXE_A  = ENV .. " ../src/freechains.lua --root " .. ROOT_A
 local EXE_B  = ENV .. " ../src/freechains.lua --root " .. ROOT_B
 local EXE_C  = ENV .. " ../src/freechains.lua --root " .. ROOT_C
 
-local REPO_A = ROOT_A .. "/chains/#test/"
-local REPO_B = ROOT_B .. "/chains/#test/"
-local REPO_C = ROOT_C .. "/chains/#test/"
+local REPO_A = ROOT_A .. "/chains/test/"
+local REPO_B = ROOT_B .. "/chains/test/"
+local REPO_C = ROOT_C .. "/chains/test/"
 
 exec {
     cmd = "mkdir -p " .. ROOT_A,
@@ -39,16 +39,16 @@ do
     do
         TEST "chain created"
         CHAIN_HASH = exec {
-            cmd = EXE_A .. " chains add '#test' init " .. GEN_1,
+            cmd = EXE_A .. " chains add /test init " .. GEN_1,
         }
-        assert(#CHAIN_HASH == 41, "hash: " .. CHAIN_HASH)
-        assert(CHAIN_HASH:match("^#%x+$"), "not hex")
+        assert(#CHAIN_HASH == 40, "hash: " .. CHAIN_HASH)
+        assert(CHAIN_HASH:match("^%x+$"), "not hex")
     end
 
     do
         TEST "post on A"
         P1 = exec {
-            cmd = EXE_A .. " chain '#test' post inline 'post from A' --sign " .. KEY1,
+            cmd = EXE_A .. " chain /test post inline 'post from A' --sign " .. KEY1,
         }
         assert(#P1 == 40, "hash: " .. P1)
         assert(P1:match("^%x+$"), "not hex")
@@ -63,7 +63,7 @@ do
     do
         TEST "clone succeeds"
         exec {
-            cmd = EXE_B .. " chains add '#test' clone " .. REPO_A,
+            cmd = EXE_B .. " chains add /test clone " .. REPO_A,
         }
     end
 
@@ -89,7 +89,7 @@ do
     do
         TEST "post on B"
         P2 = exec {
-            cmd = EXE_B .. " chain '#test' post inline 'post from B' --sign " .. KEY1,
+            cmd = EXE_B .. " chain /test post inline 'post from B' --sign " .. KEY1,
         }
         assert(#P2 == 40, "hash: " .. P2)
         assert(P2:match("^%x+$"), "not hex")
@@ -120,7 +120,7 @@ do
 
         TEST "A recvs from B (fast-forward)"
         exec {
-            cmd = EXE_A .. " chain '#test' sync recv " .. REPO_B,
+            cmd = EXE_A .. " chain /test sync recv " .. REPO_B,
         }
     end
 
@@ -135,10 +135,10 @@ do
     do
         TEST "both payloads present in A"
         local pa = exec {
-            cmd = EXE_A .. " chain '#test' get payload " .. P1,
+            cmd = EXE_A .. " chain /test get payload " .. P1,
         }
         local pb = exec {
-            cmd = EXE_A .. " chain '#test' get payload " .. P2,
+            cmd = EXE_A .. " chain /test get payload " .. P2,
         }
         assert(pa == "post from A", "A's post missing")
         assert(pb == "post from B", "B's post missing")
@@ -158,13 +158,13 @@ do
     do
         TEST "A posts again"
         local out = exec {
-            cmd = EXE_A .. " chain '#test' post inline 'second from A' --sign " .. KEY1,
+            cmd = EXE_A .. " chain /test post inline 'second from A' --sign " .. KEY1,
         }
         assert(#out == 40, "hash: " .. out)
 
         TEST "B posts again"
         local out = exec {
-            cmd = EXE_B .. " chain '#test' post inline 'second from B' --sign " .. KEY1,
+            cmd = EXE_B .. " chain /test post inline 'second from B' --sign " .. KEY1,
         }
         assert(#out == 40, "hash: " .. out)
     end
@@ -181,7 +181,7 @@ do
 
         TEST "A recvs B (true merge)"
         exec {
-            cmd = EXE_A .. " chain '#test' sync recv " .. REPO_B,
+            cmd = EXE_A .. " chain /test sync recv " .. REPO_B,
         }
 
         TEST "A has 6 commits (3 shared + 2 posts + merge)"
@@ -194,7 +194,7 @@ do
     do
         TEST "B recvs A (fast-forward)"
         exec {
-            cmd = EXE_B .. " chain '#test' sync recv " .. REPO_A,
+            cmd = EXE_B .. " chain /test sync recv " .. REPO_A,
         }
 
         TEST "B has 6 commits"
@@ -216,7 +216,7 @@ do
     print("==> Unrelated histories rejected")
 
     local h = exec {
-        cmd = EXE_C .. " chains add '#test' init " .. GEN_1,
+        cmd = EXE_C .. " chains add /test init " .. GEN_1,
     }
     assert(h ~= CHAIN_HASH, "should differ")
 
@@ -242,7 +242,7 @@ do
     do
         TEST "A posts concurrently"
         PA = exec {
-            cmd = EXE_A .. " chain '#test' post" .. " inline 'from A\n' --sign " .. KEY1,
+            cmd = EXE_A .. " chain /test post" .. " inline 'from A\n' --sign " .. KEY1,
         }
         assert(#PA == 40, "hash: " .. PA)
     end
@@ -250,7 +250,7 @@ do
     do
         TEST "B posts concurrently"
         PB = exec {
-            cmd = EXE_B .. " chain '#test' post" .. " inline 'from B\n' --sign " .. KEY1,
+            cmd = EXE_B .. " chain /test post" .. " inline 'from B\n' --sign " .. KEY1,
         }
         assert(#PB == 40, "hash: " .. PB)
     end
@@ -267,17 +267,17 @@ do
 
         TEST "A recvs B (converges)"
         exec {
-            cmd = EXE_A .. " chain '#test' sync recv " .. REPO_B,
+            cmd = EXE_A .. " chain /test sync recv " .. REPO_B,
         }
     end
 
     do
         TEST "A holds both concurrent payloads"
         local pa = exec {
-            cmd = EXE_A .. " chain '#test' get payload " .. PA,
+            cmd = EXE_A .. " chain /test get payload " .. PA,
         }
         local pb = exec {
-            cmd = EXE_A .. " chain '#test' get payload " .. PB,
+            cmd = EXE_A .. " chain /test get payload " .. PB,
         }
         assert(pa == "from A", "A's payload missing")
         assert(pb == "from B", "B's payload missing")

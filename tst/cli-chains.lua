@@ -2,7 +2,7 @@
 
 require "tests"
 
-local DIR = ROOT .. "/chains/#cli-chains"
+local DIR = ROOT .. "/chains/cli-chains"
 
 -- ADD
 do
@@ -11,11 +11,11 @@ do
     do
         TEST "success"
         local out, code = exec {
-            cmd = EXE .. " chains add '#cli-chains' init " .. GEN_0,
+            cmd = EXE .. " chains add /cli-chains init " .. GEN_0,
         }
         assert(code == 0, "exit code: " .. tostring(code))
-        assert(#out == 41, "hash length: " .. #out)
-        assert(out:match("^#%x+$"), "hash is hex")
+        assert(#out == 40, "hash length: " .. #out)
+        assert(out:match("^%x+$"), "hash is hex")
 
         TEST "genesis file"
         -- always generated: version and pioneers, nothing else
@@ -32,7 +32,7 @@ do
         local lnk = exec {
             cmd = "readlink " .. DIR,
         }
-        assert(lnk:match("^#%x+/$"), "symlink target: " .. lnk)
+        assert(lnk:match("^%x+/$"), "symlink target: " .. lnk)
 
         TEST "author/committer = dash"
         local author = exec {
@@ -73,7 +73,7 @@ do
     do
         TEST "duplicate alias fails"
         FAIL {
-            cmd = EXE .. " chains add '#cli-chains' init " .. GEN_0,
+            cmd = EXE .. " chains add /cli-chains init " .. GEN_0,
             err = "ERROR : chains add : alias already exists",
         }
     end
@@ -88,7 +88,7 @@ do
             exec { cmd = "chmod 600 " .. bad }
         end
         FAIL {
-            cmd = EXE .. " chains add '#x' init --pioneer=" .. bad,
+            cmd = EXE .. " chains add /x init --pioneer=" .. bad,
             err = "ERROR : chains add : invalid pioneer : " .. bad,
         }
     end
@@ -97,7 +97,7 @@ do
         TEST "pioneer string is truncated"
         -- starts with `ssh-`, so never looked up as a file
         FAIL {
-            cmd = EXE .. " chains add '#x' init --pioneer='ssh-ed25519'",
+            cmd = EXE .. " chains add /x init --pioneer='ssh-ed25519'",
             err = "ERROR : chains add : invalid pioneer : ssh-ed25519",
         }
     end
@@ -105,7 +105,7 @@ do
     do
         TEST "init takes no subcommand"
         local err = FAIL {
-            cmd = EXE .. " chains add '#x' init bogus",
+            cmd = EXE .. " chains add /x init bogus",
         }
         assert(err and
             err:match("Error: too many arguments"), "should fail with TODO: " .. tostring(err))
@@ -115,7 +115,7 @@ do
         TEST "git init failed"
         -- the error carries git's own detail (>>> ... <<<)
         local err = FAIL {
-            cmd = ENV .. " ../src/freechains.lua --root /dev/null chains add '#x' init " .. GEN_0,
+            cmd = ENV .. " ../src/freechains.lua --root /dev/null chains add /x init " .. GEN_0,
         }
         err = err:gsub("tmp%-%d+", "tmp-N")     -- random suffix
         assert(err == [[
@@ -130,7 +130,7 @@ fatal: cannot mkdir /dev/null/chains//tmp-N/: File exists
         TEST "git clone failed"
         -- the error carries git's own detail (>>> ... <<<)
         local err = FAIL {
-            cmd = EXE .. " chains add '#x' clone /nonexistent/repo",
+            cmd = EXE .. " chains add /x clone /nonexistent/repo",
         }
         assert(err == [[
 ERROR : chains add : clone failed
@@ -147,7 +147,7 @@ and the repository exists.
     do
         TEST "clone existing chain fails"
         FAIL {
-            cmd = EXE .. " chains add '#clone-dup' clone " .. ROOT .. "/chains/#cli-chains",
+            cmd = EXE .. " chains add /clone-dup clone " .. ROOT .. "/chains/cli-chains",
             err = "ERROR : chains add : clone failed",
         }
     end
@@ -155,14 +155,14 @@ and the repository exists.
     do
         TEST "add args fails"
         FAIL {
-            cmd = EXE .. " chains add '#x' args --type '#'",
+            cmd = EXE .. " chains add /x args --type '#'",
         }
     end
 
     do
         TEST "add remote fails"
         FAIL {
-            cmd = EXE .. " chains add '#x' remote host hash",
+            cmd = EXE .. " chains add /x remote host hash",
         }
     end
 end
@@ -179,19 +179,19 @@ do
             cmd = EXE .. " chains dir",
         }
         assert(code == 0, "exit code: " .. tostring(code))
-        assert(out == "#cli-chains\n", "list: " .. out)
+        assert(out == "/cli-chains\n", "list: " .. out)
     end
 
     do
         TEST "dir two chains"
         exec {
-            cmd = EXE .. " chains add '#other' init " .. GEN_0,
+            cmd = EXE .. " chains add /other init " .. GEN_0,
         }
         local out, code = exec { trim=false,
             cmd = EXE .. " chains dir",
         }
         assert(code == 0, "exit code: " .. tostring(code))
-        assert(out == "#cli-chains\n#other\n", "list: " .. out)
+        assert(out == "/cli-chains\n/other\n", "list: " .. out)
     end
 end
 
@@ -202,25 +202,25 @@ do
     do
         TEST "rem success"
         local _, code = exec {
-            cmd = EXE .. " chains rem '#cli-chains'",
+            cmd = EXE .. " chains rem /cli-chains",
         }
         assert(code == 0, "exit code: " .. tostring(code))
 
         TEST "dir removed"
         FAIL {
-            cmd = "test -d " .. ROOT .. "/chains/#cli-chains",
+            cmd = "test -d " .. ROOT .. "/chains/cli-chains",
         }
 
         TEST "symlink removed"
         FAIL {
-            cmd = "test -L " .. ROOT .. "/chains/#cli-chains",
+            cmd = "test -L " .. ROOT .. "/chains/cli-chains",
         }
     end
 
     do
         TEST "rem nonexistent fails"
         FAIL {
-            cmd = EXE .. " chains rem '#nonexistent'",
+            cmd = EXE .. " chains rem /nonexistent",
             err = "ERROR : chains rem : invalid chain",
         }
     end
@@ -228,7 +228,7 @@ do
     do
         TEST "rem other"
         local _, code = exec {
-            cmd = EXE .. " chains rem '#other'",
+            cmd = EXE .. " chains rem /other",
         }
         assert(code == 0, "exit code: " .. tostring(code))
     end
@@ -250,14 +250,14 @@ do
     do
         TEST "pioneer key file creates chain"
         local out, code = exec {
-            cmd = EXE .. " chains add '#inl-chat' init --pioneer=" .. KEY1,
+            cmd = EXE .. " chains add /inl-chat init --pioneer=" .. KEY1,
         }
         assert(code == 0, "exit code: " .. tostring(code))
-        assert(#out == 41, "hash length: " .. #out)
-        assert(out:match("^#%x+$"), "hash is hex")
+        assert(#out == 40, "hash length: " .. #out)
+        assert(out:match("^%x+$"), "hash is hex")
 
         TEST "pioneer in genesis"
-        local t = GENESIS(ROOT .. "/chains/#inl-chat")
+        local t = GENESIS(ROOT .. "/chains/inl-chat")
         assert (
             t.pioneers and t.pioneers[1] == PUB1
             , "pioneers[1]: " .. tostring(t.pioneers and t.pioneers[1])
@@ -271,12 +271,12 @@ do
     do
         TEST "bare --pioneer is $HOME/.ssh/id_ed25519"
         local out, code = exec {
-            cmd = "HOME=" .. SSH .. "home " .. EXE .. " chains add '#inl-default' init --pioneer",
+            cmd = "HOME=" .. SSH .. "home " .. EXE .. " chains add /inl-default init --pioneer",
         }
         assert(code == 0, "exit code: " .. tostring(code))
-        assert(#out == 41, "hash length: " .. #out)
+        assert(#out == 40, "hash length: " .. #out)
 
-        local t = GENESIS(ROOT .. "/chains/#inl-default")
+        local t = GENESIS(ROOT .. "/chains/inl-default")
         assert (
             t.pioneers and t.pioneers[1] == PUB1
             , "pioneers[1]: " .. tostring(t.pioneers and t.pioneers[1])
@@ -286,21 +286,21 @@ do
     do
         TEST "pioneer pub file and key string agree with pvt file"
         exec {
-            cmd = EXE .. " chains add '#inl-pub' init --pioneer=" .. KEY1 .. ".pub",
+            cmd = EXE .. " chains add /inl-pub init --pioneer=" .. KEY1 .. ".pub",
         }
-        local t1 = GENESIS(ROOT .. "/chains/#inl-pub")
+        local t1 = GENESIS(ROOT .. "/chains/inl-pub")
         assert(t1.pioneers[1] == PUB1, "pub-file form")
         exec {
-            cmd = EXE .. " chains add '#inl-str' init --pioneer='" .. PUB1 .. "'",
+            cmd = EXE .. " chains add /inl-str init --pioneer='" .. PUB1 .. "'",
         }
-        local t2 = GENESIS(ROOT .. "/chains/#inl-str")
+        local t2 = GENESIS(ROOT .. "/chains/inl-str")
         assert(t2.pioneers[1] == PUB1, "string form")
     end
 
     do
         TEST "pioneer file not found"
         FAIL {
-            cmd = EXE .. " chains add '#inl-badkey' init --pioneer=/nonexistent/key",
+            cmd = EXE .. " chains add /inl-badkey init --pioneer=/nonexistent/key",
             err = "ERROR : chains add : invalid pioneer : /nonexistent/key",
         }
     end
@@ -324,7 +324,7 @@ do
         TEST "too many pioneers rejects"
         -- 101 keys: 50000/101 = 495, below the 500 post cost
         FAIL {
-            cmd = ENV_EXE .. " chains add '#many' init " .. PIOS(101),
+            cmd = ENV_EXE .. " chains add /many init " .. PIOS(101),
             err = "ERROR : chains add : invalid genesis : too many pioneers",
         }
     end
@@ -332,10 +332,10 @@ do
     do
         TEST "the limit itself is accepted"
         local out, code = exec {
-            cmd = ENV_EXE .. " chains add '#limit' init " .. PIOS(100),
+            cmd = ENV_EXE .. " chains add /limit init " .. PIOS(100),
         }
         assert(code == 0, "exit code: " .. tostring(code))
-        assert(out:match("^#%x+$"), "chain id: " .. out)
+        assert(out:match("^%x+$"), "chain id: " .. out)
     end
 end
 

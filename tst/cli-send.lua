@@ -13,10 +13,10 @@ local EXE_B  = ENV .. " ../src/freechains.lua --root " .. ROOT_B
 local EXE_C  = ENV .. " ../src/freechains.lua --root " .. ROOT_C
 local EXE_X  = ENV .. " ../src/freechains.lua --root " .. ROOT_X
 
-local REPO_A = ROOT_A .. "/chains/#test/"
-local REPO_B = ROOT_B .. "/chains/#test/"
-local REPO_C = ROOT_C .. "/chains/#test/"
-local REPO_X = ROOT_X .. "/chains/#test/"
+local REPO_A = ROOT_A .. "/chains/test/"
+local REPO_B = ROOT_B .. "/chains/test/"
+local REPO_C = ROOT_C .. "/chains/test/"
+local REPO_X = ROOT_X .. "/chains/test/"
 
 
 exec {
@@ -38,12 +38,12 @@ do
 
     TEST "A creates chain"
     exec {
-        cmd = EXE_A .. " --now=1000 chains add '#test' init " .. GEN_1,
+        cmd = EXE_A .. " --now=1000 chains add /test init " .. GEN_1,
     }
 
     TEST "B clones"
     exec {
-        cmd = EXE_B .. " chains add '#test' clone " .. REPO_A,
+        cmd = EXE_B .. " chains add /test clone " .. REPO_A,
     }
 
     TEST "A has executable pre-receive hook"
@@ -134,7 +134,7 @@ do
 
     TEST "X clones from A"
     exec {
-        cmd = EXE_X .. " chains add '#test' clone " .. REPO_A,
+        cmd = EXE_X .. " chains add /test clone " .. REPO_A,
     }
 
     TEST "X crafts malicious like signed by non-pioneer (0 reps)"
@@ -147,7 +147,7 @@ do
 
     TEST "X sends to B: push should be rejected"
     local err = FAIL {
-        cmd = EXE_X .. " chain '#test' sync send " .. REPO_B,
+        cmd = EXE_X .. " chain /test sync send " .. REPO_B,
     }
     assert(err and err:find("ERROR : chain sync : invalid like : insufficient reputation"), "send should fail: " .. tostring(err))
 end
@@ -158,7 +158,7 @@ do
 
     TEST "A posts"
     local out = exec {
-        cmd = EXE_A .. " --now=2000 chain '#test' post inline 'post from A' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=2000 chain /test post inline 'post from A' --sign " .. KEY1,
     }
     assert(#out == 40, "hash: " .. out)
     -- A:  genesis ── [post] P1
@@ -166,7 +166,7 @@ do
 
     TEST "A sends to B"
     exec {
-        cmd = EXE_A .. " --now=2500 chain '#test' sync send " .. REPO_B,
+        cmd = EXE_A .. " --now=2500 chain /test sync send " .. REPO_B,
     }
 
     TEST "B has A's latest post"
@@ -190,13 +190,13 @@ do
     do
         TEST "A posts"
         local out = exec {
-            cmd = EXE_A .. " --now=4000 chain '#test' post inline 'third from A' --sign " .. KEY1,
+            cmd = EXE_A .. " --now=4000 chain /test post inline 'third from A' --sign " .. KEY1,
         }
         assert(#out == 40, "hash: " .. out)
 
         TEST "A sends to B"
         exec {
-            cmd = EXE_A .. " --now=4500 chain '#test' sync send " .. REPO_B,
+            cmd = EXE_A .. " --now=4500 chain /test sync send " .. REPO_B,
         }
     end
     -- A:  genesis ── P1 ── P2 ── [post] P3
@@ -205,13 +205,13 @@ do
     do
         TEST "B posts"
         local out = exec {
-            cmd = EXE_B .. " --now=5000 chain '#test' post inline 'first from B' --sign " .. KEY1,
+            cmd = EXE_B .. " --now=5000 chain /test post inline 'first from B' --sign " .. KEY1,
         }
         assert(#out == 40, "hash: " .. out)
 
         TEST "B sends to A"
         exec {
-            cmd = EXE_B .. " --now=5500 chain '#test' sync send " .. REPO_A,
+            cmd = EXE_B .. " --now=5500 chain /test sync send " .. REPO_A,
         }
     end
     -- A:  genesis ── ... ── P3 ── [post] P4
@@ -236,13 +236,13 @@ do
     do
         TEST "A posts (diverge)"
         A = exec {
-            cmd = EXE_A .. " --now=6000 chain '#test' post inline 'fourth from A' --sign " .. KEY1,
+            cmd = EXE_A .. " --now=6000 chain /test post inline 'fourth from A' --sign " .. KEY1,
         }
         assert(#A == 40, "hash: " .. A)
 
         TEST "B posts (diverge)"
         B = exec {
-            cmd = EXE_B .. " --now=7000 chain '#test' post inline 'second from B' --sign " .. KEY1,
+            cmd = EXE_B .. " --now=7000 chain /test post inline 'second from B' --sign " .. KEY1,
         }
         assert(#B == 40, "hash: " .. B)
     end
@@ -253,7 +253,7 @@ do
     do
         TEST "A recvs from B"
         exec {
-            cmd = EXE_A .. " --now=7500 chain '#test' sync recv " .. REPO_B,
+            cmd = EXE_A .. " --now=7500 chain /test sync recv " .. REPO_B,
         }
 
         TEST "no wall-clock timestamps"
@@ -266,10 +266,10 @@ do
 
         TEST "A has both payloads"
         local pa = exec {
-            cmd = EXE_A .. " chain '#test' get payload " .. A,
+            cmd = EXE_A .. " chain /test get payload " .. A,
         }
         local pb = exec {
-            cmd = EXE_A .. " chain '#test' get payload " .. B,
+            cmd = EXE_A .. " chain /test get payload " .. B,
         }
         assert(pa == "fourth from A", "A's payload missing")
         assert(pb == "second from B", "B's payload missing")
@@ -288,15 +288,15 @@ do
     do
         TEST "B recvs from A"
         exec {
-            cmd = EXE_B .. " --now=7500 chain '#test' sync recv " .. REPO_A,
+            cmd = EXE_B .. " --now=7500 chain /test sync recv " .. REPO_A,
         }
 
         TEST "B has both payloads"
         local pa = exec {
-            cmd = EXE_B .. " chain '#test' get payload " .. A,
+            cmd = EXE_B .. " chain /test get payload " .. A,
         }
         local pb = exec {
-            cmd = EXE_B .. " chain '#test' get payload " .. B,
+            cmd = EXE_B .. " chain /test get payload " .. B,
         }
         assert(pa == "fourth from A", "A's payload missing in B")
         assert(pb == "second from B", "B's payload missing in B")
@@ -351,25 +351,25 @@ do
 
         local bef = {
             author = tonumber((exec {
-                cmd = EXE_A .. " --now=8000 chain '#test' reps author '" .. PUB1 .. "'",
+                cmd = EXE_A .. " --now=8000 chain /test reps author '" .. PUB1 .. "'",
             })),
             post = tonumber((exec {
-                cmd = EXE_A .. " --now=8000 chain '#test' reps action " .. A,
+                cmd = EXE_A .. " --now=8000 chain /test reps action " .. A,
             })),
         }
         assert(bef.author==49500, "bef.author expected 49500, got " .. bef.author)
         assert(bef.post  == 0, "bef.post expected 0, got " .. bef.post)
 
         exec {
-            cmd = EXE_A .. " --now=8000 chain '#test' like 5000 action " .. A .. " --sign " .. KEY1,
+            cmd = EXE_A .. " --now=8000 chain /test like 5000 action " .. A .. " --sign " .. KEY1,
         }
 
         local aft = {
             author = tonumber((exec {
-                cmd = EXE_A .. " --now=8000 chain '#test' reps author '" .. PUB1 .. "'",
+                cmd = EXE_A .. " --now=8000 chain /test reps author '" .. PUB1 .. "'",
             })),
             post = tonumber((exec {
-                cmd = EXE_A .. " --now=8000 chain '#test' reps action " .. A,
+                cmd = EXE_A .. " --now=8000 chain /test reps action " .. A,
             })),
         }
         assert(aft.author == 47250, "aft.author expected 47250, got " .. aft.author)
@@ -377,16 +377,16 @@ do
 
         TEST "B recvs from A (with like)"
         exec {
-            cmd = EXE_B .. " --now=8500 chain '#test' sync recv " .. REPO_A,
+            cmd = EXE_B .. " --now=8500 chain /test sync recv " .. REPO_A,
         }
 
         TEST "B reflects like"
         local b = {
             author = tonumber((exec {
-                cmd = EXE_B .. " --now=8500 chain '#test' reps author '" .. PUB1 .. "'",
+                cmd = EXE_B .. " --now=8500 chain /test reps author '" .. PUB1 .. "'",
             })),
             post = tonumber((exec {
-                cmd = EXE_B .. " --now=8500 chain '#test' reps action " .. A,
+                cmd = EXE_B .. " --now=8500 chain /test reps action " .. A,
             })),
         }
         assert(b.author == aft.author, "author reps: A=" .. aft.author .. " B=" .. b.author)
@@ -400,10 +400,10 @@ do
 
     TEST "C creates independent chain"
     exec {
-        cmd = EXE_C .. " --now=1000 chains add '#test' init " .. GEN_1,
+        cmd = EXE_C .. " --now=1000 chains add /test init " .. GEN_1,
     }
     exec {
-        cmd = EXE_C .. " --now=2000 chain '#test' post inline 'post from C' --sign " .. KEY1,
+        cmd = EXE_C .. " --now=2000 chain /test post inline 'post from C' --sign " .. KEY1,
     }
 
     TEST "B's HEAD before recv"
@@ -413,7 +413,7 @@ do
 
     TEST "B recvs from C fails with unrelated histories"
     FAIL {
-        cmd = EXE_B .. " --now=9000 chain '#test' sync recv " .. REPO_C,
+        cmd = EXE_B .. " --now=9000 chain /test sync recv " .. REPO_C,
         err = "ERROR : chain sync : incompatible genesis",
     }
 
@@ -430,12 +430,12 @@ do
 
     TEST "A posts (diverge)"
     exec {
-        cmd = EXE_A .. " --now=9500 chain '#test' post inline 'diverge A' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=9500 chain /test post inline 'diverge A' --sign " .. KEY1,
     }
 
     TEST "B posts (diverge)"
     exec {
-        cmd = EXE_B .. " --now=9600 chain '#test' post inline 'diverge B' --sign " .. KEY1,
+        cmd = EXE_B .. " --now=9600 chain /test post inline 'diverge B' --sign " .. KEY1,
     }
 
     -- A,B diverge; A sends to B -> B's hook runs recv with the
@@ -443,7 +443,7 @@ do
     -- is pinned, not dated by wall clock
     TEST "A sends to B (divergent -> B merges)"
     exec {
-        cmd = EXE_A .. " --now=9700 chain '#test' sync send " .. REPO_B,
+        cmd = EXE_A .. " --now=9700 chain /test sync send " .. REPO_B,
     }
 
     TEST "B has no wall-clock timestamps"
