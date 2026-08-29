@@ -28,6 +28,10 @@ do
         assert(t.pioneers and #t.pioneers == 0, "no pioneers")
         assert(t.type == nil and t.name == nil, "no dead fields")
 
+        TEST "no pioneers => unrestricted chain"
+        -- derived at genesis, so every snapshot carries it
+        assert(STATE(DIR).open == true, "GEN_0 chain must be open")
+
         TEST "alias -> hash"
         local lnk = exec {
             cmd = "readlink " .. DIR,
@@ -305,6 +309,12 @@ do
         assert (
             t.version and t.version[1]==0 and t.version[2]==20 and t.version[3]==0
             , "version mismatch"
+        )
+
+        TEST "a pioneered chain is NOT open"
+        assert (
+            STATE(ROOT .. "/chains/inl-chat").open == false
+            , "pioneered chain must be gated"
         )
     end
 

@@ -182,6 +182,22 @@ function M.now (G, backs)
 end
 
 --[[
+-- Ungated posts and votes
+-- Dictators or unrestricted chains (no pioneers, no dictators).
+-- Inputs:
+--  - G [table]: chain state (reads G.open)
+-- Outputs:
+--  - [boolean]: true when the gate must be skipped
+-- Errors:
+--  - none
+-- Callers:
+--  - apply (rules.lua): the post and the vote gates
+--]]
+local function ungated (G)
+    return G.open or false
+end
+
+--[[
 -- The reputation state transition.
 -- One action folded into `G`, from two sides:
 --  what its author CLAIMS vs what the chain VERIFIED
@@ -226,7 +242,9 @@ function M.apply (G, act, env)
                 end
             else
                 local reps = G.authors[env.sign] and G.authors[env.sign].reps or 0
-                if reps < C.reps.cost then
+                if ungated(G) or reps>=C.reps.cost then
+                    -- OK
+                else
                     return false, "insufficient reputation"
                 end
             end
@@ -288,7 +306,9 @@ function M.apply (G, act, env)
 
         -- must afford the full vote magnitude (no debt); self-revoke is free
         local reps = (G.authors[env.sign] and G.authors[env.sign].reps) or 0
-        if (not self_revoke) and reps<math.abs(act.n) then
+        if self_revoke or ungated(G) or reps>=math.abs(act.n) then
+            -- OK
+        else
             return false, "insufficient reputation"
         end
 
@@ -300,6 +320,8 @@ function M.apply (G, act, env)
 
         -- mutation
         if not self_revoke then
+            -- ungated may vote, so the entry may not exist yet
+            G.authors[env.sign] = G.authors[env.sign] or { reps=0 }
             G.authors[env.sign].reps = reps - math.abs(act.n)
         end
         local n = act.n * (100 - C.vote.tax) // 100

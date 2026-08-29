@@ -136,6 +136,8 @@ freechains chains add <alias> clone <url>
     - `--pioneer=<pub>`:    repeat for each pioneer key
 - `clone <url>`:            fetches existing chain from peer
 
+If no pionners are given, the chain is *unrestricted* and anyone may post.
+
 As result, displays the chain id, unique across all peers.
 
 - Examples:

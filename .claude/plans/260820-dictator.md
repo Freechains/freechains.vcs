@@ -10,7 +10,15 @@
 - `--beg` needs a liker with reps => dead chain by construction
 - `chains.md` claims "fully open" but the gates say otherwise
 
-# Step 1: unrestricted chain
+# Step 1: unrestricted chain  [x] DONE
+
+- `chains.lua`: `open = (#pios == 0)` in the genesis `G`
+- `rules.lua`: `ungated(G)` skips the post and the vote gates
+- `rules.lua`: the vote debit now guards a missing author entry
+  (a fresh key could not vote before, so it never showed)
+- `tst/cli-open.lua` + `cli-chains.lua` asserts; suite 42/42
+- deviation: `ungated(G)`, not `ungated(G, key)` -- no key is
+  read until `--dictator` exists
 
 - genesis with zero pioneers and zero dictators => `open`
     - derived from the genesis, so consensual and immutable
@@ -84,8 +92,11 @@ freechains chains add <alias> init [--pioneer=<key>]... [--dictator=<key>]...
 
 - 4 test files use `GEN_0`; none asserts `insufficient reputation`
   under it, so step 1 breaks no existing expectation
-- new: `cli-open.lua`: `GEN_0` chain, unknown key posts, balance
+- [x] `cli-open.lua`: `GEN_0` chain, unknown key posts, balance
   goes to `-500`, refunds to `0` at 12h, vote from debt allowed
+    - also: a pioneered chain still refuses (regression guard)
+    - not covered: a debt branch losing consensus (needs a
+      two-peer harness; the comparison is plain arithmetic)
 
 # Consequences
 
@@ -97,6 +108,14 @@ freechains chains add <alias> init [--pioneer=<key>]... [--dictator=<key>]...
 
 # Open
 
+- unsigned post still BEGS in an `open` chain: `ACTION.apply`
+  forces `to_beg = beg or (key == nil)`, so it parks regardless
+    - what `open` changes is WHO admits it: any key, from zero,
+      at the cost of debt (was: a member holding `cost`)
+    - a key holder never needs `--beg` here: just sign and owe
+    - landing unsigned posts directly would leave NO author to
+      charge, so nothing would limit them: own decision, not a
+      quiet tweak to `to_beg`
 - hard fork: a god branch is still refused by entrenchment
 - cap on number of dictators, as `too many pioneers`?
 - `chains.md` "fully open" text: now true, keep
