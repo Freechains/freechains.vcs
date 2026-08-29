@@ -116,6 +116,8 @@ freechains chains add <alias> init [--pioneer=<key>]... [--dictator=<key>]...
     - landing unsigned posts directly would leave NO author to
       charge, so nothing would limit them: own decision, not a
       quiet tweak to `to_beg`
+    - PLANNED for open chains via a shared account, since `0`
+      would beat debt in consensus: `260829-anon.md`
 - hard fork: a god branch is still refused by entrenchment
 - cap on number of dictators, as `too many pioneers`?
 - `chains.md` "fully open" text: now true, keep
