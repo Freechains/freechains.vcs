@@ -136,7 +136,7 @@ freechains chains add <alias> clone <url>
     - `--pioneer=<pub>`:    repeat for each pioneer key
 - `clone <url>`:            fetches existing chain from peer
 
-If no pionners are given, the chain is *unrestricted* and anyone may post.
+If no pionners are given, the chain is *open* and anyone may post.
 
 As result, displays the chain id, unique across all peers.
 
@@ -184,13 +184,14 @@ freechains chain <alias> post (file <path> | inline <text>) [--sign=<pvt>] [--be
 - `--beg`:          posts without spending reps
     - post needs a like to become part of the chain
 
-Either `--sign` or `--beg` is required.
+Either `--sign` or `--beg` is required (except on open chains).
 
 - Examples:
 
 ```
 freechains chain /chat post file ./pic.jpg --sign=/tmp/alice
 freechains chain /chat post inline $'A great post!\n' --beg
+freechains chain /open post inline $'no key at all\n'
 ```
 
 ## chain like / dislike
@@ -321,7 +322,7 @@ freechains chain <alias> reps revoke  <id>
 - `authors`:        all authors, most reputable first
 - `revokes`:        all actions, most revoked first
 - `action <id>`:    reps of single action
-- `author <pub>`:   reps of single author
+- `author <pub>`:   reps of single author (`anonymous` for unsigned posts)
 - `revoke <id>`:    revokes of single action, as `<author> <others>`
 
 - Examples:

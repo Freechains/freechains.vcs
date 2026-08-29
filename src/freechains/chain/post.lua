@@ -15,7 +15,8 @@
 --  - refs: payload blob at refs/payloads/<cid>; HEAD -> cid,
 --    or refs/begs/beg-<cid> (--beg); state at refs/states/<cid>
 -- Errors:
---  - "chain post : requires --sign or --beg"
+--  - "chain post : requires --sign or --beg" (gated chains only:
+--    an open chain accepts an unsigned post, as `anonymous`)
 --  - "chain post : invalid sign key"
 --  - "chain post : invalid path"
 --  - "chain post : <rules>" : refused by the pipeline
@@ -23,7 +24,10 @@
 --  - dispatch (chain/init.lua): ARGS.post
 --]]
 
-if not (ARGS.sign or ARGS.beg) then
+-- an OPEN chain has no gates, so an unsigned post needs no
+-- sponsor: it lands in the chain, charged to the shared `anonymous`
+-- account (`ACTION.apply` does the substitution)
+if not (ARGS.sign or ARGS.beg or G.open) then
     ERROR("chain post : requires --sign or --beg")
 end
 

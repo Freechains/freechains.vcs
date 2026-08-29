@@ -78,6 +78,69 @@ do
 end
 
 do
+    print("==> Anonymous: an unsigned post is charged to `anonymous`")
+
+    -- its OWN chain: in `/cli-anon` KEY1 holds every positive
+    -- rep, so `ratio` is 1, the discount collapses to zero and
+    -- the like below would ALSO refund the post (+500)
+    exec {
+        cmd = ENV_EXE .. " --now=0 chains add /cli-anon init " .. GEN_0,
+    }
+
+    local ANON
+    do
+        TEST "an unsigned post lands in the chain"
+        -- no --sign and no --beg: only an open chain accepts it
+        local out, code = exec {
+            cmd = ENV_EXE .. " --now=0 chain /cli-anon post inline 'anon post'",
+        }
+        assert(code == 0, "exit code: " .. tostring(code))
+        assert(#out == 40, "hash: " .. out)
+        ANON = out
+
+        TEST "it is NOT parked as a beg"
+        local begs = exec {
+            cmd = ENV_EXE .. " chain /cli-anon list begs",
+        }
+        assert(begs == "", "begs should be empty: " .. begs)
+        local ord = exec { trim=false,
+            cmd = ENV_EXE .. " chain /cli-anon list order",
+        }
+        assert(ord:find(ANON, 1, true), "must be in the order")
+    end
+
+    do
+        TEST "the shared account paid for it"
+        local r = exec {
+            cmd = ENV_EXE .. " --now=0 chain /cli-anon reps author anonymous",
+        }
+        assert(r == "-500", "anon reps: " .. r)
+    end
+
+    do
+        TEST "a like to an anon post credits the account back"
+        -- 1000 taxed 10%, split half: -500 + 450
+        exec {
+            cmd = ENV_EXE .. " --now=0 chain /cli-anon like 1000 action " ..
+                ANON .. " --sign " .. KEY1,
+        }
+        local r = exec {
+            cmd = ENV_EXE .. " --now=0 chain /cli-anon reps author anonymous",
+        }
+        assert(r == "-50", "anon reps: " .. r)
+    end
+
+    do
+        TEST "the commit itself is unsigned"
+        local T = META(exec {
+            cmd = ENV_EXE .. " chain /cli-anon get metadata " .. ANON,
+        })
+        assert(T.sign == nil, "sign: " .. tostring(T.sign))
+        assert(T.action == "post", "action: " .. tostring(T.action))
+    end
+end
+
+do
     print("==> Restricted: a pioneered chain still gates")
 
     exec {
@@ -89,6 +152,59 @@ do
         cmd = ENV_EXE .. " --now=0 chain /cli-gated post inline 'x' --sign " .. KEY2,
         err = "ERROR : chain post : insufficient reputation",
     }
+
+    TEST "an unsigned post is still refused"
+    -- no `anonymous` outside an open chain: admission is the point
+    FAIL {
+        cmd = ENV_EXE .. " --now=0 chain /cli-gated post inline 'x'",
+        err = "ERROR : chain post : requires --sign or --beg",
+    }
+end
+
+-- The reason `collect_keys` counts an unsigned action as `anonymous`:
+-- consensus weighs the FLOOR reps of each side's authors, so an
+-- uncounted anon branch would weigh 0 and BEAT a signed author
+-- in debt. Two peers, one fork, deterministic outcome.
+do
+    print("==> Consensus: anon debt weighs on its branch")
+
+    local A = ROOT .. "/cli-open-A/"
+    local B = ROOT .. "/cli-open-B/"
+    local EXE_A = ENV .. " ../src/freechains.lua --root " .. A
+    local EXE_B = ENV .. " ../src/freechains.lua --root " .. B
+
+    -- floor: anon owes 1000 (two posts), KEY1 owes 500 (one post)
+    exec { cmd = EXE_A .. " --now=0  chains add /fork init " .. GEN_0 }
+    exec { cmd = EXE_A .. " --now=0  chain /fork post inline 'a1'" }
+    exec { cmd = EXE_A .. " --now=10 chain /fork post inline 'a2'" }
+    exec { cmd = EXE_A .. " --now=20 chain /fork post inline 's1' --sign " .. KEY1 }
+    exec { cmd = EXE_B .. " chains add /fork clone " .. A .. "/chains/fork" }
+
+    do
+        TEST "the floor: anon deeper in debt than the signer"
+        local an = exec {
+            cmd = EXE_B .. " --now=20 chain /fork reps author anonymous",
+        }
+        local k1 = exec {
+            cmd = EXE_B .. " --now=20 chain /fork reps author '" .. PUB1 .. "'",
+        }
+        assert(an == "-1000", "anon at floor: " .. an)
+        assert(k1 == "-500", "KEY1 at floor: " .. k1)
+    end
+
+    -- each side adds one action, then B resolves the fork
+    local PA = exec { cmd = EXE_A .. " --now=100 chain /fork post inline 'anon side'" }
+    local PB = exec {
+        cmd = EXE_B .. " --now=100 chain /fork post inline 'signed side' --sign " .. KEY1,
+    }
+    exec { cmd = EXE_B .. " --now=200 chain /fork sync recv " .. A .. "/chains/fork" }
+
+    do
+        TEST "the signed side wins: anon carries more debt"
+        local O = ORDER(EXE_B, "/fork")
+        assert(O[#O-1] == PB, "signed side should win: " .. tostring(O[#O-1]))
+        assert(O[#O]   == PA, "anon side should lose: " .. tostring(O[#O]))
+    end
 end
 
 print("<== ALL PASSED")

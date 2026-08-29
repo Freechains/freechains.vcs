@@ -320,6 +320,15 @@ function M.apply (G, cid, beg)
             error("malformed commit : invalid signature", 0)
         end
 
+        -- an UNSIGNED post in an OPEN chain is charged to the
+        -- shared anon account: from here on it IS an author, so
+        -- everything downstream is unchanged (and `to_beg` below
+        -- no longer sees a nil key, hence no longer parks it).
+        -- VOTES are never anonymous: the check below still fires
+        if (kind == 'post') and (not key) and G.open then
+            key = C.anon
+        end
+
         -- backs are STRUCTURAL: derived here from the parents,
         -- never claimed (the cid IS the commit: git's Merkle binds ancestry)
         local backs = M.backs(ps)

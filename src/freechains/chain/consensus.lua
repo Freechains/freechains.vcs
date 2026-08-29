@@ -102,6 +102,11 @@ function M.winner (G, a, b)
         }
         for cid in out:gmatch("%x+") do
             local key = SSH.signer(REPO, cid)
+            -- unsigned action in open chain -> anonymous
+            -- `ACTION.is`: a merge is unsigned too, and it authors nothing
+            if (not key) and G.open and ACTION.is(cid) then
+                key = C.anon
+            end
             if key then
                 keys[key] = true
             end

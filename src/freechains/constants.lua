@@ -21,6 +21,9 @@ return {
         revoke  = 1*unit,       -- 1000 minimum per revoke/unrevoke
         max     = 50*unit,      -- 50000 cap per author (100 posts)
     },
+    -- the shared account of UNSIGNED posts in an open chain:
+    -- not a pubkey (real keys start with `ssh-`), so no collision
+    anon = "anonymous",
     vote = {
         tax     = 10,           -- 10% burned on votes
         split   = 2,            -- 50/50 split (divisor)
