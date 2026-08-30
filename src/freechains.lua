@@ -89,11 +89,15 @@ local parser = argparse()
 
 parser
     :name "freechains"
-    :description "Freechains: Permissionless Peer-to-Peer Communities"
+    :description "Freechains: Permissionless Peer-to-Peer Forums"
     :epilog [[
-For more information, please visit our website:
+More Information:
 
-    https://www.freechains.org/
+    https://github.com/Freechains/freechains.vcs/
+
+Please report bugs:
+
+    https://github.com/Freechains/freechains.vcs/issues
 ]]
 
 parser
