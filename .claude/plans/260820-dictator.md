@@ -4,11 +4,11 @@
 - Step 2: `--dictator=<key>`: an author that is never gated
 - Same mechanism: gate skipped; ALL economics still apply
 
-# Today
+# Before step 1
 
-- no pioneers => nobody holds reps => nobody can post
-- `--beg` needs a liker with reps => dead chain by construction
-- `chains.md` claims "fully open" but the gates say otherwise
+- no pioneers => nobody held reps => nobody could post
+- `--beg` needed a liker with reps => dead chain by design
+- `chains.md` claimed "fully open" but the gates said otherwise
 
 # Step 1: unrestricted chain  [x] DONE
 
@@ -26,12 +26,15 @@
 - what "unrestricted" means: the two gates are skipped
     - post: `insufficient reputation` (`rules.lua:229`)
     - vote: `insufficient reputation` (`rules.lua:291`)
-    - beg checks unchanged (`--beg` still means "parked")
+    - `--beg` is now REFUSED: an open chain admits everyone,
+      so there is nothing to be admitted into
 - what still applies (the economics):
     - post costs `C.reps.cost`, refunds at 12h, consolidates 24h
     - votes debit `n`, tax, split to target/author
     - daily `earn`, `cap` at `C.reps.max`
     - consensus still orders branches by author reps
+- an UNSIGNED post lands directly, charged to the shared
+  `anonymous` account: DONE, `done/260829-anon.md`
 - consequence: balances may go NEGATIVE (debt)
     - reps become a score, not a permission
     - `reps author` prints the negative number as is
@@ -108,16 +111,6 @@ freechains chains add <alias> init [--pioneer=<key>]... [--dictator=<key>]...
 
 # Open
 
-- unsigned post still BEGS in an `open` chain: `ACTION.apply`
-  forces `to_beg = beg or (key == nil)`, so it parks regardless
-    - what `open` changes is WHO admits it: any key, from zero,
-      at the cost of debt (was: a member holding `cost`)
-    - a key holder never needs `--beg` here: just sign and owe
-    - landing unsigned posts directly would leave NO author to
-      charge, so nothing would limit them: own decision, not a
-      quiet tweak to `to_beg`
-    - PLANNED for open chains via a shared account, since `0`
-      would beat debt in consensus: `260829-anon.md`
 - hard fork: a god branch is still refused by entrenchment
 - cap on number of dictators, as `too many pioneers`?
 - `chains.md` "fully open" text: now true, keep
