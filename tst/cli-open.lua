@@ -131,6 +131,15 @@ do
     end
 
     do
+        TEST "begging is refused in an open chain"
+        -- nothing to be admitted INTO: a post just lands
+        FAIL {
+            cmd = ENV_EXE .. " --now=0 chain /cli-anon post inline 'x' --beg",
+            err = "ERROR : chain post : --beg error : open chain",
+        }
+    end
+
+    do
         TEST "the commit itself is unsigned"
         local T = META(exec {
             cmd = ENV_EXE .. " chain /cli-anon get metadata " .. ANON,

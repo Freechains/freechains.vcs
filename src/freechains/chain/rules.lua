@@ -234,6 +234,9 @@ function M.apply (G, act, env)
     if act.action == 'post' then
         -- validation
         assert(env.sign or env.beg)
+        if env.beg and G.open then
+            return false, "--beg error : open chain"
+        end
         if env.sign then
             if env.beg then
                 local reps = G.authors[env.sign] and G.authors[env.sign].reps or 0
