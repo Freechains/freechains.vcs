@@ -120,7 +120,7 @@ standard tools:
 $ git -C ~/.freechains/chains/chat/ log --oneline
 d6568e4 post 90c7c77...                    # 'I am here'
 b52c62f post 6d5a844...                    # 'Hello World'
-461cfb4 0.20.0 8631642870 ssh-ed25519 ...  # genesis
+461cfb4 0.21.0 8631642870 ssh-ed25519 ...  # genesis
 ```
 
 Each member action in Freechains -- post, like or revoke -- is a Git commit in

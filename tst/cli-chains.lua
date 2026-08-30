@@ -22,7 +22,7 @@ do
         local t = GENESIS(DIR)
         assert(type(t) == "table")
         assert (
-            t.version and t.version[1]==0 and t.version[2]==20 and t.version[3]==0
+            t.version and t.version[1]==0 and t.version[2]==21 and t.version[3]==0
             , "version mismatch"
         )
         assert(t.pioneers and #t.pioneers == 0, "no pioneers")
@@ -307,7 +307,7 @@ do
             , "pioneers[1]: " .. tostring(t.pioneers and t.pioneers[1])
         )
         assert (
-            t.version and t.version[1]==0 and t.version[2]==20 and t.version[3]==0
+            t.version and t.version[1]==0 and t.version[2]==21 and t.version[3]==0
             , "version mismatch"
         )
 

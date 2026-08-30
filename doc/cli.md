@@ -7,7 +7,7 @@
 ]
 
 ```
-freechains v0.20
+freechains v0.21
 
 Usage:
     freechains daemon start [--port=<port>] [--hub] [-- <git-opts>...]
