@@ -79,7 +79,7 @@ end
 
 --[[
 -- The genesis snapshot: a blob pinned by refs/states/<gen>.
--- Parses the pioneers from the genesis commit MESSAGE and splits
+-- Parses the two key sections from the genesis commit MESSAGE and splits
 -- C.reps.max evenly among them.
 -- Same store as STATE.write; inlined, no chain context here.
 -- Inputs:
@@ -91,7 +91,12 @@ end
 --  - "chains add : invalid genesis : expected commit"
 --  - "chains add : invalid genesis : expected version"
 --  - "chains add : invalid genesis : expected nonce"
---  - "chains add : invalid genesis : invalid pioneer"
+--  - "chains add : invalid genesis : expected newline"
+--  - "chains add : invalid genesis : unexpected empty line"
+--  - "chains add : invalid genesis : expected dictators"
+--  - "chains add : invalid genesis : expected pioneers"
+--  - "chains add : invalid genesis : unexpected pioneers"
+--  - "chains add : invalid genesis : invalid key"
 --  - "chains add : invalid genesis : too many pioneers"
 --  - via exec: "bug found" on hash-object/update-ref
 -- Callers:
@@ -103,7 +108,9 @@ end
 local function genesis (dir, gen)
     -- the genesis commit MESSAGE, POSITIONAL (may come from a
     -- REMOTE peer on clone, so parsed by match, never load):
-    --   <version>\n<nonce>\n<pioneer pubkey>...
+    --   <version>\n<nonce>\ndictators:\n<key>...\npioneers:\n<key>...
+    -- both headers are ALWAYS present: an empty section states
+    -- that the role is empty, instead of leaving it to be inferred
     -- `src` is false when refs/genesis is not a commit (clone);
     -- for a commit, the "\n\n" separator is ALWAYS present
     local src = exec { trim=false, err=false, stderr=false,
@@ -115,8 +122,15 @@ local function genesis (dir, gen)
 
     src = src:match("\n\n(.*)$")
 
+    -- STRICT split: every line ends in "\n", and none is empty.
+    if src:sub(-1) ~= "\n" then
+        ERROR("chains add : invalid genesis : expected newline")
+    end
     local ls = {}
-    for l in src:gmatch("[^\n]+") do
+    for l in src:gmatch("([^\n]*)\n") do
+        if l == "" then
+            ERROR("chains add : invalid genesis : unexpected empty line")
+        end
         ls[#ls+1] = l
     end
 
@@ -127,11 +141,32 @@ local function genesis (dir, gen)
         ERROR("chains add : invalid genesis : expected nonce")
     end
 
-    local pios = {}
-    for i=3, #ls do
+    -- two SECTIONS, in this order, each holding sorted keys
+    if ls[3] ~= "dictators:" then
+        ERROR("chains add : invalid genesis : expected dictators")
+    end
+
+    -- first section: up to the `pioneers:` header, which MUST come
+    local gods = {}
+    local i = 4
+    while ls[i] ~= "pioneers:" do
+        if not ls[i] then
+            ERROR("chains add : invalid genesis : expected pioneers")
+        end
         local key = ls[i]:match("^(ssh%-%S+ %S+)$")
         if not key then
-            ERROR("chains add : invalid genesis : invalid pioneer")
+            ERROR("chains add : invalid genesis : invalid dictator : expected key")
+        end
+        gods[#gods+1] = key
+        i = i + 1
+    end
+
+    -- second section: everything after that header
+    local pios = {}
+    for j=i+1, #ls do
+        local key = ls[j]:match("^(ssh%-%S+ %S+)$")
+        if not key then
+            ERROR("chains add : invalid genesis : invalid pioneer : expected key")
         end
         pios[#pios+1] = key
     end
@@ -148,12 +183,19 @@ local function genesis (dir, gen)
         end
     end
 
+    -- dictator: never checked, and its side wins a fork
+    -- ordinary author otherwise (pays, mints, caps, may owe)
+    for _, key in ipairs(gods) do
+        A[key] = A[key] or { reps = 0 }
+        A[key].dictator = true
+    end
+
     local G = {
         authors = A,
         actions = {},
         order   = {},
         now     = 0,
-        open    = (#pios == 0),  -- unrestricted chain: anyone can post,vote
+        open    = (#pios==0 and #gods==0),  -- unrestricted chain: anyone can post,vote
     }
     local tmp = dir .. "state-tmp"
     table_to_file(G, tmp)
@@ -182,25 +224,47 @@ if ARGS.add then
     if ARGS.init then
         local rand = math.random(0, 9999999999)
 
-        -- each --pioneer is a key string ("ssh-...") or a key file
-        local keys = {}
+        -- each --pioneer is a key string ("ssh-...") or a key file.
+        -- hash part dedups a repeated flag
+        -- array part holds the order
+        local pios = {}
         for _, v in ipairs(ARGS.pioneer or {}) do
             local key = SSH.pub(v)
             if not key then
                 ERROR("chains add : invalid pioneer : " .. v)
             end
-            keys[key] = true
+            if not pios[key] then
+                pios[key] = true        -- seen
+                pios[#pios+1] = key     -- order
+            end
         end
 
-        local pios = {}
-        for key in pairs(keys) do
-            pios[#pios+1] = key
+        -- each --dictator is a key string or a key file too
+        local gods = {}
+        for _, v in ipairs(ARGS.dictator or {}) do
+            local key = SSH.pub(v)
+            if not key then
+                ERROR("chains add : invalid dictator : " .. v)
+            end
+            if not gods[key] then
+                gods[key] = true
+                gods[#gods+1] = key
+            end
         end
+
         table.sort(pios)
+        table.sort(gods)
 
-        -- genesis message, POSITIONAL (see `genesis` above)
+        -- genesis message, POSITIONAL (see `genesis` above):
+        -- both headers always, each section sorted, so two peers
+        -- building the same chain emit the very same bytes
         local GEN = table.concat(VERSION, ".") .. "\n" ..
-            rand .. "\n"
+            rand .. "\n" ..
+            "dictators:\n"
+        for _, key in ipairs(gods) do
+            GEN = GEN .. key .. "\n"
+        end
+        GEN = GEN .. "pioneers:\n"
         for _, key in ipairs(pios) do
             GEN = GEN .. key .. "\n"
         end

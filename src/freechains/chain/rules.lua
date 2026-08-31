@@ -185,7 +185,8 @@ end
 -- Ungated posts and votes
 -- Dictators or unrestricted chains (no pioneers, no dictators).
 -- Inputs:
---  - G [table]: chain state (reads G.open)
+--  - G   [table]: chain state (reads G.open and G.authors)
+--  - key [string?]: the acting author's pubkey
 -- Outputs:
 --  - [boolean]: true when the gate must be skipped
 -- Errors:
@@ -193,8 +194,12 @@ end
 -- Callers:
 --  - apply (rules.lua): the post and the vote gates
 --]]
-local function ungated (G)
-    return G.open or false
+local function ungated (G, key)
+    if G.open then
+        return true
+    end
+    local T = key and G.authors[key]
+    return (T and T.dictator) or false
 end
 
 --[[
@@ -245,7 +250,7 @@ function M.apply (G, act, env)
                 end
             else
                 local reps = G.authors[env.sign] and G.authors[env.sign].reps or 0
-                if ungated(G) or reps>=C.reps.cost then
+                if ungated(G,env.sign) or reps>=C.reps.cost then
                     -- OK
                 else
                     return false, "insufficient reputation"
@@ -309,7 +314,7 @@ function M.apply (G, act, env)
 
         -- must afford the full vote magnitude (no debt); self-revoke is free
         local reps = (G.authors[env.sign] and G.authors[env.sign].reps) or 0
-        if self_revoke or ungated(G) or reps>=math.abs(act.n) then
+        if self_revoke or ungated(G,env.sign) or reps>=math.abs(act.n) then
             -- OK
         else
             return false, "insufficient reputation"

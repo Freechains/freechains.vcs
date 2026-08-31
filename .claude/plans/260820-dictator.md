@@ -40,18 +40,21 @@
     - `reps author` prints the negative number as is
     - consensus: a side in debt loses to a side at zero
 
-# Step 2: `--dictator`
+# Step 2: `--dictator`  [x] DONE
 
 ```
 freechains chains add <alias> init [--pioneer=<key>]... [--dictator=<key>]...
 ```
 
 - repeats, resolves keys exactly like `--pioneer`
-- genesis line per dictator, after pioneers (positional, marked)
-- `G.authors[key].god = true`, `reps = 0` unless also a pioneer
+- genesis SECTION per role: `dictators:` then `pioneers:`
+- `G.authors[key].dictator = true`, `reps = 0` unless a pioneer
 - dictators do NOT enter the `reps.max // #pioneers` split
+    - so no cap on how many: they split nothing
 - gate predicate, one place:
-    - `ungated(G, key) = G.open or (G.authors[key] and G.authors[key].god)`
+    - `ungated(G, key) = G.open or G.authors[key].dictator`
+    - named `dictator`, not `god`: it matches the flag and the
+      genesis, and `ungated` would name only one of its effects
 - economics apply to a dictator too: it spends, mints, caps
     - it simply never hits the gate; its balance may go negative
     - DROPS the old "never spends, never mints" design
@@ -68,9 +71,10 @@ freechains chains add <alias> init [--pioneer=<key>]... [--dictator=<key>]...
 
 ## `src/freechains/chains.lua`
 
-- `genesis()`: parse dictator lines, set `A[key].god = true`
-- set `G.open = (#pios == 0 and #gods == 0)`
-- `init`: emit dictator lines; reject a key that is both? (no: allow)
+- `genesis()`: parse the sections, set `A[key].dictator = true`
+- set `G.open = (#pios == 0 and #dics == 0)`
+- `init`: emit both headers, each section sorted
+- a key that is both: ALLOWED, it takes the split and the mark
 
 ## `src/freechains/chain/rules.lua`
 
@@ -82,8 +86,8 @@ freechains chains add <alias> init [--pioneer=<key>]... [--dictator=<key>]...
 ## `src/freechains/chain/consensus.lua`
 
 - step 1: unchanged (negative sums compare fine)
-- step 2: DECIDED: a side with a god wins outright
-    - exactly one side has a god => that side wins
+- step 2: DECIDED: a side with a dictator wins outright
+    - exactly one side has one => that side wins
     - both or neither => normal criteria (reps sum, then the rest)
     - check before the reps sum, as a boolean, no `inf` arithmetic
 
@@ -109,10 +113,18 @@ freechains chains add <alias> init [--pioneer=<key>]... [--dictator=<key>]...
   revoke anything, forever; the chain has an owner by construction
 - Sybil-resistance unchanged where gates exist
 
+# Genesis format
+
+- v0.21 replaced the bare/marked lines with two sections
+- both headers ALWAYS present: an open chain states it
+- fixed order, sorted keys, strict lines (no blank line)
+- DECIDED: no back compatibility with a v0.20 genesis
+- DECIDED: a key repeated in a section is NOT rejected
+- `genesis.md` rewritten: the old spec predated all of this
+
 # Open
 
-- hard fork: a god branch is still refused by entrenchment
-- cap on number of dictators, as `too many pioneers`?
+- hard fork: a dictator branch is still refused by entrenchment
 - `chains.md` "fully open" text: now true, keep
 
 # Won't do

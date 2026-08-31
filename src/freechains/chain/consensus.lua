@@ -134,7 +134,37 @@ function M.winner (G, a, b)
         end
         return n
     end
-    local sa, sb = reps(collect_keys(a)), reps(collect_keys(b))
+
+    local ka, kb = collect_keys(a), collect_keys(b)
+
+    --[[
+    -- Any author on this side is a dictator?
+    -- Inputs:
+    --  - keys [table]: set of pubkeys (key -> true)
+    -- Outputs:
+    --  - [boolean]: at least one dictator
+    --]]
+    local function dictator (keys)
+        for key in pairs(keys) do
+            local T = G.authors[key]
+            if T and T.dictator then
+                return true
+            end
+        end
+        return false
+    end
+
+    -- a DICTATOR side wins outright
+    local da, db = dictator(ka), dictator(kb)
+    if da ~= db then
+        if da then
+            return a, b
+        else
+            return b, a
+        end
+    end
+
+    local sa, sb = reps(ka), reps(kb)
     if sa > sb then
         return a, b
     elseif sb > sa then

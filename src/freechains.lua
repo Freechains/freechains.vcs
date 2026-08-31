@@ -54,10 +54,11 @@ local function sign (T, k, vs)
 end
 
 --[[
--- argparse action for `--pioneer [key]`: defaults to ~/.ssh/id_ed25519.
+-- argparse action for `--pioneer`/`--dictator` [key]:
+-- defaults to ~/.ssh/id_ed25519.
 -- Inputs:
 --  - T  [table]: the args table being filled
---  - k  [string]: "pioneer" (the option key)
+--  - k  [string]: "pioneer" or "dictator" (the option key)
 --  - vs [string*]: given value(s)
 -- Outputs:
 --  - none: appends to T.pioneer
@@ -65,6 +66,7 @@ end
 --  - assert "bug found" : multiple values
 -- Callers:
 --  - argparse (freechains.lua): chains add init --pioneer
+--  - argparse (freechains.lua): chains add init --dictator
 --]]
 local function pioneer (T, k, vs)
     local v = os.getenv("HOME") .. "/.ssh/id_ed25519"
@@ -178,6 +180,7 @@ do
         cmd.chains.add._:argument("alias")
         cmd.chains.add.init._ = cmd.chains.add._:command("init")
         cmd.chains.add.init._:option("--pioneer"):args("?"):count("*"):action(pioneer)
+        cmd.chains.add.init._:option("--dictator"):args("?"):count("*"):action(pioneer)
         cmd.chains.add.clone._ = cmd.chains.add._:command("clone")
         cmd.chains.add.clone._:argument("url")
     end

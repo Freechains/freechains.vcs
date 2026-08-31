@@ -78,7 +78,7 @@ function CID (dir, aid)
 end
 
 -- the genesis of the chain at `dir`: the genesis commit's MESSAGE,
--- positional (<version>\n<nonce>\n<pioneer>...), as a table
+-- positional (<version>\n<nonce>\ndictators:\n...\npioneers:\n...)
 function GENESIS (dir)
     local src = exec { trim=false,
         cmd = "git -C " .. dir .. " cat-file commit refs/genesis",
@@ -90,12 +90,19 @@ function GENESIS (dir)
     end
     local M, m, p = ls[1]:match("^(%d+)%.(%d+)%.(%d+)$")
     local t = {
-        version  = { tonumber(M), tonumber(m), tonumber(p) },
-        nonce    = tonumber(ls[2]),
-        pioneers = {},
+        version   = { tonumber(M), tonumber(m), tonumber(p) },
+        nonce     = tonumber(ls[2]),
+        pioneers  = {},
+        dictators = {},
     }
-    for i = 3, #ls do
-        t.pioneers[#t.pioneers+1] = ls[i]
+    -- two sections, dictators first; the headers are always there
+    local cur = t.dictators
+    for i = 4, #ls do
+        if ls[i] == "pioneers:" then
+            cur = t.pioneers
+        else
+            cur[#cur+1] = ls[i]
+        end
     end
     return t
 end
