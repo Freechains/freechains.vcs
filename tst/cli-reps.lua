@@ -304,9 +304,9 @@ do
         cmd = ENV_EXE .. " --now=0 chains add /no-debt init " .. GEN_1,
     }
 
-    -- KEY1 grants KEY2 dust: 445 -> 90% -> 400 (below the 500 cost)
+    -- KEY1 grants KEY2 dust: 500 -> 90% -> 450 (below the 500 cost)
     exec {
-        cmd = ENV_EXE .. " --now=0 chain /no-debt like 445 author '" .. PUB2 .. "' --sign " .. KEY1,
+        cmd = ENV_EXE .. " --now=0 chain /no-debt like 500 author '" .. PUB2 .. "' --sign " .. KEY1,
     }
 
     do
@@ -314,7 +314,7 @@ do
         local out = exec {
             cmd = ENV_EXE .. " --now=0 chain /no-debt reps author '" .. PUB2 .. "'",
         }
-        assert(out == "400", "KEY2 reps: " .. out)
+        assert(out == "450", "KEY2 reps: " .. out)
         FAIL {
             cmd = ENV_EXE .. " --now=0 chain /no-debt post inline 'dust' --sign " .. KEY2,
             err = "ERROR : chain post : insufficient reputation",
@@ -336,7 +336,7 @@ do
         -- admission mints future income: its price is not dust
         FAIL {
             cmd = ENV_EXE .. " --now=0 chain /no-debt like 499 action " .. BEG .. " --sign " .. KEY1,
-            err = "ERROR : chain like : invalid beg like : insufficient reputation",
+            err = "ERROR : chain like : invalid number : expects at least 500",
         }
     end
 
@@ -349,7 +349,7 @@ do
         local out = exec {
             cmd = ENV_EXE .. " --now=0 chain /no-debt reps author '" .. PUB2 .. "'",
         }
-        assert(out == "850", "KEY2 reps: " .. out)   -- 400 + 450
+        assert(out == "900", "KEY2 reps: " .. out)   -- 450 + 450
         local post = exec {
             cmd = ENV_EXE .. " --now=0 chain /no-debt reps action " .. BEG,
         }
@@ -389,7 +389,7 @@ do
 
     do
         TEST "reps-above-cost-cannot-beg"
-        -- KEY2 holds 850 >= 500
+        -- KEY2 holds 900 >= 500
         FAIL {
             cmd = ENV_EXE .. " --now=43200 chain /no-debt post inline 'no beg' --beg --sign " .. KEY2,
             err = "ERROR : chain post : --beg error : author has sufficient reputation",

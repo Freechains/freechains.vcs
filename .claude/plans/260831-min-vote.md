@@ -35,7 +35,9 @@
 
 - one check beside the revoke floor, same error shape:
     - `invalid number : expects at least 500`
-- the beg-like floor (`n < cost`) becomes redundant: fold?
+- the beg-like floor (`n < cost`) is now DEAD code: any
+  n < 500 dies at the general floor first (cli-reps's
+  dust-beg test now asserts the general error); fold it
 
 # Not a vector
 
