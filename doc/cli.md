@@ -14,7 +14,7 @@ Usage:
     freechains daemon stop
 
     freechains chains dir
-    freechains chains add <alias> init [--pioneer=<pub>]...
+    freechains chains add <alias> init [--dictator=<pub>]... [--pioneer=<pub>]...
     freechains chains add <alias> clone <url>
     freechains chains rem <alias>
 
@@ -127,23 +127,25 @@ freechains chains dir
 Creates a chain, either from scratch (`init`) or from a remote peer (`clone`).
 
 ```
-freechains chains add <alias> init [--pioneer=<pub>]...
+freechains chains add <alias> init [--dictator=<pub>]... [--pioneer=<pub>]...
 freechains chains add <alias> clone <url>
 ```
 
 - `<alias>`:                chain name (requires prefix `/`)
 - `init`:                   creates new chain
+    - `--dictator=<pub>`:   repeat for each dictator key
     - `--pioneer=<pub>`:    repeat for each pioneer key
 - `clone <url>`:            fetches existing chain from peer
 
-If no pionners are given, the chain is *open* and anyone may post.
+If no dictators or pioneers are given, the chain is *open* and anyone may
+post.
 
 As result, displays the chain id, unique across all peers.
 
 - Examples:
 
 ```
-freechains chains add /chat init --pioneer
+freechains chains add /chat init --dictator
 freechains chains add /chat init --pioneer=alice.pub --pioneer=bob.pub
 freechains chains --root=/tmp/X/ add /chat clone ~/.freechains/chains/chat
 freechains chains add /chat clone localhost:8331/talks
