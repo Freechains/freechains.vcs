@@ -15,6 +15,10 @@ Modifications:
 - chain alias: `/chat` (was `'#chat'`)
 - genesis: `dictators:` and `pioneers:` sections
 
+Fixes:
+
+- votes: minimum of 500 reps
+
 v0.20 (aug/26)
 --------------
 

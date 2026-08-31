@@ -290,6 +290,11 @@ function M.apply (G, act, env)
         if act.action=='revoke' and (not act.cid) then
             return false, "invalid target : expects 'action'"
         end
+        -- every chain action costs at least a post
+        -- (small votes would flood at 1 rep/commit)
+        if act.action=='like' and math.abs(act.n)<C.reps.cost then
+            return false, "invalid number : expects at least " .. C.reps.cost
+        end
         -- hiding a post must cost at least what a day mints:
         -- one dust unit used to bury a 500-reps post
         if act.action=='revoke' and math.abs(act.n)<C.reps.revoke then

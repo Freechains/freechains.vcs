@@ -205,7 +205,7 @@ freechains chain <alias> like <n> (action <id> | author <pub>) [--why=<text>] [-
 freechains chain <alias> dislike <n> (action <id> | author <pub>) [--why=<text>]
 ```
 
-- `<n>`:                amount of reps to spend
+- `<n>`:                amount of reps to spend (min: 500)
 - target:
     - `action <id>`:    rates action
     - `author <pub>`:   rates author
