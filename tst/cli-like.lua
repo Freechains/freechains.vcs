@@ -357,6 +357,29 @@ do
             err = "ERROR : chain like : invalid author key",
         }
     end
+    do
+        TEST "like below the floor fails"
+        FAIL {
+            cmd = ENV_EXE .. " chain /cli-like like 499 action " .. POST .. " --sign " .. KEY1,
+            err = "ERROR : chain like : invalid number : expects at least 500",
+        }
+    end
+
+    do
+        TEST "dislike below the floor fails"
+        FAIL {
+            cmd = ENV_EXE .. " chain /cli-like dislike 499 action " .. POST .. " --sign " .. KEY1,
+            err = "ERROR : chain dislike : invalid number : expects at least 500",
+        }
+    end
+
+    do
+        TEST "like at the floor passes"
+        local _, code = exec {
+            cmd = ENV_EXE .. " chain /cli-like like 500 action " .. POST .. " --sign " .. KEY1,
+        }
+        assert(code == 0, "exit code: " .. tostring(code))
+    end
 end
 
 print("<== ALL PASSED")

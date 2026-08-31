@@ -74,6 +74,24 @@ function M.cap (G)
 end
 
 --[[
+-- Positive reps of author `a` (unknown = 0).
+-- Inputs:
+--  - G [table]: chain state
+--      (reads G.authors; NOT the global: replay passes its own states)
+--  - a [string]: author pubkey
+-- Outputs:
+--  - [integer]: max(0, reps)
+-- Errors:
+--  - none
+-- Callers:
+--  - advance (rules.lua): discount scan sums
+--]]
+local function reps_of (G, a)
+    local T = G.authors[a]
+    return math.max(0, (T and T.reps) or 0)
+end
+
+--[[
 -- Advance time: discount refunds (12h), consolidation grants (24h).
 -- Then `now` advances.
 -- Inputs:
@@ -90,37 +108,74 @@ end
 --  - reps (reps.lua): fold time up to --now at query time
 --]]
 function M.advance (G, time, sign)
+    local ORD
+
     -- discount scan (maybe signed at same G.now)
+    -- entries come in time order, so authors acting AFTER entry shrink set
+    -- `cur`/`TOT` are kept LIVE: a refund mid-scan is seen by
+    -- the entries after it, exactly as the rescan per entry did
     if time>G.now or sign then
-        for _, cid in ipairs(ordered(G)) do
+        ORD = ordered(G)
+
+        local TOT = 0       -- positive reps of all authors
+        for _, v in pairs(G.authors) do
+            TOT = TOT + math.max(0, v.reps)
+        end
+
+        local cnt = {}      -- author -> its N actions still ahead
+        local cur = 0       -- positive reps of cnt>0 authors
+        for _, cid in ipairs(ORD) do
+            local e = G.actions[cid]
+            if e.author and e.time then
+                local n = cnt[e.author]
+                cnt[e.author] = (n or 0) + 1
+                if not n then
+                    cur = cur + reps_of(G, e.author)
+                end
+            end
+        end
+
+        local k = 1         -- next action to fall behind
+        for _, cid in ipairs(ORD) do
             local entry = G.actions[cid]
             if entry.maturity == "00-12" then
-                local subs = {}
-                for h2, other in pairs(G.actions) do
-                    if other.author and other.time and other.time>entry.time then
-                        subs[other.author] = true
+                -- drop the actions at/below this entry's time:
+                -- `subs` = the authors still counted after that
+                while k <= #ORD do
+                    local o = G.actions[ORD[k]]
+                    if (o.time or math.huge) > entry.time then
+                        break
                     end
-                end
-                if sign then
-                    subs[sign] = true
-                end
-
-                local cur = 0
-                for a in pairs(subs) do
-                    cur = cur + math.max(0, (G.authors[a] and G.authors[a].reps) or 0)
-                end
-                local tot = 0
-                for _, v in pairs(G.authors) do
-                    tot = tot + math.max(0, v.reps)
+                    if o.author and o.time then
+                        local n = cnt[o.author] - 1
+                        cnt[o.author] = n
+                        if n == 0 then
+                            cur = cur - reps_of(G, o.author)
+                        end
+                    end
+                    k = k + 1
                 end
 
-                local ratio = (tot>0 and cur/tot) or 0
+                -- the actor counts as a sub, even with no action
+                local c = cur
+                if sign and ((cnt[sign] or 0) == 0) then
+                    c = c + reps_of(G, sign)
+                end
+
+                local ratio = (TOT>0 and c/TOT) or 0
                 local discount = C.time.half * math.max(0, 1 - 2*ratio)
 
                 if time >= entry.time + discount then
                     -- signed beg?
                     if entry.author then
-                        G.authors[entry.author].reps = G.authors[entry.author].reps + C.reps.cost
+                        local A = G.authors[entry.author]
+                        local old = math.max(0, A.reps)
+                        A.reps = A.reps + C.reps.cost
+                        local d = math.max(0, A.reps) - old
+                        TOT = TOT + d
+                        if (cnt[entry.author] or 0) > 0 then
+                            cur = cur + d
+                        end
                     end
                     entry.maturity = "12-24"
                 end
@@ -130,7 +185,7 @@ function M.advance (G, time, sign)
 
     -- consolidation scan
     if time > G.now then
-        for _, cid in ipairs(ordered(G)) do
+        for _, cid in ipairs(ORD) do
             local entry = G.actions[cid]
             if entry.maturity == "12-24" then
                 if time >= entry.time+C.time.full then
