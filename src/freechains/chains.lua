@@ -191,11 +191,11 @@ local function genesis (dir, gen)
     end
 
     local G = {
+        now     = 0,
+        open    = (#pios==0 and #gods==0),  -- unrestricted chain: anyone can post,vote
         authors = A,
         actions = {},
         order   = {},
-        now     = 0,
-        open    = (#pios==0 and #gods==0),  -- unrestricted chain: anyone can post,vote
     }
     local tmp = dir .. "state-tmp"
     table_to_file(G, tmp)
