@@ -185,6 +185,7 @@ end
 --  - apply (action.lua): env.backs and the merge snapshot fold
 --  - recv (sync.lua): the loser sync-merge snapshot fold
 --  - list dag (list.lua): structural ups of each node
+--  - list tips (list.lua): the DAG tips from HEAD
 --]]
 function M.backs (ps)
     local ret = {}

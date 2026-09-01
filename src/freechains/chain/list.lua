@@ -16,21 +16,9 @@
 --]]
 
 if ARGS.tips then
-    -- tips: blocks that are ups of no other block; sorted cids
-    local has = {}
-    for _, cid in ipairs(G.order) do
-        for _, u in ipairs(ACTION.backs(GIT.parents(cid))) do
-            has[u] = true
-        end
-    end
-    local tips = {}
-    for _, cid in ipairs(G.order) do
-        if not has[cid] then
-            tips[#tips+1] = cid
-        end
-    end
-    table.sort(tips)
-    for _, cid in ipairs(tips) do
+    -- tips: nearest action ancestors of HEAD, sorted cids;
+    -- exactly the backs a new post would take (post.lua)
+    for _, cid in ipairs(ACTION.backs { GIT.deref("HEAD") }) do
         print(cid)
     end
 

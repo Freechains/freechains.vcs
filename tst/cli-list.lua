@@ -52,10 +52,20 @@ do
         P1:sub(1,7)
     )
 
+    TEST "tips is P1"
+    assert(exec {
+        cmd = EXE_A .. " chain /test list tips",
+    } == P1)
+
     TEST "A posts P2"
     P2 = exec {
         cmd = EXE_A .. " --now=3000 chain /test post inline 'world' --sign " .. KEY1,
     }
+
+    TEST "tips is P2"
+    assert(exec {
+        cmd = EXE_A .. " chain /test list tips",
+    } == P2)
 
     -- git:  genesis ── P1 ── S1 ── P2 ── S2   (S* = per-post state commits)
     -- dag:  P1 │ P2                            (state commits filtered out)
@@ -256,6 +266,13 @@ do
         "fst/snd should be BP4/AP4 in some order"
     )
 
+    TEST "B tips has both fork tips, sorted"
+    local tips = { AP4, BP4 }
+    table.sort(tips)
+    assert(exec {
+        cmd = EXE_B .. " chain /test list tips",
+    } == tips[1] .. "\n" .. tips[2] .. "\n")
+
     TEST "B dag shows fork (state-merge filtered)"
     assert(
         exec {
@@ -354,6 +371,11 @@ do
     assert(#lines == 8, "expected 8 commits, got " .. #lines)
     assert(lines[7] == BEG,  "expected BEG at 7")
     assert(lines[8] == LIKE, "expected LIKE at 8")
+
+    TEST "B tips is LIKE (join collapses the fork)"
+    assert(exec {
+        cmd = EXE_B .. " chain /test list tips",
+    } == LIKE)
 
     TEST "B dag: BEG joins the fork; LIKE backs BEG + both upper tips"
     -- upper-level parents render as side hints: `abc^` (left)

@@ -13,10 +13,14 @@
     - add `cmd.chain.list.tips._` command
 - `src/freechains/chain/list.lua`
     - update header comment with `tips`
-    - new `elseif ARGS.tips` branch
-        - mark every up of every block
-        - print unmarked ids in `G.order` order
-    - reuse `ACTION.backs(GIT.parents(h))` as in dag
+    - new `ARGS.tips` branch
+        - `ACTION.backs { GIT.deref("HEAD") }`
+        - no `G.order`: same primitive post uses
+          for the backs of a new action
+- `tst/cli-list.lua`
+    - tips after P1, P2 (linear)
+    - tips on fork (two, sorted)
+    - tips after like-join (single)
 - `doc/cli.md`
     - document `list tips`
 - `.claude/plans/260820-cli.md`
