@@ -6,7 +6,7 @@
 - Covers v0.8 `chain heads` (see `260820-cli.md`)
 - Name `tips` over `heads`: git idiom, no `HEAD` clash
 
-# Changes
+# Changes (DONE)
 
 - `src/freechains.lua`
     - add `tips = {}` to the `list` ARGS table
@@ -17,7 +17,7 @@
         - mark every up of every block
         - print unmarked ids in `G.order` order
     - reuse `ACTION.backs(GIT.parents(h))` as in dag
-- `.claude/plans/cli.md`
+- `doc/cli.md`
     - document `list tips`
 - `.claude/plans/260820-cli.md`
     - mark `chain heads` item as covered

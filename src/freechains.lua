@@ -135,10 +135,11 @@ local cmd = {
     chain = {
         _ = parser:command("chain"),
         list = {
-            order   = {},
-            dag     = {},
+            tips    = {},
             begs    = {},
             revokes = {},
+            dag     = {},
+            order   = {},
         },
         reps = {},
         post = {
@@ -200,10 +201,11 @@ do
     -- cmd.chain.list
     cmd.chain.list._ = cmd.chain._:command("list")
     do
-        cmd.chain.list.order._   = cmd.chain.list._:command("order")
-        cmd.chain.list.dag._     = cmd.chain.list._:command("dag")
+        cmd.chain.list.tips._    = cmd.chain.list._:command("tips")
         cmd.chain.list.begs._    = cmd.chain.list._:command("begs")
         cmd.chain.list.revokes._ = cmd.chain.list._:command("revokes")
+        cmd.chain.list.dag._     = cmd.chain.list._:command("dag")
+        cmd.chain.list.order._   = cmd.chain.list._:command("order")
     end
 
     -- cmd.chain.reps

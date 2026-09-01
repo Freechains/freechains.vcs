@@ -28,7 +28,7 @@ Usage:
     freechains chain <alias> unrevoke <n> <id> [--file=<path>]
 
     # queries
-    freechains chain <alias> list (order | dag | begs | revokes)
+    freechains chain <alias> list (tips | begs | revokes | dag | order)
     freechains chain <alias> get (metadata | payload) <id>
     freechains chain <alias> reps (actions | authors | revokes)
     freechains chain <alias> reps (action <id> | author <pub> | revoke <id>)
@@ -248,13 +248,14 @@ freechains chain /chat unrevoke 1000 4a5b6c7 --sign=/tmp/alice --file=/tmp/f.txt
 Lists chain actions.
 
 ```
-freechains chain <alias> list (order | dag | begs | revokes)
+freechains chain <alias> list (tips | begs | revokes | dag | order)
 ```
 
-- `dag`:        DAG drawn as ASCII
-- `order`:      consensus order
+- `tips`:       tips with no children
 - `begs`:       pending begs only
 - `revokes`:    revoked actions only
+- `dag`:        DAG drawn as ASCII
+- `order`:      consensus order
 
 In `order` and `dag`, actions with revoked payloads appear as `~<id>~`.
 

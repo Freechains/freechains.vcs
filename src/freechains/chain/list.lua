@@ -1,12 +1,13 @@
 --[[
--- `chain <alias> list begs|order|revokes|dag`
+-- `chain <alias> list begs|order|revokes|tips|dag`
 -- Print chain actions in the chosen view.
 -- Inputs:
---  - ARGS.begs|order|revokes|dag [boolean]: the view
+--  - ARGS.begs|order|revokes|tips|dag [boolean]: the view
 --  - G    [table]: state at HEAD (order, revocations)
 --  - REPO [string]: the chain's bare repo dir
 -- Outputs:
 --  - stdout: cids one per line (revoked wrapped in ~cid~),
+--            tips as sorted bare cids,
 --            or ASCII dag (short labels)
 -- Errors:
 --  - none
@@ -14,7 +15,26 @@
 --  - dispatch (chain/init.lua): ARGS.list
 --]]
 
-if ARGS.begs then
+if ARGS.tips then
+    -- tips: blocks that are ups of no other block; sorted cids
+    local has = {}
+    for _, cid in ipairs(G.order) do
+        for _, u in ipairs(ACTION.backs(GIT.parents(cid))) do
+            has[u] = true
+        end
+    end
+    local tips = {}
+    for _, cid in ipairs(G.order) do
+        if not has[cid] then
+            tips[#tips+1] = cid
+        end
+    end
+    table.sort(tips)
+    for _, cid in ipairs(tips) do
+        print(cid)
+    end
+
+elseif ARGS.begs then
     -- pending begs: post cids parked on refs/begs/beg-<cid>
     local out = exec {
         cmd = "git -C " .. REPO .. " for-each-ref refs/begs/ --format='%(refname)'",
@@ -23,20 +43,20 @@ if ARGS.begs then
         print(h)
     end
 
+elseif ARGS.revokes then
+    -- revoked payloads only, in consensus order (bare cids)
+    for _, cid in ipairs(G.order) do
+        if G.actions[cid] and RULES.is_revoked(G.actions[cid]) then
+            print(cid)
+        end
+    end
+
 elseif ARGS.order then
     -- consensus order (cids); revoked payloads wrapped in ~cid~
     for _, cid in ipairs(G.order) do
         if G.actions[cid] and RULES.is_revoked(G.actions[cid]) then
             print("~" .. cid .. "~")
         else
-            print(cid)
-        end
-    end
-
-elseif ARGS.revokes then
-    -- revoked payloads only, in consensus order (bare cids)
-    for _, cid in ipairs(G.order) do
-        if G.actions[cid] and RULES.is_revoked(G.actions[cid]) then
             print(cid)
         end
     end
