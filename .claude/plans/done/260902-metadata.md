@@ -57,7 +57,7 @@ return {
 - `doc/cli.md`: both output templates replaced
 - callers of `get metadata` output in tst/ adapt
 
-# Open
+# Decided
 
-- `version` as string or `{0,21,0}` table?
-- `time` of genesis? (always 0: omit)
+- `version`: the string, as the genesis writes it
+- genesis `time`: omitted (always 0)
