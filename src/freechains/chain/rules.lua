@@ -380,11 +380,6 @@ function M.apply (G, act, env)
             return false, "insufficient reputation"
         end
 
-        -- admission mints future income (a refund at 12h, then
-        -- `earn` a day): its price must not be dust
-        if env.beg and act.n<C.reps.cost then
-            return false, "invalid beg like : insufficient reputation"
-        end
 
         -- mutation
         if not self_revoke then
