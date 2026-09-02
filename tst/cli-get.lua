@@ -153,7 +153,6 @@ do
         assert(T.n == nil, "post metadata has no n key: " .. tostring(T.n))
         assert(type(T.sign) == "string", "sign type: " .. type(T.sign))
         assert(T.sign:match("^ssh%-ed25519 "), "sign: " .. tostring(T.sign))
-        assert(T.id == POST, "id: " .. tostring(T.id))
         -- backs are STRUCTURAL (walked from the parents): the
         -- first post backs only the genesis, which is no action
         assert(#T.backs == 0, "backs: " .. #T.backs)
@@ -192,11 +191,21 @@ do
     end
 
     do
-        TEST "metadata of genesis"
-        FAIL {
+        TEST "metadata of genesis: the chain's constitution"
+        local T = META(exec {
+            cmd = ENV_EXE .. " chain /cli-get get metadata genesis",
+        })
+        assert(T.version:match("^%d+%.%d+%.%d+$"), "version: " .. tostring(T.version))
+        assert(math.type(T.nonce) == "integer", "nonce: " .. tostring(T.nonce))
+        assert(#T.pioneers == 2, "pioneers: " .. #T.pioneers)   -- GEN_2
+        assert(#T.dictators == 0, "dictators: " .. #T.dictators)
+        assert(T.open == false, "open: " .. tostring(T.open))
+
+        TEST "metadata by the genesis CID: same table"
+        local T2 = META(exec {
             cmd = ENV_EXE .. " chain /cli-get get metadata " .. GENESIS,
-            err = "ERROR : chain get : unknown post",
-        }
+        })
+        assert(T2.nonce == T.nonce, "nonce mismatch")
     end
 
     do

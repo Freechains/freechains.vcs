@@ -105,12 +105,15 @@ I am here
 
 ```
 $ freechains chain /chat get metadata d6568e4
-d6568e4...                     # the full action id
-action post                    # post, like or revoke
-time 1780088002                # local creation time
-blob 90c7c77...                # payload hash
-sign ssh-ed25519 ...vzTc96I    # author public key
-backs b52c62f...               # back-link actions
+return {
+    ["action"] = "post",            -- post, like or revoke
+    ["backs"] = {                   -- back-link actions
+        [1] = "b52c62f...",
+    },
+    ["blob"] = "90c7c77...",        -- payload hash
+    ["sign"] = "ssh-ed25519 ...",   -- author public key
+    ["time"] = 1780088002,          -- local creation time
+}
 ```
 
 Since chains are ordinary Git repositories, we can also inspect them through

@@ -89,9 +89,10 @@ end
 --  - assert: a string value containing '"'
 --  - "TODO : unsupported type" : function/userdata/etc
 -- Callers:
---  - table_to_file (common.lua): the only consumer
+--  - table_to_file (common.lua): file snapshots
+--  - get (chain/get.lua): metadata output
 --]]
-local function table_to_string (v, spc)
+function table_to_string (v, spc)
     spc = spc or ""
     if type(v) == 'boolean' then
         return tostring(v)

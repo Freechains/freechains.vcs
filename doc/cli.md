@@ -275,21 +275,48 @@ Queries action with given id.
 freechains chain <alias> get (metadata | payload) <id>
 ```
 
-- `metadata`:   dump metadata as `key value` lines
+- `metadata`:   dump metadata as a Lua table
 - `payload`:    dump actual content bytes
     - fails if action is revoked
+- `<id>`:       action id or `genesis` for chain info
 
-Metadata output template (optional lines in brackets):
+Metadata for a post:
 
 ```
-<id>                            # full action id
-action (post | like | revoke)   # action kind
-time <secs>                     # local creation time
-[n <n>]                         # vote amount (like | revoke)
-[(cid <id> | author <pub>)]     # vote target (like | revoke)
-[blob <hash>]                   # payload hash
-[sign <pub>]                    # author public key
-backs [<id>]...                 # back-link actions, sorted
+return {
+    action = "post",
+    time   = 1780088002,        -- local creation time
+    blob   = "90c7c77a...",     -- payload hash
+    sign   = "ssh-ed25519 ...", -- author public key (optional: anonymous)
+    backs  = { "b52c62f...", }, -- back-link actions, sorted
+}
+```
+
+Metadata for a vote:
+
+```
+return {
+    action = "like",            -- like | revoke
+    time   = 1780088002,        -- local creation time
+    n      = 1000,              -- amount (negative: dislike | revoke)
+    cid    = "4b2080cf...",     -- target action (either this...)
+    author = "ssh-ed25519 ...", -- target author (...or this)
+    blob   = "9ae2f1b3...",     -- --why payload hash (optional)
+    sign   = "ssh-ed25519 ...", -- voter public key
+    backs  = { "b52c62f...", }, -- back-link actions, sorted
+}
+```
+
+Metadata for `genesis`:
+
+```
+return {
+    version   = "0.21.0",
+    nonce     = 3004508805,
+    dictators = { "ssh-ed25519 ...", },
+    pioneers  = { "ssh-ed25519 ...", },
+    open      = false,
+}
 ```
 
 - Examples:
@@ -301,12 +328,15 @@ Hello World!
 
 ```
 $ freechains chain /chat get metadata d6568e4
-d6568e4...                     # full action id
-action post                    # post, like or revoke
-time 1780088002                # local creation time
-blob 90c7c77...                # payload hash
-sign ssh-ed25519 ...vzTc96I    # author public key
-backs b52c62f...               # back-link actions
+return {
+    ["action"] = "post",
+    ["backs"] = {
+        [1] = "b52c62f...",
+    },
+    ["blob"] = "90c7c77...",
+    ["sign"] = "ssh-ed25519 ...",
+    ["time"] = 1780088002,
+}
 ```
 
 ## chain reps

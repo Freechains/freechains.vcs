@@ -40,33 +40,16 @@ end
 -- aid == cid: identity, kept for the callers' vocabulary
 -- (asserts the commit exists in `dir`)
 --[[
--- Parse `get metadata` key-value output back into a table.
--- First line: the action's own cid (-> T.id); `backs` -> array;
--- time/n -> numbers; other keys -> rest-of-line strings.
+-- Parse `get metadata` output: a `return {...}` Lua chunk.
+-- Inputs:
+--  - out [string]: the command's stdout
+-- Outputs:
+--  - [table]: the metadata table
+-- Errors:
+--  - load errors on malformed output
 --]]
 function META (out)
-    local T = {}
-    local first = true
-    for l in out:gmatch("[^\n]+") do
-        if first then
-            T.id = l
-            first = false
-        else
-            local k, v = l:match("^(%S+) ?(.*)$")
-            if k == "backs" then
-                local bs = {}
-                for h in v:gmatch("%x+") do
-                    bs[#bs+1] = h
-                end
-                T[k] = bs
-            elseif k == "time" or k == "n" then
-                T[k] = tonumber(v)
-            else
-                T[k] = v
-            end
-        end
-    end
-    return T
+    return load(out, "=meta", "t", {})()
 end
 
 function CID (dir, aid)
