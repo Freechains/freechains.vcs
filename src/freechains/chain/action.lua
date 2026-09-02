@@ -268,7 +268,7 @@ local KINDS = { post=true, like=true, revoke=true }
 --  - climb (consensus.lua): replay, once per commit
 --  - recv (sync.lua): validate an incoming beg head
 --]]
-function M.apply (G, cid, beg)
+function M.apply (G, cid, beg, trusted)
     local ps = GIT.parents(cid)
     local isa = M.is(cid)   -- false: sync merge
     -- a merge adds no time: dates are neutral, the action message
@@ -316,9 +316,17 @@ function M.apply (G, cid, beg)
             goto SNAP
         end
 
-        local key, err = SSH.verify(REPO, cid)
-        if (not key) and err=='forged' then
-            error("malformed commit : invalid signature", 0)
+        -- LOCAL history was verified when first accepted: a
+        -- trusted replay (consensus state rebuild) only needs
+        -- the signer, not the expensive re-verification
+        local key, err
+        if trusted then
+            key = SSH.signer(REPO, cid)
+        else
+            key, err = SSH.verify(REPO, cid)
+            if (not key) and err=='forged' then
+                error("malformed commit : invalid signature", 0)
+            end
         end
 
         -- an UNSIGNED post in an OPEN chain is charged to the
@@ -372,7 +380,12 @@ function M.apply (G, cid, beg)
     -- adds nothing, so fold its parents' nearest actions.
     -- NEVER overwrite: the first write is the commit's own-lineage
     -- state, and a refused sync must not corrupt local snapshots
-    if not STATE.has(cid) then
+    -- ANCHORS, not per-commit blobs (the disk cost): a beg
+    -- (read back at promotion), a sync merge (a likely future
+    -- floor), or every C.snap actions. In between, state is
+    -- re-derived by a bounded replay (CONSENSUS.state)
+    local anchor = beg or (not isa) or (#G.order % C.snap == 0)
+    if anchor and (not STATE.has(cid)) then
         local sav = G.now
         if isa then
             G.now = G.actions[cid].now

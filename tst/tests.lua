@@ -218,11 +218,21 @@ function DRYMERGE (dir, other)
     return code == 0
 end
 
--- the state snapshot at `dir`'s HEAD (blob at refs/states/<hash>)
+-- the state at `dir`'s HEAD: the tip file (written on every
+-- HEAD move), falling back to the anchor blob (fresh chains)
 function STATE (dir)
     local hash = exec {
         cmd = "git -C " .. dir .. " rev-parse HEAD",
     }
+    local f = io.open(dir .. "/state")
+    if f then
+        local src = f:read("a")
+        f:close()
+        local t = load(src)()
+        if t.cid == hash then
+            return t.G
+        end
+    end
     local src = exec { trim=false,
         cmd = "git -C " .. dir .. " cat-file blob refs/states/" .. hash,
     }

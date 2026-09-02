@@ -95,13 +95,8 @@ do
         cmd = ENV_EXE .. " chain /cli-abandon-1 post inline 'p3\n' --sign " .. KEY1,
     }
 
-    -- capture p2's commit + its state blob BEFORE abandon, to prove
-    -- the state ref is dropped and the blob reclaimed
     local p2cid  = CID(DIR1, p2)
     local p1cid  = CID(DIR1, p1)
-    local p2blob = exec {
-        cmd = "git -C " .. DIR1 .. " rev-parse refs/states/" .. p2cid,
-    }
 
     -- G -- p1[K1]                         (p2, p3 abandoned)
     do
@@ -140,25 +135,22 @@ do
     end
 
     do
-        TEST "abandoned commit loses its state ref, gc reclaims the blob"
-        -- the dropped commit's refs/states anchor is gone
+        TEST "no state ref survives for the dropped commits"
+        -- anchors are periodic now: p2 likely never had one, and
+        -- abandon deletes whatever existed
         local _, code = exec { err=false, stderr=false,
             cmd = "git -C " .. DIR1 .. " rev-parse refs/states/" .. p2cid,
         }
         assert(code ~= 0, "p2 state ref should be gone")
-        -- p1 (the kept tip) still has its state
-        local _, code1 = exec { err=false, stderr=false,
-            cmd = "git -C " .. DIR1 .. " rev-parse refs/states/" .. p1cid,
-        }
-        assert(code1 == 0, "p1 state ref should remain")
-        -- unanchored (not in any commit tree either), so gc reaps it
+
+        TEST "the landing tip re-derives its state"
+        -- p1 has no anchor either: the next command replays from
+        -- the nearest anchor (the genesis) and must agree
+        local r = REPS(ENV_EXE, "/cli-abandon-1", PUB1)
+        assert(r == at_p1, "reps at p1: " .. r .. " vs " .. at_p1)
         exec {
             cmd = "git -C " .. DIR1 .. " gc --prune=now --quiet",
         }
-        local _, gone = exec { err=false, stderr=false,
-            cmd = "git -C " .. DIR1 .. " cat-file -e " .. p2blob,
-        }
-        assert(gone ~= 0, "p2 state blob should be reclaimed by gc")
     end
 
     do

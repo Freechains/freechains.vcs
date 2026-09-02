@@ -160,7 +160,7 @@ elseif ARGS.recv then
         -- 3. need common ancestor
 
         local oct = CONSENSUS.octopus(loc, rem)
-        local G_oct = STATE.read(oct)
+        local G_oct = CONSENSUS.state(oct)
 
         -- needs fst/winner - snd/loser (do now b/c replay mutates G_oct)
         local fst, snd = CONSENSUS.winner(G_oct, loc, rem)
@@ -180,7 +180,7 @@ elseif ARGS.recv then
         --  he: the replayed remote
         local G_fst
         if fst == loc then
-            G_fst = STATE.read(GIT.deref("HEAD"))
+            G_fst = CONSENSUS.state(GIT.deref("HEAD"))
         else
             G_fst = G_rem
         end
@@ -196,7 +196,7 @@ elseif ARGS.recv then
         -- only when the remote wins
         if fst == rem then
             -- check hardfork
-            local ord = STATE.read(GIT.deref("HEAD")).order
+            local ord = CONSENSUS.state(GIT.deref("HEAD")).order
             if hardfork(ord, G_fst.order) then
                 ERROR("chain sync : hard fork")
             end
@@ -235,6 +235,11 @@ elseif ARGS.recv then
             })
             STATE.write(G_fst, GIT.deref("HEAD"))
         end
+
+        -- the TIP follows HEAD on EVERY path: with no loser merge
+        -- (e.g. a clone) HEAD still moved to the remote tip, whose
+        -- state is G_fst and which may hold no anchor
+        STATE.tip_write(G_fst, GIT.deref("HEAD"))
     end
 
     ::RECV::
@@ -257,9 +262,11 @@ elseif ARGS.recv then
                 keep = false
             elseif not STATE.has(cid) then
                 local ps = GIT.parents(cid)
-                keep = (#ps == 1) and STATE.has(ps[1])
+                keep = (#ps == 1)
                 if keep then
-                    keep = pcall(ACTION.apply, STATE.read(ps[1]), cid, true)
+                    -- parent state: anchor or bounded replay
+                    local ok, Gp = pcall(CONSENSUS.state, ps[1])
+                    keep = ok and pcall(ACTION.apply, Gp, cid, true)
                 end
             end
             if not keep then
@@ -275,7 +282,7 @@ elseif ARGS.recv then
     -- bytes re-anchor (restore), and a REVOKED action loses its
     -- anchor. The final sums decide ONCE, here
     do
-        local G = STATE.read(GIT.deref("HEAD"))
+        local G = CONSENSUS.state(GIT.deref("HEAD"))
 
         local exc = {}
         for cid, e in pairs(G.actions) do

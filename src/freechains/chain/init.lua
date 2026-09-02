@@ -22,6 +22,7 @@ STATE  = require "freechains.chain.state"
 GIT    = require "freechains.chain.git"
 SSH    = require "freechains.chain.ssh"
 RULES  = require "freechains.chain.rules"
+CONSENSUS = require "freechains.chain.consensus"
 REPO   = ARGS.root .. "/chains/" .. ARGS.alias .. "/"
 
 do
@@ -41,7 +42,7 @@ elseif ARGS.abandon then
 elseif ARGS.sweep then
     require "freechains.chain.sweep"
 else
-    G = STATE.read(GIT.deref("HEAD"))
+    G = CONSENSUS.state(GIT.deref("HEAD"))
 
     if ARGS.list then
         require "freechains.chain.list"

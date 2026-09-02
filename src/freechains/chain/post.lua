@@ -97,6 +97,7 @@ else
     exec {
         cmd = "git -C " .. REPO .. " update-ref HEAD " .. cid,
     }
+    STATE.tip_write(G, cid)
 end
 
 print(cid)

@@ -86,4 +86,51 @@ function M.read (cid)
     return load(src)()
 end
 
+--[[
+-- Save the TIP state: one plain file, overwritten per HEAD move.
+-- Not a git blob: the per-commit blob pile was the disk cost.
+-- Inputs:
+--  - G   [table]: chain state at HEAD
+--  - cid [string]: the HEAD commit (staleness guard)
+-- Outputs:
+--  - none: REPO/state holds { cid, G }
+-- Errors:
+--  - none (tmp + rename: a crash leaves the OLD tip)
+-- Callers:
+--  - post (post.lua): after HEAD moves
+--  - like (like.lua): after HEAD moves
+--  - recv (sync.lua): after HEAD moves
+--]]
+function M.tip_write (G, cid)
+    local tmp = REPO .. "state-tip-tmp"
+    table_to_file({ cid = cid, G = G }, tmp)
+    os.rename(tmp, REPO .. "state")
+end
+
+--[[
+-- The TIP state, iff it is the state of `cid`.
+-- Inputs:
+--  - cid [string]: expected HEAD commit
+-- Outputs:
+--  - [table?]: G, or nil (no tip file, or stale: fall back
+--    to CONSENSUS.state)
+-- Errors:
+--  - none
+-- Callers:
+--  - state (consensus.lua): before anchors and replay
+--]]
+function M.tip_read (cid)
+    local f = io.open(REPO .. "state")
+    if not f then
+        return nil
+    end
+    local src = f:read("a")
+    f:close()
+    local ok, t = pcall(function () return load(src)() end)
+    if ok and t and t.cid == cid then
+        return t.G
+    end
+    return nil
+end
+
 return M

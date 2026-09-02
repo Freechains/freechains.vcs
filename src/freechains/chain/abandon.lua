@@ -20,8 +20,8 @@
 -- Escape hatch for a hard fork: abandon the cid and everything after
 -- it, so the settled remote branch can be received again.
 -- Local only: no signing, no network, no reps.
--- Chain state lives in local snapshots (`refs/states/*`), keyed by
--- commit: the reset lands on a tip whose snapshot already exists.
+-- Chain state: the landing tip's state is re-derived on the next
+-- command (CONSENSUS.state: nearest anchor + bounded replay).
 --
 -- Two forms:
 --  - `abandon <cid>`: cid is first DROPPED

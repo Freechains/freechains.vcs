@@ -197,7 +197,7 @@ end
 -- an action already in `G`, so shared history never re-applies)
 -- ancestor(cur,com): stops climb from descending below its floor
 -- without these the inner meet underflows to a root
-function M.replay (G, com, tip, trunc)
+function M.replay (G, com, tip, trunc, trusted)
     local visited = {}
     local last          -- last commit applied
 
@@ -256,7 +256,7 @@ function M.replay (G, com, tip, trunc)
                 meet(G, com, p1, p2, t and t.action=='like')
             end
             visited[cur] = true
-            ACTION.apply(G, cur, beg)
+            ACTION.apply(G, cur, beg, trusted)
             last = cur      -- not reached if `commit` raises
         end
     end
@@ -298,6 +298,47 @@ function M.replay (G, com, tip, trunc)
     else
         error(e, 0)
     end
+end
+
+--[[
+-- The state at `cid`: tip file, anchor, or bounded replay.
+-- Inputs:
+--  - cid [string]: 40-hex commit hash, derefed
+-- Outputs:
+--  - [table]: the G at `cid`
+-- Errors:
+--  - "bug found : no anchor : <cid>" : no snapshotted ancestor
+--  - re-raises replay errors (should not happen: LOCAL history)
+-- Callers:
+--  - init (chain/init.lua): G at HEAD (tip miss = cold start)
+--  - recv (sync.lua): octopus/HEAD floors
+--]]
+function M.state (cid)
+    local G = STATE.tip_read(cid)
+    if G then
+        return G
+    end
+    if STATE.has(cid) then
+        return STATE.read(cid)
+    end
+
+    -- nearest snapshotted ancestor: bounded by C.snap
+    local out = exec {
+        cmd = "git -C " .. REPO .. " rev-list " .. cid
+    }
+    local anchor
+    for h in out:gmatch("%x+") do
+        if STATE.has(h) then
+            anchor = h
+            break
+        end
+    end
+    assert(anchor, "bug found : no anchor : " .. cid)
+
+    -- LOCAL history, verified when first accepted: trusted
+    G = STATE.read(anchor)
+    M.replay(G, anchor, cid, false, true)
+    return G
 end
 
 return M

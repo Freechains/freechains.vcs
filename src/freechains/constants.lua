@@ -4,7 +4,14 @@ local h   = 60 * min
 
 local unit = 1000
 
+-- snapshot ANCHOR period: refs/states/<cid> every `snap`
+-- accepted actions (plus sync merges, begs, the genesis).
+-- In between, state is re-derived by a <= snap replay
+local snap = 100
+
 return {
+    snap = snap,
+
     time = {
         diff    = 1*h,          -- max action time diff tolerance (clock drift)
         half    = 12*h,         -- halfway post discount period
