@@ -8,7 +8,7 @@
 --  - ARGS.root [string]: freechains root dir
 -- Outputs:
 --  - start: blocks serving; stdout "Serving on port ..."
---  - stop: kills via the pid file; stdout the pid
+--  - stop: kills every holder of the port; stdout the pids
 -- Errors:
 --  - "daemon start : git daemon failed"
 --  - "daemon stop : not running"
@@ -18,12 +18,11 @@
 
 -- Serves the local chains, one daemon per root: `--hub` adds
 -- pushes to the fetches `git daemon` already serves, so a root
--- never needs two. `git daemon` owns the pid file, so `stop`
--- reaches a `start` backgrounded with `&`.
+-- never needs two.
+-- `stop` kills by PORT, so it reaches a `start` with `&` and children
 
 local port = ARGS.port or PORT
 local base = ARGS.root .. "/chains/"
-local pid  = ARGS.root .. "/daemon.pid"
 
 if ARGS.start then
     local cmd =
@@ -31,7 +30,8 @@ if ARGS.start then
         " --export-all" ..
         " --enable=" .. (ARGS.hub and "receive-pack" or "upload-pack") ..
         " --port=" .. port ..
-        " --pid-file=" .. pid ..
+        " --listen=0.0.0.0" ..
+        " --reuseaddr" ..
         " " .. table.concat(ARGS.xtra, " ")
 
     print("Serving on port " .. port .. "...")
@@ -42,18 +42,27 @@ if ARGS.start then
     end
 
 elseif ARGS.stop then
-    local f = io.open(pid)
-    if not f then
+    -- kill by PORT: the `--serve` children INHERIT and outlive parent
+    local out = exec { trim=false,
+        cmd = "ss -atnp",
+    }
+    local ns = {}
+    for line in out:gmatch("[^\n]+") do
+        -- "LISTEN 0 5 0.0.0.0:8330 0.0.0.0:* users:((\"git-daemon\",pid=7,fd=3))"
+        local loc, rest = line:match("^%S+%s+%S+%s+%S+%s+(%S+)%s+%S+%s+(.*)$")
+        if loc and loc:match(":" .. port .. "$") then
+            for n in rest:gmatch("\"git%-daemon\",pid=(%d+)") do
+                ns[n] = true
+            end
+        end
+    end
+    if next(ns) == nil then
         ERROR("daemon stop : not running")
     end
-    local n = f:read("a"):match("%d+")
-    f:close()
-    os.remove(pid)
-
-    -- kill's own "No such process" adds nothing to our message
-    exec { stderr = false,
-        cmd = "kill " .. n,
-        err = "daemon stop : not running",
-    }
-    print(n)
+    for n in pairs(ns) do
+        exec { err=false, stderr=false,
+            cmd = "kill " .. n,
+        }
+        print(n)
+    end
 end

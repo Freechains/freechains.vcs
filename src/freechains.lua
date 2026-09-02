@@ -171,6 +171,7 @@ do
     cmd.daemon.start._:argument("xtra"):args("*")
 
     cmd.daemon.stop._ = cmd.daemon._:command("stop")
+    cmd.daemon.stop._:option("--port"):convert(tonumber)
 end
 
 -- cmd.chains

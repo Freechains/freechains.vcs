@@ -2,9 +2,9 @@
 
 require "tests"
 
--- `daemon start` serves the local chains; `daemon stop` kills the
--- daemon on that port. The pid file is written by `git daemon`
--- itself (`--pid-file`), and lives at `<root>/daemon.pid`.
+-- `daemon start` serves the local chains; `daemon stop` kills
+-- every process holding the port (the listener AND its `--serve`
+-- children, which inherit the listen socket).
 -- `start` blocks, so it runs backgrounded here, as scripts do.
 
 local ROOT_A = ROOT .. "/cli-daemon/A/"
@@ -14,7 +14,6 @@ local EXE_A  = ENV .. " ../src/freechains.lua --root " .. ROOT_A
 local EXE_B  = ENV .. " ../src/freechains.lua --root " .. ROOT_B
 
 local PORT = 18330
-local PID  = ROOT_A .. "/daemon.pid"
 
 -- IPv4 only: a dual-stack [::] bind reserves the port, then fails
 -- its own 0.0.0.0 bind
@@ -47,16 +46,11 @@ do
         cmd = "sleep 1",
     }
 
-    TEST "the pid file exists and holds a live pid"
-    local f = io.open(PID)
-    assert(f, "no pid file at " .. PID)
-    local pid = f:read("a"):match("^%s*(%d+)")
-    f:close()
-    assert(pid, "pid file holds no number")
+    TEST "the port is being served"
     local ok = exec { err=false, stderr=false,
-        cmd = "kill -0 " .. pid,
+        cmd = "ss -ltn | grep -q ':" .. PORT .. " '",
     }
-    assert(ok ~= false, "pid " .. pid .. " is not alive")
+    assert(ok ~= false, "nothing listens on " .. PORT)
 
     TEST "B clones through the daemon (it really serves)"
     exec {
@@ -65,21 +59,25 @@ do
     local O = ORDER(EXE_B, "/cli-daemon")
     assert(#O == 1 and O[1] == post, "B did not receive the post")
 
-    TEST "stop prints the pid it killed and removes the file"
+    TEST "stop prints the pids it killed"
     local killed = exec {
-        cmd = EXE_A .. " daemon stop",
+        cmd = EXE_A .. " daemon stop --port=" .. PORT,
     }
-    assert(killed == pid, "stopped " .. killed .. ", expected " .. pid)
-    assert(not io.open(PID), "pid file still there")
+    assert(killed:match("^%d+"), "expected pids: " .. killed)
 
     TEST "the daemon is really gone"
     exec {
         cmd = "sleep 1",
     }
+    local pid = killed:match("%d+")
     local alive = exec { err=false, stderr=false,
         cmd = "kill -0 " .. pid,
     }
     assert(alive == false, "pid " .. pid .. " still alive")
+    local ok = exec { err=false, stderr=false,
+        cmd = "ss -ltn | grep -q ':" .. PORT .. " '",
+    }
+    assert(ok == false, "port " .. PORT .. " still bound")
 end
 
 print("==> daemon stop errors")
@@ -87,20 +85,10 @@ print("==> daemon stop errors")
 do
     TEST "stop with no daemon running"
     FAIL {
-        cmd = EXE_A .. " daemon stop",
+        cmd = EXE_A .. " daemon stop --port=" .. PORT,
         err = "ERROR : daemon stop : not running",
     }
 
-    TEST "stop on a dead pid reports not running"
-    -- the file outlives the process it names
-    local f = io.open(PID, "w")
-    f:write("2147483646\n")
-    f:close()
-    FAIL {
-        cmd = EXE_A .. " daemon stop",
-        err = "ERROR : daemon stop : not running",
-    }
-    assert(not io.open(PID), "pid file should be gone")
 end
 
 print("<== ALL PASSED")

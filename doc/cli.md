@@ -11,7 +11,7 @@ freechains v0.21
 
 Usage:
     freechains daemon start [--port=<port>] [--hub] [-- <git-opts>...]
-    freechains daemon stop
+    freechains daemon stop [--port=<port>]
 
     freechains chains dir
     freechains chains add <alias> init [--dictator=<pub>]... [--pioneer=<pub>]...
@@ -100,14 +100,15 @@ freechains --root=/tmp/X/ daemon start --hub --port=8331 &
 Stops running daemon.
 
 ```
-freechains daemon stop
+freechains daemon stop [--port=<port>]
 ```
+
+- `--port=<port>`:  port to stop [default: 8330]
 
 - Examples:
 
 ```
-freechains daemon stop
-freechains --root=/tmp/X/ daemon stop
+freechains daemon stop --port=8331
 ```
 
 # Chains
