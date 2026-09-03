@@ -259,7 +259,7 @@ do
         cmd.chain.get.payload._:argument("id"):target("cid")
     end
 
-    -- cmd.chain.like / dislike : target is a post OR an author
+    -- cmd.chain.like / dislike : target is a post OR member
     for _,c in ipairs { "like", "dislike" } do
         cmd.chain[c]._ = cmd.chain._:command(c)
         cmd.chain[c]._:argument("number"):convert(positive)
