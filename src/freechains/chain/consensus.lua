@@ -59,7 +59,7 @@ end
 -- `com` is the pairwise merge-base, computed HERE so no caller can
 -- pass the octopus `oct` instead: from a deeper point the two
 -- ranges overlap, and since reps are summed over the SET of
--- authors, a commit both sides already hold hands its author's
+-- members, a commit both sides already hold hands its member's
 -- full reps to whichever side lacked them -- letting undisputed
 -- history decide a disputed merge.
 function M.winner (G, a, b)
@@ -75,7 +75,7 @@ function M.winner (G, a, b)
     end
 
     --[[
-    -- The authors that signed `tip`'s side of the fork.
+    -- The members that signed `tip`'s side of the fork.
     -- Inputs:
     --  - tip [string]: one fork tip (com..tip is its region)
     -- Outputs:
@@ -103,7 +103,7 @@ function M.winner (G, a, b)
         for cid in out:gmatch("%x+") do
             local key = SSH.signer(REPO, cid)
             -- unsigned action in open chain -> anonymous
-            -- `ACTION.is`: a merge is unsigned too, and it authors nothing
+            -- `ACTION.is`: a merge is unsigned too, and it members nothing
             if (not key) and G.open and ACTION.is(cid) then
                 key = C.anon
             end
@@ -118,7 +118,7 @@ function M.winner (G, a, b)
     -- Inputs:
     --  - keys [table]: set of pubkeys (key -> true)
     -- Outputs:
-    --  - [integer]: sum of G.authors[key].reps (unknown = 0)
+    --  - [integer]: sum of G.members[key].reps (unknown = 0)
     -- Errors:
     --  - none
     -- Callers:
@@ -127,7 +127,7 @@ function M.winner (G, a, b)
     local function reps (keys)
         local n = 0
         for key in pairs(keys) do
-            local T = G.authors[key]
+            local T = G.members[key]
             if T then
                 n = n + T.reps
             end
@@ -138,7 +138,7 @@ function M.winner (G, a, b)
     local ka, kb = collect_keys(a), collect_keys(b)
 
     --[[
-    -- Any author on this side is a dictator?
+    -- Any member on this side is a dictator?
     -- Inputs:
     --  - keys [table]: set of pubkeys (key -> true)
     -- Outputs:
@@ -146,7 +146,7 @@ function M.winner (G, a, b)
     --]]
     local function dictator (keys)
         for key in pairs(keys) do
-            local T = G.authors[key]
+            local T = G.members[key]
             if T and T.dictator then
                 return true
             end

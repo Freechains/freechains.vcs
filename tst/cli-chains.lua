@@ -38,11 +38,11 @@ do
         }
         assert(lnk:match("^%x+/$"), "symlink target: " .. lnk)
 
-        TEST "author/committer = dash"
-        local author = exec {
+        TEST "member/committer = dash"
+        local member = exec {
             cmd = "git -C " .. DIR .. " log --format=%an HEAD",
         }
-        assert(author == "-", "author: " .. author)
+        assert(member == "-", "member: " .. member)
         local committer = exec {
             cmd = "git -C " .. DIR .. " log --format=%cn HEAD",
         }

@@ -7,7 +7,7 @@ local M = {}
 -- Inputs:
 --  - act [table]: a G.actions entry
 -- Outputs:
---  - [boolean]: author OR community net revoke below zero
+--  - [boolean]: member OR community net revoke below zero
 -- Errors:
 --  - none
 -- Callers:
@@ -19,7 +19,7 @@ local M = {}
 --]]
 function M.is_revoked (act)
     local r = act.revoke or {}
-    return ((r.author or 0) < 0) or ((r.others or 0) < 0)
+    return ((r.member or 0) < 0) or ((r.others or 0) < 0)
 end
 
 --[[
@@ -54,9 +54,9 @@ local function ordered (G)
 end
 
 --[[
--- Cap every author at C.reps.max, ONCE at the end of a step.
+-- Cap every member at C.reps.max, ONCE at the end of a step.
 -- Inputs:
---  - G [table]: chain state; MUTATED (G.authors[*].reps)
+--  - G [table]: chain state; MUTATED (G.members[*].reps)
 -- Outputs:
 --  - none
 -- Errors:
@@ -66,7 +66,7 @@ end
 --  - reps (reps.lua): after the query-time advance
 --]]
 function M.cap (G)
-    for _, v in pairs(G.authors) do
+    for _, v in pairs(G.members) do
         if v.reps > C.reps.max then
             v.reps = C.reps.max
         end
@@ -74,11 +74,11 @@ function M.cap (G)
 end
 
 --[[
--- Positive reps of author `a` (unknown = 0).
+-- Positive reps of member `a` (unknown = 0).
 -- Inputs:
 --  - G [table]: chain state
---      (reads G.authors; NOT the global: replay passes its own states)
---  - a [string]: author pubkey
+--      (reads G.members; NOT the global: replay passes its own states)
+--  - a [string]: member pubkey
 -- Outputs:
 --  - [integer]: max(0, reps)
 -- Errors:
@@ -87,7 +87,7 @@ end
 --  - advance (rules.lua): discount scan sums
 --]]
 local function reps_of (G, a)
-    local T = G.authors[a]
+    local T = G.members[a]
     return math.max(0, (T and T.reps) or 0)
 end
 
@@ -97,7 +97,7 @@ end
 -- Inputs:
 --  - G    [table]: chain state; MUTATED (maturities, reps, G.now)
 --  - time [integer]: the time driving the scans (act.time)
---  - sign [string?]: the acting author's pubkey; in a `reps`
+--  - sign [string?]: the acting member's pubkey; in a `reps`
 --    query nothing happened but time passing (no sign, no action)
 -- Outputs:
 --  - none
@@ -111,26 +111,26 @@ function M.advance (G, time, sign)
     local ORD
 
     -- discount scan (maybe signed at same G.now)
-    -- entries come in time order, so authors acting AFTER entry shrink set
+    -- entries come in time order, so members acting AFTER entry shrink set
     -- `cur`/`TOT` are kept LIVE: a refund mid-scan is seen by
     -- the entries after it, exactly as the rescan per entry did
     if time>G.now or sign then
         ORD = ordered(G)
 
-        local TOT = 0       -- positive reps of all authors
-        for _, v in pairs(G.authors) do
+        local TOT = 0       -- positive reps of all members
+        for _, v in pairs(G.members) do
             TOT = TOT + math.max(0, v.reps)
         end
 
-        local cnt = {}      -- author -> its N actions still ahead
-        local cur = 0       -- positive reps of cnt>0 authors
+        local cnt = {}      -- member -> its N actions still ahead
+        local cur = 0       -- positive reps of cnt>0 members
         for _, cid in ipairs(ORD) do
             local e = G.actions[cid]
-            if e.author and e.time then
-                local n = cnt[e.author]
-                cnt[e.author] = (n or 0) + 1
+            if e.member and e.time then
+                local n = cnt[e.member]
+                cnt[e.member] = (n or 0) + 1
                 if not n then
-                    cur = cur + reps_of(G, e.author)
+                    cur = cur + reps_of(G, e.member)
                 end
             end
         end
@@ -140,17 +140,17 @@ function M.advance (G, time, sign)
             local entry = G.actions[cid]
             if entry.maturity == "00-12" then
                 -- drop the actions at/below this entry's time:
-                -- `subs` = the authors still counted after that
+                -- `subs` = the members still counted after that
                 while k <= #ORD do
                     local o = G.actions[ORD[k]]
                     if (o.time or math.huge) > entry.time then
                         break
                     end
-                    if o.author and o.time then
-                        local n = cnt[o.author] - 1
-                        cnt[o.author] = n
+                    if o.member and o.time then
+                        local n = cnt[o.member] - 1
+                        cnt[o.member] = n
                         if n == 0 then
-                            cur = cur - reps_of(G, o.author)
+                            cur = cur - reps_of(G, o.member)
                         end
                     end
                     k = k + 1
@@ -167,13 +167,13 @@ function M.advance (G, time, sign)
 
                 if time >= entry.time + discount then
                     -- signed beg?
-                    if entry.author then
-                        local A = G.authors[entry.author]
+                    if entry.member then
+                        local A = G.members[entry.member]
                         local old = math.max(0, A.reps)
                         A.reps = A.reps + C.reps.cost
                         local d = math.max(0, A.reps) - old
                         TOT = TOT + d
-                        if (cnt[entry.author] or 0) > 0 then
+                        if (cnt[entry.member] or 0) > 0 then
                             cur = cur + d
                         end
                     end
@@ -189,16 +189,16 @@ function M.advance (G, time, sign)
             local entry = G.actions[cid]
             if entry.maturity == "12-24" then
                 if time >= entry.time+C.time.full then
-                    if entry.author then
-                        local last = G.authors[entry.author].time
+                    if entry.member then
+                        local last = G.members[entry.member].time
                         if time-last >= C.time.full then
-                            G.authors[entry.author].reps = G.authors[entry.author].reps + C.reps.earn
-                            G.authors[entry.author].time = last + C.time.full
+                            G.members[entry.member].reps = G.members[entry.member].reps + C.reps.earn
+                            G.members[entry.member].time = last + C.time.full
                             entry.maturity = nil
                             entry.time  = nil
                         end
                     else
-                        -- authorless (unsigned beg): consolidate, no credit
+                        -- memberless (unsigned beg): consolidate, no credit
                         entry.maturity = nil
                         entry.time  = nil
                     end
@@ -240,8 +240,8 @@ end
 -- Ungated posts and votes
 -- Dictators or unrestricted chains (no pioneers, no dictators).
 -- Inputs:
---  - G   [table]: chain state (reads G.open and G.authors)
---  - key [string?]: the acting author's pubkey
+--  - G   [table]: chain state (reads G.open and G.members)
+--  - key [string?]: the acting member's pubkey
 -- Outputs:
 --  - [boolean]: true when the gate must be skipped
 -- Errors:
@@ -253,18 +253,18 @@ local function ungated (G, key)
     if G.open then
         return true
     end
-    local T = key and G.authors[key]
+    local T = key and G.members[key]
     return (T and T.dictator) or false
 end
 
 --[[
 -- The reputation state transition.
 -- One action folded into `G`, from two sides:
---  what its author CLAIMS vs what the chain VERIFIED
+--  what its member CLAIMS vs what the chain VERIFIED
 -- Inputs:
 --  - G   [table]: chain state; MUTATED on acceptance
 --  - act [table]: what the commit SAYS: action (the kind), time
---    (its DATE, hash-bound), n, cid?|author? (the target)
+--    (its DATE, hash-bound), n, cid?|member? (the target)
 --  - env [table]: what the chain DERIVED: cid, sign?, beg?, backs
 -- Outputs:
 --  - [true]: accepted, or
@@ -299,12 +299,12 @@ function M.apply (G, act, env)
         end
         if env.sign then
             if env.beg then
-                local reps = G.authors[env.sign] and G.authors[env.sign].reps or 0
+                local reps = G.members[env.sign] and G.members[env.sign].reps or 0
                 if reps >= C.reps.cost then
-                    return false, "--beg error : author has sufficient reputation"
+                    return false, "--beg error : member has sufficient reputation"
                 end
             else
-                local reps = G.authors[env.sign] and G.authors[env.sign].reps or 0
+                local reps = G.members[env.sign] and G.members[env.sign].reps or 0
                 if ungated(G,env.sign) or reps>=C.reps.cost then
                     -- OK
                 else
@@ -316,18 +316,18 @@ function M.apply (G, act, env)
         -- mutation
         G.actions[env.cid] = {
             action   = 'post',
-            author   = env.sign,
+            member   = env.sign,
             time     = act.time,
             now      = math.max(act.time, up),
             maturity = (env.beg and 'beg') or (env.sign and '00-12') or 'beg',
             reps     = 0,
-            revoke   = { author=0, others=0 },
+            revoke   = { member=0, others=0 },
         }
         if env.sign then
-            G.authors[env.sign] = G.authors[env.sign] or { reps=0 }
+            G.members[env.sign] = G.members[env.sign] or { reps=0 }
             if not env.beg then
-                G.authors[env.sign].reps = G.authors[env.sign].reps - C.reps.cost
-                G.authors[env.sign].time = G.authors[env.sign].time or act.time
+                G.members[env.sign].reps = G.members[env.sign].reps - C.reps.cost
+                G.members[env.sign].time = G.members[env.sign].time or act.time
                     -- do not set for beg, bc not available to others
             end
         end
@@ -338,10 +338,10 @@ function M.apply (G, act, env)
         if math.type(act.n)~='integer' or act.n==0 then
             return false, "invalid number : expects non-zero integer"
         end
-        if (act.cid and act.author) or (not act.cid and not act.author) then
-            return false, "invalid target : expects 'action' or 'author'"
+        if (act.cid and act.member) or (not act.cid and not act.member) then
+            return false, "invalid target : expects 'action' or 'member'"
         end
-        -- revoke/unrevoke never target an author
+        -- revoke/unrevoke never target an member
         if act.action=='revoke' and (not act.cid) then
             return false, "invalid target : expects 'action'"
         end
@@ -360,20 +360,20 @@ function M.apply (G, act, env)
             return false, "invalid target : action not found"
         end
 
-        -- author self-revoke (right to be forgotten) is free and ungated
+        -- member self-revoke (right to be forgotten) is free and ungated
         local self_revoke = (
-            act.action=='revoke' and act.n<0 and G.actions[act.cid].author==env.sign
+            act.action=='revoke' and act.n<0 and G.actions[act.cid].member==env.sign
         )
 
         -- since self-revoke is free, check its not a "flooding attack"
         if self_revoke then
-            if G.actions[act.cid].revoke.author<0 then
+            if G.actions[act.cid].revoke.member<0 then
                 return false, "already revoked"
             end
         end
 
         -- must afford the full vote magnitude (no debt); self-revoke is free
-        local reps = (G.authors[env.sign] and G.authors[env.sign].reps) or 0
+        local reps = (G.members[env.sign] and G.members[env.sign].reps) or 0
         if self_revoke or ungated(G,env.sign) or reps>=math.abs(act.n) then
             -- OK
         else
@@ -384,17 +384,17 @@ function M.apply (G, act, env)
         -- mutation
         if not self_revoke then
             -- ungated may vote, so the entry may not exist yet
-            G.authors[env.sign] = G.authors[env.sign] or { reps=0 }
-            G.authors[env.sign].reps = reps - math.abs(act.n)
+            G.members[env.sign] = G.members[env.sign] or { reps=0 }
+            G.members[env.sign].reps = reps - math.abs(act.n)
         end
         local n = act.n * (100 - C.vote.tax) // 100
         if act.cid then
             local e = G.actions[act.cid]
-            local a = e.author
+            local a = e.member
             if not (self_revoke or (act.action=='revoke' and act.n>0)) then
                 if a then
-                    G.authors[a] = G.authors[a] or { reps=0 }
-                    G.authors[a].reps = G.authors[a].reps + n//C.vote.split
+                    G.members[a] = G.members[a] or { reps=0 }
+                    G.members[a].reps = G.members[a].reps + n//C.vote.split
                 else
                     assert(env.beg)
                 end
@@ -404,12 +404,12 @@ function M.apply (G, act, env)
             -- revoke axis: sum the signed magnitude act.n (revoke n<0,
             -- unrevoke n>0). A positive `like` also counts as an
             -- `unrevoke` (the converse is false: a `dislike` never
-            -- revokes). Author self-revoke feeds the absolute
-            -- `author` channel; everyone else the `others` channel.
+            -- revokes). Member self-revoke feeds the absolute
+            -- `member` channel; everyone else the `others` channel.
             if act.action=='revoke' or act.n>0 then
                 local r = e.revoke
                 if act.action=='revoke' and a and env.sign==a then
-                    r.author = r.author + act.n
+                    r.member = r.member + act.n
                 else
                     r.others = r.others + act.n
                 end
@@ -419,21 +419,21 @@ function M.apply (G, act, env)
                 e.maturity = "00-12"
                 e.time = act.time
                 if a then
-                    G.authors[a].time = G.authors[a].time or act.time
+                    G.members[a].time = G.members[a].time or act.time
                 end
             end
         else
-            G.authors[act.author] = G.authors[act.author] or { reps=0 }
-            G.authors[act.author].reps = G.authors[act.author].reps + n
+            G.members[act.member] = G.members[act.member] or { reps=0 }
+            G.members[act.member].reps = G.members[act.member].reps + n
         end
 
         -- the vote enters the registry as a target of its own:
         G.actions[env.cid] = {
             action = act.action,
-            author = env.sign,
+            member = env.sign,
             now    = math.max(act.time, up),
             reps   = 0,
-            revoke = { author=0, others=0 },
+            revoke = { member=0, others=0 },
         }
     end
 

@@ -167,7 +167,7 @@ do
         local T = META(out)
         assert(T.action == "like", "action: " .. tostring(T.action))
         assert(T.cid == POST, "cid: " .. tostring(T.cid))
-        assert(T.author == nil, "author should be unset")
+        assert(T.member == nil, "member should be unset")
         assert(math.type(T.n) == "integer", "n: " .. tostring(T.n))
         assert(T.backs[1] == POST, "back should be POST")
         -- backs are structural: the like's parent commit IS the post

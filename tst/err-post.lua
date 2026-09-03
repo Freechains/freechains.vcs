@@ -27,7 +27,7 @@ local function craft (repo, key, pub, now, back)
     })
 end
 
--- sync rejects post from author with insufficient reputation
+-- sync rejects post from member with insufficient reputation
 do
     print("==> sync rejects post with insufficient reputation")
 

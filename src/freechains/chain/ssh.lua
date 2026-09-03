@@ -13,8 +13,8 @@ local M = {}
 --  - none
 -- Callers:
 --  - post/like: early clean check of --sign before minting
---  - like (like.lua): author target normalization
---  - reps (reps.lua): author key argument
+--  - like (like.lua): member target normalization
+--  - reps (reps.lua): member key argument
 --  - chains add init (chains.lua): each --pioneer
 --]]
 function M.pub (v)

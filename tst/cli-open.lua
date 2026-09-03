@@ -26,10 +26,10 @@ do
     end
 
     do
-        TEST "the author goes into debt"
+        TEST "the member goes into debt"
         -- the cost applies as always: 0 - 500
         local r = exec {
-            cmd = ENV_EXE .. " --now=0 chain /cli-open reps author '" .. PUB1 .. "'",
+            cmd = ENV_EXE .. " --now=0 chain /cli-open reps member '" .. PUB1 .. "'",
         }
         assert(r == "-500", "reps: " .. r)
     end
@@ -38,7 +38,7 @@ do
         TEST "the debt refunds at 12h"
         -- nobody else posted, so the discount runs the full 12h
         local r = exec {
-            cmd = ENV_EXE .. " --now=43200 chain /cli-open reps author '" .. PUB1 .. "'",
+            cmd = ENV_EXE .. " --now=43200 chain /cli-open reps member '" .. PUB1 .. "'",
         }
         assert(r == "0", "reps: " .. r)
     end
@@ -54,11 +54,11 @@ do
         TEST "the voter goes into debt, the target is paid"
         -- KEY2: 0 - 1000 ; KEY1: 0 (refunded) + 1000*90%/2
         local k2 = exec {
-            cmd = ENV_EXE .. " --now=43200 chain /cli-open reps author '" .. PUB2 .. "'",
+            cmd = ENV_EXE .. " --now=43200 chain /cli-open reps member '" .. PUB2 .. "'",
         }
         assert(k2 == "-1000", "voter reps: " .. k2)
         local k1 = exec {
-            cmd = ENV_EXE .. " --now=43200 chain /cli-open reps author '" .. PUB1 .. "'",
+            cmd = ENV_EXE .. " --now=43200 chain /cli-open reps member '" .. PUB1 .. "'",
         }
         assert(k1 == "450", "target reps: " .. k1)
     end
@@ -66,12 +66,12 @@ do
     do
         TEST "a vote from DEBT is allowed too"
         local _, code = exec {
-            cmd = ENV_EXE .. " --now=43200 chain /cli-open like 1000 author '" ..
+            cmd = ENV_EXE .. " --now=43200 chain /cli-open like 1000 member '" ..
                 PUB1 .. "' --sign " .. KEY2,
         }
         assert(code == 0, "exit code: " .. tostring(code))
         local k2 = exec {
-            cmd = ENV_EXE .. " --now=43200 chain /cli-open reps author '" .. PUB2 .. "'",
+            cmd = ENV_EXE .. " --now=43200 chain /cli-open reps member '" .. PUB2 .. "'",
         }
         assert(k2 == "-2000", "voter reps: " .. k2)
     end
@@ -112,7 +112,7 @@ do
     do
         TEST "the shared account paid for it"
         local r = exec {
-            cmd = ENV_EXE .. " --now=0 chain /cli-anon reps author anonymous",
+            cmd = ENV_EXE .. " --now=0 chain /cli-anon reps member anonymous",
         }
         assert(r == "-500", "anon reps: " .. r)
     end
@@ -125,7 +125,7 @@ do
                 ANON .. " --sign " .. KEY1,
         }
         local r = exec {
-            cmd = ENV_EXE .. " --now=0 chain /cli-anon reps author anonymous",
+            cmd = ENV_EXE .. " --now=0 chain /cli-anon reps member anonymous",
         }
         assert(r == "-50", "anon reps: " .. r)
     end
@@ -171,8 +171,8 @@ do
 end
 
 -- The reason `collect_keys` counts an unsigned action as `anonymous`:
--- consensus weighs the FLOOR reps of each side's authors, so an
--- uncounted anon branch would weigh 0 and BEAT a signed author
+-- consensus weighs the FLOOR reps of each side's members, so an
+-- uncounted anon branch would weigh 0 and BEAT a signed member
 -- in debt. Two peers, one fork, deterministic outcome.
 do
     print("==> Consensus: anon debt weighs on its branch")
@@ -192,10 +192,10 @@ do
     do
         TEST "the floor: anon deeper in debt than the signer"
         local an = exec {
-            cmd = EXE_B .. " --now=20 chain /fork reps author anonymous",
+            cmd = EXE_B .. " --now=20 chain /fork reps member anonymous",
         }
         local k1 = exec {
-            cmd = EXE_B .. " --now=20 chain /fork reps author '" .. PUB1 .. "'",
+            cmd = EXE_B .. " --now=20 chain /fork reps member '" .. PUB1 .. "'",
         }
         assert(an == "-1000", "anon at floor: " .. an)
         assert(k1 == "-500", "KEY1 at floor: " .. k1)

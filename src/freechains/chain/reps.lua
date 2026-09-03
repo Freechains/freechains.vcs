@@ -3,14 +3,14 @@
 -- Print reputation queries.
 -- Fold time up to --now (discounts/consolidation)
 -- Inputs:
---  - ARGS.target [string]: action|actions|revoke|revokes|author|authors
---  - ARGS.key [string?]: action cid or author key (single forms)
+--  - ARGS.target [string]: action|actions|revoke|revokes|member|members
+--  - ARGS.key [string?]: action cid or member key (single forms)
 --  - ARGS.now [integer]: query time (drives `advance`)
 --  - G [table]: state at HEAD; mutated in memory only
 -- Outputs:
 --  - stdout: reps value(s), or revoke channel sums
 -- Errors:
---  - "chain reps : action requires id" (also revoke/author)
+--  - "chain reps : action requires id" (also revoke/member)
 --  - "chain reps : invalid target : <target>"
 -- Callers:
 --  - dispatch (chain/init.lua): ARGS.reps
@@ -18,8 +18,8 @@
 
 if ARGS.key then
     ARGS.key = ARGS.key:match("^%s*(.-)%s*$")
-    -- author key: string or key file (cli.md "Keys:")
-    if ARGS.target == "author" then
+    -- member key: string or key file (cli.md "Keys:")
+    if ARGS.target == "member" then
         ARGS.key = SSH.pub(ARGS.key) or ARGS.key
     elseif (ARGS.target == "action") or (ARGS.target == "revoke") then
         ARGS.key = ACTION.full(ARGS.key) or ARGS.key
@@ -52,14 +52,14 @@ elseif ARGS.target == "revoke" then
         ERROR("chain reps : revoke requires id")
     end
     local e = G.actions[ARGS.key]
-    local r = (e and e.revoke) or { author=0, others=0 }
-    print(r.author .. " " .. r.others)
+    local r = (e and e.revoke) or { member=0, others=0 }
+    print(r.member .. " " .. r.others)
 elseif ARGS.target == "revokes" then
     -- both revoke channels of every action, most revoked first
     local T = {}
     for k, v in pairs(G.actions) do
-        local r = v.revoke or { author=0, others=0 }
-        T[#T+1] = { k=k, a=r.author, o=r.others }
+        local r = v.revoke or { member=0, others=0 }
+        T[#T+1] = { k=k, a=r.member, o=r.others }
     end
     table.sort(T, function (x, y)
         if x.o ~= y.o then
@@ -72,16 +72,16 @@ elseif ARGS.target == "revokes" then
         print(e.k .. " " .. e.a .. " " .. e.o)
     end
 
-elseif ARGS.target == "author" then
+elseif ARGS.target == "member" then
     if not ARGS.key then
-        ERROR("chain reps : author requires a pubkey")
+        ERROR("chain reps : member requires a pubkey")
     end
-    local e = G.authors[ARGS.key]
+    local e = G.members[ARGS.key]
     local v = (e and e.reps) or 0
     print(v)
-elseif ARGS.target == "authors" then
+elseif ARGS.target == "members" then
     local T = {}
-    for k, v in pairs(G.authors) do
+    for k, v in pairs(G.members) do
         T[#T+1] = { k=k, v=v.reps }
     end
     table.sort(T, function (a, b) return a.v > b.v end)

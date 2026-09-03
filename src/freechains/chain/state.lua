@@ -25,7 +25,7 @@ end
 --[[
 -- Snapshot `G` at `cid`: table_to_string(G) as a blob pinned by its ref.
 -- Inputs:
---  - G   [table]: chain state (authors/actions/order/now)
+--  - G   [table]: chain state (members/actions/order/now)
 --  - cid [string]: 40-hex commit hash, derefed
 -- Outputs:
 --  - none

@@ -15,7 +15,7 @@ The command-line [API](cli.md) of Freechains is straightforward:
 freechains chains add ...           # create or clone chain locally
 freechains chain post ...           # post to chain
 freechains chain list ...           # list actions
-freechains chain (dis)like ...      # rate action or author
+freechains chain (dis)like ...      # rate action or member
 freechains chain (un)revoke ...     # remove or restore payload
 freechains chain reps ...           # query reputation
 freechains chain sync ...           # synchronize with remote peer
@@ -111,7 +111,7 @@ return {
         [1] = "b52c62f...",
     },
     ["blob"] = "90c7c77...",        -- payload hash
-    ["sign"] = "ssh-ed25519 ...",   -- author public key
+    ["sign"] = "ssh-ed25519 ...",   -- member public key
     ["time"] = 1780088002,          -- local creation time
 }
 ```
@@ -234,9 +234,9 @@ to its own reputation rules.
 We can query the reputation of members passing their public keys:
 
 ```
-$ freechains chain /chat reps author /tmp/alice.pub
+$ freechains chain /chat reps member /tmp/alice.pub
 49500
-$ freechains chain /chat reps author /tmp/bob.pub
+$ freechains chain /chat reps member /tmp/bob.pub
 0
 ```
 
@@ -247,7 +247,7 @@ To welcome new members into the chain, the pioneer needs to redistribute a
 share of its `reps`:
 
 ```
-$ freechains chain /chat like 10000 author /tmp/bob.pub --sign=/tmp/alice
+$ freechains chain /chat like 10000 member /tmp/bob.pub --sign=/tmp/alice
 560a55c...
 ```
 
@@ -255,9 +255,9 @@ $ freechains chain /chat like 10000 author /tmp/bob.pub --sign=/tmp/alice
 
 ```
 $ freechains --root=/tmp/B/ chain /chat sync recv localhost
-$ freechains --root=/tmp/B/ chain /chat reps author /tmp/alice.pub
+$ freechains --root=/tmp/B/ chain /chat reps member /tmp/alice.pub
 40000
-$ freechains --root=/tmp/B/ chain /chat reps author /tmp/bob.pub
+$ freechains --root=/tmp/B/ chain /chat reps member /tmp/bob.pub
 9000
 ```
 
@@ -299,13 +299,13 @@ Let's now introduce new member `Charlie`, who is welcomed by `Bob` in peer `B`:
 
 ```
 $ ssh-keygen -t ed25519 -C '' -f /tmp/charlie
-$ freechains --root=/tmp/B/ chain /chat like 5000 author /tmp/charlie.pub --sign=/tmp/bob
+$ freechains --root=/tmp/B/ chain /chat like 5000 member /tmp/charlie.pub --sign=/tmp/bob
 e6d7626...
-$ freechains --root=/tmp/B/ chain /chat reps author /tmp/alice.pub
+$ freechains --root=/tmp/B/ chain /chat reps member /tmp/alice.pub
 40000
-$ freechains --root=/tmp/B/ chain /chat reps author /tmp/bob.pub
+$ freechains --root=/tmp/B/ chain /chat reps member /tmp/bob.pub
 4000
-$ freechains --root=/tmp/B/ chain /chat reps author /tmp/charlie.pub
+$ freechains --root=/tmp/B/ chain /chat reps member /tmp/charlie.pub
 4500
 ```
 
@@ -318,7 +318,7 @@ In summary, the reputation system makes Freechains
 
 ## Posts Reputation & Begging
 
-As with authors, posts also have associated `reps` and can receive likes and
+As with members, posts also have associated `reps` and can receive likes and
 dislikes:
 
 ```
@@ -337,7 +337,7 @@ b52c62f... 450     # 'Hello World'
 e1f2a3b... 0       # 'Sync me'
 ...                # (likes are actions too)
 d6568e4... -450    # 'I am here'
-$ freechains --root=/tmp/B/ chain /chat reps authors
+$ freechains --root=/tmp/B/ chain /chat reps members
 ssh-ed25519 ...vzTc96I 40000   # Alice (unaffected)
 ssh-ed25519 ...Ks9pL2v 3500    # Charlie (his like cost him 1000)
 ssh-ed25519 ...je8+xIa 3000    # Bob (his dislike cost him 1000)
@@ -393,7 +393,7 @@ quality.
 Freechains provides a consensus mechanism that enforces the same order for all
 actions in all peers, whatever the order they arrive.
 Since Git itself provides no consensus mechanism for diverging branches,
-Freechains applies a custom hook to favor branches whose authors hold more
+Freechains applies a custom hook to favor branches whose members hold more
 `reps`.
 
 To illustrate how consensus resolves, let's introduce a neutral peer `X` that
@@ -451,7 +451,7 @@ f4e5d6c       # 'Charlie was here'
 Note that the histories diverge after `Alice`'s like to `Bob` (`560a55c`),
 which is the last action the peers exchanged.
 
-The important aspect to resolve consensus is to determine exclusive authors in
+The important aspect to resolve consensus is to determine exclusive members in
 diverging branches.
 In our example, after the action in common (`560a55c`),
     peer `A` has `Alice` and `Dave`, while
@@ -696,7 +696,7 @@ In summary, an action has three possible states:
 
 <img src="state.png" align="right" width="500">
 
-If the author has enough `reps`, a new action is immediately *accepted* in the
+If the member has enough `reps`, a new action is immediately *accepted* in the
 chain.
 Otherwise, it is *begging* and requires a like to become part of the chain.
 Once accepted, an action becomes part of the immutable chain history, but its

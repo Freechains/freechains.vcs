@@ -24,7 +24,7 @@ Main features:
 - Local-first publish-subscribe topic-based model
 - Unstructured peer-to-peer gossip dissemination
 - **Permissionless and Sybil-resistant chains**
-- **Per-chain reputation system for posts and authors**
+- **Per-chain reputation system for posts and members**
 - **Consensus via authoring reputation (human work)**
 - **Revocation of abusive content (SPAM, hate speech)**
 - Built on top of Git

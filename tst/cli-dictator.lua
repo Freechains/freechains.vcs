@@ -3,7 +3,7 @@
 require "tests"
 
 -- A DICTATOR is never gated, in a chain that gates everyone else.
--- It is an ordinary author otherwise: it pays, mints and may owe.
+-- It is an ordinary member otherwise: it pays, mints and may owe.
 -- Its side also wins a fork outright, whatever the reps say.
 
 local DIC = "--pioneer='" .. PUB1 .. "' --dictator='" .. PUB2 .. "'"
@@ -17,7 +17,7 @@ do
 
     do
         TEST "the dictator is marked, and holds no reps"
-        local A = STATE(ROOT .. "/chains/cli-dic/").authors
+        local A = STATE(ROOT .. "/chains/cli-dic/").members
         assert(A[PUB1].reps == 50000, "pioneer split: " .. A[PUB1].reps)
         assert(A[PUB1].dictator == nil, "a pioneer is not a dictator")
         assert(A[PUB2].reps == 0, "dictator reps: " .. A[PUB2].reps)
@@ -52,7 +52,7 @@ do
         TEST "and pays for it, going into debt"
         -- never gated, but the economy still applies
         local r = exec {
-            cmd = ENV_EXE .. " --now=0 chain /cli-dic reps author '" .. PUB2 .. "'",
+            cmd = ENV_EXE .. " --now=0 chain /cli-dic reps member '" .. PUB2 .. "'",
         }
         assert(r == "-500", "dictator reps: " .. r)
     end
@@ -60,19 +60,19 @@ do
     do
         TEST "the dictator votes beyond its balance"
         local _, code = exec {
-            cmd = ENV_EXE .. " --now=0 chain /cli-dic like 1000 author '" .. PUB3
+            cmd = ENV_EXE .. " --now=0 chain /cli-dic like 1000 member '" .. PUB3
                 .. "' --sign " .. KEY2,
         }
         assert(code == 0, "exit code: " .. tostring(code))
         local r = exec {
-            cmd = ENV_EXE .. " --now=0 chain /cli-dic reps author '" .. PUB2 .. "'",
+            cmd = ENV_EXE .. " --now=0 chain /cli-dic reps member '" .. PUB2 .. "'",
         }
         assert(r == "-1500", "dictator reps: " .. r)
 
         TEST "so it can admit anyone"
         -- KEY3 was refused above, and now holds reps
         local r3 = exec {
-            cmd = ENV_EXE .. " --now=0 chain /cli-dic reps author '" .. PUB3 .. "'",
+            cmd = ENV_EXE .. " --now=0 chain /cli-dic reps member '" .. PUB3 .. "'",
         }
         assert(r3 == "900", "welcomed reps: " .. r3)
     end
@@ -106,10 +106,10 @@ do
     do
         TEST "the floor: the pioneer holds everything"
         local a = exec {
-            cmd = EXE_B .. " --now=0 chain /fork reps author '" .. PUB1 .. "'",
+            cmd = EXE_B .. " --now=0 chain /fork reps member '" .. PUB1 .. "'",
         }
         local d = exec {
-            cmd = EXE_B .. " --now=0 chain /fork reps author '" .. PUB2 .. "'",
+            cmd = EXE_B .. " --now=0 chain /fork reps member '" .. PUB2 .. "'",
         }
         assert(a == "50000", "pioneer: " .. a)
         assert(d == "0", "dictator: " .. d)
@@ -151,7 +151,7 @@ do
         assert(t.dictators[1] == PUB1, "the dual key is not marked")
 
         TEST "it holds the pioneer split AND the mark"
-        local A = STATE(DUAL).authors
+        local A = STATE(DUAL).members
         assert(A[PUB1].reps == 25000, "dual reps: " .. A[PUB1].reps)
         assert(A[PUB1].dictator == true, "dual not marked")
         assert(A[PUB2].reps == 25000, "plain reps: " .. A[PUB2].reps)
@@ -163,15 +163,15 @@ do
         TEST "both spend their whole balance on a vote"
         for _, k in ipairs { KEY1, KEY2 } do
             exec {
-                cmd = ENV_EXE .. " --now=0 chain /cli-dual like 25000 author '"
+                cmd = ENV_EXE .. " --now=0 chain /cli-dual like 25000 member '"
                     .. PUB4 .. "' --sign " .. k,
             }
         end
         local a = exec {
-            cmd = ENV_EXE .. " --now=0 chain /cli-dual reps author '" .. PUB1 .. "'",
+            cmd = ENV_EXE .. " --now=0 chain /cli-dual reps member '" .. PUB1 .. "'",
         }
         local b = exec {
-            cmd = ENV_EXE .. " --now=0 chain /cli-dual reps author '" .. PUB2 .. "'",
+            cmd = ENV_EXE .. " --now=0 chain /cli-dual reps member '" .. PUB2 .. "'",
         }
         assert(a == "0", "dual reps: "  .. a)
         assert(b == "0", "plain reps: " .. b)
@@ -206,10 +206,10 @@ do
         TEST "both are marked, and neither holds reps"
         local G = STATE(TWO)
         assert(#GENESIS(TWO).dictators == 2, "two dictator lines")
-        assert(G.authors[PUB2].dictator == true, "PUB2 not marked")
-        assert(G.authors[PUB3].dictator == true, "PUB3 not marked")
-        assert(G.authors[PUB2].reps == 0, "PUB2 reps: " .. G.authors[PUB2].reps)
-        assert(G.authors[PUB3].reps == 0, "PUB3 reps: " .. G.authors[PUB3].reps)
+        assert(G.members[PUB2].dictator == true, "PUB2 not marked")
+        assert(G.members[PUB3].dictator == true, "PUB3 not marked")
+        assert(G.members[PUB2].reps == 0, "PUB2 reps: " .. G.members[PUB2].reps)
+        assert(G.members[PUB3].reps == 0, "PUB3 reps: " .. G.members[PUB3].reps)
 
         TEST "no pioneer, but dictators: the chain is NOT open"
         assert(G.open == false, "must be gated")
@@ -224,7 +224,7 @@ do
             }
             assert(code == 0, "exit code: " .. tostring(code))
             local r = exec {
-                cmd = ENV_EXE .. " --now=0 chain /cli-two reps author '" .. t[2] .. "'",
+                cmd = ENV_EXE .. " --now=0 chain /cli-two reps member '" .. t[2] .. "'",
             }
             assert(r == "-500", "dictator reps: " .. r)
         end

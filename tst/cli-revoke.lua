@@ -5,15 +5,15 @@ require "tests"
 -- Content revocation, two paths:
 --  * community: any negative net hides the payload, but a vote on the
 --    axis weighs at least 1000; reversible via unrevoke.
---  * author: self-revoke is absolute (right to be forgotten), applies
---    regardless of the community net; only the author can unrevoke it.
+--  * member: self-revoke is absolute (right to be forgotten), applies
+--    regardless of the community net; only the member can unrevoke it.
 -- Phase 1 hides the payload only (metadata stays).
 
 exec {
     cmd = ENV_EXE .. " chains add /cli-revoke init " .. GEN_3,
 }
 
--- KEY1 posts the target (author = KEY1)
+-- KEY1 posts the target (member = KEY1)
 local POST = exec {
     cmd = ENV_EXE .. " chain /cli-revoke post inline 'revoke-me' --sign " .. KEY1,
 }
@@ -51,7 +51,7 @@ do
 
     do
         TEST "revoke-community-hides"
-        -- KEY2 is not the author: one revoke -> net -1000 -> revoked
+        -- KEY2 is not the member: one revoke -> net -1000 -> revoked
         exec {
             cmd = ENV_EXE .. " chain /cli-revoke revoke 1000 " .. POST .. " --sign " .. KEY2,
         }
@@ -76,13 +76,13 @@ do
 end
 
 do
-    print("==> Revoke: author self-revoke is absolute")
+    print("==> Revoke: member self-revoke is absolute")
 
     do
-        TEST "revoke-author-forgets-free"
-        -- KEY1 is the author: self-revoke is FREE (right to be forgotten)
+        TEST "revoke-member-forgets-free"
+        -- KEY1 is the member: self-revoke is FREE (right to be forgotten)
         local before = exec {
-            cmd = ENV_EXE .. " chain /cli-revoke reps author '" .. PUB1 .. "'",
+            cmd = ENV_EXE .. " chain /cli-revoke reps member '" .. PUB1 .. "'",
         }
         exec {
             cmd = ENV_EXE .. " chain /cli-revoke revoke 1000 " .. POST .. " --sign " .. KEY1,
@@ -94,7 +94,7 @@ do
             err = "ERROR : chain revoke : already revoked",
         }
         local after = exec {
-            cmd = ENV_EXE .. " chain /cli-revoke reps author '" .. PUB1 .. "'",
+            cmd = ENV_EXE .. " chain /cli-revoke reps member '" .. PUB1 .. "'",
         }
         assert(before == after, "self-revoke must be free: " .. before .. " -> " .. after)
         FAIL {
@@ -104,8 +104,8 @@ do
     end
 
     do
-        TEST "revoke-author-above-community"
-        -- a community unrevoke cannot restore an author-forgotten post
+        TEST "revoke-member-above-community"
+        -- a community unrevoke cannot restore an member-forgotten post
         exec {
             cmd = ENV_EXE .. " chain /cli-revoke unrevoke 1000 " .. POST .. " --sign " .. KEY2,
         }
@@ -116,8 +116,8 @@ do
     end
 
     do
-        TEST "revoke-author-unrevoke"
-        -- only the author can lift their own forget
+        TEST "revoke-member-unrevoke"
+        -- only the member can lift their own forget
         exec {
             cmd = ENV_EXE .. " chain /cli-revoke unrevoke 1000 " .. POST .. " --sign " .. KEY1,
         }
@@ -132,7 +132,7 @@ end
 do
     print("==> Revoke: a vote's why is a payload too")
 
-    -- a `--why` is user-authored text with its own blob, so it is
+    -- a `--why` is user-membered text with its own blob, so it is
     -- revokable exactly like a post's content: the target of the
     -- axis is any ACTION, not just a post
     local RP = exec {
@@ -155,7 +155,7 @@ do
     do
         TEST "revoke-a-vote-hides-its-why"
         local before = tonumber((exec {
-            cmd = ENV_EXE .. " chain /cli-revoke reps author '" .. PUB2 .. "'",
+            cmd = ENV_EXE .. " chain /cli-revoke reps member '" .. PUB2 .. "'",
         }))
         exec {
             cmd = ENV_EXE .. " chain /cli-revoke revoke 1000 " .. L .. " --sign " .. KEY3,
@@ -167,7 +167,7 @@ do
         -- a revoke also dislikes, and a vote is scored like a post:
         -- its signer pays the 1000, taxed 10% and split 50/50
         local after = tonumber((exec {
-            cmd = ENV_EXE .. " chain /cli-revoke reps author '" .. PUB2 .. "'",
+            cmd = ENV_EXE .. " chain /cli-revoke reps member '" .. PUB2 .. "'",
         }))
         assert(after == before-450, "signer drain: " .. before .. " -> " .. after)
     end
@@ -183,16 +183,16 @@ do
     end
 
     do
-        TEST "revoke-vote-author-channel"
+        TEST "revoke-vote-member-channel"
         -- the signer forgetting their own why is free and absolute
         local before = exec {
-            cmd = ENV_EXE .. " chain /cli-revoke reps author '" .. PUB2 .. "'",
+            cmd = ENV_EXE .. " chain /cli-revoke reps member '" .. PUB2 .. "'",
         }
         exec {
             cmd = ENV_EXE .. " chain /cli-revoke revoke 1000 " .. L .. " --sign " .. KEY2,
         }
         local after = exec {
-            cmd = ENV_EXE .. " chain /cli-revoke reps author '" .. PUB2 .. "'",
+            cmd = ENV_EXE .. " chain /cli-revoke reps member '" .. PUB2 .. "'",
         }
         assert(before == after, "self-revoke must be free: " .. before .. " -> " .. after)
         assert(exec {
@@ -271,7 +271,7 @@ do
             cmd = ENV_EXE .. " chain /cli-revoke reps action " .. P,
         }
         local sign_1 = tonumber((exec {
-            cmd = ENV_EXE .. " chain /cli-revoke reps author '" .. PUB3 .. "'",
+            cmd = ENV_EXE .. " chain /cli-revoke reps member '" .. PUB3 .. "'",
         }))
         exec {
             cmd = ENV_EXE .. " chain /cli-revoke unrevoke 1000 " .. P .. " --sign " .. KEY3,
@@ -280,7 +280,7 @@ do
             cmd = ENV_EXE .. " chain /cli-revoke reps action " .. P,
         }
         local sign_2 = tonumber((exec {
-            cmd = ENV_EXE .. " chain /cli-revoke reps author '" .. PUB3 .. "'",
+            cmd = ENV_EXE .. " chain /cli-revoke reps member '" .. PUB3 .. "'",
         }))
         assert(post_1 == post_2, "unrevoke must not credit: " .. post_1 .. " -> " .. post_2)
         assert(sign_2 < sign_1, "unrevoke must cost: " .. sign_1 .. " -> " .. sign_2)
@@ -293,7 +293,7 @@ do
 
     do
         TEST "revoke-self-like-keeps"
-        -- the author's own like feeds the community channel, so it
+        -- the member's own like feeds the community channel, so it
         -- cannot lift their absolute self-revoke
         exec {
             cmd = ENV_EXE .. " chain /cli-revoke revoke 1000 " .. P .. " --sign " .. KEY1,
@@ -312,12 +312,12 @@ do
             cmd = ENV_EXE .. " chain /cli-revoke get payload " .. P,
         }
         assert(code == 0, "exit code: " .. tostring(code))
-        assert(out == "coupled", "author unrevoke should restore: " .. out)
+        assert(out == "coupled", "member unrevoke should restore: " .. out)
     end
 
     do
         TEST "reps-revoke"
-        -- author channel is back to 0, community is +1000 (the two likes
+        -- member channel is back to 0, community is +1000 (the two likes
         -- and the unrevoke net against the two revokes)
         local out, code = exec {
             cmd = ENV_EXE .. " chain /cli-revoke reps revoke " .. P,

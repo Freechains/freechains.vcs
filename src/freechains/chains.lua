@@ -184,7 +184,7 @@ local function genesis (dir, gen)
     end
 
     -- dictator: never checked, and its side wins a fork
-    -- ordinary author otherwise (pays, mints, caps, may owe)
+    -- ordinary member otherwise (pays, mints, caps, may owe)
     for _, key in ipairs(gods) do
         A[key] = A[key] or { reps = 0 }
         A[key].dictator = true
@@ -193,7 +193,7 @@ local function genesis (dir, gen)
     local G = {
         now     = 0,
         open    = (#pios==0 and #gods==0),  -- unrestricted chain: anyone can post,vote
-        authors = A,
+        members = A,
         actions = {},
         order   = {},
     }

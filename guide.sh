@@ -112,26 +112,26 @@ ssh-keygen -t ed25519 -C '' -N '' -q -f "$KEYS/bob"
 echo "-- expected failure:"
 FC --root="$B" --now=$((T0+50)) chain /chat post inline $'Possibly malicious\n' --sign="$KEYS/bob" || true
 
-FC --root="$A" --now=$((T0+50)) chain /chat reps author "$KEYS/alice.pub"
-FC --root="$B" --now=$((T0+50)) chain /chat reps author "$KEYS/bob.pub"
+FC --root="$A" --now=$((T0+50)) chain /chat reps member "$KEYS/alice.pub"
+FC --root="$B" --now=$((T0+50)) chain /chat reps member "$KEYS/bob.pub"
 
 # Alice welcomes Bob with 10000 reps
-FC --root="$A" --now=$((T0+60)) chain /chat like 10000 author "$KEYS/bob.pub" --sign="$KEYS/alice"
+FC --root="$A" --now=$((T0+60)) chain /chat like 10000 member "$KEYS/bob.pub" --sign="$KEYS/alice"
 FC --root="$B" chain /chat sync recv localhost:$A_PORT
-FC --root="$B" --now=$((T0+70)) chain /chat reps author "$KEYS/alice.pub"
-FC --root="$B" --now=$((T0+70)) chain /chat reps author "$KEYS/bob.pub"
+FC --root="$B" --now=$((T0+70)) chain /chat reps member "$KEYS/alice.pub"
+FC --root="$B" --now=$((T0+70)) chain /chat reps member "$KEYS/bob.pub"
 
 # Bob welcomes Charlie with 5000 reps
 ssh-keygen -t ed25519 -C '' -N '' -q -f "$KEYS/charlie"
-FC --root="$B" --now=$((T0+80)) chain /chat like 5000 author "$KEYS/charlie.pub" --sign="$KEYS/bob"
-FC --root="$B" --now=$((T0+80)) chain /chat reps author "$KEYS/charlie.pub"
+FC --root="$B" --now=$((T0+80)) chain /chat like 5000 member "$KEYS/charlie.pub" --sign="$KEYS/bob"
+FC --root="$B" --now=$((T0+80)) chain /chat reps member "$KEYS/charlie.pub"
 
 echo
 echo "############ Posts Reputation & Begging ############"
 echo
 
 # Charlie likes and Bob dislikes Alice's first two posts: the target is a
-# post, not an author, so the reps land on the content (half) and on
+# post, not a member, so the reps land on the content (half) and on
 # Alice (half)
 FC --root="$B" --now=$((T0+81)) chain /chat like    1000 action "$HELLO" --sign="$KEYS/charlie"
 FC --root="$B" --now=$((T0+82)) chain /chat dislike 1000 action "$HERE"  --sign="$KEYS/bob"
@@ -141,7 +141,7 @@ FC --root="$B" --now=$((T0+82)) chain /chat reps actions
 
 # expected: alice 40000 (her two received votes cancel out), while bob
 # and charlie each pay in full for the single vote they cast
-FC --root="$B" --now=$((T0+82)) chain /chat reps authors
+FC --root="$B" --now=$((T0+82)) chain /chat reps members
 
 # Dave holds no reps at all, so he begs: the post is parked on
 # refs/begs/, outside the chain, until someone likes it
@@ -150,7 +150,7 @@ FCH --root="$A" --now=$((T0+83)) chain /chat post inline $'A great post!\n' --be
 BEG=$HASH
 FC --root="$A" chain /chat list begs
 
-# Alice likes the beg, which admits both the post and its author
+# Alice likes the beg, which admits both the post and its member
 FC --root="$A" --now=$((T0+84)) chain /chat like 4000 action "$BEG" --sign="$KEYS/alice"
 echo "-- no begs pending anymore:"
 FC --root="$A" chain /chat list begs

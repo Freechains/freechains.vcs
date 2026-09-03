@@ -240,11 +240,11 @@ function ORDER (exe, chain)
     return T, S
 end
 
--- reps of the author `pub`. The `exec` call is parenthesized: it also
+-- reps of the member `pub`. The `exec` call is parenthesized: it also
 -- returns the exit code, which `tonumber` would take as the base.
 function REPS (exe, chain, pub)
     return tonumber((exec {
-        cmd = exe .. " chain '" .. chain .. "' reps author '" .. pub .. "'",
+        cmd = exe .. " chain '" .. chain .. "' reps member '" .. pub .. "'",
     }))
 end
 

@@ -14,7 +14,7 @@ local M = {}
 --  sign:  gpgsig
 --  Commit message shape:
 --     post ; <payload-blob>
---     like|revoke <n> ; action <cid>|author <pub> [; <why-blob>]
+--     like|revoke <n> ; action <cid>|member <pub> [; <why-blob>]
 -- Inputs:
 --  - asr [boolean]: on errors, true asserts, false returns nil
 --  - cid [string]: 40-hex commit hash
@@ -24,7 +24,7 @@ local M = {}
 --        verified: display only; replay uses SSH.verify)
 --      - backs=true: structural back-links from the parents
 -- Outputs:
---  - [table?]: { action, time, blob?, n?, cid?|author?, sign?, backs? }
+--  - [table?]: { action, time, blob?, n?, cid?|member?, sign?, backs? }
 --  - nil, error: parse error (asr=false)
 -- Errors:
 --  - "bug found : no action : <cid>" : parse error (asr=true)
@@ -89,10 +89,10 @@ function M.read (asr, cid, opt)
             end
             local ty, tgt
             if ls[2] then
-                -- "action 4b2080cf..." | "author ssh-ed25519 AAAA..."
+                -- "action 4b2080cf..." | "member ssh-ed25519 AAAA..."
                 ty, tgt = ls[2]:match("^(%a+) (.+)$")
             end
-            if (ty ~= 'action') and (ty ~= 'author') then
+            if (ty ~= 'action') and (ty ~= 'member') then
                 goto ERR
             end
             local why = ls[3]
@@ -107,7 +107,7 @@ function M.read (asr, cid, opt)
                 blob   = why,
                 sign   = (opt.sign and SSH.signer(REPO, cid)) or nil,
                 backs  = (opt.backs and M.backs(GIT.parents(cid))) or nil,
-                [ty == 'action' and 'cid' or 'author'] = tgt,
+                [ty == 'action' and 'cid' or 'member'] = tgt,
             }
         end
         ::ERR::
@@ -211,7 +211,7 @@ end
 -- Commit action `t` with inline message metadata.
 -- Inputs:
 --  - err [string?]: exec err message on failure (nil: bug found)
---  - t [table]: action, n, cid?|author?, blob?
+--  - t [table]: action, n, cid?|member?, blob?
 --    + parents={...}, sign=keypath?
 -- Outputs:
 --  - [string]: the new action's 40-hex cid
@@ -230,7 +230,7 @@ function M.commit (err, t)
         if t.cid then
             msg = msg .. "action " .. t.cid .. "\n"
         else
-            msg = msg .. "author " .. t.author .. "\n"
+            msg = msg .. "member " .. t.member .. "\n"
         end
         if t.blob then
             msg = msg .. t.blob .. "\n"
@@ -254,7 +254,7 @@ local KINDS = { post=true, like=true, revoke=true }
 -- Everything is read from the commit itself (message, DATE, gpgsig, parents).
 -- Checks structure checks, signature, rules `apply`, order, snapshot.
 -- Inputs:
---  - G   [table]: chain state (authors/actions/order/now); MUTATED
+--  - G   [table]: chain state (members/actions/order/now); MUTATED
 --  - cid [string]: 40-hex commit hash, already in the object db
 --  - beg [boolean?]: force beg admission (post writers, beg sync)
 -- Outputs:
@@ -322,7 +322,7 @@ function M.apply (G, cid, beg)
         end
 
         -- an UNSIGNED post in an OPEN chain is charged to the
-        -- shared anon account: from here on it IS an author, so
+        -- shared anon account: from here on it IS an member, so
         -- everything downstream is unchanged (and `to_beg` below
         -- no longer sees a nil key, hence no longer parks it).
         -- VOTES are never anonymous: the check below still fires

@@ -22,16 +22,16 @@ Usage:
 
     # actions
     freechains chain <alias> post (file <path> | inline <text>) [--beg]
-    freechains chain <alias> like <n> (action <id> | author <pub>) [--file=<path>]
-    freechains chain <alias> dislike <n> (action <id> | author <pub>)
+    freechains chain <alias> like <n> (action <id> | member <pub>) [--file=<path>]
+    freechains chain <alias> dislike <n> (action <id> | member <pub>)
     freechains chain <alias> revoke <n> <id>
     freechains chain <alias> unrevoke <n> <id> [--file=<path>]
 
     # queries
     freechains chain <alias> list (tips | begs | revokes | dag | order)
     freechains chain <alias> get (metadata | payload) <id>
-    freechains chain <alias> reps (actions | authors | revokes)
-    freechains chain <alias> reps (action <id> | author <pub> | revoke <id>)
+    freechains chain <alias> reps (actions | members | revokes)
+    freechains chain <alias> reps (action <id> | member <pub> | revoke <id>)
 
     # synchronize
     freechains chain <alias> sync (recv | send) <remote>
@@ -183,7 +183,7 @@ freechains chain <alias> post (file <path> | inline <text>) [--sign=<pvt>] [--be
 
 - `file <path>`:    posts contents of given file
 - `inline <text>`:  posts given text
-- `--sign=<pvt>`:   private key file of author (defaults to `$HOME/.ssh/id_ed25519`)
+- `--sign=<pvt>`:   private key file of member (defaults to `$HOME/.ssh/id_ed25519`)
 - `--beg`:          posts without spending reps
     - post needs a like to become part of the chain
 
@@ -199,17 +199,17 @@ freechains chain /open post inline $'no key at all\n'
 
 ## chain like / dislike
 
-Likes or dislikes an action or author in the chain.
+Likes or dislikes an action or member in the chain.
 
 ```
-freechains chain <alias> like <n> (action <id> | author <pub>) [--why=<text>] [--file=<path>]
-freechains chain <alias> dislike <n> (action <id> | author <pub>) [--why=<text>]
+freechains chain <alias> like <n> (action <id> | member <pub>) [--why=<text>] [--file=<path>]
+freechains chain <alias> dislike <n> (action <id> | member <pub>) [--why=<text>]
 ```
 
 - `<n>`:                amount of reps to spend (min: 500)
 - target:
     - `action <id>`:    rates action
-    - `author <pub>`:   rates author
+    - `member <pub>`:   rates member
 - `--why=<text>`:       justify the action
 - `--file=<path>`:      original payload (required for revoked actions)
 
@@ -217,7 +217,7 @@ freechains chain <alias> dislike <n> (action <id> | author <pub>) [--why=<text>]
 
 ```
 freechains chain /chat like 1000 action b52c62f --sign=/tmp/charlie
-freechains chain /chat like 10000 author /tmp/bob.pub --sign=/tmp/alice
+freechains chain /chat like 10000 member /tmp/bob.pub --sign=/tmp/alice
 freechains chain /chat dislike 1000 action d6568e4 --sign=/tmp/bob --why='SPAM'
 ```
 
@@ -287,7 +287,7 @@ return {
     action = "post",
     time   = 1780088002,        -- local creation time
     blob   = "90c7c77a...",     -- payload hash
-    sign   = "ssh-ed25519 ...", -- author public key (optional: anonymous)
+    sign   = "ssh-ed25519 ...", -- member public key (optional: anonymous)
     backs  = { "b52c62f...", }, -- back-link actions, sorted
 }
 ```
@@ -300,7 +300,7 @@ return {
     time   = 1780088002,        -- local creation time
     n      = 1000,              -- amount (negative: dislike | revoke)
     cid    = "4b2080cf...",     -- target action (either this...)
-    author = "ssh-ed25519 ...", -- target author (...or this)
+    member = "ssh-ed25519 ...", -- target member (...or this)
     blob   = "9ae2f1b3...",     -- --why payload hash (optional)
     sign   = "ssh-ed25519 ...", -- voter public key
     backs  = { "b52c62f...", }, -- back-link actions, sorted
@@ -341,28 +341,28 @@ return {
 
 ## chain reps
 
-Queries reputation of given action or author.
+Queries reputation of given action or member.
 
 ```
 freechains chain <alias> reps actions
-freechains chain <alias> reps authors
+freechains chain <alias> reps members
 freechains chain <alias> reps revokes
 freechains chain <alias> reps action  <id>
-freechains chain <alias> reps author  <pub>
+freechains chain <alias> reps member  <pub>
 freechains chain <alias> reps revoke  <id>
 ```
 
 - `actions`:        all actions, most reputable first
-- `authors`:        all authors, most reputable first
+- `members`:        all members, most reputable first
 - `revokes`:        all actions, most revoked first
 - `action <id>`:    reps of single action
-- `author <pub>`:   reps of single author (`anonymous` for unsigned posts)
-- `revoke <id>`:    revokes of single action, as `<author> <others>`
+- `member <pub>`:   reps of single member (`anonymous` for unsigned posts)
+- `revoke <id>`:    revokes of single action, as `<member> <others>`
 
 - Examples:
 
 ```
-freechains chain /chat reps author /tmp/alice.pub
+freechains chain /chat reps member /tmp/alice.pub
 freechains chain /chat reps actions
 ```
 

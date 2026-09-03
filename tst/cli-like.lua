@@ -48,7 +48,7 @@ do
     do
         TEST "like-triggers-discount-refund"
         local k1 = exec {
-            cmd = ENV_EXE .. " chain /cli-like reps author '" .. PUB1 .. "'",
+            cmd = ENV_EXE .. " chain /cli-like reps member '" .. PUB1 .. "'",
         }
         -- KEY1: 25000 - 500 (post) + 500 (discount refund) + 450 (self-back) = 25450
         assert(k1 == "25450", "KEY1 reps after like: " .. k1)
@@ -178,47 +178,47 @@ exec {
     cmd = ENV_EXE .. " chains add /cli-like init " .. GEN_2,
 }
 do
-    print("==> freechains chain like author")
+    print("==> freechains chain like member")
 
     -- KEY1=15, KEY2=15
     do
-        TEST "like-author-success"
-        -- cli.md "Keys:": the author may be a key FILE (resolves to
+        TEST "like-member-success"
+        -- cli.md "Keys:": the member may be a key FILE (resolves to
         -- PUB2), not only the key string
         local out, code = exec {
-            cmd = ENV_EXE .. " chain /cli-like like 1000 author " .. KEY2 .. ".pub --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain /cli-like like 1000 member " .. KEY2 .. ".pub --sign " .. KEY1,
         }
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
     end
 
     do
-        TEST "like-author-liker-cost"
+        TEST "like-member-liker-cost"
         -- KEY1: 25000 - 1000 (like cost) = 24000
         local out = exec {
-            cmd = ENV_EXE .. " chain /cli-like reps author '" .. PUB1 .. "'",
+            cmd = ENV_EXE .. " chain /cli-like reps member '" .. PUB1 .. "'",
         }
         assert(out == "24000", "liker reps: " .. out)
 
-        TEST "like-author-target-gains"
+        TEST "like-member-target-gains"
         -- KEY2: 25000 + 900 = 25900
         local out = exec {
-            cmd = ENV_EXE .. " chain /cli-like reps author '" .. PUB2 .. "'",
+            cmd = ENV_EXE .. " chain /cli-like reps member '" .. PUB2 .. "'",
         }
         assert(out == "25900", "target reps: " .. out)
     end
 
     do
-        TEST "like-author-2-transfer"
+        TEST "like-member-2-transfer"
         -- like 2000: KEY1 pays 2000 cost, KEY2 gets 2000*90%=1800
         exec {
-            cmd = ENV_EXE .. " chain /cli-like like 2000 author '" .. PUB2 .. "'" .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain /cli-like like 2000 member '" .. PUB2 .. "'" .. " --sign " .. KEY1,
         }
         local k1 = exec {
-            cmd = ENV_EXE .. " chain /cli-like reps author '" .. PUB1 .. "'",
+            cmd = ENV_EXE .. " chain /cli-like reps member '" .. PUB1 .. "'",
         }
         local k2 = exec {
-            cmd = ENV_EXE .. " chain /cli-like reps author '" .. PUB2 .. "'",
+            cmd = ENV_EXE .. " chain /cli-like reps member '" .. PUB2 .. "'",
         }
         -- KEY1: 24000 - 2000 = 22000
         -- KEY2: 25900 + 1800 = 27700
@@ -227,15 +227,15 @@ do
     end
 
     do
-        TEST "dislike-author"
+        TEST "dislike-member"
         exec {
-            cmd = ENV_EXE .. " chain /cli-like dislike 1000 author '" .. PUB2 .. "'" .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain /cli-like dislike 1000 member '" .. PUB2 .. "'" .. " --sign " .. KEY1,
         }
         local k1 = exec {
-            cmd = ENV_EXE .. " chain /cli-like reps author '" .. PUB1 .. "'",
+            cmd = ENV_EXE .. " chain /cli-like reps member '" .. PUB1 .. "'",
         }
         local k2 = exec {
-            cmd = ENV_EXE .. " chain /cli-like reps author '" .. PUB2 .. "'",
+            cmd = ENV_EXE .. " chain /cli-like reps member '" .. PUB2 .. "'",
         }
         -- KEY1: 22000 - 1000 = 21000
         -- KEY2: 27700 - 900 = 26800
@@ -249,15 +249,15 @@ do
     print("==> Whitespace trim")
 
     do
-        TEST "like-author-whitespace"
+        TEST "like-member-whitespace"
         local before_s = exec {
-            cmd = ENV_EXE .. " chain /cli-like reps author '" .. PUB2 .. "'",
+            cmd = ENV_EXE .. " chain /cli-like reps member '" .. PUB2 .. "'",
         }
         exec {
-            cmd = ENV_EXE .. " chain /cli-like like 1000 author ' " .. PUB2 .. " \n' --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain /cli-like like 1000 member ' " .. PUB2 .. " \n' --sign " .. KEY1,
         }
         local after_s = exec {
-            cmd = ENV_EXE .. " chain /cli-like reps author '" .. PUB2 .. "'",
+            cmd = ENV_EXE .. " chain /cli-like reps member '" .. PUB2 .. "'",
         }
         local before, after = tonumber(before_s), tonumber(after_s)
         assert(after > before, "expected reps gain, got " .. before .. " -> " .. after)
@@ -343,18 +343,18 @@ do
     end
 
     do
-        TEST "like with invalid author key fails"
+        TEST "like with invalid member key fails"
         FAIL {
-            cmd = ENV_EXE .. " chain /cli-like like 1000 author bad-key --sign " .. KEY1,
-            err = "ERROR : chain like : invalid author key",
+            cmd = ENV_EXE .. " chain /cli-like like 1000 member bad-key --sign " .. KEY1,
+            err = "ERROR : chain like : invalid member key",
         }
     end
 
     do
-        TEST "like-author-only-whitespace"
+        TEST "like-member-only-whitespace"
         FAIL {
-            cmd = ENV_EXE .. " chain /cli-like like 1000 author '   ' --sign " .. KEY1,
-            err = "ERROR : chain like : invalid author key",
+            cmd = ENV_EXE .. " chain /cli-like like 1000 member '   ' --sign " .. KEY1,
+            err = "ERROR : chain like : invalid member key",
         }
     end
     do

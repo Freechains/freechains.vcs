@@ -127,7 +127,7 @@ end
 
 -- 2. a backdated LAST entry must not clear the freeze
 -- `hardfork` measures the span against the newest time in the window.
--- Consensus order is NOT chronological, so a low-rep author can sort
+-- Consensus order is NOT chronological, so a low-rep member can sort
 -- last while carrying an ancient time (fork off an old tip, `--now`).
 -- Reading the span from that entry would switch rule 1 OFF and let a
 -- settled prefix be reordered.
@@ -157,7 +157,7 @@ do
         cmd = EXE_A .. " --now=1200 chain /fork-back like 5000 action " .. seed .. " --sign " .. KEY2,
     }
     local welc = exec {
-        cmd = EXE_A .. " --now=1250 chain /fork-back like 1000 author '" .. PUB3 .. "' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=1250 chain /fork-back like 1000 member '" .. PUB3 .. "' --sign " .. KEY1,
     }
 
     TEST "B and C clone at the fork point"

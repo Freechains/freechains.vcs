@@ -15,6 +15,7 @@ Additions:
 
 Modifications:
 
+- `member` replaces `author` everywhere
 - chain alias: `/chat` (was `'#chat'`)
 - genesis: `dictators:` and `pioneers:` sections
 - `chain get metadata`: output is a Lua table

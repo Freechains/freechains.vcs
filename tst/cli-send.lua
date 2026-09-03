@@ -127,7 +127,7 @@ do
     }
 end
 
--- 2. send rejects like from author with insufficient reputation
+-- 2. send rejects like from member with insufficient reputation
 --    (based on tst/err-like.lua lines 268-308)
 do
     print("==> Step 2: send rejects like with insufficient reps")
@@ -140,7 +140,7 @@ do
     TEST "X crafts malicious like signed by non-pioneer (0 reps)"
     local now = 1500
     COMMIT(REPO_X, {
-        msg  = 'like 1000\nauthor ' .. PUB1 .. '\n',
+        msg  = 'like 1000\nmember ' .. PUB1 .. '\n',
         date = now,
         sign = KEY3,
     })
@@ -301,11 +301,11 @@ do
         assert(pa == "fourth from A", "A's payload missing in B")
         assert(pb == "second from B", "B's payload missing in B")
 
-        TEST "A and B have same authors"
-        local aa = STATE(REPO_A).authors
-        local ab = STATE(REPO_B).authors
+        TEST "A and B have same members"
+        local aa = STATE(REPO_A).members
+        local ab = STATE(REPO_B).members
         for k, v in pairs(aa) do
-            assert(ab[k], "author missing in B: " .. k)
+            assert(ab[k], "member missing in B: " .. k)
             assert(ab[k].reps == v.reps, "reps mismatch for " .. k)
         end
 
@@ -350,14 +350,14 @@ do
         TEST "A likes a post"
 
         local bef = {
-            author = tonumber((exec {
-                cmd = EXE_A .. " --now=8000 chain /test reps author '" .. PUB1 .. "'",
+            member = tonumber((exec {
+                cmd = EXE_A .. " --now=8000 chain /test reps member '" .. PUB1 .. "'",
             })),
             post = tonumber((exec {
                 cmd = EXE_A .. " --now=8000 chain /test reps action " .. A,
             })),
         }
-        assert(bef.author==49500, "bef.author expected 49500, got " .. bef.author)
+        assert(bef.member==49500, "bef.member expected 49500, got " .. bef.member)
         assert(bef.post  == 0, "bef.post expected 0, got " .. bef.post)
 
         exec {
@@ -365,14 +365,14 @@ do
         }
 
         local aft = {
-            author = tonumber((exec {
-                cmd = EXE_A .. " --now=8000 chain /test reps author '" .. PUB1 .. "'",
+            member = tonumber((exec {
+                cmd = EXE_A .. " --now=8000 chain /test reps member '" .. PUB1 .. "'",
             })),
             post = tonumber((exec {
                 cmd = EXE_A .. " --now=8000 chain /test reps action " .. A,
             })),
         }
-        assert(aft.author == 47250, "aft.author expected 47250, got " .. aft.author)
+        assert(aft.member == 47250, "aft.member expected 47250, got " .. aft.member)
         assert(aft.post   == 2250,  "aft.post expected 2250, got " .. aft.post)
 
         TEST "B recvs from A (with like)"
@@ -382,14 +382,14 @@ do
 
         TEST "B reflects like"
         local b = {
-            author = tonumber((exec {
-                cmd = EXE_B .. " --now=8500 chain /test reps author '" .. PUB1 .. "'",
+            member = tonumber((exec {
+                cmd = EXE_B .. " --now=8500 chain /test reps member '" .. PUB1 .. "'",
             })),
             post = tonumber((exec {
                 cmd = EXE_B .. " --now=8500 chain /test reps action " .. A,
             })),
         }
-        assert(b.author == aft.author, "author reps: A=" .. aft.author .. " B=" .. b.author)
+        assert(b.member == aft.member, "member reps: A=" .. aft.member .. " B=" .. b.member)
         assert(b.post   == aft.post,   "post reps: A=" .. aft.post .. " B=" .. b.post)
     end
 end

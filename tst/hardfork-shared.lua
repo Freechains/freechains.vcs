@@ -8,8 +8,8 @@
 -- so `com..a` and `com..b` are disjoint. Comparing from the boundary
 -- octopus `oct` instead -- which sits deeper whenever an unrelated EARLIER
 -- fork exists -- puts commits both branches hold inside BOTH ranges, and
--- since reps are summed over the SET of authors, such a shared commit
--- hands its author's full reps to whichever side lacked them.
+-- since reps are summed over the SET of members, such a shared commit
+-- hands its member's full reps to whichever side lacked them.
 --
 -- `AW` (by KEY1) is that commit here: X absorbed it. Counted from `oct`,
 -- KEY1's reps land on X's side too, X wins, KEY1's late post is ordered

@@ -222,7 +222,7 @@ do
     }
 end
 
--- sync rejects like from author with insufficient reputation
+-- sync rejects like from member with insufficient reputation
 do
     print("==> sync rejects like with insufficient reputation")
 
@@ -364,7 +364,7 @@ do
 
     TEST "A crafts a like with forged signature"
     exec {
-        cmd = EXE_A .. " --now=2000 chain /err-forge-like like 1000 author '" .. PUB1 .. "' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=2000 chain /err-forge-like like 1000 member '" .. PUB1 .. "' --sign " .. KEY1,
     }
     -- Tamper the SIGNED action (the message): flip the n value so
     -- the body still parses but the ssh signature no longer matches

@@ -16,7 +16,7 @@ do
             cmd = ENV_EXE .. " --now=0 chain /cli-time post inline 'p1' --sign " .. KEY1,
         }
         local out = exec {
-            cmd = ENV_EXE .. " --now=0 chain /cli-time reps author '" .. PUB1 .. "'",
+            cmd = ENV_EXE .. " --now=0 chain /cli-time reps member '" .. PUB1 .. "'",
         }
         assert(out == "49500", "reps: " .. out)
 
@@ -24,7 +24,7 @@ do
             cmd = ENV_EXE .. " --now=0 chain /cli-time post inline 'p2' --sign " .. KEY1,
         }
         local out = exec {
-            cmd = ENV_EXE .. " --now=0 chain /cli-time reps author '" .. PUB1 .. "'",
+            cmd = ENV_EXE .. " --now=0 chain /cli-time reps member '" .. PUB1 .. "'",
         }
         assert(out == "49500", "reps: " .. out)
     end
@@ -49,7 +49,7 @@ do
             cmd = ENV_EXE .. " --now=0 chain /cli-time post inline 'p1' --sign " .. KEY1,
         }
         local out = exec {
-            cmd = ENV_EXE .. " --now=0 chain /cli-time reps author '" .. PUB1 .. "'",
+            cmd = ENV_EXE .. " --now=0 chain /cli-time reps member '" .. PUB1 .. "'",
         }
         assert(out == "49500", "reps: " .. out)
 
@@ -57,7 +57,7 @@ do
             cmd = ENV_EXE .. " --now=86400 chain /cli-time post inline 'p2' --sign " .. KEY1,
         }
         local out = exec {
-            cmd = ENV_EXE .. " --now=86400 chain /cli-time reps author '" .. PUB1 .. "'",
+            cmd = ENV_EXE .. " --now=86400 chain /cli-time reps member '" .. PUB1 .. "'",
         }
         assert(out == "50000", "reps: " .. out)
     end
@@ -83,7 +83,7 @@ do
             cmd = ENV_EXE .. " --now=0 chain /cli-time post inline 'p3' --sign " .. KEY1,
         }
         local out = exec {
-            cmd = ENV_EXE .. " --now=0 chain /cli-time reps author '" .. PUB1 .. "'",
+            cmd = ENV_EXE .. " --now=0 chain /cli-time reps member '" .. PUB1 .. "'",
         }
         assert(out == "49500", "reps: " .. out)
 
@@ -91,7 +91,7 @@ do
             cmd = ENV_EXE .. " --now=86400 chain /cli-time post inline 'p4' --sign " .. KEY1,
         }
         local out = exec {
-            cmd = ENV_EXE .. " --now=86400 chain /cli-time reps author '" .. PUB1 .. "'",
+            cmd = ENV_EXE .. " --now=86400 chain /cli-time reps member '" .. PUB1 .. "'",
         }
         assert(out == "50000", "reps: " .. out)
     end
@@ -117,13 +117,13 @@ do
         }
         -- query at now=0: still in discount -> 49500
         local out = exec {
-            cmd = ENV_EXE .. " --now=0 chain /cli-time reps author '" .. PUB1 .. "'",
+            cmd = ENV_EXE .. " --now=0 chain /cli-time reps member '" .. PUB1 .. "'",
         }
         assert(out == "49500", "reps at now=0: " .. out)
 
         -- query at now=86400: refund + consolidation -> 50000
         local out = exec {
-            cmd = ENV_EXE .. " --now=86400 chain /cli-time reps author '" .. PUB1 .. "'",
+            cmd = ENV_EXE .. " --now=86400 chain /cli-time reps member '" .. PUB1 .. "'",
         }
         assert(out == "50000", "reps at now=86400: " .. out)
     end

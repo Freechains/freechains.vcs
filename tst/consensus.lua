@@ -144,7 +144,7 @@ end
 
 -- 3. loser invalidated by winner context
 -- GEN_4: KEY1..KEY4 = 12500 each
--- Remote: KEY1,KEY2,KEY3 each dislike KEY4 author by 4500
+-- Remote: KEY1,KEY2,KEY3 each dislike KEY4 member by 4500
 --   → KEY4 = 12500 - 3*4050 = 350 < cost
 -- Local: KEY4 posts P1, KEY2 posts P2
 -- Remote wins (37500 > 25000)
@@ -162,19 +162,19 @@ do
         cmd = EXE_B .. " chains add /cons-c clone " .. ROOT_A .. "/chains/cons-c/",
     }
 
-    TEST "B: KEY1 dislikes KEY4 author by 4500"
+    TEST "B: KEY1 dislikes KEY4 member by 4500"
     local X1 = exec {
-        cmd = EXE_B .. " --now=2000 chain /cons-c dislike 4500 author '" .. PUB4 .. "' --sign " .. KEY1,
+        cmd = EXE_B .. " --now=2000 chain /cons-c dislike 4500 member '" .. PUB4 .. "' --sign " .. KEY1,
     }
 
-    TEST "B: KEY2 dislikes KEY4 author by 4500"
+    TEST "B: KEY2 dislikes KEY4 member by 4500"
     local X2 = exec {
-        cmd = EXE_B .. " --now=2000 chain /cons-c dislike 4500 author '" .. PUB4 .. "' --sign " .. KEY2,
+        cmd = EXE_B .. " --now=2000 chain /cons-c dislike 4500 member '" .. PUB4 .. "' --sign " .. KEY2,
     }
 
-    TEST "B: KEY3 dislikes KEY4 author by 4500"
+    TEST "B: KEY3 dislikes KEY4 member by 4500"
     local X3 = exec {
-        cmd = EXE_B .. " --now=2000 chain /cons-c dislike 4500 author '" .. PUB4 .. "' --sign " .. KEY3,
+        cmd = EXE_B .. " --now=2000 chain /cons-c dislike 4500 member '" .. PUB4 .. "' --sign " .. KEY3,
     }
 
     TEST "A: KEY2 posts P1 (survives)"
@@ -279,25 +279,25 @@ do
     -- A: G -- D1
     -- B: G
     -- K4: 12500 - 4050 = 8450
-    TEST "A: KEY1 dislikes KEY4 author by 4500"
+    TEST "A: KEY1 dislikes KEY4 member by 4500"
     exec {
-        cmd = EXE_A .. " --now=2000 chain /cons-d dislike 4500 author '" .. PUB4 .. "' --sign " .. KEY1,
+        cmd = EXE_A .. " --now=2000 chain /cons-d dislike 4500 member '" .. PUB4 .. "' --sign " .. KEY1,
     }
 
     -- A: G -- D1 -- D2
     -- B: G
     -- K4: 8450 - 4050 = 4400
-    TEST "A: KEY2 dislikes KEY4 author by 4500"
+    TEST "A: KEY2 dislikes KEY4 member by 4500"
     exec {
-        cmd = EXE_A .. " --now=2000 chain /cons-d dislike 4500 author '" .. PUB4 .. "' --sign " .. KEY2,
+        cmd = EXE_A .. " --now=2000 chain /cons-d dislike 4500 member '" .. PUB4 .. "' --sign " .. KEY2,
     }
 
     -- A: G -- D1 -- D2 -- D3
     -- B: G
     -- K4: 4400 - 4050 = 350 < cost
-    TEST "A: KEY3 dislikes KEY4 author by 4500"
+    TEST "A: KEY3 dislikes KEY4 member by 4500"
     exec {
-        cmd = EXE_A .. " --now=2000 chain /cons-d dislike 4500 author '" .. PUB4 .. "' --sign " .. KEY3,
+        cmd = EXE_A .. " --now=2000 chain /cons-d dislike 4500 member '" .. PUB4 .. "' --sign " .. KEY3,
     }
 
     -- A: G -- D1 -- D2 -- D3

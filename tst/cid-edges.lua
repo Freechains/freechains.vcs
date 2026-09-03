@@ -3,7 +3,7 @@
 -- Identity edges for plan 260821-cid-aid-tree: pins TODAY's behavior
 -- so the aid==cid redesign can prove it changes nothing observable.
 --
--- 1. identical CONSECUTIVE posts (same author/text/--now): ancestry
+-- 1. identical CONSECUTIVE posts (same member/text/--now): ancestry
 --    distinguishes them -- post2's backs = [aid1] -> different aid.
 --    Under B: parents = [cid1] -> different cid. Same shape.
 --

@@ -5,7 +5,7 @@
 -- Inputs:
 --  - ARGS.like/dislike/revoke/unrevoke [boolean]: the vote
 --  - ARGS.number [integer]: magnitude (> 0)
---  - ARGS.target [string]: "action"|"author"
+--  - ARGS.target [string]: "action"|"member"
 --  - ARGS.id  [string]: target cid (may be short) or pubkey
 --  - ARGS.why  [string?]: optional reason payload
 --  - ARGS.file [string?]: payload restore fallback (LIFT)
@@ -21,7 +21,7 @@
 --    refs/begs/ ref deleted (promotion merge)
 -- Errors:
 --  - "chain <vote> : invalid target"
---  - "chain <vote> : invalid author key"
+--  - "chain <vote> : invalid member key"
 --  - "chain <vote> : invalid sign key"
 --  - "chain <vote> : invalid path" | "blob mismatch" |
 --                    "expected --file" : LIFT payload restore
@@ -32,7 +32,7 @@
 --]]
 
 -- revoke/unrevoke are content-removal votes:
--- for action payloads, never authors.
+-- for action payloads, never members.
 -- CLI `action` -> `cid`: ARGS.target names the message FIELD;
 -- the value stays ARGS.id (a cid or a pubkey)
 if (ARGS.target == "action") or ARGS.revoke or ARGS.unrevoke then
@@ -55,22 +55,22 @@ local kind = (ARGS.revoke or ARGS.unrevoke) and "revoke" or "like"
 local vote = (ARGS.unrevoke and "unrevoke") or (ARGS.revoke and "revoke") or
              (ARGS.dislike and "dislike") or "like"
 
-if (ARGS.target ~= "cid") and (ARGS.target ~= "author") then
+if (ARGS.target ~= "cid") and (ARGS.target ~= "member") then
     ERROR("chain " .. vote .. " : invalid target")
 end
 
 -- an action target may be abbreviated (`list dag` prints it so);
--- an author target is a pubkey and passes through untouched
+-- an member target is a pubkey and passes through untouched
 if ARGS.target == "cid" then
     ARGS.id = ACTION.full(ARGS.id)
         or ERROR("chain " .. vote .. " : invalid target")
 end
 
-if ARGS.target == "author" then
+if ARGS.target == "member" then
     -- key string or key file (cli.md "Keys:")
     ARGS.id = SSH.pub(ARGS.id) or ARGS.id
     if #ARGS.id~=80 or (not ARGS.id:match("^ssh%-ed25519 %S+$")) then
-        ERROR("chain " .. vote .. " : invalid author key")
+        ERROR("chain " .. vote .. " : invalid member key")
     end
 end
 

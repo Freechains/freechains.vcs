@@ -184,7 +184,7 @@ do
     local LIKE
     do
         TEST "like-beg-succeeds"
-        -- 2000 -> 90% -> 1800 -> split -> 900 to the author, over
+        -- 2000 -> 90% -> 1800 -> split -> 900 to the member, over
         -- the 500 post cost (a 1000 like admits but holds: 450)
         local out, code = exec {
             cmd = ENV_EXE .. " chain /cli-begs-4 like 2000 action " .. BEG .. " --sign " .. KEY1,
@@ -236,7 +236,7 @@ do
         TEST "beg-sufficient-reps"
         FAIL {
             cmd = ENV_EXE .. " chain /cli-begs-4 post inline 'another beg' --beg --sign " .. KEY2,
-            err = "ERROR : chain post : --beg error : author has sufficient reputation",
+            err = "ERROR : chain post : --beg error : member has sufficient reputation",
         }
     end
 
@@ -266,7 +266,7 @@ do
         }
     end
 
-    -- regression: nil-author when liking an unsigned --beg post
+    -- regression: nil-member when liking an unsigned --beg post
     do
         local UNSIGNED
         do

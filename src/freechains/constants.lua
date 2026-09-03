@@ -17,9 +17,9 @@ return {
     reps = {
         --pioneer = 50*unit,    -- split among pioneers
         cost    = unit//2,      -- 500 per signed post (refunded at 12h)
-        earn    = 1*unit,       -- 1000 minted per author per day
+        earn    = 1*unit,       -- 1000 minted per member per day
         revoke  = 1*unit,       -- 1000 minimum per revoke/unrevoke
-        max     = 50*unit,      -- 50000 cap per author (100 posts)
+        max     = 50*unit,      -- 50000 cap per member (100 posts)
     },
     -- the shared account of UNSIGNED posts in an open chain:
     -- not a pubkey (real keys start with `ssh-`), so no collision

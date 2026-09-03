@@ -41,7 +41,7 @@ do
 
     do
         TEST "sweep-unreferenced-survives-until-sweep"
-        -- KEY2 is not the author: one revoke -> net -1000 -> revoked
+        -- KEY2 is not the member: one revoke -> net -1000 -> revoked
         exec {
             cmd = ENV_EXE .. " chain /cli-sweep revoke 1000 " .. GONE ..
                 " --sign " .. KEY2,
