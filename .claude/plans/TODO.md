@@ -10,12 +10,6 @@
 - `chains add clone` re-execs `sync recv` WITHOUT `--now`
     - a clone at simulated time validates on the real clock
     - fix: forward `--now=ARGS.now` in the re-exec (one line)
-- `sync send` cannot carry `--now` at all
-    - the remote hook validates on ITS own real clock
-    - README/guide flip the last hard-fork step to a hub recv
-    - possible fix: push-option `-o now=`, forwarded by the hook
-    - trust question: receiver accepts the sender clock,
-      weakening its own `too new` defense
 
 ## Sandbox `STATE.read` too (T6c leftover)
 
@@ -68,47 +62,12 @@
     - bounds per field, or a whole-table sanity check
 - what happens when `version` and the constants disagree?
 
-## Perf cleanups P1-P4 (profile first, land measured)
+## Perf cleanups P1 (profile first, land measured)
 
 - From done/280808-redesign.md "Small cleanups"; correctness
   is unaffected, so gated on something actually being slow
 - P1: `hardfork` one `cat-file blob` per window entry ->
   one `cat-file --batch`
-- P2: memoize `ACTION.aid(cid)` (diff-tree per call;
-  `commit()` and `GIT.time` both shell it per cid)
-- P3: more memos, same shape as GIT.parents/time
-    - `ssh.pub.commit(cid)`: consensus ranges overlap on
-      nested merges
-    - snapshot `now`: `peaks` parses WHOLE G per edge ->
-      number-only cache
-    - TRAP: `STATE.read` itself must NOT be memoized
-      (callers mutate the returned table)
-- P4: batch in-process index (P2+P3 unification)
-    - ONE `git log --format=%H --diff-filter=A --name-only`
-      over the region -> cid<->aid map, one shell
-    - restores replay's visited seeding:
-      `visited[a2c[aid]]` for aid in the replayed G's order
-    - fences: aid->cid NOT 1:1 across branches (dup-skip
-      stays); seed ONLY from the replayed G's own order,
-      NEVER from `STATE.has` (refused syncs also snapshot)
-    - also: memo `ancestor()` per (cur, floor); mark
-      ancestor-true cids visited in the OUTERMOST climb only
-
-## Hard-prune plan is stale on rule 1
-
-- `260723-hard-prune.md` predates the refuse-semantics rule 1
-- Written against `hardfork(oct, loc)`: entrenched branch WON
-- Now it REFUSES, so no merge and no checkpoint forms
-- Its Goal anchors the graft on that checkpoint
-- Noted in the plan (`## STALE`), not yet fixed
-- Fix: drop the hardfork trigger, keep `c1` time/count driven
-
-- Also recorded there, both new:
-    - `## MEASURED`: Track A reclaims metadata only
-        - blobs ride forward in `c1`'s tree, clone gets them all
-        - provenance is lost, content is not
-    - fold list was incomplete: `kind`, vote table, filename
-        - `time`/`sign` already stored but still re-derived
 
 ## Idle chains are never entrenched
 
@@ -185,8 +144,9 @@
 
 - Dropped earlier, each verdict to be revisited from scratch
 
-## README: settled-branch wording overstates
+## Guide: settled-branch wording overstates
 
+- `doc/guide.md:511`, not README
 - Says a settled branch has 100 posts or 7 days
 - True as the entrenchment CONDITION
 - Only the prefix OLDER than that window is frozen
@@ -205,3 +165,13 @@
 - Worth a Makefile target
 
 <!-- ------------------------------ WON'T DO ------------------------------ -->
+
+## `sync send --now` (push-option `-o now=`)
+
+- decided won't-do in done/260721-send-now.md
+- the hook validates on the receiver's own clock, by design
+
+## Perf P2-P4 (aid memos, cid<->aid index)
+
+- `aid` dissolved in done/260821-cid-aid-tree.md
+- nothing left to memoize; P1 stands alone
