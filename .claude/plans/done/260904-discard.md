@@ -32,4 +32,4 @@
 - [x] files moved
 - [x] source + tests replaced
 - [x] build + docs + plans replaced
-- [ ] tests run (ask)
+- [x] tests run (26/09/04: all pass)
