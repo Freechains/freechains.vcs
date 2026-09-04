@@ -58,4 +58,4 @@ test:
 	@rm -Rf /tmp/freechains/
 
 install:
-	sudo luarocks --lua-version=5.4 make freechains-dev-2.rockspec
+	sudo luarocks --lua-version=5.4 make freechains-dev-3.rockspec

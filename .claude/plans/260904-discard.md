@@ -14,7 +14,8 @@
   `get.lua`, `sweep.lua`
     - CLI command, `ARGS.discard`, error strings, comments
 - tests: `cli-sweep.lua`, `dag.lua`, `cli-revoke.lua`
-- build: `Makefile`, both `.rockspec`
+- build: `Makefile`, `freechains-0.21-1.rockspec`
+    - new `freechains-dev-3.rockspec` (dev-2 moved to `old/`)
 - docs: `doc/cli.md`, `doc/guide.md`, `guide.sh`, `README.md`
 - plans: `commands.md`, `threats.md`, `260819-blacklist.md`,
   `260829-otim.md`, `260903-128KB.md`
