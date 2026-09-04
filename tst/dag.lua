@@ -222,7 +222,7 @@ do
 end
 
 -- full guide: the whole #chat story, root to moderation
--- ('day 1' joins the fork tips; the abandoned post is gone;
+-- ('day 1' joins the fork tips; the discarded post is gone;
 -- the two revoked posts render as ~id~)
 do
     print("== full guide ==")

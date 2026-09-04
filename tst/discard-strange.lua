@@ -1,32 +1,32 @@
 #!/usr/bin/env lua5.4
 
--- Strange abandon cases (plan 260819-abandon, phases 2 and 4).
+-- Strange discard cases (plan 260819-discard, phases 2 and 4).
 --
 -- 1. Crossing a merge refuses, in BOTH forms: the sibling branch
 --    would be collateral (and would resurrect on recv anyway)
 --
---            S[K1]           <-- abandon --keep S refuses too
+--            S[K1]           <-- discard --keep S refuses too
 --            /   \
---       a1[K1]   b1[K2]      <-- abandon a1 refuses (crosses M)
+--       a1[K1]   b1[K2]      <-- discard a1 refuses (crosses M)
 --          |       |
 --       a2[K1]   b2[K2]
 --            \   /
 --              M             <-- A's HEAD after recv
 --
--- 2. Resurrection: my OWN abandoned action returns on the next
---    recv, once it was sent (durable abandon = unsent only)
+-- 2. Resurrection: my OWN discarded action returns on the next
+--    recv, once it was sent (durable discard = unsent only)
 --
 -- 3. Landing ON a merge is fine (the README `day 1` rewind)
 --
--- 4. Beg-attach like: a merge WITH an aid is abandonable
+-- 4. Beg-attach like: a merge WITH an aid is discardable
 --
 -- 5. `--keep` edges: linear drop; tip no-op; beg invalid
 
 require "tests"
 
-local CHAIN  = "/abandon-strange"
-local ROOT_A = ROOT .. "/abandon-strange/A/"
-local ROOT_B = ROOT .. "/abandon-strange/B/"
+local CHAIN  = "/discard-strange"
+local ROOT_A = ROOT .. "/discard-strange/A/"
+local ROOT_B = ROOT .. "/discard-strange/B/"
 local EXE_A  = ENV .. " ../src/freechains.lua --root " .. ROOT_A
 local EXE_B  = ENV .. " ../src/freechains.lua --root " .. ROOT_B
 local DIR_A  = ROOT_A .. "chains/" .. CHAIN .. "/"
@@ -81,16 +81,16 @@ end
 
 -- 1. crossing a merge refuses, in both forms; nothing is mutated
 do
-    TEST "abandon a1 refuses: range crosses the sync merge"
+    TEST "discard a1 refuses: range crosses the sync merge"
     FAIL {
-        cmd = EXE_A .. " chain '" .. CHAIN .. "' abandon " .. a1,
-        err = "ERROR : chain abandon : unexpected merge",
+        cmd = EXE_A .. " chain '" .. CHAIN .. "' discard " .. a1,
+        err = "ERROR : chain discard : unexpected merge",
     }
 
-    TEST "abandon --keep seed refuses too (both forms linear)"
+    TEST "discard --keep seed refuses too (both forms linear)"
     FAIL {
-        cmd = EXE_A .. " chain '" .. CHAIN .. "' abandon --keep " .. seed,
-        err = "ERROR : chain abandon : unexpected merge",
+        cmd = EXE_A .. " chain '" .. CHAIN .. "' discard --keep " .. seed,
+        err = "ERROR : chain discard : unexpected merge",
     }
 
     TEST "the refusals mutated nothing"
@@ -107,7 +107,7 @@ end
 
 -- 2. my OWN action resurrects, once it was sent
 do
-    TEST "A posts c1; B recvs it; A abandons c1; A recvs: c1 is back"
+    TEST "A posts c1; B recvs it; A discards c1; A recvs: c1 is back"
     local c1 = exec {
         cmd = EXE_A .. " --now=1600 chain '" .. CHAIN .. "' post inline 'c1\n' --sign " .. KEY1,
     }
@@ -115,7 +115,7 @@ do
         cmd = EXE_B .. " --now=1700 chain '" .. CHAIN .. "' sync recv " .. DIR_A,
     }
     exec {
-        cmd = EXE_A .. " chain '" .. CHAIN .. "' abandon " .. c1,
+        cmd = EXE_A .. " chain '" .. CHAIN .. "' discard " .. c1,
     }
     local _, S0 = ORDER(EXE_A, CHAIN)
     assert(not S0[c1], "c1 gone locally")
@@ -123,12 +123,12 @@ do
         cmd = EXE_A .. " --now=1800 chain '" .. CHAIN .. "' sync recv " .. DIR_B,
     }
     local _, S1 = ORDER(EXE_A, CHAIN)
-    assert(S1[c1], "c1 is back: sent abandon = illusory")
+    assert(S1[c1], "c1 is back: sent discard = illusory")
 end
 
--- 3. landing ON a merge: abandon the first action after a sync merge
+-- 3. landing ON a merge: discard the first action after a sync merge
 do
-    TEST "abandon d1 lands ON the sync merge below it"
+    TEST "discard d1 lands ON the sync merge below it"
     -- fresh divergence so A's next recv really merges
     exec {
         cmd = EXE_A .. " --now=1900 chain '" .. CHAIN .. "' post inline 'x1\n' --sign " .. KEY1,
@@ -153,7 +153,7 @@ do
         assert(n == 2, "d1's parent should be a merge, got " .. n)
     end
     local out = exec {
-        cmd = EXE_A .. " chain '" .. CHAIN .. "' abandon " .. d1,
+        cmd = EXE_A .. " chain '" .. CHAIN .. "' discard " .. d1,
     }
     assert(out == d1, "only d1 dropped: " .. out)
     local head = exec {
@@ -167,7 +167,7 @@ do
     }
 end
 
--- 4. a beg-attach like is a merge WITH an aid: abandonable
+-- 4. a beg-attach like is a merge WITH an aid: discardable
 do
     TEST "beg + like: the like commit is a 2-parent action"
     local beg = exec {
@@ -182,12 +182,12 @@ do
     local n = select(2, ps:gsub("%x+", "")) - 1
     assert(n == 2, "like should be a 2-parent commit, got " .. n)
 
-    TEST "abandon the like drops it AND the beg post"
+    TEST "discard the like drops it AND the beg post"
     local before = exec {
         cmd = "git -C " .. DIR_A .. " rev-parse HEAD~1",
     }
     local out = exec {
-        cmd = EXE_A .. " chain '" .. CHAIN .. "' abandon " .. like,
+        cmd = EXE_A .. " chain '" .. CHAIN .. "' discard " .. like,
     }
     local S = {}
     for h in out:gmatch("[^\n]+") do
@@ -210,7 +210,7 @@ do
         cmd = "git -C " .. DIR_A .. " rev-parse HEAD",
     }
     local out = exec {
-        cmd = EXE_A .. " chain '" .. CHAIN .. "' abandon --keep " .. e1,
+        cmd = EXE_A .. " chain '" .. CHAIN .. "' discard --keep " .. e1,
     }
     assert(out == "", "nothing dropped: " .. out)
     local now = exec {
@@ -223,7 +223,7 @@ do
         cmd = EXE_A .. " --now=2350 chain '" .. CHAIN .. "' post inline 'e2\n' --sign " .. KEY1,
     }
     local out2 = exec {
-        cmd = EXE_A .. " chain '" .. CHAIN .. "' abandon --keep " .. e1,
+        cmd = EXE_A .. " chain '" .. CHAIN .. "' discard --keep " .. e1,
     }
     assert(out2 == e2, "e2 dropped: " .. out2)
     local h2 = exec {
@@ -236,17 +236,17 @@ do
         cmd = EXE_A .. " --now=2400 chain '" .. CHAIN .. "' post inline 'bg\n' --beg --sign " .. KEY4,
     }
     FAIL {
-        cmd = EXE_A .. " chain '" .. CHAIN .. "' abandon --keep " .. bg,
-        err = "ERROR : chain abandon : invalid action",
+        cmd = EXE_A .. " chain '" .. CHAIN .. "' discard --keep " .. bg,
+        err = "ERROR : chain discard : invalid action",
     }
     -- the beg ref must survive the refused --keep
     exec {
         cmd = "git -C " .. DIR_A .. " show-ref --verify --quiet refs/begs/beg-" .. bg,
     }
 
-    TEST "default form still abandons the beg"
+    TEST "default form still discards the beg"
     local out2 = exec {
-        cmd = EXE_A .. " chain '" .. CHAIN .. "' abandon " .. bg,
+        cmd = EXE_A .. " chain '" .. CHAIN .. "' discard " .. bg,
     }
     assert(out2 == bg, "beg dropped alone: " .. out2)
 end

@@ -15,7 +15,7 @@ FC () {
 }
 
 # same as FC, but also keeps the printed id in $HASH, for the commands
-# that take an action id later on (votes, revokes, abandon)
+# that take an action id later on (votes, revokes, discard)
 FCH () {
     local out
     out=$(LUA_PATH="src/?.lua;src/?/init.lua;;" lua5.4 src/freechains.lua "$@")
@@ -248,7 +248,7 @@ REJECTED=$HASH
 echo "-- expected failure (the hub is entrenched):"
 FC --root="$A" chain /chat sync send localhost:$X_PORT || true
 
-# Alice's escape hatch: abandon the rejected post, receive the settled
+# Alice's escape hatch: discard the rejected post, receive the settled
 # branch, repost the message on top of it; the hub then pulls the result
 # DAG (A): untouched since the fork, plus the post the hub refused
 #   like(alice->bob)
@@ -258,7 +258,7 @@ FC --root="$A" chain /chat sync send localhost:$X_PORT || true
 #   'Alice takes over'     <-- rejected post ($REJECTED)
 echo "-- Alice's diverging branch (common history + rejected post):"
 FC --root="$A" chain /chat list dag
-FC --root="$A" chain /chat abandon "$REJECTED"
+FC --root="$A" chain /chat discard "$REJECTED"
 FC --root="$A" --now=$((FORK+7*DAY)) chain /chat sync recv localhost:$X_PORT
 FC --root="$A" --now=$((FORK+7*DAY+400)) chain /chat post inline $'Alice takes over\n' --sign="$KEYS/alice"
 # the hub PULLS the updated history: `--now` is local to each
@@ -266,7 +266,7 @@ FC --root="$A" --now=$((FORK+7*DAY+400)) chain /chat post inline $'Alice takes o
 FC --root="$X" --now=$((FORK+7*DAY+400)) chain /chat sync recv localhost:$A_PORT
 
 # Alice is compatible again: her repost is ordered after the settled branch
-# DAG (A): the abandoned branch is replaced by the hub's settled one
+# DAG (A): the discarded branch is replaced by the hub's settled one
 #   'Alice was here'   like(bob->charlie)
 #            \                |
 #             \        'Charlie was here'
@@ -283,10 +283,10 @@ echo
 echo "############ Moderation ############"
 echo
 
-# the 7-day fork was only a simulation: abandon it in A to return to
+# the 7-day fork was only a simulation: discard it in A to return to
 # the present, so the next commands need no future clock (here the
 # "present" is the consensus era, right after the fork reference)
-FC --root="$A" chain /chat abandon "$DAY1"
+FC --root="$A" chain /chat discard "$DAY1"
 
 MOD=$((FORK+100))
 

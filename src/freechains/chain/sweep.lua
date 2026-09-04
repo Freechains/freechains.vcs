@@ -18,7 +18,7 @@
 --
 -- Two kinds of bytes go here:
 --  - revoked payloads (`like` drops the `refs/payloads/` anchor) and
---    abandoned commits' payloads/state -- once unanchored, gc reaps
+--    discarded commits' payloads/state -- once unanchored, gc reaps
 --  - per-action STATE blobs (`refs/states/*`): each is a full loose
 --    blob until packed, so this gc DELTA-compresses the near-
 --    identical versions into O(N). It is the reclaim step -- git's

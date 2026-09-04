@@ -23,9 +23,9 @@ tests:
 	$(L) cli-recv.lua
 	$(L) cli-send.lua
 	$(L) cli-list.lua
-	$(L) cli-abandon.lua
+	$(L) cli-discard.lua
 	$(L) cid-edges.lua
-	$(L) abandon-strange.lua
+	$(L) discard-strange.lua
 	$(L) cli-sweep.lua
 	$(L) list-dag-roots.lua
 	$(L) sync.lua

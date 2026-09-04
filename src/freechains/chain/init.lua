@@ -8,7 +8,7 @@
 --  - ARGS.<subcommand> [boolean]: what to dispatch
 -- Outputs:
 --  - globals: C, ACTION, STATE, GIT, REPO,
---      G (state at HEAD, except sync/abandon/sweep, which read their own)
+--      G (state at HEAD, except sync/discard/sweep, which read their own)
 -- Errors:
 --  - "chain <alias> : not found"
 -- Callers:
@@ -36,8 +36,8 @@ end
 
 if ARGS.sync then
     require "freechains.chain.sync"
-elseif ARGS.abandon then
-    require "freechains.chain.abandon"
+elseif ARGS.discard then
+    require "freechains.chain.discard"
 elseif ARGS.sweep then
     require "freechains.chain.sweep"
 else

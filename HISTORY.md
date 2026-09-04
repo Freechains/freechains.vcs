@@ -15,8 +15,9 @@ Additions:
 
 Modifications:
 
-- `member` replaces `author` everywhere
-- chain alias: `/chat` (was `'#chat'`)
+- `member`: replaces `author`
+- `chain discard`: replaces `chain abandon`
+- chain alias: `/chat` replaces `'#chat'`
 - genesis: `dictators:` and `pioneers:` sections
 - `chain get metadata`: output is a Lua table
 - `daemon stop [--port]`: kills every holder of the port

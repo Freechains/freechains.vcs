@@ -4,7 +4,7 @@ require "tests"
 
 -- `sweep` reclaims what removal already unreferenced:
 --  * a revoked payload (`like` drops its `refs/payloads/` anchor)
---  * an abandoned commit and its payloads
+--  * a discarded commit and its payloads
 -- A standing post keeps its anchor, so its bytes must survive.
 
 exec {
@@ -74,17 +74,17 @@ do
 end
 
 do
-    print("==> Sweep: abandoned bytes go")
+    print("==> Sweep: discarded bytes go")
 
     do
-        TEST "sweep-reclaims-abandoned"
+        TEST "sweep-reclaims-discarded"
         exec {
-            cmd = ENV_EXE .. " chain /cli-sweep abandon " .. KEPT,
+            cmd = ENV_EXE .. " chain /cli-sweep discard " .. KEPT,
         }
         exec {
             cmd = ENV_EXE .. " chain /cli-sweep sweep",
         }
-        assert(not has(B_KEPT), "abandoned bytes should be gone")
+        assert(not has(B_KEPT), "discarded bytes should be gone")
     end
 end
 

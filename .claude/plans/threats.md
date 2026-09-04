@@ -239,7 +239,7 @@ it:
 2. the hard-fork span inflates, entrenching honest peers
    into refusing each other
 
-The ratchet is permanent: `abandon` is the only exit.
+The ratchet is permanent: `discard` is the only exit.
 
 **Mitigation**: `too new` refuses `env.time > CMD.now +
 time.diff`. It is the only bound a sender cannot set: the

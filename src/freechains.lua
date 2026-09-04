@@ -154,7 +154,7 @@ local cmd = {
         dislike = {},
         revoke = {},
         unrevoke = {},
-        abandon = {},
+        discard = {},
         sweep = {},
         sync = {
             recv = {},
@@ -280,10 +280,10 @@ do
     end
     cmd.chain.unrevoke._:option("--file")
 
-    -- cmd.chain.abandon : local only (no sign, no network)
-    cmd.chain.abandon._ = cmd.chain._:command("abandon")
-    cmd.chain.abandon._:argument("id"):target("cid")
-    cmd.chain.abandon._:flag("--keep")
+    -- cmd.chain.discard : local only (no sign, no network)
+    cmd.chain.discard._ = cmd.chain._:command("discard")
+    cmd.chain.discard._:argument("id"):target("cid")
+    cmd.chain.discard._:flag("--keep")
 
     -- cmd.chain.sweep : local only (no sign, no network)
     cmd.chain.sweep._ = cmd.chain._:command("sweep")

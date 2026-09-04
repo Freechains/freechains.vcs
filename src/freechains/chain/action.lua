@@ -131,7 +131,7 @@ end
 -- Callers:
 --  - like (like.lua): action target argument
 --  - get (get.lua): id argument
---  - abandon (abandon.lua): id argument
+--  - discard (discard.lua): id argument
 --]]
 function M.full (pre)
     -- ^{commit}: states/payloads are blobs in the same object db
@@ -152,7 +152,7 @@ end
 -- Callers:
 --  - backs/apply (action.lua): stop condition, merge branch
 --  - climb (consensus.lua): beg-merge detection
---  - abandon (abandon.lua): range must be all actions
+--  - discard (discard.lua): range must be all actions
 --  - recv (sync.lua): voided-commit listing
 --]]
 function M.is (cid)

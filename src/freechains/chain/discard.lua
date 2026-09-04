@@ -1,5 +1,5 @@
 --[[
--- `chain <alias> abandon [--keep] <id>`
+-- `chain <alias> discard [--keep] <id>`
 -- Drops a linear suffix of actions (the hard-fork escape hatch), or delete a
 -- parked beg.
 -- Inputs:
@@ -11,21 +11,21 @@
 --  - refs: HEAD reset to the kept tip; the dropped commits'
 --    refs/states/ + refs/payloads/ deleted; stale begs deleted
 -- Errors:
---  - "chain abandon : invalid action" : not action, not in history, --keep beg
---  - "chain abandon : unexpected merge" : suffix not linear
+--  - "chain discard : invalid action" : not action, not in history, --keep beg
+--  - "chain discard : unexpected merge" : suffix not linear
 -- Callers:
---  - dispatch (chain/init.lua): ARGS.abandon
+--  - dispatch (chain/init.lua): ARGS.discard
 --]]
 
--- Escape hatch for a hard fork: abandon the cid and everything after
+-- Escape hatch for a hard fork: discard the cid and everything after
 -- it, so the settled remote branch can be received again.
 -- Local only: no signing, no network, no reps.
 -- Chain state lives in local snapshots (`refs/states/*`), keyed by
 -- commit: the reset lands on a tip whose snapshot already exists.
 --
 -- Two forms:
---  - `abandon <cid>`: cid is first DROPPED
---  - `abandon --keep <cid>`: cid is the last KEPT
+--  - `discard <cid>`: cid is first DROPPED
+--  - `discard --keep <cid>`: cid is the last KEPT
 -- In both cases, only a linear suffix may go (crossing a sync merge would also
 -- drop sibling branch).
 
@@ -33,11 +33,11 @@
 ARGS.cid = ACTION.full(ARGS.cid)
 
 if not (ARGS.cid and ACTION.is(ARGS.cid)) then
-    ERROR("chain abandon : invalid action")
+    ERROR("chain discard : invalid action")
 end
 
 -- a beg is a post outside `main`, alone on its own cid-named ref:
--- nothing follows it, so abandoning it is just deleting the ref
+-- nothing follows it, so discarding it is just deleting the ref
 do
     local ref = "refs/begs/beg-" .. ARGS.cid
     local ok = exec { stderr=false, err=false,
@@ -46,7 +46,7 @@ do
     if ok then
         -- a beg is not in `main`: there is nothing to keep up to
         if ARGS.keep then
-            ERROR("chain abandon : invalid action")
+            ERROR("chain discard : invalid action")
         end
         exec {
             cmd = "git -C " .. REPO .. " update-ref -d " .. ref,
@@ -63,7 +63,7 @@ do
         cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. ARGS.cid .. " HEAD",
     }
     if not ok then
-        ERROR("chain abandon : invalid action")
+        ERROR("chain discard : invalid action")
     end
 end
 
@@ -95,11 +95,11 @@ end
 -- merge, and crossing it would also drop the sibling branch
 for _, h in ipairs(range) do
     if not ACTION.is(h) then
-        ERROR("chain abandon : unexpected merge")
+        ERROR("chain discard : unexpected merge")
     end
 end
 
--- report what is about to be abandoned: one cid per line, like
+-- report what is about to be discarded: one cid per line, like
 -- `list` (every commit in range is an action: checked above)
 for _, h in ipairs(range) do
     -- the dropped commit's state blob loses its anchor, so gc can
@@ -114,7 +114,7 @@ for _, h in ipairs(range) do
     print(h)
 end
 
--- settled posts can be abandoned: the hard-fork rule guards against a
+-- settled posts can be discarded: the hard-fork rule guards against a
 -- REMOTE reorder, never against a deliberate local escape
 exec {
     cmd = "git -C " .. REPO .. " update-ref HEAD " .. tip,
@@ -122,7 +122,7 @@ exec {
 
 -- stale-beg cleanup: a beg is one commit (the post) on top of the
 -- `main` it was created from. If that base is gone, the beg can no
--- longer attach to `main`, so abandon it.
+-- longer attach to `main`, so discard it.
 do
     local out = exec {
         cmd = "git -C " .. REPO .. " for-each-ref refs/begs/ --format='%(refname) %(objectname)'",

@@ -19,7 +19,7 @@ freechains chain (dis)like ...      # rate action or member
 freechains chain (un)revoke ...     # remove or restore payload
 freechains chain reps ...           # query reputation
 freechains chain sync ...           # synchronize with remote peer
-freechains chain abandon ...        # drop history branch
+freechains chain discard ...        # drop history branch
 freechains chain sweep              # erase revoked payloads
 ```
 
@@ -561,7 +561,7 @@ Nevertheless, the community protects itself from such late reorderings.
 To resynchronize, `Alice`'s only option is to revert her local history, receive
 the settled branch, repost the rejected message on top of it, and finally send
 the updated history.
-For that matter, Freechains provides an `abandon` command to permanently drop
+For that matter, Freechains provides an `discard` command to permanently drop
 an action along with subsequent ones:
 
 <!-- TODO: last recv should be a send:
@@ -571,7 +571,7 @@ $ freechains chain /chat sync send localhost:8331
 
 ```
 # revert local history
-$ freechains chain /chat abandon 9d0e1f2
+$ freechains chain /chat discard 9d0e1f2
 9d0e1f2...
 
 # receive settled branch (at simulated time)
@@ -644,7 +644,7 @@ For the sake of simplicity, let's revert the 7-day simulation of the previous
 section:
 
 ```
-$ freechains chain /chat abandon 1a2b3c4
+$ freechains chain /chat discard 1a2b3c4
 1a2b3c4...    # 'day 1'
 7d8e9f0...    # 'day 7'
 3c4d5e6...    # 'Alice takes over' (repost)

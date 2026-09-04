@@ -17,7 +17,7 @@
 --]]
 
 -- `get` is a DISK query: anything git resolves to an action is
--- readable -- parked begs, abandoned suffixes, refused syncs --
+-- readable -- parked begs, discarded suffixes, refused syncs --
 -- until `sweep` reclaims the unreferenced ones.
 -- The one deny is a REVOKED payload, gated by the chain state
 

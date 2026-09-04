@@ -1,23 +1,23 @@
 # 260819-blacklist
 
 - durable local rejection of a received malicious branch
-- born from 260819-abandon.md "key fact": received history
-  resurrects on next recv; abandon is not durable
+- born from 260819-discard.md "key fact": received history
+  resurrects on next recv; discard is not durable
 - target case: prefabricated sibling branch that passes
   fetch validation and does not affect my order
 - phases: discuss -> settle -> implement
 
 # Phase 1: discuss
 
-## Why abandon is not enough
+## Why discard is not enough
 
-- abandon rewinds locally; next recv restores the branch
+- discard rewinds locally; next recv restores the branch
 - dislike/revoke suppress reps but keep the actions
 - nothing lets a peer refuse specific content for good
 
 ## Mechanism sketch
 
-- `abandon --ban <aid>`: rewind + record a ban ref
+- `discard --ban <aid>`: rewind + record a ban ref
     - ref: `refs/blacklist/<aid>`
 - recv: after fetch, before merge, scan `HEAD..FETCH_HEAD`
     - if any banned aid appears: refuse the sync
@@ -55,7 +55,7 @@
 ## Open points
 
 - ban before ever receiving? (preemptive, by hash/key)
-- interaction with abandon crossing rule (linear suffix)
+- interaction with discard crossing rule (linear suffix)
 - does a ban survive prune? (refs vs flattened history)
 - send: do I advertise bans? (no: local policy only)
 

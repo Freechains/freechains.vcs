@@ -425,7 +425,7 @@ do
         }
     end
 
-    -- drop the bytes the way `abandon` or a sweep would
+    -- drop the bytes the way `discard` or a sweep would
     local DIR = ROOT .. "/chains/gated/"
     exec {
         cmd = "git -C " .. DIR .. " update-ref -d refs/payloads/" .. POST,
