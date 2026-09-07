@@ -217,7 +217,8 @@ do
 
     -- a `like` also unrevokes, a `revoke` also dislikes;
     -- the converses are false (`dislike` never hides, `unrevoke`
-    -- never credits)
+    -- never credits the post; a consolidated post's +1K moves with
+    -- the revoke state, see `cli-revoke-earn.lua`)
     local P = exec {
         cmd = ENV_EXE .. " chain /cli-revoke post inline 'coupled' --sign " .. KEY1,
     }
@@ -264,6 +265,7 @@ do
     do
         TEST "revoke-unrevoke-no-reps"
         -- an unrevoke costs the caster, but credits nobody
+        -- (the post is not consolidated: no +1K to move)
         exec {
             cmd = ENV_EXE .. " chain /cli-revoke revoke 1000 " .. P .. " --sign " .. KEY3,
         }

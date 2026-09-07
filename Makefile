@@ -15,6 +15,7 @@ tests:
 	$(L) cli-open.lua
 	$(L) cli-dictator.lua
 	$(L) cli-revoke.lua
+	$(L) cli-revoke-earn.lua
 	$(L) cli-now.lua
 	$(L) cli-time.lua
 	$(L) cli-begs.lua

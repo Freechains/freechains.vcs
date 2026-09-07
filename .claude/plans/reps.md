@@ -230,6 +230,21 @@ Cap at `max` is applied after all effects (step 4).
 Only **1 consolidated post per author per 24h slot**.
 This is the only way to create new reps in the system.
 
+A consolidated post holds its +1K for the author only
+while **not revoked** (`is_revoked`: member OR community
+net below zero). Dislikes alone never touch emission.
+The credit is a function of the revoke sums, no extra
+state:
+
+- at 24h the slot is consumed either way; a revoked
+  post pays **0**
+- a consolidated post crossing into REVOKED: **-1K**
+- crossing out of REVOKED (unrevoke or a lifting
+  `like`): **+1K**, no slot check
+
+Flip-flops are bounded by the revoke/unrevoke floor
+(1000 each, taxed).
+
 ### Like / Dislike (Rules 3.a, 3.b — Transfer)
 
 Likes and dislikes are separate subcommands.

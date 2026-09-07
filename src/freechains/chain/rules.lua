@@ -11,7 +11,8 @@ local M = {}
 -- Errors:
 --  - none
 -- Callers:
---  - apply (rules.lua): self-revoke flood check
+--  - apply (rules.lua): self-revoke flood check, rule 1.b flip
+--  - advance (rules.lua): consolidation of a revoked post
 --  - like (like.lua): the REMOVAL/LIFT crossing
 --  - list (list.lua): ~cid~ wrapping, revokes listing
 --  - get (get.lua): refuse a revoked payload
@@ -93,6 +94,7 @@ end
 
 --[[
 -- Advance time: discount refunds (12h), consolidation grants (24h).
+-- A revoked post consolidates without credit (rule 1.b).
 -- Then `now` advances.
 -- Inputs:
 --  - G    [table]: chain state; MUTATED (maturities, reps, G.now)
@@ -192,7 +194,11 @@ function M.advance (G, time, sign)
                     if entry.member then
                         local last = G.members[entry.member].time
                         if time-last >= C.time.full then
-                            G.members[entry.member].reps = G.members[entry.member].reps + C.reps.earn
+                            -- the slot is consumed either way;
+                            -- a revoked post pays 0 (rule 1.b)
+                            if not M.is_revoked(entry) then
+                                G.members[entry.member].reps = G.members[entry.member].reps + C.reps.earn
+                            end
                             G.members[entry.member].time = last + C.time.full
                             entry.maturity = nil
                             entry.time  = nil
@@ -406,6 +412,7 @@ function M.apply (G, act, env)
             -- `unrevoke` (the converse is false: a `dislike` never
             -- revokes). Member self-revoke feeds the absolute
             -- `member` channel; everyone else the `others` channel.
+            local was = M.is_revoked(e)
             if act.action=='revoke' or act.n>0 then
                 local r = e.revoke
                 if act.action=='revoke' and a and env.sign==a then
@@ -413,6 +420,13 @@ function M.apply (G, act, env)
                 else
                     r.others = r.others + act.n
                 end
+            end
+
+            -- rule 1.b: a consolidated post holds its +1K for the
+            -- author only while not revoked: the credit follows the
+            -- revoke sums, so a crossing moves it back or forth
+            if a and e.action=='post' and (not e.maturity) and was~=M.is_revoked(e) then
+                G.members[a].reps = G.members[a].reps + (was and C.reps.earn or -C.reps.earn)
             end
 
             if env.beg then
