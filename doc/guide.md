@@ -90,7 +90,7 @@ b52c62f...    # 'Hello World'
 d6568e4...    # 'I am here'
 ```
 
-We can also query each action individually:
+We can also query each post individually:
 
 - Post payload:
 
@@ -166,7 +166,7 @@ $ freechains --root=/tmp/B/ chains add /chat clone localhost
 
 Note that the chain id is the same in both peers (`461cfb4...`).
 
-We may now list the posts in peer `B`:
+We may now list the actions in peer `B`:
 
 ```
 $ freechains --root=/tmp/B/ chain /chat list dag
@@ -419,7 +419,7 @@ f4e5d6c...
 
 Although we run the commands in sequence here, they target different peers,
 with independent (and manipulable) clocks.
-Therefore, the posts have no reliable order between them.
+Therefore, the actions have no reliable order between them.
 
 Each peer now holds a diverging history with its own exclusive post:
 
@@ -481,7 +481,7 @@ c7d8e9f     e6d7626        # 'A great post!'  | like: bob -> charlie
               f4e5d6c      #                  | 'Charlie was here'
 ```
 
-We can also list the posts in consensus order to see which branch wins:
+We can also list the actions in consensus order to see which branch wins:
 
 ```
 $ freechains --root=/tmp/X/ chain /chat list order
@@ -510,9 +510,9 @@ As a measure against malicious members with strong past reputation, Freechains
 protects settled local branches from unexpected consensus reorderings.
 A branch settles once it holds at least *100 actions* or spans *7 days* between
 its oldest and newest actions.
-Only the posts older than that window are frozen; the most recent ones can
+Only the actions older than that window are frozen; the most recent ones can
 still be reordered.
-So, if a `sync` operation would reorder local frozen posts, then the merge is
+So, if a `sync` operation would reorder local frozen actions, then the merge is
 simply refused and the the peers become incompatible.
 In contrast, peers that remain active and synchronize over time evolve together
 with a stable order.
@@ -533,8 +533,8 @@ $ freechains --root=/tmp/X/ --now=$((NOW+7*DAY)) chain /chat post inline $'day 7
 7d8e9f0...
 ```
 
-Here, the posts on `X` span over more than seven days, making it settled and refusing
-reorderings.
+Here, the actions on `X` span over more than seven days, making it settled and
+refusing reorderings.
 
 Then, `Alice` comes back and posts locally in peer `A`, on the same branch she
 left behind:
