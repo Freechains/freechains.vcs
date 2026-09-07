@@ -509,7 +509,7 @@ peers reach the same state without any central authority.
 As a measure against malicious members with strong past reputation, Freechains
 protects settled local branches from unexpected consensus reorderings.
 
-<img src="hard.png" align="right" width="250">
+<img src="hard.png" align="right" width="300">
 
 As the figure illustrates, actions older than the most recent *100 actions* or
 *7 days* are frozen and cannot be reordered.
@@ -518,7 +518,7 @@ incompatible.
 In contrast, peers that remain active and synchronize over time evolve together
 with a stable order.
 
-To illustrate hard forks, let's suppose peers `X` and `B` with `Bob` and
+To demonstrte hard forks, let's suppose peers `X` and `B` with `Bob` and
 `Charlie` keep posting over time.
 In the meantime, peer `A` with `Alice` remains offline since the consensus
 above.
