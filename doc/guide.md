@@ -513,7 +513,7 @@ its oldest and newest actions.
 Only the posts older than that window are frozen; the most recent ones can
 still be reordered.
 So, if a `sync` operation would reorder local frozen posts, then the merge is
-simply refused and the peers are no longer compatible.
+simply refused and the the peers become incompatible.
 In contrast, peers that remain active and synchronize over time evolve together
 with a stable order.
 
