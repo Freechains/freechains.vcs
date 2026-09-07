@@ -5,6 +5,12 @@
 
 # Open
 
+## Docs: rule 1.b follows revocation
+
+- from done/260907-revoke.md; wording to come from the paper
+- `doc/reps.md:46`: award holds only while the post is not revoked
+- `doc/guide.md:678`: a revoked post forfeits its daily award
+
 ## `--now` does not traverse clone/push
 
 - `chains add clone` re-execs `sync recv` WITHOUT `--now`
