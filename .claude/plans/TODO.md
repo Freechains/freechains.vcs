@@ -150,16 +150,6 @@
 
 - Dropped earlier, each verdict to be revisited from scratch
 
-## Guide: settled-branch wording overstates
-
-- `doc/guide.md:511`, not README
-- Says a settled branch has 100 posts or 7 days
-- True as the entrenchment CONDITION
-- Only the prefix OLDER than that window is frozen
-- The recent 100 posts / 7 days still reorder
-- As written it reads as if the whole branch were immutable
-    - contradicts the next paragraph
-
 ## Add `luacheck`
 
 - Not installed

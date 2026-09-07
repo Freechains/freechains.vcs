@@ -245,7 +245,7 @@ state:
 Flip-flops are bounded by the revoke/unrevoke floor
 (1000 each, taxed).
 
-### Like / Dislike (Rules 3.a, 3.b — Transfer)
+### Like / Dislike (Rules 3.a–3.c — Transfer)
 
 Likes and dislikes are separate subcommands.
 The number is always a positive integer.
@@ -309,7 +309,7 @@ This prevents reputation cycling exploits
   to author — net effect is reduced by cost + tax)
 - **Self-dislike**: allowed
 
-### Content Revocation (Rule 3.b)
+### Content Revocation (Rule 3.d)
 
 Revocation is an **explicit** vote, separate from dislikes,
 on its own bipolar axis:
@@ -689,7 +689,7 @@ Observations:
 - [x] Plan: consolidation regrant (+1/day, Rule 1.b)
 - [x] Plan: 3 block states (ACCEPTED/BLOCKED/REVOKED)
 - [x] Plan: `max` cap (Rule 4.b)
-- [x] Plan: revocation threshold (Rule 3.b)
+- [x] Plan: revocation threshold (Rule 3.d)
 - [x] Tests: cli-like.lua (like command structure)
 - [x] Tests: reps.lua (reputation math)
 - [x] Impl: like/dislike commands in src/freechains
@@ -726,7 +726,7 @@ Observations:
 - [ ] Impl: N * `cost` post cost (Rule 5)
 - [ ] Impl: fetch/merge file-op validation (Rule 5)
 - [ ] Tests: file-op cost (1 file, multi-file)
-- [ ] Impl: revocation state (Rule 3.b)
+- [ ] Impl: revocation state (Rule 3.d)
 - [ ] Impl: 128 KB size limit (Rule 4.c)
 - [ ] Tests: revocation threshold
 - [ ] Tests: time flow example (above)

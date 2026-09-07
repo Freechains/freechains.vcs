@@ -57,14 +57,15 @@ The concrete rules are as follows:
     (i) welcoming new members,
     (ii) measuring the quality of posts, and
     (iii) penalizing abuse (SPAM, fake news, illegal content, etc).
-    - ***Rule 3.a*** for *likes* and *dislikes* rates posts and authors.
-      A like targeting a post transfers reps from the caster to the post and to
-      its author, half each; a like targeting an author transfers the whole
+    - ***Rule 3.a*** burns a *10% tax* on every transfer, which prevents
+      reputation cycling exploits.
+    - ***Rule 3.b*** splits a transfer targeting a post between the post and
+      its author, half each; a transfer targeting an author moves the whole
       amount.
-      A dislike drains the same amounts instead.
-      Every transfer burns a *10% tax*, which prevents reputation cycling
-      exploits.
-    - ***Rule 3.b*** for *revokes* and *unrevokes* hides and restores abusive
+    - ***Rule 3.c*** for *likes* and *dislikes* rates posts and authors.
+      A like transfers reps from the caster to the target, whereas a dislike
+      drains the same amount instead.
+    - ***Rule 3.d*** for *revokes* and *unrevokes* hides and restores abusive
       payloads.
       A post is revoked when the reps-weighted sum of revokes outweighs the
       unrevokes.
