@@ -17,8 +17,9 @@
 --  - dispatch (chain/init.lua): ARGS.discard
 --]]
 
--- Escape hatch for a hard fork: discard the cid and everything after
--- it, so the settled remote branch can be received again.
+-- Escape hatch for a hard fork: discard the stale local suffix (the
+-- cid and everything after it), so the settled remote branch can be
+-- received again.
 -- Local only: no signing, no network, no reps.
 -- Chain state lives in local snapshots (`refs/states/*`), keyed by
 -- commit: the reset lands on a tip whose snapshot already exists.
@@ -114,8 +115,9 @@ for _, h in ipairs(range) do
     print(h)
 end
 
--- settled posts can be discarded: the hard-fork rule guards against a
--- REMOTE reorder, never against a deliberate local escape
+-- settled posts can be discarded: the hard-fork rule (settle by
+-- consensus time) guards against a REMOTE reorder, never against a
+-- deliberate local escape
 exec {
     cmd = "git -C " .. REPO .. " update-ref HEAD " .. tip,
 }

@@ -40,36 +40,16 @@ local CONSENSUS = require "freechains.chain.consensus"
 -- Callers:
 --  - recv (sync.lua): only when the remote wins
 --]]
-local function hardfork (our, their)
-    if #our == 0 then
-        return false
-    end
+local function hardfork (G, their)
+    local our = G.order
 
-    -- window [low, #our] with at most 100 actions
-    local low = math.max(1, #our-C.fork.actions+1)
-
-    -- times from the action files, and the newest among them
-    local ts  = {}
-    local max = 0
-    for i=low, #our do
-        ts[our[i]] = ACTION.read(true, our[i]).time
-        max = math.max(max, ts[our[i]])
-    end
-
-    -- determine highest settled `set` index, if any
+    -- `ctime` grows along the order: walk back from the tip
     local set
-    do
-        -- index of the last entry that is already settled
-        if #our >= C.fork.actions then
-            set = low   -- at least action count, but time may trigger before
-        end
-
-        -- walk from the tip until first entry older than `fork.time`
-        for i=#our, low, -1 do
-            if (max-assert(ts[our[i]])) >= C.fork.time then
-                set = i
-                break
-            end
+    for i=#our, 1, -1 do
+        local e = assert(G.actions[our[i]])
+        if G.now-assert(e.ctime) >= C.time.fork then
+            set = i
+            break
         end
     end
 
@@ -195,9 +175,9 @@ elseif ARGS.recv then
 
         -- only when the remote wins
         if fst == rem then
-            -- check hardfork
-            local ord = STATE.read(GIT.deref("HEAD")).order
-            if hardfork(ord, G_fst.order) then
+            -- check hardfork: my current state vs the new order
+            local G_loc = STATE.read(GIT.deref("HEAD"))
+            if hardfork(G_loc, G_fst.order) then
                 ERROR("chain sync : hard fork")
             end
 

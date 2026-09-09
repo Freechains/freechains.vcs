@@ -21,7 +21,7 @@ exec {
     cmd = "mkdir -p " .. ROOT_B,
 }
 
--- 1. local first by 100-post divergence (rule 1 overrides prefix reps)
+-- 1. 100 posts do NOT entrench: settling is by chain time only
 -- GEN_3: KEY1=10, KEY2=10, KEY3=10
 -- A: KEY3 alone posts 100 times → prefix reps 10
 -- B: KEY1 and KEY2 post once each → prefix reps 20
@@ -29,13 +29,12 @@ exec {
 -- them instead. A broke poster holds a negligible rep share, so its
 -- discount is the full 12h → sustainable rate is 10 posts per 12h,
 -- i.e. one post per 1.2h. STEP is 1.5h to stay under that.
--- 100 posts at 1.5h steps = 150h < 7 days, so the time axis stays
--- below its threshold and only the post axis can fire.
--- Without rule 1: B ordered first by prefix reps (20 > 10)
--- With rule 1: A is entrenched (100 posts reached) and REFUSES the
--- merge, so it never reconciles with B and keeps its branch as is
+-- 100 posts at 1.5h steps = 150h < 7 days, so nothing settles: the
+-- action count used to fire here (floodable), and no longer exists.
+-- B wins by prefix reps (20 > 10): A accepts, B's posts ordered first
+-- and A's 100 appended as the loser
 do
-    print("==> Test 1: local first by 100-post divergence")
+    print("==> Test 1: 100 posts do not entrench")
 
     -- A: G
     TEST "A creates chain"
@@ -77,27 +76,25 @@ do
     --      Q1[K1] -- Q2[K2] ---------/
     --
     -- B: G -- Q1[K1] -- Q2[K2]
-    -- rule 1 REFUSES the merge: A is entrenched, so it does not reconcile
-    -- with B at all (rather than merging and ordering itself first)
-    TEST "A recvs from B: refused by rule 1"
-    FAIL {
+    -- nothing is settled (150h < 7 days): B wins by prefix reps and A
+    -- accepts, ordering B first and its own 100 posts after
+    TEST "A recvs from B: accepted (no count criterion)"
+    exec {
         cmd = EXE_A .. " --now=" .. (FORK+N*STEP+HOUR) .. " chain /fork-100 sync recv " .. ROOT_B .. "/chains/fork-100/",
-        err = "ERROR : chain sync : hard fork",
     }
 
-    TEST "A keeps its own branch untouched (no remote posts)"
+    TEST "A orders B's posts first, then its own 100"
     do
-        local O, S = ORDER(EXE_A, "/fork-100")
-        assert(#O == N, "expected " .. N .. " entries, got " .. #O)
+        local O = ORDER(EXE_A, "/fork-100")
+        assert(#O == N+2, "expected " .. (N+2) .. " entries, got " .. #O)
+        assert(O[1] == Q1 and O[2] == Q2, "Q1, Q2 should come first")
         for i = 1, N do
-            assert(O[i] == A[i], "local post " .. i .. " out of order")
+            assert(O[2+i] == A[i], "local post " .. i .. " out of order")
         end
-        assert(not S[Q1], "Q1 must not have been merged")
-        assert(not S[Q2], "Q2 must not have been merged")
     end
 
     TEST "time axis stayed below the 7-day threshold"
-    assert(N*STEP < WEEK, "setup bug: local branch also crossed 7 days")
+    assert(N*STEP < WEEK, "setup bug: local branch crossed 7 days")
 end
 
 print("<== ALL PASSED")

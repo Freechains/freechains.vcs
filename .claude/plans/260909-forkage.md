@@ -27,7 +27,7 @@
       declared dates
 - settle check (only when the remote wins, as today):
     - `age = ctime(tip) - ctime(fork point)`
-    - if `age >= C.fork.time` (7 days): refuse, `chain sync : hard fork`
+    - if `age >= C.time.fork` (7 days): refuse, `chain sync : hard fork`
 - losers: accepted, appended, loose for 7 days after the merge,
   refutable by ordinary consensus in that window
 - no count criterion (100 actions dropped)
@@ -51,17 +51,19 @@
 # Implementation
 
 - `src/freechains/chain/rules.lua`
-    - in apply/replay, after `advance`: `entry.ctime = G.now`
-    - optional cache; recomputable by walking the order
-- `src/freechains/chain/sync.lua`, `hardfork()`
-    - replace the last-100 timestamp walk with one comparison:
-      `G_loc.now - ctime(fork point) >= C.fork.time`
-    - fork point = pairwise merge base (`oct`), as today
+    - in apply/replay, after `advance`: `entry.ctime = G.now` (DONE)
+    - required by `hardfork()`; old snapshots lack it (fresh chains)
+- `src/freechains/chain/sync.lua`, `hardfork()` (DONE)
+    - settled index: walk back from the tip while
+      `G.now - entry.ctime < C.time.fork`; prefix compare as before
+    - fork point = first ORDER divergence, not the git merge base:
+      a ff (`hardfork-ff.lua`) has base == my tip, age 0, yet may
+      insert inside my settled prefix
     - keep call site "only when the remote wins"
-    - remove the count branch
-- `src/freechains/constants.lua`: drop `fork.actions`; keep
-  `fork.time`; move to genesis constants if per-chain
-- `src/freechains/chain/discard.lua`: unchanged; comments updated
+    - count branch and action-file reads removed
+- `src/freechains/constants.lua`: drop `fork.actions`, `fork.time` ->
+  `time.fork` (DONE); move to genesis constants if per-chain
+- `src/freechains/chain/discard.lua`: unchanged; comments updated (DONE)
 - `STATE.write`: `ctime` persists with the entry (whole table)
 - commits/DAG: untouched
 
@@ -73,13 +75,31 @@
 - 100+ action loser flood: no effect on settling
 - old winning branch reordering settled prefix: refused (as today)
 - stale member (loser): accepted, appended; (winner): refused
-- rewrite existing hard-fork tests for the new age computation
+- new `tst/fork-ctime.lua`: tests 1-3 above (100 junk in test 1)
+- `fork-100-posts.lua`: flips, 100 posts in 150h no longer entrench
+- `fork-7-days`, `hardfork-ff`, `hardfork-shared`, `cli-discard`:
+  same verdicts under `ctime`, unchanged
 
 # Docs
 
 - `doc/` consensus/hard-fork text: settle by consensus time, no count
 - `guide.sh` 7-day section: expected output unchanged unless count
   was exercised
+
+# Follow-up: group the entry times
+
+- `rules.lua` entries hold three flat times: `time` (declared),
+  `now` (DAG-causal max, "too old" bound), `ctime` (order-based
+  chain time)
+- regroup as `time = { declared=, dag=, order= }`
+    - not "peer": same value on every peer with the same DAG
+    - `time.declared = nil` keeps the consolidation sentinel
+      (`ordered()`, discount scan, ~10 sites)
+    - `M.now()`, `hardfork()`, `sync.lua` merge fold follow
+- `get metadata`: keep the action file's `time`; expose `order`
+  as the late-action hint (`order - time`)
+- rename only, no semantic change; old snapshots incompatible
+  (fresh chains, as with `ctime`)
 
 # Open
 

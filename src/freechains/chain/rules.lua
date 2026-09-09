@@ -272,6 +272,8 @@ end
 --  - act [table]: what the commit SAYS: action (the kind), time
 --    (its DATE, hash-bound), n, cid?|member? (the target)
 --  - env [table]: what the chain DERIVED: cid, sign?, beg?, backs
+-- Every entry records `ctime`: the chain time at its replay in the
+-- local order (max declared time so far), a function of the DAG order.
 -- Outputs:
 --  - [true]: accepted, or
 --  - [false, string]: refused ("too old", "too new",
@@ -325,6 +327,7 @@ function M.apply (G, act, env)
             member   = env.sign,
             time     = act.time,
             now      = math.max(act.time, up),
+            ctime    = G.now,
             maturity = (env.beg and 'beg') or (env.sign and '00-12') or 'beg',
             reps     = 0,
             revoke   = { member=0, others=0 },
@@ -446,6 +449,7 @@ function M.apply (G, act, env)
             action = act.action,
             member = env.sign,
             now    = math.max(act.time, up),
+            ctime  = G.now,
             reps   = 0,
             revoke = { member=0, others=0 },
         }

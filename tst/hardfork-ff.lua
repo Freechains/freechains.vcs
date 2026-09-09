@@ -97,7 +97,7 @@ do
         cmd = EXE_B .. " --now=1100 chain /hff post inline 'day 0\n' --sign " .. KEY2,
     }
 
-    -- B: ... -- day 0 -- day 7        (span reaches fork.time: entrenched)
+    -- B: ... -- day 0 -- day 7        (span reaches time.fork: entrenched)
     TEST "B posts day 7 seven days later: B is entrenched"
     exec {
         cmd = EXE_B .. " --now=" .. (1100+WEEK) .. " chain /hff post inline 'day 7\n' --sign " .. KEY2,

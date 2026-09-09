@@ -9,10 +9,7 @@ return {
         diff    = 1*h,          -- max action time diff tolerance (clock drift)
         half    = 12*h,         -- halfway post discount period
         full    = 24*h,         -- fullway post consolidation period
-    },
-    fork = {
-        time    = 7*24*h,       -- span of my settled order (hard fork)
-        actions = 100,          -- entries of my settled order (hard fork)
+        fork    = 7*24*h,       -- settle age in chain time (hard fork)
     },
     reps = {
         --pioneer = 50*unit,    -- split among pioneers

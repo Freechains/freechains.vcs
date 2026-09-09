@@ -97,7 +97,7 @@ orders anything — it only decides whether the RECEIVER
 merges — so controlling delivery cannot make two receivers
 adopt different orderings of the same content.
 The sharp threshold itself remains: a branch whose span
-sits near `fork.time` still flips on one extra commit,
+sits near `time.fork` still flips on one extra commit,
 and two peers holding DIFFERENT subsets of the branch can
 still disagree (the subset changes `exc`).
 
@@ -270,7 +270,7 @@ bounded by monotonic parent rule once implemented.
 send` forwards `--now` as `-o now=`, and the receiver's
 pre-receive hook pins its `recv` to that value. A pusher who
 could get such a commit into `order.lua` would set the
-timestamp that defines the receiver's `fork.time` window,
+timestamp that defines the receiver's `time.fork` window,
 either freezing a prefix that should still reorder or
 thawing one that should be settled.
 

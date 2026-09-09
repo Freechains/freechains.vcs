@@ -51,7 +51,7 @@
 
 ### Config (local policy, never replayed)
 
-- `fork.time`, `fork.actions`: entrenchment is self-protection
+- `time.fork`: entrenchment is self-protection
 - the verdict is never replayed: no merge commit encodes it
 - in genesis, a chain author could disable everyone's rule 1
 
