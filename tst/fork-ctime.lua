@@ -14,7 +14,7 @@ require "tests"
 --                            /        \
 --   C (KEY2):         j1 .. jN                        old dates (1h apart)
 --   A (KEY1):                          a1              3 weeks later
---   X (hub):   recv A, recv C  -> K1 wins: junk appended, ctime = 3w
+--   X (hub):   recv A, recv C  -> K1 wins: junk appended, order time = 3w
 --   A (KEY1):                          a1 -- dislike K2 (refutation)
 --   X (hub):   recv A          -> K1 wins: junk voided, prefix intact
 --

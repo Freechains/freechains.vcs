@@ -8,7 +8,7 @@
 -- a 7-day gap BOTH peers become settled, and whichever one would have its
 -- settled history reordered refuses the merge (rule 1) -- so nothing gets
 -- replayed and this test would cover nothing. Rule 1 has its own tests
--- (fork-7-days.lua, fork-100-posts.lua).
+-- (fork-7-days.lua, fork-ctime.lua).
 --
 -- GEN_2: KEY1=15, KEY2=15. KEY2 likes seed before the fork so KEY1 > KEY2:
 -- consensus is decided by REPS, not by the hash tiebreak (commit hashes vary

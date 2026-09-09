@@ -51,11 +51,11 @@
 # Implementation
 
 - `src/freechains/chain/rules.lua`
-    - in apply/replay, after `advance`: `entry.ctime = G.now` (DONE)
+    - in apply/replay, after `advance`: `entry.time.order = G.now` (DONE)
     - required by `hardfork()`; old snapshots lack it (fresh chains)
 - `src/freechains/chain/sync.lua`, `hardfork()` (DONE)
     - settled index: walk back from the tip while
-      `G.now - entry.ctime < C.time.fork`; prefix compare as before
+      `G.now - entry.time.order < C.time.fork`; prefix compare as before
     - fork point = first ORDER divergence, not the git merge base:
       a ff (`hardfork-ff.lua`) has base == my tip, age 0, yet may
       insert inside my settled prefix
@@ -76,7 +76,8 @@
 - old winning branch reordering settled prefix: refused (as today)
 - stale member (loser): accepted, appended; (winner): refused
 - new `tst/fork-ctime.lua`: tests 1-3 above (100 junk in test 1)
-- `fork-100-posts.lua`: flips, 100 posts in 150h no longer entrench
+- `fork-100-posts.lua`: removed; only tested the count criterion,
+  `fork-ctime.lua` test 1 covers the 100-post flood
 - `fork-7-days`, `hardfork-ff`, `hardfork-shared`, `cli-discard`:
   same verdicts under `ctime`, unchanged
 
@@ -86,7 +87,7 @@
 - `guide.sh` 7-day section: expected output unchanged unless count
   was exercised
 
-# Follow-up: group the entry times
+# Follow-up: group the entry times (DONE)
 
 - `rules.lua` entries hold three flat times: `time` (declared),
   `now` (DAG-causal max, "too old" bound), `ctime` (order-based
@@ -96,8 +97,8 @@
     - `time.declared = nil` keeps the consolidation sentinel
       (`ordered()`, discount scan, ~10 sites)
     - `M.now()`, `hardfork()`, `sync.lua` merge fold follow
-- `get metadata`: keep the action file's `time`; expose `order`
-  as the late-action hint (`order - time`)
+- `get metadata`: keep the action file's `time`; expose the order
+  time as the late-action hint (field name open; see TODO)
 - rename only, no semantic change; old snapshots incompatible
   (fresh chains, as with `ctime`)
 

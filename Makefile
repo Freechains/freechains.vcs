@@ -49,7 +49,6 @@ tests:
 	$(L) bug-now-skew.lua
 	# slow tests last (many posts / big chains)
 	$(L) consensus.lua
-	$(L) fork-100-posts.lua
 	@rm -Rf /tmp/freechains/
 
 test:
