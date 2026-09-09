@@ -368,14 +368,14 @@ function M.apply (G, cid, beg)
 
     -- snapshot: `now` is ancestry-accurate (the replay's G.now may
     -- already include sibling branches applied earlier in consensus
-    -- order): an action's own `now` was folded at apply; a merge
+    -- order): an action's own `time.backs` was folded at apply; a merge
     -- adds nothing, so fold its parents' nearest actions.
     -- NEVER overwrite: the first write is the commit's own-lineage
     -- state, and a refused sync must not corrupt local snapshots
     if not STATE.has(cid) then
         local sav = G.now
         if isa then
-            G.now = G.actions[cid].now
+            G.now = G.actions[cid].time.backs
         else
             G.now = RULES.now(G, M.backs(ps))
         end

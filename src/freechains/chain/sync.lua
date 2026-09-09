@@ -28,26 +28,30 @@ local CONSENSUS = require "freechains.chain.consensus"
 
 --[[
 -- Hard fork protects my current order.
--- Find `set` as highest SETTLED index (crossing fork.time or fork.actions).
+-- Find `set` as highest SETTLED index:
+--   an entry whose order time (`time.apply`) is
+--   `time.fork` behind the chain time (`G.now`).
 -- The new order must reproduce that prefix verbatim.
+-- Consensus time is set at replay, so a loser merged today is
+-- loose for `time.fork` whatever its declared dates.
 -- Inputs:
---  - our   [table]: current order (cids), before replay
+--  - G     [table]: current state (order, actions[*].time.apply, now)
 --  - their [table]: new order (cids), after replay
 -- Outputs:
 --  - [boolean]: true = settled prefix reordered (hard fork)
 -- Errors:
---  - assert: window entry without a time (bug)
+--  - assert: order entry without a state or `time.apply` (bug)
 -- Callers:
 --  - recv (sync.lua): only when the remote wins
 --]]
 local function hardfork (G, their)
     local our = G.order
 
-    -- `ctime` grows along the order: walk back from the tip
+    -- `time.apply` grows along the order: walk back from the tip
     local set
     for i=#our, 1, -1 do
         local e = assert(G.actions[our[i]])
-        if G.now-assert(e.ctime) >= C.time.fork then
+        if G.now-assert(e.time.apply) >= C.time.fork then
             set = i
             break
         end

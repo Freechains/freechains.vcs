@@ -51,11 +51,11 @@
 # Implementation
 
 - `src/freechains/chain/rules.lua`
-    - in apply/replay, after `advance`: `entry.time.order = G.now` (DONE)
+    - in apply/replay, after `advance`: `entry.time.apply = G.now` (DONE)
     - required by `hardfork()`; old snapshots lack it (fresh chains)
 - `src/freechains/chain/sync.lua`, `hardfork()` (DONE)
     - settled index: walk back from the tip while
-      `G.now - entry.time.order < C.time.fork`; prefix compare as before
+      `G.now - entry.time.apply < C.time.fork`; prefix compare as before
     - fork point = first ORDER divergence, not the git merge base:
       a ff (`hardfork-ff.lua`) has base == my tip, age 0, yet may
       insert inside my settled prefix
@@ -92,9 +92,9 @@
 - `rules.lua` entries hold three flat times: `time` (declared),
   `now` (DAG-causal max, "too old" bound), `ctime` (order-based
   chain time)
-- regroup as `time = { declared=, dag=, order= }`
+- regroup as `time = { member=, backs=, apply= }`
     - not "peer": same value on every peer with the same DAG
-    - `time.declared = nil` keeps the consolidation sentinel
+    - `time.member = nil` keeps the consolidation sentinel
       (`ordered()`, discount scan, ~10 sites)
     - `M.now()`, `hardfork()`, `sync.lua` merge fold follow
 - `get metadata`: keep the action file's `time`; expose the order

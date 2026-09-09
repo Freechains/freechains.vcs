@@ -25,7 +25,7 @@ end
 
 --[[
 -- Action cids in a stable order.
--- (time, cid); consolidated actions (time == nil) sort last.
+-- (member, cid); consolidated actions (member == nil) sort last.
 -- Makes the scans deterministic across OS processes.
 -- Inputs:
 --  - G [table]: chain state (reads G.actions; NOT the global:
@@ -43,8 +43,8 @@ local function ordered (G)
         hs[#hs+1] = h
     end
     table.sort(hs, function (a, b)
-        local ta = G.actions[a].time or math.huge
-        local tb = G.actions[b].time or math.huge
+        local ta = G.actions[a].time.member or math.huge
+        local tb = G.actions[b].time.member or math.huge
         if ta == tb then
             return a < b
         else
@@ -128,7 +128,7 @@ function M.advance (G, time, sign)
         local cur = 0       -- positive reps of cnt>0 members
         for _, cid in ipairs(ORD) do
             local e = G.actions[cid]
-            if e.member and e.time then
+            if e.member and e.time.member then
                 local n = cnt[e.member]
                 cnt[e.member] = (n or 0) + 1
                 if not n then
@@ -145,10 +145,10 @@ function M.advance (G, time, sign)
                 -- `subs` = the members still counted after that
                 while k <= #ORD do
                     local o = G.actions[ORD[k]]
-                    if (o.time or math.huge) > entry.time then
+                    if (o.time.member or math.huge) > entry.time.member then
                         break
                     end
-                    if o.member and o.time then
+                    if o.member and o.time.member then
                         local n = cnt[o.member] - 1
                         cnt[o.member] = n
                         if n == 0 then
@@ -167,7 +167,7 @@ function M.advance (G, time, sign)
                 local ratio = (TOT>0 and c/TOT) or 0
                 local discount = C.time.half * math.max(0, 1 - 2*ratio)
 
-                if time >= entry.time + discount then
+                if time >= entry.time.member + discount then
                     -- signed beg?
                     if entry.member then
                         local A = G.members[entry.member]
@@ -190,7 +190,7 @@ function M.advance (G, time, sign)
         for _, cid in ipairs(ORD) do
             local entry = G.actions[cid]
             if entry.maturity == "12-24" then
-                if time >= entry.time+C.time.full then
+                if time >= entry.time.member+C.time.full then
                     if entry.member then
                         local last = G.members[entry.member].time
                         if time-last >= C.time.full then
@@ -201,12 +201,12 @@ function M.advance (G, time, sign)
                             end
                             G.members[entry.member].time = last + C.time.full
                             entry.maturity = nil
-                            entry.time  = nil
+                            entry.time.member = nil
                         end
                     else
                         -- memberless (unsigned beg): consolidate, no credit
                         entry.maturity = nil
-                        entry.time  = nil
+                        entry.time.member = nil
                     end
                 end
             end
@@ -220,12 +220,12 @@ end
 
 --[[
 -- The newest time causally preceding a set of actions: each
--- entry records its own `now` at apply, so the fold is one walk.
+-- entry records its own `time.backs` at apply, so the fold is one walk.
 -- Inputs:
---  - G     [table]: chain state (reads G.actions[*].now)
+--  - G     [table]: chain state (reads G.actions[*].time.backs)
 --  - backs [table]: action cids, STRUCTURAL (from the parents)
 -- Outputs:
---  - [integer]: max of the backs' recorded `now`, 0 if none
+--  - [integer]: max of the backs' recorded `time.backs`, 0 if none
 -- Errors:
 --  - assert: a back without a G entry (bug: backs precede)
 -- Callers:
@@ -236,8 +236,8 @@ end
 function M.now (G, backs)
     local max = 0
     for _, a in ipairs(backs) do
-        local now = assert(G.actions[a]).now
-        max = math.max(max, now)
+        local t = assert(G.actions[a]).time.backs
+        max = math.max(max, t)
     end
     return max
 end
@@ -272,8 +272,11 @@ end
 --  - act [table]: what the commit SAYS: action (the kind), time
 --    (its DATE, hash-bound), n, cid?|member? (the target)
 --  - env [table]: what the chain DERIVED: cid, sign?, beg?, backs
--- Every entry records `ctime`: the chain time at its replay in the
--- local order (max declared time so far), a function of the DAG order.
+-- Every entry records three times:
+--  - `time.member`: the date its member claims (nil once consolidated)
+--  - `time.backs`: max member time over its ancestry ("too old")
+--  - `time.apply`: chain time when applied in the local order
+--    (max member time so far), a function of the DAG order
 -- Outputs:
 --  - [true]: accepted, or
 --  - [false, string]: refused ("too old", "too new",
@@ -325,9 +328,7 @@ function M.apply (G, act, env)
         G.actions[env.cid] = {
             action   = 'post',
             member   = env.sign,
-            time     = act.time,
-            now      = math.max(act.time, up),
-            ctime    = G.now,
+            time     = { member=act.time, backs=math.max(act.time,up), apply=G.now },
             maturity = (env.beg and 'beg') or (env.sign and '00-12') or 'beg',
             reps     = 0,
             revoke   = { member=0, others=0 },
@@ -434,7 +435,7 @@ function M.apply (G, act, env)
 
             if env.beg then
                 e.maturity = "00-12"
-                e.time = act.time
+                e.time.member = act.time
                 if a then
                     G.members[a].time = G.members[a].time or act.time
                 end
@@ -448,8 +449,7 @@ function M.apply (G, act, env)
         G.actions[env.cid] = {
             action = act.action,
             member = env.sign,
-            now    = math.max(act.time, up),
-            ctime  = G.now,
+            time   = { backs=math.max(act.time,up), apply=G.now },
             reps   = 0,
             revoke = { member=0, others=0 },
         }
