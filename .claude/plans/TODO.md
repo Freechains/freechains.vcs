@@ -100,6 +100,28 @@
 - Entrenchment stays derived from the DAG
 - `--now` keeps working, so tests and guide.sh still simulate time
 
+### Under consensus time (260909-forkage.md)
+
+- pings turn a fast-forward farm on an idle forum into a fork
+    - farm loses: appended, loose, refutable for 7 days
+    - farm wins: fork point older than 7 days -> refused
+- client policy: ping only when chain time lags the wall clock
+  (> 1 day); active forums never see them
+- signed, no maturity (as votes): no refund, no rule 1.b award
+- free; a burn punishes the members who protect the forum
+- rate limit in `apply` by chain time: 1 per member per 24h
+    - deterministic, replayable
+    - nothing to gain: only abuse left is DAG growth
+- growth bounded: one empty commit per member per idle day
+- auto prune at tip: NOT doable once propagated
+    - discarding a synced ping forks against every peer holding it
+    - amend before sync is easy but prunes the pings that matter
+- caveat: remote loser pings advance my tip's consensus time
+  (up to my clock + 1h); an honest member back after 8 days with
+  a winning branch is refused on an idle forum too
+- `get metadata` may expose `ctime`: `ctime - time` flags late
+  actions for clients
+
 ### Design questions, worst first
 
 - Whose pings count?
