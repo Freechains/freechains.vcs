@@ -48,7 +48,7 @@ Freechains is implemented in Lua (`>=5.4`) on top of Git.
 Install dependencies:
 
 ```
-sudo apt install git openssh-client lua5.4 luarocks
+sudo apt install git openssh-client lua5.4 liblua5.4-dev luarocks
 ```
 
 Install via LuaRocks:
