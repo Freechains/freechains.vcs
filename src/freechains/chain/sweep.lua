@@ -19,9 +19,9 @@
 -- Two kinds of bytes go here:
 --  - revoked payloads (`like` drops the `refs/payloads/` anchor) and
 --    discarded commits' payloads/state -- once unanchored, gc reaps
---  - per-action STATE blobs (`refs/states/*`): each is a full loose
---    blob until packed, so this gc DELTA-compresses the near-
---    identical versions into O(N). It is the reclaim step -- git's
+--  - per-commit STATE trees (`refs/local/*`): the touched blobs
+--    and trees of every snapshot stay loose until packed, so this
+--    gc packs them. It is the reclaim step -- git's
 --    auto-gc is incremental/skippable and leaves a loose tail, so
 --    the explicit gc here is what reaches the packed floor.
 

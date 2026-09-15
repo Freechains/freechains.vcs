@@ -24,34 +24,39 @@ function M.is_revoked (act)
 end
 
 --[[
--- Action cids in a stable order.
--- (member, cid); consolidated actions (member == nil) sort last.
--- Makes the scans deterministic across OS processes.
+-- Insert a pending record, keeping (time, cid) order.
+-- `G.pending` mirrors the maturing entries (time.member ~= nil):
+-- { cid, member?, time, maturity }, so the scans never touch the
+-- consolidated majority of `G.actions`. `maturity` is kept in sync
+-- with the entry by the scans below.
 -- Inputs:
---  - G [table]: chain state (reads G.actions; NOT the global:
---    replay passes its own states)
+--  - G [table]: chain state; MUTATED (G.pending)
+--  - r [table]: the record
 -- Outputs:
---  - [table]: array of cids, sorted
+--  - none
 -- Errors:
 --  - none
 -- Callers:
---  - advance (rules.lua): discount and consolidation scans
+--  - apply (rules.lua): a new post, a promoted beg
 --]]
-local function ordered (G)
-    local hs = {}
-    for h in pairs(G.actions) do
-        hs[#hs+1] = h
+local function pend (G, r)
+    STATE.day(G, r.time)    -- its bucket must be whole before rewriting
+    if r.maturity ~= "12-24" then
+        G.min0012 = math.min(G.min0012 or r.time, r.time)
     end
-    table.sort(hs, function (a, b)
-        local ta = G.actions[a].time.member or math.huge
-        local tb = G.actions[b].time.member or math.huge
-        if ta == tb then
-            return a < b
+    local P = G.pending
+    local lo, hi = 1, #P+1
+    while lo < hi do
+        local mid = (lo+hi) // 2
+        local m = P[mid]
+        if (m.time < r.time) or (m.time == r.time and m.cid < r.cid) then
+            lo = mid + 1
         else
-            return ta < tb
+            hi = mid
         end
-    end)
-    return hs
+    end
+    table.insert(P, lo, r)
+    G.dirty.pending[r.time] = true
 end
 
 --[[
@@ -67,9 +72,10 @@ end
 --  - reps (reps.lua): after the query-time advance
 --]]
 function M.cap (G)
-    for _, v in pairs(G.members) do
+    for k, v in pairs(G.members) do
         if v.reps > C.reps.max then
             v.reps = C.reps.max
+            G.dirty.members[k] = true
         end
     end
 end
@@ -97,7 +103,8 @@ end
 -- A revoked post consolidates without credit (rule 1.b).
 -- Then `now` advances.
 -- Inputs:
---  - G    [table]: chain state; MUTATED (maturities, reps, G.now)
+--  - G    [table]: chain state; MUTATED (maturities, reps, G.now,
+--    G.pending)
 --  - time [integer]: the time driving the scans (act.time)
 --  - sign [string?]: the acting member's pubkey; in a `reps`
 --    query nothing happened but time passing (no sign, no action)
@@ -110,15 +117,18 @@ end
 --  - reps (reps.lua): fold time up to --now at query time
 --]]
 function M.advance (G, time, sign)
-    local ORD
+    -- `G.pending` holds the loaded WINDOW: every maturing record
+    -- (00-12/beg) and everything after the oldest of them, so the
+    -- discount scan below is exact; older days hold settled-in-
+    -- waiting (12-24) records and load on demand, driven by each
+    -- member's `head` (its oldest 12-24 record time)
+    local P = G.pending
 
     -- discount scan (maybe signed at same G.now)
-    -- entries come in time order, so members acting AFTER entry shrink set
-    -- `cur`/`TOT` are kept LIVE: a refund mid-scan is seen by
-    -- the entries after it, exactly as the rescan per entry did
+    -- records come in time order, so members acting AFTER a record
+    -- shrink set; `cur`/`TOT` are kept LIVE: a refund mid-scan is
+    -- seen by the records after it
     if time>G.now or sign then
-        ORD = ordered(G)
-
         local TOT = 0       -- positive reps of all members
         for _, v in pairs(G.members) do
             TOT = TOT + math.max(0, v.reps)
@@ -126,29 +136,38 @@ function M.advance (G, time, sign)
 
         local cnt = {}      -- member -> its N actions still ahead
         local cur = 0       -- positive reps of cnt>0 members
-        for _, cid in ipairs(ORD) do
-            local e = G.actions[cid]
-            if e.member and e.time.member then
-                local n = cnt[e.member]
-                cnt[e.member] = (n or 0) + 1
+        for _, r in ipairs(P) do
+            if r.member then
+                local n = cnt[r.member]
+                cnt[r.member] = (n or 0) + 1
                 if not n then
-                    cur = cur + reps_of(G, e.member)
+                    cur = cur + reps_of(G, r.member)
                 end
             end
         end
 
-        local k = 1         -- next action to fall behind
-        for _, cid in ipairs(ORD) do
-            local entry = G.actions[cid]
-            if entry.maturity == "00-12" then
-                -- drop the actions at/below this entry's time:
+        -- the entries that may mature now, in one batch
+        do
+            local cids = {}
+            for _, r in ipairs(P) do
+                if r.maturity == "00-12" and r.time <= time then
+                    cids[#cids+1] = r.cid
+                end
+            end
+            STATE.fetch(G, cids)
+        end
+
+        local k = 1         -- next record to fall behind
+        for _, r in ipairs(P) do
+            if r.maturity == "00-12" then
+                -- drop the records at/below this one's time:
                 -- `subs` = the members still counted after that
-                while k <= #ORD do
-                    local o = G.actions[ORD[k]]
-                    if (o.time.member or math.huge) > entry.time.member then
+                while k <= #P do
+                    local o = P[k]
+                    if o.time > r.time then
                         break
                     end
-                    if o.member and o.time.member then
+                    if o.member then
                         local n = cnt[o.member] - 1
                         cnt[o.member] = n
                         if n == 0 then
@@ -167,49 +186,150 @@ function M.advance (G, time, sign)
                 local ratio = (TOT>0 and c/TOT) or 0
                 local discount = C.time.half * math.max(0, 1 - 2*ratio)
 
-                if time >= entry.time.member + discount then
+                if time >= r.time + discount then
                     -- signed beg?
-                    if entry.member then
-                        local A = G.members[entry.member]
+                    if r.member then
+                        local A = G.members[r.member]
                         local old = math.max(0, A.reps)
                         A.reps = A.reps + C.reps.cost
+                        G.dirty.members[r.member] = true
                         local d = math.max(0, A.reps) - old
                         TOT = TOT + d
-                        if (cnt[entry.member] or 0) > 0 then
+                        if (cnt[r.member] or 0) > 0 then
                             cur = cur + d
                         end
+                        -- now waiting for its slot: the member's head
+                        if (not A.head) or (r.time < A.head) then
+                            A.head = r.time
+                        end
+                    elseif (not G.headless) or (r.time < G.headless) then
+                        G.headless = r.time
                     end
-                    entry.maturity = "12-24"
+                    r.maturity = "12-24"
+                    G.dirty.pending[r.time] = true
+                    G.actions[r.cid].maturity = "12-24"
+                    G.dirty.actions[r.cid] = true
                 end
+            end
+        end
+
+        -- the window floor: oldest record still maturing
+        G.min0012 = nil
+        for _, r in ipairs(P) do
+            if r.maturity ~= "12-24" then
+                G.min0012 = math.min(G.min0012 or r.time, r.time)
             end
         end
     end
 
-    -- consolidation scan
+    -- consolidation scan, by heads: a member settles its oldest
+    -- 12-24 record while it is due and a daily slot is free
     if time > G.now then
-        for _, cid in ipairs(ORD) do
-            local entry = G.actions[cid]
-            if entry.maturity == "12-24" then
-                if time >= entry.time.member+C.time.full then
-                    if entry.member then
-                        local last = G.members[entry.member].time
-                        if time-last >= C.time.full then
-                            -- the slot is consumed either way;
-                            -- a revoked post pays 0 (rule 1.b)
-                            if not M.is_revoked(entry) then
-                                G.members[entry.member].reps = G.members[entry.member].reps + C.reps.earn
-                            end
-                            G.members[entry.member].time = last + C.time.full
-                            entry.maturity = nil
-                            entry.time.member = nil
-                        end
-                    else
-                        -- memberless (unsigned beg): consolidate, no credit
-                        entry.maturity = nil
-                        entry.time.member = nil
-                    end
+        local gone = {}     -- cid -> settled now
+
+        --[[
+        -- The 12-24 record of `m` at time `t` (its bucket loaded).
+        -- Inputs:
+        --  - m [string?]: member (nil: unsigned)
+        --  - t [integer]: the head time
+        -- Outputs:
+        --  - [table?]: a record not yet settled, or nil
+        --]]
+        local function find (m, t)
+            STATE.day(G, t)
+            for _, r in ipairs(G.pending) do
+                if r.member == m and r.time == t and r.maturity == "12-24" and (not gone[r.cid]) then
+                    return r
                 end
             end
+            return nil
+        end
+
+        --[[
+        -- The next head of `m` after time `t`: the oldest 12-24
+        -- record later than `t`, walking the bucket days forward.
+        -- Inputs:
+        --  - m [string?]: member (nil: unsigned)
+        --  - t [integer]: the previous head time
+        -- Outputs:
+        --  - [integer?]: the time, or nil (no more)
+        --]]
+        local function nexthead (m, t)
+            local day = STATE.day(G, t)
+            while day do
+                local lo, hi = day*C.time.full, (day+1)*C.time.full
+                local best
+                for _, r in ipairs(G.pending) do
+                    if r.member == m and r.maturity == "12-24" and r.time > t
+                    and r.time >= lo and r.time < hi and (not gone[r.cid])
+                    and ((not best) or r.time < best) then
+                        best = r.time
+                    end
+                end
+                if best then
+                    return best
+                end
+                day = STATE.next_day(G, day)
+                if day then
+                    STATE.day(G, day*C.time.full)
+                end
+            end
+            return nil
+        end
+
+        --[[
+        -- Settle record `r`: rule 1.b credit (unless revoked), the
+        -- entry leaves `pending`.
+        -- Inputs:
+        --  - r [table]: a 12-24 record
+        --]]
+        local function settle (r)
+            local entry = G.actions[r.cid]
+            if r.member then
+                -- the slot is consumed either way;
+                -- a revoked post pays 0 (rule 1.b)
+                if not M.is_revoked(entry) then
+                    G.members[r.member].reps = G.members[r.member].reps + C.reps.earn
+                end
+                G.members[r.member].time = G.members[r.member].time + C.time.full
+                G.dirty.members[r.member] = true
+            end
+            entry.maturity = nil
+            entry.time.member = nil
+            G.dirty.actions[r.cid] = true
+            G.dirty.pending[r.time] = true
+            gone[r.cid] = true
+        end
+
+        for m, A in pairs(G.members) do
+            while A.head and (time >= A.head+C.time.full) and (time-A.time >= C.time.full) do
+                local r = find(m, A.head)
+                if r then
+                    settle(r)
+                else
+                    A.head = nexthead(m, A.head)
+                    G.dirty.members[m] = true
+                end
+            end
+        end
+        -- memberless (unsigned begs): consolidate, no credit, no slot
+        while G.headless and (time >= G.headless+C.time.full) do
+            local r = find(nil, G.headless)
+            if r then
+                settle(r)
+            else
+                G.headless = nexthead(nil, G.headless)
+            end
+        end
+
+        if next(gone) then
+            local keep = {}
+            for _, r in ipairs(G.pending) do
+                if not gone[r.cid] then
+                    keep[#keep+1] = r
+                end
+            end
+            G.pending = keep
         end
     end
 
@@ -333,8 +453,16 @@ function M.apply (G, act, env)
             reps     = 0,
             revoke   = { member=0, others=0 },
         }
+        G.dirty.actions[env.cid] = true
+        pend(G, {
+            cid      = env.cid,
+            member   = env.sign,
+            time     = act.time,
+            maturity = G.actions[env.cid].maturity,
+        })
         if env.sign then
             G.members[env.sign] = G.members[env.sign] or { reps=0 }
+            G.dirty.members[env.sign] = true
             if not env.beg then
                 G.members[env.sign].reps = G.members[env.sign].reps - C.reps.cost
                 G.members[env.sign].time = G.members[env.sign].time or act.time
@@ -396,11 +524,16 @@ function M.apply (G, act, env)
             -- ungated may vote, so the entry may not exist yet
             G.members[env.sign] = G.members[env.sign] or { reps=0 }
             G.members[env.sign].reps = reps - math.abs(act.n)
+            G.dirty.members[env.sign] = true
         end
         local n = act.n * (100 - C.vote.tax) // 100
         if act.cid then
             local e = G.actions[act.cid]
             local a = e.member
+            G.dirty.actions[act.cid] = true
+            if a then
+                G.dirty.members[a] = true
+            end
             if not (self_revoke or (act.action=='revoke' and act.n>0)) then
                 if a then
                     G.members[a] = G.members[a] or { reps=0 }
@@ -436,6 +569,7 @@ function M.apply (G, act, env)
             if env.beg then
                 e.maturity = "00-12"
                 e.time.member = act.time
+                pend(G, { cid=act.cid, member=a, time=act.time, maturity="00-12" })
                 if a then
                     G.members[a].time = G.members[a].time or act.time
                 end
@@ -443,6 +577,7 @@ function M.apply (G, act, env)
         else
             G.members[act.member] = G.members[act.member] or { reps=0 }
             G.members[act.member].reps = G.members[act.member].reps + n
+            G.dirty.members[act.member] = true
         end
 
         -- the vote enters the registry as a target of its own:
@@ -453,6 +588,7 @@ function M.apply (G, act, env)
             reps   = 0,
             revoke = { member=0, others=0 },
         }
+        G.dirty.actions[env.cid] = true
     end
 
     M.cap(G)

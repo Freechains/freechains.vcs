@@ -24,8 +24,9 @@
 --  - dispatch (freechains.lua): ARGS.chains
 --]]
 
-local C    = require "freechains.constants"
-local SSH  = require "freechains.chain.ssh"
+local C     = require "freechains.constants"
+local SSH   = require "freechains.chain.ssh"
+local STATE = require "freechains.chain.state"
 local HERE = debug.getinfo(1, "S").source:match("@(.*/)")
 
 --[[
@@ -78,10 +79,10 @@ local function git_init (dir)
 end
 
 --[[
--- The genesis snapshot: a blob pinned by refs/states/<gen>.
+-- The genesis snapshot: a tree pinned by refs/local/<gen>.
 -- Parses the two key sections from the genesis commit MESSAGE and splits
 -- C.reps.max evenly among them.
--- Same store as STATE.write; inlined, no chain context here.
+-- Written by STATE.write with an explicit dir (no chain context here).
 -- Inputs:
 --  - dir [string]: the bare repo dir
 --  - gen [string]: the genesis cid
@@ -196,15 +197,12 @@ local function genesis (dir, gen)
         members = A,
         actions = {},
         order   = {},
+        pending = {},
+        loaded  = {},
+        pdays   = {},
     }
-    local tmp = dir .. "state-tmp"
-    table_to_file(G, tmp)
-    local blob = exec {
-        cmd = "git -C " .. dir .. " hash-object -w " .. tmp,
-    }
-    exec {
-        cmd = "git -C " .. dir .. " update-ref refs/states/" .. gen .. " " .. blob,
-    }
+    STATE.dirty(G, true)
+    STATE.write(G, gen, dir)
 end
 
 local DIR = ARGS.root .. "/chains/"

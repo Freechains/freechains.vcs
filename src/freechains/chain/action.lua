@@ -258,7 +258,7 @@ local KINDS = { post=true, like=true, revoke=true }
 --  - cid [string]: 40-hex commit hash, already in the object db
 --  - beg [boolean?]: force beg admission (post writers, beg sync)
 -- Outputs:
---  - none: G holds the action and refs/states/<cid> holds its snapshot
+--  - none: G holds the action and refs/local/<cid> holds its snapshot
 -- Errors:
 --  - "malformed commit : ..." : structure (tree/parents/signature)
 --  - "invalid <kind> : ..."   : refused by the reputation rules
@@ -308,6 +308,16 @@ function M.apply (G, cid, beg)
 
         if math.type(act.time) ~= 'integer' then
             error("malformed commit : invalid time", 0)
+        end
+
+        -- one batch: the dedup check, the backs, a vote's target
+        do
+            local want = M.backs(ps)
+            want[#want+1] = cid
+            if act.cid then
+                want[#want+1] = act.cid
+            end
+            STATE.fetch(G, want)
         end
 
         if G.actions[cid] then
@@ -370,9 +380,10 @@ function M.apply (G, cid, beg)
     -- already include sibling branches applied earlier in consensus
     -- order): an action's own `time.backs` was folded at apply; a merge
     -- adds nothing, so fold its parents' nearest actions.
-    -- NEVER overwrite: the first write is the commit's own-lineage
-    -- state, and a refused sync must not corrupt local snapshots
-    if not STATE.has(cid) then
+    -- NEVER overwrite (create-only inside `write`): the first write
+    -- is the commit's own-lineage state, and a refused sync must not
+    -- corrupt local snapshots
+    do
         local sav = G.now
         if isa then
             G.now = G.actions[cid].time.backs

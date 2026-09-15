@@ -9,7 +9,7 @@
 -- Outputs:
 --  - stdout: the dropped cids, oldest first (or the beg cid)
 --  - refs: HEAD reset to the kept tip; the dropped commits'
---    refs/states/ + refs/payloads/ deleted; stale begs deleted
+--    refs/local/ + refs/payloads/ deleted; stale begs deleted
 -- Errors:
 --  - "chain discard : invalid action" : not action, not in history, --keep beg
 --  - "chain discard : unexpected merge" : suffix not linear
@@ -21,7 +21,7 @@
 -- cid and everything after it), so the settled remote branch can be
 -- received again.
 -- Local only: no signing, no network, no reps.
--- Chain state lives in local snapshots (`refs/states/*`), keyed by
+-- Chain state lives in local snapshots (`refs/local/*`), keyed by
 -- commit: the reset lands on a tip whose snapshot already exists.
 --
 -- Two forms:
@@ -104,9 +104,9 @@ end
 -- `list` (every commit in range is an action: checked above)
 for _, h in ipairs(range) do
     -- the dropped commit's state blob loses its anchor, so gc can
-    -- reclaim it (state lives in refs/states/<cid>, keyed by commit)
+    -- reclaim it (state lives in refs/local/<cid>, keyed by commit)
     exec { err=false, stderr=false,
-        cmd = "git -C " .. REPO .. " update-ref -d refs/states/" .. h,
+        cmd = "git -C " .. REPO .. " update-ref -d " .. STATE.ref(h),
     }
     -- payloads go with them
     exec { err=false, stderr=false,

@@ -33,6 +33,8 @@ elseif ARGS.begs then
 
 elseif ARGS.revokes then
     -- revoked payloads only, in consensus order (bare cids)
+    STATE.order(G)
+    STATE.fetch(G, G.order)
     for _, cid in ipairs(G.order) do
         if G.actions[cid] and RULES.is_revoked(G.actions[cid]) then
             print(cid)
@@ -41,6 +43,8 @@ elseif ARGS.revokes then
 
 elseif ARGS.order then
     -- consensus order (cids); revoked payloads wrapped in ~cid~
+    STATE.order(G)
+    STATE.fetch(G, G.order)
     for _, cid in ipairs(G.order) do
         if G.actions[cid] and RULES.is_revoked(G.actions[cid]) then
             print("~" .. cid .. "~")
@@ -60,10 +64,12 @@ elseif ARGS.dag then
     --  - edges: `|` `\` `/` at the midpoint; upper-level
     --    parents as `abc^`/`^abc` hints on the parent's side
 
+    STATE.order(G)
     local order = G.order
     if #order == 0 then
         return
     end
+    STATE.fetch(G, order)
 
     -- ups are structural: the action ancestors of each commit's
     -- parents (the cid IS the commit); short labels, revoked wrapped in ~~

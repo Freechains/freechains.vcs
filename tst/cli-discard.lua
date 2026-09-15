@@ -100,7 +100,7 @@ do
     local p2cid  = CID(DIR1, p2)
     local p1cid  = CID(DIR1, p1)
     local p2blob = exec {
-        cmd = "git -C " .. DIR1 .. " rev-parse refs/states/" .. p2cid,
+        cmd = "git -C " .. DIR1 .. " rev-parse refs/local/" .. p2cid,
     }
 
     -- G -- p1[K1]                         (p2, p3 discarded)
@@ -141,14 +141,14 @@ do
 
     do
         TEST "discarded commit loses its state ref, gc reclaims the blob"
-        -- the dropped commit's refs/states anchor is gone
+        -- the dropped commit's refs/local anchor is gone
         local _, code = exec { err=false, stderr=false,
-            cmd = "git -C " .. DIR1 .. " rev-parse refs/states/" .. p2cid,
+            cmd = "git -C " .. DIR1 .. " rev-parse refs/local/" .. p2cid,
         }
         assert(code ~= 0, "p2 state ref should be gone")
         -- p1 (the kept tip) still has its state
         local _, code1 = exec { err=false, stderr=false,
-            cmd = "git -C " .. DIR1 .. " rev-parse refs/states/" .. p1cid,
+            cmd = "git -C " .. DIR1 .. " rev-parse refs/local/" .. p1cid,
         }
         assert(code1 == 0, "p1 state ref should remain")
         -- unanchored (not in any commit tree either), so gc reaps it

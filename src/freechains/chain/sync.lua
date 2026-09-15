@@ -36,7 +36,7 @@ local CONSENSUS = require "freechains.chain.consensus"
 -- loose for `time.fork` whatever its declared dates.
 -- Inputs:
 --  - G     [table]: current state (order, actions[*].time.apply, now)
---  - their [table]: new order (cids), after replay
+--  - G2    [table]: the new state (order), after replay
 -- Outputs:
 --  - [boolean]: true = settled prefix reordered (hard fork)
 -- Errors:
@@ -44,17 +44,29 @@ local CONSENSUS = require "freechains.chain.consensus"
 -- Callers:
 --  - recv (sync.lua): only when the remote wins
 --]]
-local function hardfork (G, their)
-    local our = G.order
+local function hardfork (G, G2)
+    STATE.order(G)
+    STATE.order(G2)
+    local our, their = G.order, G2.order
 
-    -- `time.apply` grows along the order: walk back from the tip
+    -- `time.apply` grows along the order: walk back from the tip,
+    -- loading the entries in batches
     local set
-    for i=#our, 1, -1 do
-        local e = assert(G.actions[our[i]])
-        if G.now-assert(e.time.apply) >= C.time.fork then
-            set = i
+    local i = #our
+    while i >= 1 do
+        local lo = math.max(1, i-255)
+        STATE.fetch(G, table.move(our, lo, i, 1, {}))
+        for j=i, lo, -1 do
+            local e = assert(G.actions[our[j]])
+            if G.now-assert(e.time.apply) >= C.time.fork then
+                set = j
+                break
+            end
+        end
+        if set then
             break
         end
+        i = lo - 1
     end
 
     if set then
@@ -181,7 +193,7 @@ elseif ARGS.recv then
         if fst == rem then
             -- check hardfork: my current state vs the new order
             local G_loc = STATE.read(GIT.deref("HEAD"))
-            if hardfork(G_loc, G_fst.order) then
+            if hardfork(G_loc, G_fst) then
                 ERROR("chain sync : hard fork")
             end
 
@@ -260,6 +272,7 @@ elseif ARGS.recv then
     -- anchor. The final sums decide ONCE, here
     do
         local G = STATE.read(GIT.deref("HEAD"))
+        STATE.all(G)
 
         local exc = {}
         for cid, e in pairs(G.actions) do

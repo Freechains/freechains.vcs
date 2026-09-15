@@ -37,6 +37,7 @@ if ARGS.target == "action" then
     local v = (e and e.reps) or 0
     print(v)
 elseif ARGS.target == "actions" then
+    STATE.all(G)
     local T = {}
     for k, v in pairs(G.actions) do
         T[#T+1] = { k=k, v=v.reps }
@@ -56,6 +57,7 @@ elseif ARGS.target == "revoke" then
     print(r.member .. " " .. r.others)
 elseif ARGS.target == "revokes" then
     -- both revoke channels of every action, most revoked first
+    STATE.all(G)
     local T = {}
     for k, v in pairs(G.actions) do
         local r = v.revoke or { member=0, others=0 }

@@ -13,7 +13,7 @@
 -- Outputs:
 --  - stdout: the new cid
 --  - refs: payload blob at refs/payloads/<cid>; HEAD -> cid,
---    or refs/begs/beg-<cid> (--beg); state at refs/states/<cid>
+--    or refs/begs/beg-<cid> (--beg); state at refs/local/<cid>
 -- Errors:
 --  - "chain post : requires --sign or --beg" (gated chains only:
 --    an open chain accepts an unsigned post, as `anonymous`)

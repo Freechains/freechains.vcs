@@ -201,15 +201,16 @@ function DRYMERGE (dir, other)
     return code == 0
 end
 
--- the state snapshot at `dir`'s HEAD (blob at refs/states/<hash>)
+-- the state snapshot at `dir`'s HEAD (tree at refs/local/<hash>)
+local ST = require "freechains.chain.state"
 function STATE (dir)
     local hash = exec {
         cmd = "git -C " .. dir .. " rev-parse HEAD",
     }
-    local src = exec { trim=false,
-        cmd = "git -C " .. dir .. " cat-file blob refs/states/" .. hash,
-    }
-    return load(src)()
+    local G = ST.read(hash, dir)
+    ST.all(G)   -- tests inspect every entry
+    ST.order(G)
+    return G
 end
 
 -- run a command expected to FAIL; assert the error msg if given; return it

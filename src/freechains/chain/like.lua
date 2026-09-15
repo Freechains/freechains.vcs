@@ -15,7 +15,7 @@
 --  - REPO [string]: the chain's bare repo dir
 -- Outputs:
 --  - stdout: the new cid
---  - refs: HEAD -> cid; state at refs/states/<cid>; why blob at
+--  - refs: HEAD -> cid; state at refs/local/<cid>; why blob at
 --    refs/payloads/<cid>; the TARGET's payload anchor dropped
 --    (entered REVOKED) or restored (left REVOKED); a liked beg's
 --    refs/begs/ ref deleted (promotion merge)
@@ -100,6 +100,7 @@ if to_beg then
     end
     G.order[#G.order+1] = ARGS.id   -- beg post
     G.actions[ARGS.id] = STATE.read(GIT.deref(ref)).actions[ARGS.id]
+    G.dirty.actions[ARGS.id] = true
 end
 
 -- a bad key fails EARLY and clean: nothing reaches git
