@@ -506,13 +506,12 @@ peers reach the same state without any central authority.
 
 # Hard Forks
 
-As a measure against malicious members with strong past reputation, Freechains
-protects settled local branches from unexpected consensus reorderings.
-
 <img src="hard.png" align="right" width="300">
 
-As the figure illustrates, actions older than the most recent *100 actions* or
-*7 days* are frozen and cannot be reordered.
+As a measure against malicious members with strong past reputation, Freechains
+protects settled local branches from outdated actions.
+As the figure illustrates, actions older than *7 days* of chain time are frozen
+and cannot be reordered.
 If consensus would reorder them, the merge is refused and the two peers become
 incompatible.
 In contrast, peers that remain active and synchronize over time evolve together
