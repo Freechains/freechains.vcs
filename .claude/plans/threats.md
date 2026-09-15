@@ -107,33 +107,21 @@ sharp boundary means no exploitable threshold.
 
 ---
 
-## T1b. Equivocation Attack (100-Post Threshold)
+## T1b. Equivocation Attack (100-Post Threshold) -- RESOLVED
 
-**Mechanism**: Attacker with 200+ reputation creates two
-different branches (X and Y) of 100+ posts each.
-Delivers X to peer A, Y to peer B. Both merge and cross
-the 100-post threshold. When A and B sync, each ordering
-is already frozen.
+**Was**: an attacker with 200+ reputation built two branches
+(X and Y) of 100+ posts each, delivered X to peer A and Y to
+peer B; both crossed the 100-post count and froze, so A and
+B refused each other.
 
-**Resources**: 200+ reputation (100 posts per branch at
-1 rep each). Achievable for long-standing members.
-
-**Real threat**: Medium — requires substantial reputation
-but no network partition. Detectable (same author, 200
-simultaneous posts, two incompatible branches).
-
-**Impact**: Permanent fork. But equivocation is blatant
-and recovery (revert to common prefix) is
-straightforward.
-
-**Note (span rule + refusal)**: the count axis now counts
-commits EXCLUSIVE to the branch (`rev-list rem..loc`), so
-commits the other side already holds do not inflate it.
-The attack still works — the two equivocated branches are
-exclusive to each other by construction — but its effect
-changes: A and B now REFUSE to merge each other rather
-than merging into two different orderings. The split is an
-explicit error instead of a silent divergence.
+**Now** (260909-forkage): settling is by CHAIN TIME only,
+`time.fork` (7 days) measured on each entry's `time.apply`,
+the chain time at its replay in the local order. The action
+count is gone. A flood of any size settles nothing by
+itself, and a delivered branch that loses is appended loose
+and stays refutable for 7 days at every peer that merged it.
+Equivocation only bites if A and B stay apart for 7 days of
+chain time, which is T1 (partition), not a resource attack.
 
 ---
 
@@ -304,8 +292,9 @@ later, which is exactly what the attack wants.
 
 **Real threat**: was High. It does not abuse rule 1, it
 disables it: the settled prefix stops being frozen and the
-victim accepts reorderings of its own history. Only the
-100-action axis kept working.
+victim accepts reorderings of its own history. (The
+100-action axis that kept working then is gone: settling
+is by chain time, 260909-forkage.)
 
 **Mitigation**: `new` is now folded as the max over the
 window rather than read from the last entry. The inverse is
@@ -522,8 +511,8 @@ reps). Nothing dedups it, so the author can re-revoke an
 already-revoked action without limit. Each cast is a new
 commit — unbounded free DAG growth that every peer must
 store and relay. A `--why` blob rides along for free
-payload bytes, and free actions count toward the 100-action
-settling window (feeds T1b).
+payload bytes. Free actions carry no settling weight: the
+window is chain time, not a count (T1b resolved).
 
 **Resources**: One admitted post (or beg) to become an
 author; then zero reps thereafter.
@@ -552,7 +541,7 @@ pays via `unrevoke` (which costs). Guarded in `rules.lua`.
 |------|-------------------------------|----------|------------|--------------|
 | T1   | 7-day partition fork          | Medium   | Low        | Self-isolates|
 | T1a  | Boundary attack (timing)      | High     | Low        | Span rule    |
-| T1b  | Equivocation (100-post)       | High     | Low        | No defense   |
+| T1b  | Equivocation (count flood)    | Resolved | --         | chain-time settling |
 | T2a  | Backdating offline branches   | Medium   | Medium     | Consensus    |
 | T2b  | Future-dating posts           | High     | Medium     | Yes (too new)|
 | T2c  | Timestamp ordering            | Medium   | Medium     | Planned      |

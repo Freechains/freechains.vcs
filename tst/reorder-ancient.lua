@@ -60,7 +60,7 @@ do
 
     -- A: G -- S[K1] -- L[K2] -- alpha[K1] -- gamma[K1]   (gamma >1h ahead)
     -- B: G -- S[K1] -- L[K2]
-    TEST "A posts gamma far ahead (advances A tip.now past +1h)"
+    TEST "A posts gamma far ahead (advances A tip time.backs past +1h)"
     local gamma = exec {
         cmd = EXE_A .. " --now=10000 chain /anc post inline 'gamma\n' --sign " .. KEY1,
     }

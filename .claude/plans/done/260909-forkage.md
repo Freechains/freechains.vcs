@@ -64,7 +64,7 @@
 - `src/freechains/constants.lua`: drop `fork.actions`, `fork.time` ->
   `time.fork` (DONE); move to genesis constants if per-chain
 - `src/freechains/chain/discard.lua`: unchanged; comments updated (DONE)
-- `STATE.write`: `ctime` persists with the entry (whole table)
+- `STATE.write`: `time.apply` persists with the entry (whole table)
 - commits/DAG: untouched
 
 # Tests (`tst/`)
@@ -79,7 +79,7 @@
 - `fork-100-posts.lua`: removed; only tested the count criterion,
   `fork-ctime.lua` test 1 covers the 100-post flood
 - `fork-7-days`, `hardfork-ff`, `hardfork-shared`, `cli-discard`:
-  same verdicts under `ctime`, unchanged
+  same verdicts under `time.apply`, unchanged
 
 # Docs
 
@@ -105,4 +105,5 @@
 # Open
 
 - window as genesis constant vs global constant: decide with paper
-- `ctime` for merge commits: fold parents (as `RULES.now` does)
+- ANSWERED: merge commits carry no apply time; a merge snapshot
+  folds its parents' `time.backs` and never enters the order

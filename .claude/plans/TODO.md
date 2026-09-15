@@ -68,13 +68,6 @@
     - bounds per field, or a whole-table sanity check
 - what happens when `version` and the constants disagree?
 
-## Perf cleanups P1 (profile first, land measured)
-
-- From done/280808-redesign.md "Small cleanups"; correctness
-  is unaffected, so gated on something actually being slow
-- P1: `hardfork` one `cat-file blob` per window entry ->
-  one `cat-file --batch`
-
 ## Idle chains are never entrenched
 
 ### Problem
@@ -100,7 +93,7 @@
 - Entrenchment stays derived from the DAG
 - `--now` keeps working, so tests and guide.sh still simulate time
 
-### Under consensus time (260909-forkage.md)
+### Under consensus time (done/260909-forkage.md)
 
 - pings turn a fast-forward farm on an idle forum into a fork
     - farm loses: appended, loose, refutable for 7 days
@@ -192,4 +185,6 @@
 ## Perf P2-P4 (aid memos, cid<->aid index)
 
 - `aid` dissolved in done/260821-cid-aid-tree.md
-- nothing left to memoize; P1 stands alone
+- nothing left to memoize
+- P1 (`hardfork` cat-file batch) obsolete: since
+  done/260909-forkage.md it reads no action files
