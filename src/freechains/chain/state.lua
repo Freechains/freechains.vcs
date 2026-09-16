@@ -1,7 +1,12 @@
 -- per-commit state, stored as a git TREE pinned by a local ref:
 --  - `refs/local/<cid>` -> tree
---      meta.lua                 { now, open }
---      members/<enc(pub)>.lua   { reps, time, dictator? }
+--      meta.lua                 { now, open, tot, min0012, headless,
+--                                 order_n }
+--      members/<xx>/<enc(pub)>.lua  { reps, time, head?, dictator? }
+--                               fanout by 2 hex chars of sha1(pub)
+--      heads.txt                the due-heads index: "time member"
+--                               per member with a waiting 12-24
+--                               record, sorted by time
 --      order/<nnnn>.txt         chunks of ORDER_K cids, one per line
 --                               (lazy: the tail chunk is eager, the
 --                               count lives in meta)
@@ -13,8 +18,10 @@
 --  - keyed by the derefed cid (callers resolve refs via GIT.deref)
 -- Unchanged files share blobs across snapshots, so a snapshot costs
 -- its touched blobs plus the trees on their paths, not the whole G.
--- `G.actions` is LAZY: an entry loads on first access (one blob),
--- `fetch`/`all` load many in one batch. Everything else is eager.
+-- `G.actions` and `G.members` are LAZY: an entry loads on first
+-- access (one blob), `fetch`/`members`/`all`/`members_all` load
+-- many in one batch. meta, heads, the pending window and the tail
+-- order chunk are eager.
 -- `refs/local/*` are LOCAL: sync never pushes or fetches them.
 
 local M = {}
@@ -83,11 +90,12 @@ end
 -- Callers:
 --  - write/fetch (state.lua): entities to paths
 --]]
+local sha1     -- defined below (needed by mpath)
 local function apath (cid)
     return "actions/" .. cid:sub(1, 2) .. "/" .. cid .. ".lua"
 end
 local function mpath (pub)
-    return "members/" .. enc(pub) .. ".lua"
+    return "members/" .. sha1(pub):sub(1, 2) .. "/" .. enc(pub) .. ".lua"
 end
 local function opath (i)
     return string.format("order/%04d.txt", i)
@@ -207,7 +215,7 @@ end
 -- Callers:
 --  - tree_id (state.lua)
 --]]
-local function sha1 (msg)
+function sha1 (msg)
     local h0, h1, h2, h3, h4 = 0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0
     local ml = #msg
     msg = msg .. "\128" .. string.rep("\0", (55 - ml) % 64) .. string.pack(">I8", ml * 8)
@@ -342,17 +350,18 @@ local function keep_tree (C, path, sha)
     C.kids[d] = C.kids[d] or {}
     C.kids[d][name] = "tree"
 end
--- some shards: their blobs, one process
-local function shard (G, xs)
+-- some shards of `top` (actions|members): their blobs, one process
+local function shard (G, top, xs)
     local C = CACHE[G]
-    if (not C) or (not C.root) or C.shards then
+    if (not C) or (not C.root) or C.shards[top] then
         return
     end
     local want = {}
     for _, xx in ipairs(xs) do
-        if not C.shard[xx] then
-            C.shard[xx] = true
-            C.kids["actions/" .. xx] = C.kids["actions/" .. xx] or {}
+        local k = top .. "/" .. xx
+        if not C.shard[k] then
+            C.shard[k] = true
+            C.kids[k] = C.kids[k] or {}
             want[#want+1] = xx
         end
     end
@@ -360,48 +369,48 @@ local function shard (G, xs)
         return
     end
     local out = exec { trim=false, err=false, stderr=false,
-        cmd = "git -C " .. C.dir .. " ls-tree -r --format='%(objectname) %(path)' " .. C.root .. ":actions " .. table.concat(want, " "),
+        cmd = "git -C " .. C.dir .. " ls-tree -r --format='%(objectname) %(path)' " .. C.root .. ":" .. top .. " " .. table.concat(want, " "),
     }
     if not out then
-        return   -- no `actions` yet
+        return   -- no such top dir yet
     end
     for sha, path in out:gmatch("(%x+) ([^\n]+)\n") do
-        keep_blob(C, "actions/" .. path, sha)
+        keep_blob(C, top .. "/" .. path, sha)
     end
 end
--- the shard trees (names and shas), for the root rebuild
-local function shards_top (G)
+-- the shard trees of `top` (names and shas), for the root rebuild
+local function shards_top (G, top)
     local C = CACHE[G]
-    if (not C) or (not C.root) or C.top then
+    if (not C) or (not C.root) or C.top[top] then
         return
     end
-    C.top = true
+    C.top[top] = true
     local out = exec { trim=false, err=false, stderr=false,
-        cmd = "git -C " .. C.dir .. " ls-tree --format='%(objectname) %(path)' " .. C.root .. ":actions",
+        cmd = "git -C " .. C.dir .. " ls-tree --format='%(objectname) %(path)' " .. C.root .. ":" .. top,
     }
     if not out then
         return
     end
     for sha, name in out:gmatch("(%x+) ([^\n]+)\n") do
-        keep_tree(C, "actions/" .. name, sha)
+        keep_tree(C, top .. "/" .. name, sha)
     end
 end
--- every shard: all blobs (listings, reconciles)
-local function shards_all (G)
+-- every shard of `top`: all blobs (listings, reconciles)
+local function shards_all (G, top)
     local C = CACHE[G]
-    if (not C) or (not C.root) or C.shards then
+    if (not C) or (not C.root) or C.shards[top] then
         return
     end
-    C.shards = true
-    shards_top(G)
+    C.shards[top] = true
+    shards_top(G, top)
     local out = exec { trim=false, err=false, stderr=false,
-        cmd = "git -C " .. C.dir .. " ls-tree -r --format='%(objectname) %(path)' " .. C.root .. ":actions",
+        cmd = "git -C " .. C.dir .. " ls-tree -r --format='%(objectname) %(path)' " .. C.root .. ":" .. top,
     }
     if not out then
         return
     end
     for sha, path in out:gmatch("(%x+) ([^\n]+)\n") do
-        keep_blob(C, "actions/" .. path, sha)
+        keep_blob(C, top .. "/" .. path, sha)
     end
 end
 
@@ -466,7 +475,7 @@ function M.all (G)
     if (not C) or (not C.root) then
         return
     end
-    shards_all(G)
+    shards_all(G, "actions")
     local cids = {}
     for path in pairs(C.tree) do
         local cid = path:match("^actions/%x%x/(%x+)%.lua$")
@@ -475,6 +484,103 @@ function M.all (G)
         end
     end
     M.fetch(G, cids)
+end
+
+--[[
+-- Load members into `G.members` in one batch, by PATH (no listing):
+-- already loaded and known-missing keys are skipped.
+-- Inputs:
+--  - G    [table]: chain state; MUTATED (G.members)
+--  - pubs [table]: array of pubkeys (nil entries allowed)
+-- Outputs:
+--  - none
+-- Errors:
+--  - none
+-- Callers:
+--  - lazy_members (state.lua): one miss
+--  - apply/advance (rules.lua): signer, targets, window, due heads
+--  - winner (consensus.lua): the two sides' keys
+--  - members_all (state.lua): every member
+--]]
+function M.members (G, pubs)
+    local C = CACHE[G]
+    if (not C) or (not C.root) then
+        return
+    end
+    local ls = {}
+    for _, pub in pairs(pubs) do
+        if not (rawget(G.members, pub) or C.missing_m[pub]) then
+            C.missing_m[pub] = true
+            local path = mpath(pub)
+            ls[#ls+1] = C.root .. ":" .. path .. " " .. path
+        end
+    end
+    if #ls == 0 then
+        return
+    end
+    local out = git_in(C.dir, "cat-file --batch='%(objectname) %(objectsize) %(rest)'",
+        table.concat(ls, "\n") .. "\n")
+    batch(out, function (path, s, sha)
+        C.src[path] = s
+        keep_blob(C, path, sha)
+        local pub = dec(path:match("([^/]+)%.lua$"))
+        C.missing_m[pub] = nil
+        rawset(G.members, pub, load("return " .. s)())
+    end)
+end
+
+--[[
+-- Load EVERY member into `G.members` (listings).
+-- Inputs:
+--  - G [table]: chain state; MUTATED (G.members)
+-- Outputs:
+--  - none
+-- Errors:
+--  - none
+-- Callers:
+--  - reps (reps.lua): members listing
+--]]
+function M.members_all (G)
+    local C = CACHE[G]
+    if (not C) or (not C.root) then
+        return
+    end
+    shards_all(G, "members")
+    local pubs = {}
+    for path in pairs(C.tree) do
+        local name = path:match("^members/%x%x/([^/]+)%.lua$")
+        if name then
+            pubs[#pubs+1] = dec(name)
+        end
+    end
+    M.members(G, pubs)
+end
+
+--[[
+-- The lazy `G.members` table: a miss loads the member's blob.
+-- Inputs:
+--  - G [table]: chain state; MUTATED (G.members gets a metatable)
+-- Outputs:
+--  - none
+-- Errors:
+--  - none
+-- Callers:
+--  - read (state.lua)
+--]]
+local function lazy_members (G)
+    setmetatable(G.members, {
+        __index = function (t, pub)
+            if type(pub) ~= "string" then
+                return nil
+            end
+            local C = CACHE[G]
+            if C and C.missing_m[pub] then
+                return nil
+            end
+            M.members(G, { pub })
+            return rawget(t, pub)
+        end,
+    })
 end
 
 --[[
@@ -597,7 +703,7 @@ end
 --  - genesis (chains.lua): a G built from scratch
 --]]
 function M.dirty (G, all)
-    local D = { actions={}, members={}, pending={} }
+    local D = { actions={}, members={}, pending={}, heads=all or false }
     if all then
         for k in pairs(G.actions) do
             D.actions[k] = true
@@ -633,7 +739,7 @@ function M.write (G, cid, dir)
     dir = dir or REPO
     local C = CACHE[G]
     if not C then
-        C = { dir=dir, tree={}, src={}, dirs={}, kids={ [""]={} }, shard={}, missing={} }
+        C = { dir=dir, tree={}, src={}, dirs={}, kids={ [""]={} }, shard={}, shards={}, top={}, missing={}, missing_m={} }
         CACHE[G] = C
     end
 
@@ -646,9 +752,19 @@ function M.write (G, cid, dir)
             paths[#paths+1] = path
         end
     end
-    put("meta.lua", table_to_string { now=G.now, open=G.open, min0012=G.min0012, headless=G.headless, order_n=#G.order } .. "\n")
+    put("meta.lua", table_to_string {
+        now=G.now, open=G.open, tot=G.tot, min0012=G.min0012,
+        headless=G.headless, order_n=#G.order,
+    } .. "\n")
     for pub in pairs(G.dirty.members) do
-        put(mpath(pub), table_to_string(G.members[pub]) .. "\n")
+        put(mpath(pub), table_to_string(rawget(G.members, pub)) .. "\n")
+    end
+    if G.dirty.heads then
+        local ls = {}
+        for i, h in ipairs(G.heads) do
+            ls[i] = h.time .. " " .. h.member
+        end
+        put("heads.txt", table.concat(ls, "\n") .. "\n")
     end
     for k in pairs(G.dirty.actions) do
         put(apath(k), table_to_string(rawget(G.actions, k)) .. "\n")
@@ -760,28 +876,33 @@ function M.write (G, cid, dir)
             levels[depth][d] = true
         until d == ""
     end
-    -- the root needs `actions` even when untouched
-    if C.root and (not C.dirs["actions"]) and (not (C.kids[""] or {}).actions) then
-        local sha = exec { err=false, stderr=false,
-            cmd = "git -C " .. dir .. " rev-parse --verify " .. C.root .. ":actions",
-        }
-        if sha then
-            keep_tree(C, "actions", sha)
+    -- the root needs the lazy tops even when untouched (the read
+    -- lists neither `actions` nor `members`)
+    for _, top in ipairs { "actions", "members" } do
+        if C.root and (not C.dirs[top]) and (not (C.kids[""] or {})[top]) then
+            local sha = exec { err=false, stderr=false,
+                cmd = "git -C " .. dir .. " rev-parse --verify " .. C.root .. ":" .. top,
+            }
+            if sha then
+                keep_tree(C, top, sha)
+            end
         end
     end
     -- the listings of untouched-so-far dirs come from git
     do
-        local xs = {}
+        local xs = { actions={}, members={} }
         for depth = #levels, 0, -1 do
             for d in pairs(levels[depth] or {}) do
-                if d == "actions" then
-                    shards_top(G)
-                elseif d:match("^actions/") then
-                    xs[#xs+1] = d:sub(9)
+                local top, xx = d:match("^(%a+)/(%x%x)$")
+                if d == "actions" or d == "members" then
+                    shards_top(G, d)
+                elseif top and xs[top] then
+                    table.insert(xs[top], xx)
                 end
             end
         end
-        shard(G, xs)
+        shard(G, "actions", xs.actions)
+        shard(G, "members", xs.members)
     end
     -- tree ids are computed here, deepest first, so the whole
     -- snapshot is ONE `mktree --batch`; its ids must agree
@@ -878,12 +999,12 @@ function M.read (cid, dir)
     dir = dir or REPO
     -- the ref itself is the tree-ish everywhere below
     local root = M.ref(cid)
-    local CC = { dir=dir, root=root, tree={}, src={}, dirs={}, kids={ [""]={} }, shard={}, missing={} }
+    local CC = { dir=dir, root=root, tree={}, src={}, dirs={}, kids={ [""]={} }, shard={}, shards={}, top={}, missing={}, missing_m={} }
 
     -- the eager dirs and meta, with their tree shas (`actions` is
     -- listed on demand)
     local ls = exec { trim=false, err=false, stderr=false,
-        cmd = "git -C " .. dir .. " ls-tree -r -t --format='%(objecttype) %(objectname) %(path)' " .. root .. " meta.lua members order pending",
+        cmd = "git -C " .. dir .. " ls-tree -r -t --format='%(objecttype) %(objectname) %(path)' " .. root .. " meta.lua heads.txt order pending",
     }
     assert(ls, "bug found : no snapshot : " .. cid)
     -- meta first: the pending window depends on it
@@ -918,8 +1039,7 @@ function M.read (cid, dir)
             table.concat(blobs, "\n") .. "\n")
     end
 
-    local G = { actions={}, members={}, order={}, pending={}, loaded={}, pdays={} }
-    local mems = {}
+    local G = { actions={}, members={}, order={}, pending={}, loaded={}, pdays={}, heads={} }
     batch(out, function (path, s)
         CC.src[path] = s
         local d, name = path:match("^(.*)/([^/]+)%.%a+$")
@@ -927,16 +1047,20 @@ function M.read (cid, dir)
             local t = load("return " .. s)()
             G.now      = t.now
             G.open     = t.open
+            G.tot      = t.tot
             G.min0012  = t.min0012
             G.headless = t.headless
             G.order_n  = t.order_n
-        elseif d == "members" then
-            mems[#mems+1] = '["' .. dec(name) .. '"]=' .. s
+        elseif path == "heads.txt" then
+            for time, member in s:gmatch("(%d+) ([^\n]+)\n") do
+                G.heads[#G.heads+1] = { time=tonumber(time), member=member }
+            end
         elseif d == "order" then
             G.tail = s
         end
     end)
-    G.members = load("return {" .. table.concat(mems, ",") .. "}")()
+    assert(G.tot, "bug found : snapshot without tot : " .. cid)
+    lazy_members(G)
     -- order: lazy chunks behind a proxy; the tail chunk now (every
     -- post appends to it), the rest on demand or all at once
     CACHE[G] = CC

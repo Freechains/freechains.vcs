@@ -72,12 +72,80 @@ end
 --  - reps (reps.lua): after the query-time advance
 --]]
 function M.cap (G)
-    for k, v in pairs(G.members) do
+    -- only a member touched this step can have crossed the cap
+    for k in pairs(G.dirty.members) do
+        local v = G.members[k]
         if v.reps > C.reps.max then
-            v.reps = C.reps.max
-            G.dirty.members[k] = true
+            M.bump(G, k, C.reps.max - v.reps)
         end
     end
+end
+
+--[[
+-- Move member reps by `d`, keeping `G.tot` (the positive total the
+-- discount rule divides by) and the dirty set; creates the member.
+-- Inputs:
+--  - G   [table]: chain state; MUTATED (members, tot, dirty)
+--  - pub [string]: member pubkey
+--  - d   [integer]: the delta (negative: cost, drain, clawback)
+-- Outputs:
+--  - [integer]: the change of the member's POSITIVE reps
+-- Errors:
+--  - none
+-- Callers:
+--  - advance/apply/cap (rules.lua): every reps change
+--]]
+function M.bump (G, pub, d)
+    local A = G.members[pub]
+    if not A then
+        A = { reps=0 }
+        G.members[pub] = A
+    end
+    local old = math.max(0, A.reps)
+    A.reps = A.reps + d
+    local pos = math.max(0, A.reps) - old
+    G.tot = G.tot + pos
+    G.dirty.members[pub] = true
+    return pos
+end
+
+--[[
+-- Set member `m`'s head (its oldest waiting 12-24 record time) and
+-- keep the due-heads index `G.heads` (sorted by time) in step.
+-- Inputs:
+--  - G [table]: chain state; MUTATED (members, heads, dirty)
+--  - m [string]: member pubkey
+--  - t [integer?]: the head time; nil removes it
+-- Outputs:
+--  - none
+-- Errors:
+--  - none
+-- Callers:
+--  - advance (rules.lua): maturation and settling
+--]]
+local function sethead (G, m, t)
+    local A = G.members[m]
+    A.head = t
+    G.dirty.members[m] = true
+    local H = G.heads
+    for i = #H, 1, -1 do
+        if H[i].member == m then
+            table.remove(H, i)
+        end
+    end
+    if t then
+        local lo, hi = 1, #H+1
+        while lo < hi do
+            local mid = (lo+hi) // 2
+            if H[mid].time < t or (H[mid].time == t and H[mid].member < m) then
+                lo = mid + 1
+            else
+                hi = mid
+            end
+        end
+        table.insert(H, lo, { time=t, member=m })
+    end
+    G.dirty.heads = true
 end
 
 --[[
@@ -129,9 +197,16 @@ function M.advance (G, time, sign)
     -- shrink set; `cur`/`TOT` are kept LIVE: a refund mid-scan is
     -- seen by the records after it
     if time>G.now or sign then
-        local TOT = 0       -- positive reps of all members
-        for _, v in pairs(G.members) do
-            TOT = TOT + math.max(0, v.reps)
+        -- the members of the window, in one batch
+        do
+            local pubs, seen = { sign }, {}
+            for _, r in ipairs(P) do
+                if r.member and (not seen[r.member]) then
+                    seen[r.member] = true
+                    pubs[#pubs+1] = r.member
+                end
+            end
+            STATE.members(G, pubs)
         end
 
         local cnt = {}      -- member -> its N actions still ahead
@@ -183,24 +258,20 @@ function M.advance (G, time, sign)
                     c = c + reps_of(G, sign)
                 end
 
-                local ratio = (TOT>0 and c/TOT) or 0
+                local ratio = (G.tot>0 and c/G.tot) or 0
                 local discount = C.time.half * math.max(0, 1 - 2*ratio)
 
                 if time >= r.time + discount then
                     -- signed beg?
                     if r.member then
-                        local A = G.members[r.member]
-                        local old = math.max(0, A.reps)
-                        A.reps = A.reps + C.reps.cost
-                        G.dirty.members[r.member] = true
-                        local d = math.max(0, A.reps) - old
-                        TOT = TOT + d
+                        local d = M.bump(G, r.member, C.reps.cost)
                         if (cnt[r.member] or 0) > 0 then
                             cur = cur + d
                         end
                         -- now waiting for its slot: the member's head
+                        local A = G.members[r.member]
                         if (not A.head) or (r.time < A.head) then
-                            A.head = r.time
+                            sethead(G, r.member, r.time)
                         end
                     elseif (not G.headless) or (r.time < G.headless) then
                         G.headless = r.time
@@ -289,7 +360,7 @@ function M.advance (G, time, sign)
                 -- the slot is consumed either way;
                 -- a revoked post pays 0 (rule 1.b)
                 if not M.is_revoked(entry) then
-                    G.members[r.member].reps = G.members[r.member].reps + C.reps.earn
+                    M.bump(G, r.member, C.reps.earn)
                 end
                 G.members[r.member].time = G.members[r.member].time + C.time.full
                 G.dirty.members[r.member] = true
@@ -301,14 +372,24 @@ function M.advance (G, time, sign)
             gone[r.cid] = true
         end
 
-        for m, A in pairs(G.members) do
+        -- the due heads, oldest first, their members in one batch
+        local due = {}
+        for _, h in ipairs(G.heads) do
+            if time >= h.time+C.time.full then
+                due[#due+1] = h.member
+            else
+                break
+            end
+        end
+        STATE.members(G, due)
+        for _, m in ipairs(due) do
+            local A = G.members[m]
             while A.head and (time >= A.head+C.time.full) and (time-A.time >= C.time.full) do
                 local r = find(m, A.head)
                 if r then
                     settle(r)
                 else
-                    A.head = nexthead(m, A.head)
-                    G.dirty.members[m] = true
+                    sethead(G, m, nexthead(m, A.head))
                 end
             end
         end
@@ -461,10 +542,10 @@ function M.apply (G, act, env)
             maturity = G.actions[env.cid].maturity,
         })
         if env.sign then
-            G.members[env.sign] = G.members[env.sign] or { reps=0 }
-            G.dirty.members[env.sign] = true
-            if not env.beg then
-                G.members[env.sign].reps = G.members[env.sign].reps - C.reps.cost
+            if env.beg then
+                M.bump(G, env.sign, 0)   -- the member exists from here
+            else
+                M.bump(G, env.sign, -C.reps.cost)
                 G.members[env.sign].time = G.members[env.sign].time or act.time
                     -- do not set for beg, bc not available to others
             end
@@ -522,22 +603,16 @@ function M.apply (G, act, env)
         -- mutation
         if not self_revoke then
             -- ungated may vote, so the entry may not exist yet
-            G.members[env.sign] = G.members[env.sign] or { reps=0 }
-            G.members[env.sign].reps = reps - math.abs(act.n)
-            G.dirty.members[env.sign] = true
+            M.bump(G, env.sign, -math.abs(act.n))
         end
         local n = act.n * (100 - C.vote.tax) // 100
         if act.cid then
             local e = G.actions[act.cid]
             local a = e.member
             G.dirty.actions[act.cid] = true
-            if a then
-                G.dirty.members[a] = true
-            end
             if not (self_revoke or (act.action=='revoke' and act.n>0)) then
                 if a then
-                    G.members[a] = G.members[a] or { reps=0 }
-                    G.members[a].reps = G.members[a].reps + n//C.vote.split
+                    M.bump(G, a, n//C.vote.split)
                 else
                     assert(env.beg)
                 end
@@ -563,7 +638,7 @@ function M.apply (G, act, env)
             -- author only while not revoked: the credit follows the
             -- revoke sums, so a crossing moves it back or forth
             if a and e.action=='post' and (not e.maturity) and was~=M.is_revoked(e) then
-                G.members[a].reps = G.members[a].reps + (was and C.reps.earn or -C.reps.earn)
+                M.bump(G, a, was and C.reps.earn or -C.reps.earn)
             end
 
             if env.beg then
@@ -571,13 +646,12 @@ function M.apply (G, act, env)
                 e.time.member = act.time
                 pend(G, { cid=act.cid, member=a, time=act.time, maturity="00-12" })
                 if a then
+                    M.bump(G, a, 0)
                     G.members[a].time = G.members[a].time or act.time
                 end
             end
         else
-            G.members[act.member] = G.members[act.member] or { reps=0 }
-            G.members[act.member].reps = G.members[act.member].reps + n
-            G.dirty.members[act.member] = true
+            M.bump(G, act.member, n)
         end
 
         -- the vote enters the registry as a target of its own:

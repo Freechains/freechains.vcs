@@ -82,6 +82,7 @@ elseif ARGS.target == "member" then
     local v = (e and e.reps) or 0
     print(v)
 elseif ARGS.target == "members" then
+    STATE.members_all(G)
     local T = {}
     for k, v in pairs(G.members) do
         T[#T+1] = { k=k, v=v.reps }

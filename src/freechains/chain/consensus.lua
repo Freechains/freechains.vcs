@@ -136,6 +136,12 @@ function M.winner (G, a, b)
     end
 
     local ka, kb = collect_keys(a), collect_keys(b)
+    do
+        local pubs = {}
+        for k in pairs(ka) do pubs[#pubs+1] = k end
+        for k in pairs(kb) do pubs[#pubs+1] = k end
+        STATE.members(G, pubs)
+    end
 
     --[[
     -- Any member on this side is a dictator?

@@ -210,6 +210,7 @@ function STATE (dir)
     local G = ST.read(hash, dir)
     ST.all(G)   -- tests inspect every entry
     ST.order(G)
+    ST.members_all(G)
     return G
 end
 

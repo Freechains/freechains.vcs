@@ -191,9 +191,15 @@ local function genesis (dir, gen)
         A[key].dictator = true
     end
 
+    local tot = 0
+    for _, v in pairs(A) do
+        tot = tot + math.max(0, v.reps)
+    end
     local G = {
         now     = 0,
         open    = (#pios==0 and #gods==0),  -- unrestricted chain: anyone can post,vote
+        tot     = tot,
+        heads   = {},
         members = A,
         actions = {},
         order   = {},

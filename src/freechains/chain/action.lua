@@ -344,6 +344,13 @@ function M.apply (G, cid, beg)
         -- never claimed (the cid IS the commit: git's Merkle binds ancestry)
         local backs = M.backs(ps)
 
+        -- the members this action touches, in one batch
+        STATE.members(G, {
+            key,
+            act.member,
+            act.cid and G.actions[act.cid] and G.actions[act.cid].member,
+        })
+
         -- beg admission: a post begs when forced by the caller
         -- (writer --beg, beg sync) or unsigned; only a positive
         -- `like` promotes a parked beg target
