@@ -5,6 +5,17 @@
 
 # Open
 
+## Tree store follow-ups (260914-tree.md, Pending 1-6)
+
+- commit vcs `main` + paper repo (sims, logs, findings)
+- per-post rewrite (disk 3x, sweeps 160s at 150k): hour buckets,
+  second fanout, hot file; 20k chat run to measure
+- process floor (~36 procs/post): persistent `cat-file` reader,
+  in-process signing; N=1000 bench, target < 0.12s
+- loose pile: `gc --auto` / `repack -d` every K snapshots
+- version tag in `meta.lua`; `make install` for hook suites;
+  a layout test for tree snapshots
+
 ## Docs: rule 1.b follows revocation
 
 - from done/260907-revoke.md; wording to come from the paper
