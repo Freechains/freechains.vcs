@@ -508,16 +508,16 @@ peers reach the same state without any central authority.
 
 <img src="hard.png" align="right" width="300">
 
-As a measure against malicious members with strong past reputation, Freechains
-protects settled local branches from outdated actions.
-As the figure illustrates, actions older than *7 days* of chain time are frozen
-and cannot be reordered.
+As a measure against members with strong past reputation, Freechains protects
+settled local branches from outdated actions.
+As the figure illustrates, actions freeze 7 days after they enter the local
+order, considering the newest timestamp up to each action.
 If consensus would reorder them, the merge is refused and the two peers become
 incompatible.
-In contrast, peers that remain active and synchronize over time evolve together
-with a stable order.
+In contrast, peers that remain active and synchronize over time evolve
+together with a stable order.
 
-To demonstrte hard forks, let's suppose peers `X` and `B` with `Bob` and
+To demonstrate hard forks, let's suppose peers `X` and `B` with `Bob` and
 `Charlie` keep posting over time.
 In the meantime, peer `A` with `Alice` remains offline since the consensus
 above.
@@ -529,12 +529,12 @@ $ DAY=86400             # one day in seconds
 $ NOW=$(date +%s)       # current time in seconds
 $ freechains --root=/tmp/X/ --now=$((NOW+1*DAY)) chain /chat post inline $'day 1\n' --sign=/tmp/bob
 1a2b3c4...
-$ freechains --root=/tmp/X/ --now=$((NOW+7*DAY)) chain /chat post inline $'day 7\n' --sign=/tmp/charlie
+$ freechains --root=/tmp/X/ --now=$((NOW+8*DAY)) chain /chat post inline $'day 8\n' --sign=/tmp/charlie
 7d8e9f0...
 ```
 
-Here, the actions on `X` span over more than seven days, making it settled and
-refusing reorderings.
+Here, the actions on `X` span over more than seven days, making them frozen
+and refusing reorderings.
 
 Then, `Alice` comes back and posts locally in peer `A`, on the same branch she
 left behind:
@@ -551,8 +551,11 @@ $ freechains chain /chat sync send localhost:8331
 remote: ERROR : chain sync : hard fork
 ```
 
-Regardless of her strong past reputation, `Alice` cannot affect an active
-community.
+Since `Alice` holds the majority of `reps`, the consensus would order her
+branch before `Bob`'s and `Charlie`'s settled actions.
+However, regardless of her strong past reputation, `Alice` cannot reorder an
+active community.
+With fewer `reps`, her post would simply be appended after theirs.
 
 Note that it is not possible to judge whether `Alice` was trying to rewrite
 history or simply became offline for a long time.
@@ -575,20 +578,20 @@ $ freechains chain /chat discard 9d0e1f2
 9d0e1f2...
 
 # receive settled branch (at simulated time)
-$ freechains --now=$((NOW+7*DAY)) chain /chat sync recv localhost:8331
+$ freechains --now=$((NOW+8*DAY)) chain /chat sync recv localhost:8331
 
 # repost rejected message
-$ freechains --now=$((NOW+7*DAY)) chain /chat post inline $'Alice takes over\n' --sign=/tmp/alice
+$ freechains --now=$((NOW+8*DAY)) chain /chat post inline $'Alice takes over\n' --sign=/tmp/alice
 3c4d5e6...
 
 # hub receives the updated history (at simulated time)
-$ freechains --root=/tmp/X/ --now=$((NOW+7*DAY)) chain /chat sync recv localhost
+$ freechains --root=/tmp/X/ --now=$((NOW+8*DAY)) chain /chat sync recv localhost
 
 # show new order (with Alice last)
 $ freechains chain /chat list order
 ...
 1a2b3c4...    # 'day 1'
-7d8e9f0...    # 'day 7'
+7d8e9f0...    # 'day 8'
 3c4d5e6...    # 'Alice takes over' (repost)
 ```
 
@@ -621,7 +624,7 @@ c7d8e9f     e6d7626        # 'A great post!'  | like: bob -> charlie
        a1b^    /
           1a2b3c4          # 'day 1'
              |
-          7d8e9f0          # 'day 7'
+          7d8e9f0          # 'day 8'
              |
           3c4d5e6          # 'Alice takes over' (repost)
 ```
@@ -646,7 +649,7 @@ section:
 ```
 $ freechains chain /chat discard 1a2b3c4
 1a2b3c4...    # 'day 1'
-7d8e9f0...    # 'day 7'
+7d8e9f0...    # 'day 8'
 3c4d5e6...    # 'Alice takes over' (repost)
 ```
 
