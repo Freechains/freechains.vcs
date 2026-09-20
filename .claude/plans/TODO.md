@@ -1,5 +1,9 @@
 # TODO
 
+- Enable rule 4.c (128 KB payload limit): `post.size` is commented out
+  in `src/freechains/constants.lua`; the paper's Table 3 lists it as
+  enforced (2606-vcs review, 2.14)
+
 - Open items left by done/260726-sync-followups.md
 - Newest additions at top of each section
 
