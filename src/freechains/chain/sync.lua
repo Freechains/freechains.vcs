@@ -14,6 +14,10 @@
 --    dropped; payload anchors follow the final revoke sums
 -- Errors:
 --  - "chain sync : freechains.url not set" (send)
+--  - "chain sync : remote refused push : <why>" (send): the remote
+--    `git daemon` refused before its hook ran -- "no such chain",
+--    "daemon without --hub", or both when the remote is an older
+--    peer, serving no informative reason
 --  - "chain sync : fetch failed"
 --  - "chain sync : incompatible genesis"
 --  - "chain sync : hard fork"
@@ -96,9 +100,30 @@ if ARGS.send then
             .. " " .. URL(ARGS.remote, ARGS.alias)
             .. " +main +refs/begs/*:refs/begs/*"
     }
-    if err and err:find("Freechains: OK") then
+    err = err or ""
+    if err:find("Freechains: OK") then
         -- success: receiver's hook ran recv and rejected the push
     elseif Q ~= 0 then
+        -- `git daemon` refuses BEFORE the hook, so no `remote: ERROR`
+        -- line comes back: name the reason ourselves. The daemon we
+        -- start is `--informative-errors`, so it says which; an older
+        -- peer sends the one message that covers both cases.
+        -- The refusal is a line of its OWN. The hook's failures arrive
+        -- indented under `remote: `, and one of them QUOTES this very
+        -- wording (a hub whose own recv cannot reach me back reports
+        -- git's `no such repository`), so the anchor is what tells the
+        -- two apart -- never a bare find over the whole output
+        local why = ""
+        for l in err:gmatch("[^\n]+") do
+            why = l:match("^%s*fatal: remote error: (.*)$") or why
+        end
+        if why:find("service not enabled", 1, true) then
+            ERROR("chain sync : remote refused push : daemon without --hub")
+        elseif why:find("no such repository", 1, true) then
+            ERROR("chain sync : remote refused push : no such chain")
+        elseif why:find("access denied or repository not exported", 1, true) then
+            ERROR("chain sync : remote refused push : no such chain, or daemon without --hub")
+        end
         io.stderr:write(err)
         os.exit(1)
     end

@@ -77,6 +77,7 @@ freechains daemon start [--port=<port>] [--hub] [-- <git-opts>...]
 
 - `--port=<port>`:  port to listen [default: 8330]
 - `--hub`:          accepts `sync send` from peers
+    - without it, only `chains add clone` and `sync recv` are served
 - `<git-opts>...`:  extra options forwarded to `git daemon`
 
 - Examples:
@@ -329,8 +330,8 @@ freechains chain <alias> sync (recv | send) <remote>
 ```
 
 - `send`:       sends   missing actions to   remote peer
-- `recv`:       receive missing actions from remote peer
     - the remote daemon must run with `--hub`
+- `recv`:       receive missing actions from remote peer
 - `<remote>`:   same url forms of `Chain URLs`
 
 Received actions are validated and replayed.

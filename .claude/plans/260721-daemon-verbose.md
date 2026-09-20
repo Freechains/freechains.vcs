@@ -60,11 +60,49 @@ which `sync send` currently swallows (see `260721-send-silent.md`).
 | `src/freechains.lua`| parser, L~49       | (options 2 and 3 only)        |
 | `README.md`         | `### Synchronization` | daemon output if it changes |
 
+## Landed: the `--informative-errors` half of option 3
+
+`daemon start` now always passes `--informative-errors`
+(`src/freechains/daemon.lua`).
+It was the half that cost nothing: `--export-all` already answers
+"does this chain exist?" to any fetch, so naming the reason leaks
+nothing the daemon did not already give away.
+
+What it fixes, reported from a fresh peer:
+
+```
+$ freechains daemon start
+Serving on port 8330...
+[14960] 'receive-pack': service not enabled for '.../chains//#p2p'
+```
+
+The daemon logged that (git logs refusals by default), while the
+SENDER got `access denied or repository not exported`, which reads as
+a missing chain and never mentions `--hub`.
+`sync send` now maps the reasons to our own errors
+(`src/freechains/chain/sync.lua`):
+
+| git says (informative)   | freechains says                        |
+|--------------------------|----------------------------------------|
+| `service not enabled`    | `remote refused push : daemon without --hub` |
+| `no such repository`     | `remote refused push : no such chain`  |
+| (neither: an older peer) | `... : no such chain, or daemon without --hub` |
+
+Also fixed with it: `cli.md` hung "the remote daemon must run with
+`--hub`" under `recv`, where it is false -- `recv` only fetches.
+It is a `send` requirement.
+
 ## Pending
 
 - [x] Confirm `--` already forwards flags to `git daemon`
-- [ ] NEXT: pick option 1, 2 or 3
-- [ ] Implement
+- [x] NEXT: pick option 1, 2 or 3 -- option 3
+- [x] Implement `--informative-errors` (+ the `sync send` mapping)
+- [ ] NEXT: `--verbose`, still only reachable as
+      `daemon start -- --verbose`
+    - option 3 wanted it behind a `freechains` flag
+    - undecided: new CLI surface for what `--` already exposes
 - [ ] Check `--log-destination=stderr` is supported by the local git
       (added in git 2.16)
-- [ ] Update `README.md` if the printed output changes
+- [x] Update `README.md` if the printed output changes -- output
+      unchanged; `### Synchronization` now says a plain daemon serves
+      clones and `recv` only

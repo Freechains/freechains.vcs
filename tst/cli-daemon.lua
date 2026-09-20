@@ -13,6 +13,8 @@ local ROOT_B = ROOT .. "/cli-daemon/B/"
 local EXE_A  = ENV .. " ../src/freechains.lua --root " .. ROOT_A
 local EXE_B  = ENV .. " ../src/freechains.lua --root " .. ROOT_B
 
+local REPO_B = ROOT_B .. "/chains/#cli-daemon/"
+
 local PORT = 18330
 local PID  = ROOT_A .. "/daemon.pid"
 
@@ -65,6 +67,29 @@ do
     local O = ORDER(EXE_B, "#cli-daemon")
     assert(#O == 1 and O[1] == post, "B did not receive the post")
 
+    TEST "B sends to a daemon without --hub -> not a hub"
+    -- the daemon serves fetches only, so `git daemon` refuses the
+    -- push before the hook ever runs: the reason must be ours, not
+    -- git's "access denied or repository not exported"
+    exec {
+        cmd = EXE_B .. " chain '#cli-daemon' post inline 'pushed'"
+            .. " --sign " .. KEY1,
+    }
+    FAIL {
+        cmd = EXE_B .. " chain '#cli-daemon' sync send localhost:" .. PORT,
+        err = "ERROR : chain sync : remote refused push : daemon without --hub",
+    }
+
+    TEST "B sends to a chain the daemon does not have -> no such chain"
+    FAIL {
+        cmd = EXE_B .. " chain '#cli-daemon' sync send localhost:" .. PORT .. "/#none",
+        err = "ERROR : chain sync : remote refused push : no such chain",
+    }
+
+    TEST "A kept none of it"
+    local OA = ORDER(EXE_A, "#cli-daemon")
+    assert(#OA == 1 and OA[1] == post, "A is not untouched")
+
     TEST "stop prints the pid it killed and removes the file"
     local killed = exec {
         cmd = EXE_A .. " daemon stop",
@@ -80,6 +105,60 @@ do
         cmd = "kill -0 " .. pid,
     }
     assert(alive == false, "pid " .. pid .. " still alive")
+end
+
+print("==> daemon --hub")
+
+do
+    local HUB = PORT + 1
+
+    TEST "A serves as a hub"
+    exec {
+        cmd = EXE_A .. " daemon start --hub --port=" .. HUB .. XTRA ..
+            " >/dev/null 2>&1 &",
+    }
+    exec {
+        cmd = "sleep 1",
+    }
+
+    TEST "B sends the post the plain daemon refused"
+    exec {
+        cmd = EXE_B .. " chain '#cli-daemon' sync send localhost:" .. HUB,
+    }
+    local OA = ORDER(EXE_A, "#cli-daemon")
+    assert(#OA == 2, "A did not receive B's post")
+
+    TEST "a hub whose own recv fails is not a refused push"
+    -- the hook's `recv` fetches back from the url I advertise: point it
+    -- at a chain the hub does not have and it fails QUOTING git's own
+    -- "no such repository", which must not read as my push being
+    -- refused -- the sender needs the hook's reason, verbatim
+    local url = exec {
+        cmd = "git -C " .. REPO_B .. " config freechains.url",
+    }
+    exec {
+        cmd = "git -C " .. REPO_B .. " config freechains.url"
+            .. " 'git://localhost:" .. HUB .. "/#none'",
+    }
+    exec {
+        cmd = EXE_B .. " chain '#cli-daemon' post inline 'again'"
+            .. " --sign " .. KEY1,
+    }
+    local err = FAIL {
+        cmd = EXE_B .. " chain '#cli-daemon' sync send localhost:" .. HUB,
+    }
+    assert (
+        err and err:find("ERROR : chain sync : fetch failed", 1, true),
+        "hub recv failure : unexpected stderr: " .. tostring(err)
+    )
+    exec {
+        cmd = "git -C " .. REPO_B .. " config freechains.url '" .. url .. "'",
+    }
+
+    TEST "the hub stops"
+    exec {
+        cmd = EXE_A .. " daemon stop",
+    }
 end
 
 print("==> daemon stop errors")

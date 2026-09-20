@@ -26,9 +26,16 @@ local base = ARGS.root .. "/chains/"
 local pid  = ARGS.root .. "/daemon.pid"
 
 if ARGS.start then
+    -- `--informative-errors`: git's own refusal is "access denied or
+    -- repository not exported", which reads as a missing chain even
+    -- when the chain is served and only the push is off (no `--hub`).
+    -- The informative reasons name which, and `sync send` turns them
+    -- into our errors. Nothing new leaks: under `--export-all` a plain
+    -- fetch already tells a chain apart from an absent one
     local cmd =
         "git daemon --base-path=" .. base ..
         " --export-all" ..
+        " --informative-errors" ..
         " --enable=" .. (ARGS.hub and "receive-pack" or "upload-pack") ..
         " --port=" .. port ..
         " --pid-file=" .. pid ..

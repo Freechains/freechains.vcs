@@ -217,6 +217,8 @@ Serving on port 8330...
 ```
 
 As peer `A`, we now listen for requests on default port `8330`.
+The daemon serves clones and `sync recv` only: to also accept `sync send`
+from other peers, start it with `--hub`.
 
 To simulate a remote peer `B`, we will use a separate `--root` as the prefix of
 all commands.
