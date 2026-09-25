@@ -39,23 +39,23 @@
 
 # What dies, what splits
 
-- dies: any consensus verdict over a REVOCABLE payload, and
-  any global state machine over payloads (balances,
-  counters): two peers never agree once one payload is gone
-- dies: a verdict that reads OTHER posts' payloads: a later
+- dies: any consensus decision over a payload that can be
+  ERASED, and any global state machine over such payloads
+  (balances, counters): two peers never agree once one is gone
+- dies: a decision that reads OTHER posts' payloads: a later
   revoke flips the result, peers diverge
-- splits: the first draft's single "script" becomes two
-  kinds of code with two trust levels
+- splits: the first draft's single "script" becomes two kinds
+  of code with two trust levels
     - a CONTRACT builds things from content: local, free,
       best-effort; wrong on one machine hurts one machine
-    - a VALIDATOR decides whether a post enters and becomes
-      irrevocable: consensus, deterministic by construction,
-      budgeted; and it can only exist for posts whose bytes
-      are IN the DAG (`keep`, below)
-- "dislike it away" undoes a bad contract, never a fork:
-  that is why contracts stay out of `apply` and validators
-  are held to the rules of a consensus rule
-- reputation stays in the protocol: neither kind touches reps
+    - a VALIDATOR decides about the post in consensus: whether
+      it may be revoked, what it costs, who it pays; it is
+      deterministic by construction and budgeted, and it may
+      only decide over bytes that are IN the DAG
+- the one rule behind everything: A PAYLOAD THE CONSENSUS
+  DEPENDS ON CANNOT BE ERASED; so a non-trivial validator
+  answer moves the payload into the DAG, and a payload left
+  off the DAG can carry no consensus effect
 
 # Genesis tree: two directories, two trust levels
 
@@ -73,109 +73,195 @@
   `dofile`d (threats.md T6c): `load(src, "=name", "t", ENV)`
   with an explicit `ENV`, as `pioneers()` already does
 
-# Validators: refuse revoke, in consensus
+# Validators: consensus scripts
 
-- the inversion: instead of adapting scripts to revoke,
-  remove revoke from the posts a script needs
-- naive form breaks: a rule in `apply` that asks a validator
-  about the TARGET of a revoke needs the target's bytes at
-  replay; peers without them cannot decide
-- the form that closes: a protected post carries its payload
-  in its own commit TREE, and the validator runs ONCE, at the
-  post, not at the revoke
-    - `keep <name> ; <tree>` (shape open): a post asking to be
-      protected by `validators/<name>.lua`
-    - git fetches the tree with the commit, atomically: no
-      "missing bytes" state exists for a `keep`
-    - replay SEES the bytes: `apply` runs the validator over
-      them; `true` accepts and marks the entry (`keep=true`
-      in `G.actions`), `false` REFUSES the post, as a vote
-      with a bad `n` is refused; unknown `<name>` refuses
-    - a later `revoke` on a `keep=true` target is refused in
-      `apply` from the FLAG alone, one line beside
-      `"invalid target : expects 'action'"`: deterministic,
-      no bytes needed at revoke time, and nothing to unanchor
-    - self-revoke refused too: the `keep` form IS the
-      author's consent, the genesis tree IS the chain's
+## Signature: a list of commands
+
+```lua
+-- validators/<name>.lua
+return function (act, pay, G)
+    -- act: { action, member, time, backs, cid }  immutable
+    -- pay: the payload bytes (nil for a payload-less action)
+    -- G:   the chain state at apply, READ-ONLY (deterministic
+    --      at replay, so reading it is fine; writing goes
+    --      through the returned commands only)
+    return {
+        { "like",    n=500,   cid=act.cid,   as=<pub> },
+        { "dislike", n=1000,  member=<pub>,  as=act.member },
+        { "revoke",  n=-1000, cid=<cid>,     as=<pub> },
+        { "lock" },   -- this post is irrevocable (see below)
+    }
+end
+```
+
+- the answer is a LIST OF COMMANDS, the same vocabulary as
+  the CLI: `like`, `dislike`, `revoke`, `unrevoke`, plus
+  `lock` (name open), which exists only here
+- `as` is any member key: the command is issued AS that
+  member, UNSIGNED; there is no key to verify, the genesis
+  vouches for the script and the script vouches for the
+  command
+- shorthands: `{}`, `nil` or `true` is the TRIVIAL answer (a
+  plain post, as today); `false` or an error REFUSES the post
+- a non-empty list is a consensus effect, so the payload
+  must ride in the DAG (below), and an in-DAG post is
+  irrevocable by construction: `lock` is the command for a
+  validator that wants ONLY that
+- which validators run: all of them, in sorted file order, or
+  one named by the post (`post <name> ; ...`); open; sorted
+  order needs no message change
+
+## Commands: virtual actions through the same `apply`
+
+- a command is a VIRTUAL action: no commit, no cid, no
+  signature; it is re-derived by every replay from the real
+  post that triggered it, so it never needs to travel
+- it runs through `RULES.apply` with `env.sign = as`, the
+  trigger's `time` and `backs`, right after the trigger's own
+  mutation; so EVERY rule of the economy holds unchanged
+    - `as` pays: `like`/`dislike` cost `|n|`, `revoke` costs
+      at least `C.reps.revoke`, tax `C.vote.tax`, split
+      `C.vote.split`, cap `C.reps.max`
+    - `insufficient reputation` on any command REFUSES the
+      whole post: atomic, and the poster's client saw it first
+    - `as` may be a non-member: `bump` creates members, and
+      the gates then decide as for anyone
+- so a validator redistributes reps, it never mints them: a
+  posting fee is a `dislike` as the poster, a reviewer's
+  credit is a `like` as the poster on the reviewer, moderation
+  by code is a `revoke` as the chain's key
+- no `post` command: a virtual post has no payload; not
+  before a case needs it
+- commands never trigger validators: only REAL posts do, so
+  there is no recursion
+- `as` anyone is real power: a genesis can drain its members
+  by script; joining a chain is accepting its validators, as
+  it already is accepting its dictators; the tree is under the
+  genesis hash, visible before `chains add clone` (a
+  `--scripts` listing there, as a package manager shows a
+  post-install script)
+
+## Where the payload lives follows the answer
+
+- the poster's client runs the validators before committing
+    - trivial: `post ; <blob>`, empty tree, anchored at
+      `refs/payloads/<cid>`, revocable, as today
+    - non-trivial: the SAME message, but the commit TREE holds
+      the blob; the bytes travel with the commit, forever
+    - refused: nothing is committed
+- `apply` on every peer
+    - non-empty tree: run the validators over the tree's
+      bytes; the answer must be non-trivial and its commands
+      are applied; a trivial or refused answer is `malformed
+      commit`; the check at `action.lua:277` ("unexpected
+      tree") is the one line that relaxes, and its comment
+      names the price: relayed forever, un-revocable
+    - empty tree: the validators do NOT run in `apply` (no
+      bytes at replay); the post is trivial by construction
+    - `revoke` on an in-DAG entry: refused from the placement
+      alone (a flag set at apply), one line beside `"invalid
+      target : expects 'action'"`; no bytes needed at revoke
+      time; self-revoke refused too, the in-DAG placement IS
+      the author's consent, the genesis tree IS the chain's;
+      a virtual `revoke` is refused the same way
     - dislikes unaffected (they hit the author, not the
-      content); rule 1.b credit always holds
-- plain `post ; <blob>` never meets a validator at consensus
-  level: its bytes are off the DAG and revocable, as today;
-  two classes coexist
+      content)
+- running once at the post and re-deriving the commands at
+  replay equals running at every revoke: both inputs are
+  immutable
+- the off-DAG dodge: a client that keeps the tree empty to
+  skip a fee
+    - peers run the validators at L3 when the bytes arrive:
+      a non-trivial answer over an off-DAG payload means the
+      poster dodged; drop the anchor, never host the bytes
+    - the post stays in the DAG, paid `C.reps.cost`, earns
+      1.b, and is REVOCABLE: nothing the community cannot
+      undo with today's tools; the dodger served no content
+    - so the mixed chain (some posts in the DAG, most off it)
+      holds without a chain-wide mode
+- plain `post ; <blob>` never meets a validator in `apply`:
+  its bytes are off the DAG and revocable
+
+## What a validator must be, as consensus code
+
+- deterministic BY CONSTRUCTION, not by good will: the `ENV`
+  it loads with offers only pure primitives; no `os`, `io`,
+  `math.random`, no clock, no `require`
+- no `pairs`: Lua 5.4 seeds string hashing per process, so
+  table order differs between peers; the API gives sorted
+  iteration only (`serial(G)` already sorts for the same
+  reason); `G` is exposed through such accessors
+- an INSTRUCTION budget, not a time budget:
+  `debug.sethook(f, "", N)` counts VM instructions, the same
+  on every peer running the same Lua; over budget is a
+  refusal, deterministically; a wall clock would fork peers
+- the Lua version pinned: instruction counts and stdlib
+  behavior are per version; genesis line 1 already carries a
+  version, it must cover the VM too
+- input is the action, its own payload, and read-only `G`;
+  never other payloads (erasable)
+- a buggy validator forks or bricks ONE chain, whose creator
+  already is its trust root (pioneers, dictators);
+  acceptable, as a bad genesis is
 - validators are genesis-only; a user-posted validator would
   be consensus code nobody agreed to
-- what a validator must be, now that it is consensus code
-    - deterministic BY CONSTRUCTION, not by good will: the
-      `ENV` it loads with offers only pure primitives; no
-      `os`, `io`, `math.random`, no clock, no `require`
-    - no `pairs`: Lua 5.4 seeds string hashing per process,
-      so table order differs between peers; the API gives
-      sorted iteration only (`serial(G)` already sorts for
-      the same reason)
-    - an INSTRUCTION budget, not a time budget:
-      `debug.sethook(f, "", N)` counts VM instructions, the
-      same on every peer running the same Lua; a validator
-      over budget is `false`, deterministically; a wall
-      clock would fork peers
-    - the Lua version pinned: instruction counts and stdlib
-      behavior are per version; genesis line 1 already
-      carries a version, it must cover the VM too
-    - input is the payload bytes plus the post's metadata
-      (member, time, backs); never other payloads, never `G`
-      beyond what `apply` exposes to rules today
-    - a buggy validator forks or bricks ONE chain, whose
-      creator already is its trust root (pioneers,
-      dictators); acceptable, as a bad genesis is
 - declarative checks (MIME, magic bytes, size, fields) are a
   LIBRARY the validators call (`FMT.mime`, `FMT.size`), not
-  a separate mechanism; a trivial validator is one call
-- 128 KB is a HARD rule for a `keep`: bytes are in history
-  and every peer carries them; the validator or `apply`
-  refuses above `C.post.size`
-- costs, to be accepted with open eyes
-    - no right to be forgotten for a `keep`: the free
-      self-revoke in `rules.lua` exists for exactly that
-    - illegal content that passes a validator is permanent;
-      only dislike or leaving the chain remain; fine for an
-      institutional repository, not for open chains
-    - every peer carries every `keep` forever: disk, clone
-      bandwidth
-    - the 128 KB plan's "replay never sees the bytes" premise
-      no longer holds for `keep`; its L1/L3 stay for plain
-      posts
-- what it does and does not solve
-    - solves the revoke coupling entirely for `keep`, and
-      yields consensus rules over content as a bonus
-    - contracts stay local: a validator decides membership
-      and irrevocability, never reps or side effects
+  a separate mechanism
+- 128 KB is a HARD rule for an in-DAG payload: every peer
+  carries it forever; `apply` refuses above `C.post.size`
+  (the 128 KB plan's "replay never sees the bytes" premise
+  no longer holds for these; its L1/L3 stay for the rest)
+
+## Costs, to be accepted with open eyes
+
+- no right to be forgotten for an in-DAG post: the free
+  self-revoke in `rules.lua` exists for exactly that
+- illegal content that passes a validator is permanent; only
+  dislike or leaving the chain remain; fine for an
+  institutional repository, not for open chains
+- every peer carries every in-DAG payload forever: disk,
+  clone bandwidth
+- `action.lua:277` stops being an invariant: "no bytes on the
+  DAG" becomes "no bytes on the DAG unless a validator
+  vouched for them"
 
 # Contracts: side effects, local
 
-- run on every ACCEPTED post, `keep` or plain, after `apply`
+- run on every ACCEPTED post, in-DAG or plain, after `apply`
   on the poster's node and on `recv` on every other; never
-  inside `apply`, never a verdict
+  inside `apply`, never a verdict, never reps
 - output under `chains/<name>/out/<cid>/`, plus aggregates
   regenerated from the survivors
 - input: the post's payload (`nil` when revoked or missing,
   as `get` refuses it), its metadata, the DAG, and `G`
-    - over a `keep` the input is the same on every peer, so
-      the site is the same everywhere
+    - over an in-DAG post the input is the same on every
+      peer, so the site is the same everywhere
     - over a plain post it is best-effort, as before
 - `out/` follows the anchor crossings of plain posts
     - REMOVAL (entered revoked): delete `out/<cid>/`
     - LIFT (bytes back via `--file` or sync): regenerate
     - 260818-payloads.md S6.2 (`apply` emits anchor events)
       is the natural hook: one path for `like` and `sync`
-    - a `keep` never crosses: its products stay
+    - an in-DAG post never crosses: its products stay
 - also usable as LOCAL validation of plain posts: L1 in
   `post` refuses to publish, L3 in `recv` drops the anchor
   and never hosts the bytes; "reject the block" becomes
   "reject the bytes"; with the withholding tracker a post
   every peer rejects is invisible in practice
+- a contract may execute ANY command: shell, tools, the
+  freechains CLI itself (a real, signed `like` from the local
+  key is the local counterpart of a validator's virtual one)
+    - that is arbitrary code from a remote genesis on the
+      cloning machine (T6c), so contracts run only after an
+      explicit local OPT-IN per chain (`freechains.contracts`
+      in the repo config, default off), as one reads a
+      package's post-install script before enabling it
+    - a user-submitted contract is opted in by the like that
+      consents to it
 - a local contract that fails determinism yields a wrong
-  site on one machine, nothing more: the same `ENV` sandbox
-  as validators against MALICIOUS code (T6c), but no budget
-  and no determinism rule
+  site on one machine, nothing more: no budget, no
+  determinism rule, no sandbox beyond the opt-in
 - user-submitted contracts: a post whose payload is the script
     - removal is by REVOKE, not dislike: dislike only hits
       the author's reps, `is_revoked` is what removes content
@@ -193,12 +279,16 @@
 # Use case: UERJ
 
 - `validators/thesis.lua`: `FMT.mime "application/pdf"`,
-  `FMT.size`, maybe a first-page pattern; budgeted
-- theses as `keep thesis`: permanent, reproducible, the
-  repository the department wants
+  `FMT.size`; returns `{ {"lock"} }` for a thesis, so it
+  rides in the DAG: permanent, reproducible, the repository
+  the department wants; `false` for anything else by a
+  student key, `{}` (plain, revocable) for staff notes
+- optional: `{ "like", n=500, member=advisor, as=act.member }`
+  with the advisor read from the PDF metadata: the student
+  pays, the advisor is credited, under the like rules
 - `contracts/site.lua`: thesis -> `out/<cid>/index.html`,
   plus a regenerated index; local, same on every peer since
-  every input is a `keep`
+  every thesis is in the DAG
 - plain posts stay open for discussion around the theses,
   revocable as today
 
@@ -208,28 +298,44 @@
    the same `load` shape both directories will use)
 2. the genesis tree: `chains add --scripts`, clone brings it,
    `get metadata genesis` lists the two directories
-3. the `ENV` and the `FMT` library: shared by both
+3. the `ENV`, the sorted `G` accessors and the `FMT` library:
+   shared by both
 4. contracts, local: run hook after `apply`/`recv`, `out/`
    layout, bound to REMOVAL/LIFT (with 260818-payloads.md
    S6.2); L1/L3 for plain posts (260903-128KB.md folded in)
-5. validators, consensus: `keep` in `action.lua` (message
-   shape, signing envelope, replay), the flag in `G.actions`,
-   the revoke refusal, the instruction budget, the pinned VM
+5. validators, consensus: relax `action.lua:277` for a
+   vouched tree, run in `apply` (post path, after gating,
+   after the post's mutation), the in-DAG flag in
+   `G.actions`, virtual commands through `RULES.apply` with
+   `env.sign = as`, the revoke refusal, the instruction
+   budget, the pinned VM, the L3 dodge check
 6. prototype UERJ on plain posts + contracts first; switch
-   theses to `keep` once 5 lands
+   theses to validators once 5 lands
 
 # Open
 
-- `keep` message shape and how the tree is laid out (one
-  file `p`? the 128 KB wrapper tree of 260903-128KB.md has
-  the same shape `{ p = blob }`)
+- tree layout for an in-DAG payload: one entry `p` (the same
+  shape as the 128 KB wrapper tree `{ p = blob }`)
+- all validators in sorted order, or one named in the
+  message? sorted needs no message change; named lets a
+  chain hold several content types cheaply
 - the instruction budget value, and whether it is per chain
   (genesis) or a protocol constant
-- how `apply` exposes metadata to a validator without
-  exposing mutable `G`
+- the `G` accessor surface: members, actions, order; enough
+  for fees and rewards, nothing that leaks `pairs` order
+- do validators also see `like`/`revoke` actions (their
+  `why`)? not before a case needs it
+- gating rule 1.b (no daily award for a post) has no command:
+  a virtual self-revoke would erase, and in-DAG cannot; add a
+  command only if a case needs it
+- `as` a non-member with no reps in a gated chain: the
+  command fails and refuses the post; is that the right
+  default, or should validators only speak as members?
+- a virtual `like` as the poster on the poster's own post:
+  today's rules on self-votes apply unchanged, check them
 - an on-DAG header (title, year) a validator could enforce,
-  so an index survives even without a `keep`: public
+  so an index survives even without an in-DAG body: public
   forever, metadata only; not before a case needs it
 - `out/` across nodes: not synced; each peer regenerates
-- do contracts see a `keep` refused by a validator? no: a
-  refused post is not in the chain
+- `discard` and prune (prune.md) over in-DAG payloads: a
+  flattened history must keep the vouched trees
