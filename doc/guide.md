@@ -221,7 +221,7 @@ $ ssh-keygen -t ed25519 -C '' -f /tmp/bob
 Since `Bob` has no previous reputation, he cannot yet post on the chain:
 
 ```
-$ freechains --root=/tmp/B/ chain /chat post inline $'Possibly SPAM\n' --sign=/tmp/bob
+$ freechains --root=/tmp/B/ chain /chat post inline $'Possibly spam\n' --sign=/tmp/bob
 ERROR : chain post : insufficient reputation
 ```
 
@@ -639,7 +639,7 @@ compatibility.
 # Moderation
 
 Even considering that posts are rated through likes and dislikes, chains are
-still subject to abuse, including SPAM, hate speech, and possibly illegal
+still subject to abuse, including spam, hate speech, and possibly illegal
 content.
 For such cases, Freechains provides an additional revocation mechanism that
 works in conjunction with the reputation system.
@@ -661,7 +661,7 @@ $ freechains chain /chat post inline $'BUY NOW\n' --sign=/tmp/dave
 4a5b6c7...
 ```
 
-`Alice` detects the SPAM and revokes it:
+`Alice` detects the spam and revokes it:
 
 ```
 $ freechains chain /chat revoke 1000 4a5b6c7 --sign=/tmp/alice

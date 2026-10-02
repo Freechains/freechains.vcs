@@ -12,7 +12,7 @@ https://docs.google.com/spreadsheets/d/1K9vqrDHXvDQdqdGE7h-y1Bp_Phwt3CszXyGP962W
 In the absence of moderation, permissionless peer-to-peer public forums are
 impractical, mostly because of Sybil attacks.
 For instance, it should take a few seconds to generate thousands of fake
-identities and SPAM millions of messages into the system.
+identities and spam millions of messages into the system.
 The reputation system of Freechains works together with a
 [consensus mechanism](guide.md#consensus) to mitigate Sybil attacks and make
 peer-to-peer public forums practical.
@@ -56,7 +56,7 @@ The concrete rules are as follows:
 - ***Rule 3*** for "votes" (likes and revokes) serves three purposes:
     (i) welcoming new members,
     (ii) measuring the quality of posts, and
-    (iii) penalizing abuse (SPAM, fake news, illegal content, etc).
+    (iii) penalizing abuse (spam, fake news, illegal content, etc).
     - ***Rule 3.a*** burns a *10% tax* on every transfer, which prevents
       reputation cycling exploits.
     - ***Rule 3.b*** splits a transfer targeting a post between the post and
@@ -89,7 +89,7 @@ chain along with fairness among its authors.
 
 The quality of posts is subjective and is up to members to judge them with
 likes, dislikes, revokes, or simply abstaining.
-A member can revoke malicious posts, when considering them offensive, SPAM,
+A member can revoke malicious posts, when considering them offensive, spam,
 fake, illegal, or even for disagreement.
 On the one hand, since votes are finite, members have to ponder before spending
 them.
@@ -146,5 +146,5 @@ they drain nearly twice the amount into the void.
 On the one hand, we believe that this fact contributes to sustain healthy
 discussions with a reasonable degree of disagreement, otherwise the economy of
 chains would collapse with an outbreak of dislikes.
-On the other hand, obvious undesired content like SPAM is rapidly banned (along
+On the other hand, obvious undesired content like spam is rapidly banned (along
 with its author) with a few revokes that do not affect the chain economy.
