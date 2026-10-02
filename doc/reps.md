@@ -42,7 +42,7 @@ The concrete rules are as follows:
   The pioneers shape the initial culture of the chain with their first posts
   and likes.
 - ***Rule 1.b*** awards authors of new posts with *1000 reps*, but only after
-  24 hours, and at most once per day per author.
+  24 hours, unless revoked, and at most once per day per author.
   This rule stimulates content creation and grows the economy of chains.
   The 24-hour period gives sufficient time for other members to judge the post
   before awarding the author.
@@ -67,10 +67,12 @@ The concrete rules are as follows:
       payloads.
       A post is revoked when the reps-weighted sum of revokes outweighs the
       unrevokes.
+      An unrevoke must provide a copy of the payload, validated against the
+      hash in the post metadata.
       As the "right to be forgotten", authors may also revoke their own posts,
       for free and regardless of the community votes.
 - ***Rule 4.a*** imposes that authors afford the full cost of each act,
-  effectively blocking Sybil actions.
+  at least 500 reps, or 1000 for revokes, effectively blocking Sybil actions.
   Note that ***Rule 1.a*** solves the chicken-and-egg problem imposed by this
   rule.
   Note also that outsiders can still *beg*: a begging post is parked apart from
