@@ -25,8 +25,6 @@ chains.
 The unit of reputation is known as ***rep*** and can be created, spent, and
 transferred.
 
-<img src="general.png" width="500" align="right">
-
 Members spend reps to post and rate content in the forums:
     a ***post*** temporarily penalizes its author until it consolidates and counts positively;
     a ***like*** is a positive feedback to distinguish good content amid excess;
