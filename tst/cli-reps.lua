@@ -298,7 +298,7 @@ end
 -- with dust). Times are pinned: the whole section lives at
 -- now=0, except the maturity step at 12h
 do
-    print("==> No debt")
+    print("==> No debt (except beg admission)")
 
     exec {
         cmd = ENV_EXE .. " --now=0 chains add /no-debt init " .. GEN_1,
@@ -342,14 +342,15 @@ do
 
     do
         TEST "beg-like admits the post, holds the member"
-        -- the vote splits 50/50: 1000 -> 900 -> member 450, post 450
+        -- the vote splits 50/50: 1000 -> 900 -> member 450, post 450;
+        -- the admission charges the 500 post cost (rule 2)
         exec {
             cmd = ENV_EXE .. " --now=0 chain /no-debt like 1000 action " .. BEG .. " --sign " .. KEY1,
         }
         local out = exec {
             cmd = ENV_EXE .. " --now=0 chain /no-debt reps member '" .. PUB2 .. "'",
         }
-        assert(out == "900", "KEY2 reps: " .. out)   -- 450 + 450
+        assert(out == "400", "KEY2 reps: " .. out)   -- 450 + 450 - 500
         local post = exec {
             cmd = ENV_EXE .. " --now=0 chain /no-debt reps action " .. BEG,
         }
@@ -357,9 +358,9 @@ do
     end
 
     do
-        TEST "beg-like on a ZERO member: still below the gate"
-        -- KEY3 starts at 0: 450 < 500, so its first own post waits
-        -- for the 12h refund (probation)
+        TEST "beg-like on a ZERO member: a one-off debt"
+        -- KEY3 starts at 0: 450 - 500 < 0, the only debt the rules
+        -- allow; its first own post waits for the 24h reward
         local beg3 = exec {
             cmd = ENV_EXE .. " --now=0 chain /no-debt post inline 'me too' --beg --sign " .. KEY3,
         }
@@ -369,19 +370,29 @@ do
         local out = exec {
             cmd = ENV_EXE .. " --now=0 chain /no-debt reps member '" .. PUB3 .. "'",
         }
-        assert(out == "450", "KEY3 reps: " .. out)
+        assert(out == "-50", "KEY3 reps: " .. out)
         FAIL {
             cmd = ENV_EXE .. " --now=0 chain /no-debt post inline 'too soon' --sign " .. KEY3,
             err = "ERROR : chain post : insufficient reputation",
         }
 
-        TEST "...and speaks after the 12h refund"
+        TEST "...still below the gate after the 12h refund"
         local out = exec {
             cmd = ENV_EXE .. " --now=43200 chain /no-debt reps member '" .. PUB3 .. "'",
         }
-        assert(tonumber(out) >= 500, "KEY3 after 12h: " .. out)
+        assert(out == "450", "KEY3 after 12h: " .. out)   -- -50 + 500
+        FAIL {
+            cmd = ENV_EXE .. " --now=43200 chain /no-debt post inline 'still soon' --sign " .. KEY3,
+            err = "ERROR : chain post : insufficient reputation",
+        }
+
+        TEST "...and speaks after the 24h reward"
+        local out = exec {
+            cmd = ENV_EXE .. " --now=86400 chain /no-debt reps member '" .. PUB3 .. "'",
+        }
+        assert(tonumber(out) >= 500, "KEY3 after 24h: " .. out)
         local post, code = exec {
-            cmd = ENV_EXE .. " --now=43200 chain /no-debt post inline 'matured' --sign " .. KEY3,
+            cmd = ENV_EXE .. " --now=86400 chain /no-debt post inline 'matured' --sign " .. KEY3,
         }
         assert(code == 0, "matured member should post: " .. tostring(code))
         assert(#post == 40, "post: " .. post)
@@ -389,9 +400,9 @@ do
 
     do
         TEST "reps-above-cost-cannot-beg"
-        -- KEY2 holds 900 >= 500
+        -- KEY2 holds 900 >= 500 (400 + the 12h refund)
         FAIL {
-            cmd = ENV_EXE .. " --now=43200 chain /no-debt post inline 'no beg' --beg --sign " .. KEY2,
+            cmd = ENV_EXE .. " --now=86400 chain /no-debt post inline 'no beg' --beg --sign " .. KEY2,
             err = "ERROR : chain post : --beg error : member has sufficient reputation",
         }
     end

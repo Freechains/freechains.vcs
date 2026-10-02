@@ -437,6 +437,9 @@ function M.apply (G, act, env)
                 e.maturity = "00-12"
                 e.time.member = act.time
                 if a then
+                    -- rule 2: the admitted beg pays the post cost now,
+                    -- refunded by `advance` like any post (may go negative)
+                    G.members[a].reps = G.members[a].reps - C.reps.cost
                     G.members[a].time = G.members[a].time or act.time
                 end
             end
