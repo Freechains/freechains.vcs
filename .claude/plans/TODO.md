@@ -1,9 +1,24 @@
 # TODO
 
+- Enable rule 4.c (128 KB payload limit): `post.size` is commented out
+  in `src/freechains/constants.lua`; the paper's Table 3 lists it as
+  enforced (2606-vcs review, 2.14)
+
 - Open items left by done/260726-sync-followups.md
 - Newest additions at top of each section
 
 # Open
+
+## Tree store follow-ups (260914-tree.md, Pending 1-6)
+
+- commit vcs `main` + paper repo (sims, logs, findings)
+- per-post rewrite (disk 3x, sweeps 160s at 150k): hour buckets,
+  second fanout, hot file; 20k chat run to measure
+- process floor (~36 procs/post): persistent `cat-file` reader,
+  in-process signing; N=1000 bench, target < 0.12s
+- loose pile: `gc --auto` / `repack -d` every K snapshots
+- version tag in `meta.lua`; `make install` for hook suites;
+  a layout test for tree snapshots
 
 ## Docs: rule 1.b follows revocation
 
