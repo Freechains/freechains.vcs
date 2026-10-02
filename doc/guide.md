@@ -380,7 +380,15 @@ c7d8e9f       # 'A great post!'
 d8e9f0a       # like: alice -> 'A great post!'
 ```
 
-The post is now part of the chain and `Dave` becomes a proper member.
+The post is now part of the chain and `Dave` becomes a proper member:
+
+```
+$ freechains chain /chat reps member /tmp/dave.pub
+1300
+```
+
+`Dave` receives half of the like after the tax (`1800`), minus the temporary
+cost of a new post (`500`).
 Note that the like `d8e9f0a` links back to two actions:
     the beg `c7d8e9f` just above it, and
     the previous tip pointed as `^560`.
