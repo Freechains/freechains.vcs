@@ -295,6 +295,9 @@ content creators.
 In our example, since `Alice` holds the majority of `reps` in the network, the
 full refund is instantaneous.
 
+After 24 hours, a post also rewards its author with `1000 reps`, at most once
+a day, which is how chains grow their economy over time.
+
 Let's now introduce new member `Charlie`, who is welcomed by `Bob` in peer `B`:
 
 ```
@@ -668,6 +671,7 @@ $ freechains chain /chat revoke 1000 4a5b6c7 --sign=/tmp/alice
 8f9a0b1...
 ```
 
+A revoke costs at least `1000 reps` and also drains the post and its author.
 The payload of a revoked action becomes immediately unavailable:
 
 ```
@@ -679,11 +683,11 @@ Unlike posts metadata, payloads live outside the commit DAG, so that their
 bytes can be properly erased without touching the chain's history.
 
 Revocation is reversible through the analogous command `unrevoke`.
-They both account to determine wether a post is available or not.
+They both account to determine whether a post is available or not.
 As with likes and dislikes, revocation operations require `reps` to cast.
 
 As the "right to be forgotten", members may also revoke their own posts for
-free.
+free, which no other member can undo.
 Let's say `Bob` posts something he immediately regrets:
 
 ```
