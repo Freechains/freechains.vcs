@@ -510,10 +510,11 @@ peers reach the same state without any central authority.
 
 As a measure against members with strong past reputation, Freechains protects
 settled local branches from outdated actions.
-As the figure illustrates, actions freeze 7 days after they enter the local
-order, considering the newest timestamp up to each action.
-If consensus would reorder them, the merge is refused and the two peers become
-incompatible.
+As the figure illustrates, actions settle 7 days after they enter the local
+order, considering the newest timestamp up to each action in the consensus
+order.
+If a winning branch would reorder them, the merge is refused and the two
+peers become incompatible.
 In contrast, peers that remain active and synchronize over time evolve
 together with a stable order.
 
@@ -533,7 +534,7 @@ $ freechains --root=/tmp/X/ --now=$((NOW+8*DAY)) chain /chat post inline $'day 8
 7d8e9f0...
 ```
 
-Here, the actions on `X` span over more than seven days, making them frozen
+Here, the actions on `X` span over more than seven days, making them settled
 and refusing reorderings.
 
 Then, `Alice` comes back and posts locally in peer `A`, on the same branch she
