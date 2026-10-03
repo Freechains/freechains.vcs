@@ -182,23 +182,21 @@ do
     end
 end
 
--- tips: the surviving parents of the dropped set
+-- tips: the surviving parents of the dropped set (array, and each
+--       hash also a key, so none repeats)
 -- cut:  a dropped sync merge has a surviving parent, so the branch
 --       on its other side stays (a merge that goes whole is not cut)
 local tips, cut = {}, false
-do
-    local seen = {}
-    for c, ps in pairs(drops) do
-        local act = (#ps < 2) or ACTION.is(c)
-        for i, p in ipairs(ps) do
-            -- a beg-attach like owns its beg post (2nd parent), which
-            -- goes with it: not a survivor
-            if (not drops[p]) and (not (act and i==2)) then
-                cut = cut or (not act)
-                if not seen[p] then
-                    seen[p] = true
-                    tips[#tips+1] = p
-                end
+for c, ps in pairs(drops) do
+    local act = (#ps < 2) or ACTION.is(c)
+    for i, p in ipairs(ps) do
+        -- a beg-attach like owns its beg post (2nd parent), which
+        -- goes with it: not a survivor
+        if (not drops[p]) and (not (act and i==2)) then
+            cut = cut or (not act)
+            if not tips[p] then
+                tips[p] = true
+                tips[#tips+1] = p
             end
         end
     end
