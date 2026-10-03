@@ -37,7 +37,7 @@ Usage:
     freechains chain <alias> sync (recv | send) <remote>
 
     # bookkeeping
-    freechains chain <alias> discard <id> [--keep]
+    freechains chain <alias> discard <id> [--keep | --merge]
     freechains chain <alias> sweep
 
 Options:
@@ -393,11 +393,12 @@ freechains chain /chat sync send localhost:8331
 Permanently drops local action and everything after it.
 
 ```
-freechains chain <alias> discard <id> [--keep]
+freechains chain <alias> discard <id> [--keep | --merge]
 ```
 
 - `<id>`:   first action to drop
 - `--keep`: `<id>` is instead last action to keep
+- `--merge`: may cross sync merges
 
 - Examples:
 
