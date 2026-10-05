@@ -9,6 +9,46 @@
 
 # Open
 
+## Hub hook `url=` push option (from 260903-128KB review)
+
+- hooks/pre-receive ln 40-52: runs `sync recv '<url>'` with the
+  sender's `url=`, then always exits 1 (pushed pack discarded)
+    - accepting a `send` = an uncapped fetch from a url the sender
+      chooses, anywhere
+- SHELL INJECTION (read in code, not reproduced): `url` spliced in
+  single quotes, no escaping; a quote runs commands on the hub
+    - fix first: strict url pattern, or recv without a shell
+- policy until then: accept `url` only from trusted peers
+
+## `send` as a real push validated in the hook
+
+- quarantine: pushed objects wait until pre-receive accepts; a
+  refusal deletes them
+- with `receive.maxInputSize`: bytes per push bounded, sender
+  cannot bypass
+- hook checks refs, commit size, empty trees, replay
+- drops `url=` (no injection, no hub fetching where told)
+- left: push rate per sender (git daemon: by address at best)
+
+## Unbounded commit size
+
+- `ACTION.read` checks shape, not length (action.lua ln 56-98):
+  any-length hex `blob`, any vote target, unchecked headers
+- a crafted 2 GB commit is fetched and stored before replay
+  rejects it; lingers until gc
+- fix: `cat-file -s` per new commit before parsing, bound ~4 KB
+
+## Transfer caps
+
+- trust rule today: exchange only with trusted peers, both ways
+- `receive.maxInputSize` (push only, during transfer)
+    - measures the COMPRESSED pack: 2 GB of zeros passes as a few
+      MB; whole push, not per object; count unbounded
+    - value: above the largest legit push (transfer.md §3)
+- no fetch-side cap in git 2.43: a wrapper (process file-size
+  limit, untested) + blacklist the sender (260819-blacklist.md)
+- commits per fetch cap (threats.md T6a, rec. 4)
+
 ## Tree store follow-ups (260914-tree.md, Pending 1-6)
 
 - commit vcs `main` + paper repo (sims, logs, findings)
