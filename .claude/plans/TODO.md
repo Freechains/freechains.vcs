@@ -17,7 +17,7 @@
       chooses, anywhere
 - SHELL INJECTION (read in code, not reproduced): `url` spliced in
   single quotes, no escaping; a quote runs commands on the hub
-    - fix first: strict url pattern, or recv without a shell
+    - fix first: plan 261005-hook-url.md
 - policy until then: accept `url` only from trusted peers
 
 ## `send` as a real push validated in the hook
