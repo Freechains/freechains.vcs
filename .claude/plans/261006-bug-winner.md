@@ -62,10 +62,10 @@ cd tst && BW_INIT=/abs/out.bundle LUA_PATH="../src/?.lua;../src/?/init.lua;;" lu
     - `recv`: validate via `state(rem)`, new merge via `state`
 - [x] post-fix: all peers list `b1 a1 c1 a2`
     - c1 wins M3: K2 = -500 at M1 (b1's cost)
-- [x] `make tests`: all pass but `repl-local-head`,
-  `repl-remote-head`
-    - pre-existing: `DRYMERGE` needs git >= 2.38
-      (`merge-tree --write-tree`), local git is 2.34
+- [x] `make tests`: all pass (45/45)
+    - `DRYMERGE` (tst/tests.lua): `merge-base` only, no
+      `merge-tree --write-tree` (git >= 2.38, local is 2.34);
+      empty trees never conflict
 
 # Pending
 
