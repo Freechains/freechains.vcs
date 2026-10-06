@@ -32,8 +32,49 @@ E (FF)       b1 a1 c1 a2
 Z (clone)    a1 b1 a2 c1
 ```
 
-- cids vary per attempt: retry until the tie favours M2
-- script: `2606-sims` scratch `min2.sh` (to be ported)
+- cids vary only through the genesis nonce
+    - dates are pinned, ed25519 signatures are deterministic
+- test: `tst/bug-winner.lua` (in `make tests`)
+- fixture: `tst/bug-winner.bundle` (git bundle, 281 bytes)
+    - `refs/genesis` + `main` = genesis `50a4cc6a...`
+    - A clones it instead of `init`: same cids every run
+    - guard: a1, b1, a2 cids, else "fixture stale"
+- regenerate (search mode, no asserts, prints AGREE/DIVERGE):
+
+```
+cd tst && BW_INIT=/abs/out.bundle LUA_PATH="../src/?.lua;../src/?/init.lua;;" lua5.4 bug-winner.lua
+```
+
+- repeat until DIVERGE, copy the bundle, update `GUARD`
+
+# Progress
+
+- [x] reproducible failing test
+    - pre-fix: `D: b1 a1 a2 c1 | E: b1 a1 c1 a2`
+    - checks D == E, then D == Z
+    - guard: a1, b1, a2 cids (merges change with the fix)
+- [x] fix cause 1: `winner(a, b)` reads `CONSENSUS.state(com)`
+- [x] fix cause 2: `meet` decides first, climbs from the outer
+  floor, no `up`; `octopus` removed
+- [x] clean snapshots
+    - `CONSENSUS.state(cid)`: own-lineage state, from parents
+    - `ACTION.apply(..., snap)`: only own-lineage callers write
+    - `recv`: validate via `state(rem)`, new merge via `state`
+- [x] post-fix: all peers list `b1 a1 c1 a2`
+    - c1 wins M3: K2 = -500 at M1 (b1's cost)
+- [x] `make tests`: all pass but `repl-local-head`,
+  `repl-remote-head`
+    - pre-existing: `DRYMERGE` needs git >= 2.38
+      (`merge-tree --write-tree`), local git is 2.34
+
+# Pending
+
+- truncated loser: the new merge's parents are (fst, last valid
+  loser commit); `state` re-decides that pair, a shorter loser
+  side may flip the winner, then the loser replay may fail
+- old repos: snapshots written before the fix may be dirty
+- beg merge: `meet` now keeps main-then-beg, no `winner`
+- cost: `recv` replays the loser twice (trunc probe + `state`)
 
 # Cause 1: the floor is above an inner fork
 

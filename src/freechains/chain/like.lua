@@ -143,7 +143,7 @@ local was_revoked = entry and RULES.is_revoked(entry)
 --  - re-reads the action from minted commit
 --  - applies, orders, snapshots state
 
-local ok, err = pcall(ACTION.apply, G, cid, false)
+local ok, err = pcall(ACTION.apply, G, cid, false, true)
 if not ok then
     ERROR("chain " .. vote .. " : " .. err:gsub("^invalid %a+ : ", ""))
 end

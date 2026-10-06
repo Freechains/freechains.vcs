@@ -77,7 +77,7 @@ local cid = ACTION.commit(
 --  - re-reads the action from minted commit
 --  - applies, orders, snapshots state
 
-local ok, err = pcall(ACTION.apply, G, cid, ARGS.beg)
+local ok, err = pcall(ACTION.apply, G, cid, ARGS.beg, true)
 if not ok then
     ERROR("chain post : " .. err:gsub("^invalid %a+ : ", ""))
 end

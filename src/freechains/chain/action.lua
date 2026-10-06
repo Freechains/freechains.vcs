@@ -257,18 +257,22 @@ local KINDS = { post=true, like=true, revoke=true }
 --  - G   [table]: chain state (members/actions/order/now); MUTATED
 --  - cid [string]: 40-hex commit hash, already in the object db
 --  - beg [boolean?]: force beg admission (post writers, beg sync)
+--  - snap [boolean?]: G is `cid`'s own-lineage state, so snapshot it
+--    (false inside a replay: G may hold sibling branches)
 -- Outputs:
---  - none: G holds the action and refs/states/<cid> holds its snapshot
+--  - none: G holds the action and, if `snap`, refs/states/<cid> holds
+--    its snapshot
 -- Errors:
 --  - "malformed commit : ..." : structure (tree/parents/signature)
 --  - "invalid <kind> : ..."   : refused by the reputation rules
 -- Callers:
 --  - post (post.lua): writer accepts its own mint
 --  - like (like.lua): writer accepts its own mint
---  - climb (consensus.lua): replay, once per commit
+--  - climb (consensus.lua): replay, once per commit (no snapshot)
+--  - state (consensus.lua): own-lineage state, once per commit
 --  - recv (sync.lua): validate an incoming beg head
 --]]
-function M.apply (G, cid, beg)
+function M.apply (G, cid, beg, snap)
     local ps = GIT.parents(cid)
     local isa = M.is(cid)   -- false: sync merge
     -- a merge adds no time: dates are neutral, the action message
@@ -370,9 +374,10 @@ function M.apply (G, cid, beg)
     -- already include sibling branches applied earlier in consensus
     -- order): an action's own `time.backs` was folded at apply; a merge
     -- adds nothing, so fold its parents' nearest actions.
-    -- NEVER overwrite: the first write is the commit's own-lineage
-    -- state, and a refused sync must not corrupt local snapshots
-    if not STATE.has(cid) then
+    -- only `snap` writes: inside a replay G may hold siblings, which
+    -- the commit's own lineage never saw.
+    -- NEVER overwrite: a refused sync must not corrupt local snapshots
+    if snap and (not STATE.has(cid)) then
         local sav = G.now
         if isa then
             G.now = G.actions[cid].time.backs
