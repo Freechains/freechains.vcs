@@ -7,7 +7,7 @@
 --  - ARGS.root  [string]: freechains root dir
 --  - ARGS.<subcommand> [boolean]: what to dispatch
 -- Outputs:
---  - globals: C, ACTION, STATE, GIT, REPO, GENESIS, HEAD (the tip cid),
+--  - globals: C, ACTION, STATE, GIT, REPO, HEAD (the tip cid),
 --      G (state at HEAD, except sync/discard/sweep, which read their own)
 -- Errors:
 --  - "chain <alias> : not found"
@@ -24,16 +24,11 @@ SSH    = require "freechains.chain.ssh"
 RULES  = require "freechains.chain.rules"
 REPO   = ARGS.root .. "/chains/" .. ARGS.alias .. "/"
 
-do
-    -- the chain exists <=> its (bare) repo resolves the genesis ref;
-    -- HEAD rides the same call (every writer needs it)
-    local out = exec { err=false, stderr=false,
-        cmd = "git -C " .. REPO .. " rev-parse refs/genesis HEAD",
-    }
-    if not out then
-        ERROR("chain " .. ARGS.alias .. " : not found")
-    end
-    GENESIS, HEAD = out:match("^(%x+)\n(%x+)%s*$")
+-- the chain exists <=> its (bare) repo has a HEAD: a file read,
+-- no process (every command names the tip's snapshot by it)
+HEAD = GIT.ref("HEAD")
+if not HEAD then
+    ERROR("chain " .. ARGS.alias .. " : not found")
 end
 
 if ARGS.sync then

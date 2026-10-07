@@ -79,9 +79,7 @@ end
 -- (only `like` accepts begs; dislike/revoke/unrevoke do not)
 -- (`beg` = the ref's cid, the beg post itself)
 local ref = "refs/begs/beg-" .. ARGS.id
-local beg = ARGS.like and (ARGS.target == "cid") and (exec { err=false, stderr=false,
-    cmd = "git -C " .. REPO .. " rev-parse --verify " .. ref,
-}) or nil
+local beg = ARGS.like and (ARGS.target == "cid") and GIT.ref(ref) or nil
 local to_beg = beg and true
 
 -- beg: validate parent, merge into main, load beg entry

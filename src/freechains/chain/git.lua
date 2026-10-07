@@ -198,6 +198,38 @@ function M.tree_of (cid)
 end
 
 --[[
+-- The value of a ref, from its loose file when git keeps one (HEAD
+-- and a freshly moved `main` always; a beg's ref until a sweep packs
+-- it), else `rev-parse`: a file read instead of a process.
+-- Inputs:
+--  - name [string]: a full ref name, or HEAD
+-- Outputs:
+--  - [string?]: 40-hex hash, nil if the ref does not exist
+-- Errors:
+--  - none
+-- Callers:
+--  - init (chain/init.lua): HEAD
+--  - like (like.lua): a beg's ref
+--  - recv (sync.lua): refs/genesis
+--]]
+function M.ref (name)
+    local f = io.open(REPO .. name)
+    if f then
+        local s = f:read("l")
+        f:close()
+        local sym = s and s:match("^ref: (%S+)")
+        if sym then
+            return M.ref(sym)
+        elseif s and s:match("^%x+$") then
+            return s
+        end
+    end
+    return exec { err=false, stderr=false,
+        cmd = "git -C " .. REPO .. " rev-parse --verify --quiet " .. name,
+    } or nil
+end
+
+--[[
 -- Resolve a ref/rev (HEAD, HEAD^1, refs/...) to its cid.
 -- Inputs:
 --  - rev [string]: anything rev-parse accepts

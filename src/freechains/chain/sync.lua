@@ -209,7 +209,7 @@ elseif ARGS.recv then
             local rem_root = exec {
                 cmd = "git -C " .. REPO .. " rev-list --max-parents=0 " .. rem
             }
-            if rem_root ~= GENESIS then
+            if rem_root ~= GIT.ref("refs/genesis") then
                 ERROR("chain sync : incompatible genesis")
             end
         end
