@@ -1,5 +1,87 @@
 local M = {}
 
+-- base64 in Lua: the signature and key blobs are small, and a
+-- shell pipeline per decode (base64 | xxd | tr) cost 3-4 processes
+local B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+local B64V = {}
+for i = 1, 64 do
+    B64V[B64:sub(i, i)] = i - 1
+end
+
+--[[
+-- Decode base64 (standard alphabet, padding optional, whitespace
+-- ignored).
+-- Inputs:
+--  - s [string]: base64 text
+-- Outputs:
+--  - [string]: the bytes
+-- Errors:
+--  - none (invalid chars are skipped)
+-- Callers:
+--  - pub/signer (ssh.lua): key files and SSHSIG blobs
+--]]
+local function b64dec (s)
+    local out = {}
+    local acc, bits = 0, 0
+    for c in s:gmatch("[A-Za-z0-9+/]") do
+        acc = (acc << 6) | B64V[c]
+        bits = bits + 6
+        if bits >= 8 then
+            bits = bits - 8
+            out[#out+1] = string.char((acc >> bits) & 0xFF)
+            acc = acc & ((1 << bits) - 1)
+        end
+    end
+    return table.concat(out)
+end
+
+--[[
+-- Encode bytes as base64 (standard alphabet, padded, one line).
+-- Inputs:
+--  - s [string]: the bytes
+-- Outputs:
+--  - [string]: base64 text
+-- Errors:
+--  - none
+-- Callers:
+--  - pub/signer (ssh.lua): the pubkey blob as git prints it
+--]]
+local function b64enc (s)
+    local out = {}
+    for i = 1, #s, 3 do
+        local a, b, c = s:byte(i, i+2)
+        local n = (a << 16) | ((b or 0) << 8) | (c or 0)
+        out[#out+1] = B64:sub((n >> 18) + 1, (n >> 18) + 1)
+            .. B64:sub(((n >> 12) & 63) + 1, ((n >> 12) & 63) + 1)
+            .. (b and B64:sub(((n >> 6) & 63) + 1, ((n >> 6) & 63) + 1) or "=")
+            .. (c and B64:sub((n & 63) + 1, (n & 63) + 1) or "=")
+    end
+    return table.concat(out)
+end
+
+--[[
+-- The pubkey line of an SSH wire-format key blob
+-- ("<type> <base64 blob>", as ssh-keygen and git print it).
+-- Inputs:
+--  - blob [string]: the key blob (starts with the string <type>)
+-- Outputs:
+--  - [string?]: "<type> <base64>", nil if malformed
+-- Errors:
+--  - none
+-- Callers:
+--  - pub/signer (ssh.lua)
+--]]
+local function keyline (blob)
+    if #blob < 4 then
+        return nil
+    end
+    local n = string.unpack(">I4", blob)
+    if (n < 1) or (#blob < 4 + n) then
+        return nil
+    end
+    return blob:sub(5, 4 + n) .. " " .. b64enc(blob)
+end
+
 --[[
 -- Resolve a pubkey from anything (cli.md "Keys:"):
 --  - a key STRING ("ssh-...")
@@ -22,15 +104,34 @@ function M.pub (v)
         return v:match("^(%S+ %S+)")
     end
     local f = io.open(v)
-    local ln = f and f:read("l")
+    local src = f and f:read("a")
     if f then
         f:close()
     end
-    if ln and ln:match("^ssh%-") then
-        return ln:match("^(%S+ %S+)")   -- public key file
+    if not src then
+        return nil
+    end
+    if src:match("^ssh%-") then
+        return src:match("^(%S+ %S+)")   -- public key file
+    end
+    -- an OpenSSH private key carries its pubkey in clear:
+    --   "openssh-key-v1\0" cipher kdf kdfopts nkeys <pubkey blob>
+    local body = src:match("^%-%-%-%-%-BEGIN OPENSSH PRIVATE KEY%-%-%-%-%-\n(.-)\n%-%-%-%-%-END")
+    if body then
+        local raw = b64dec(body)
+        if raw:sub(1, 15) == "openssh-key-v1\0" then
+            local pos = 16
+            for _ = 1, 3 do          -- cipher, kdf, kdfopts
+                local n = string.unpack(">I4", raw, pos)
+                pos = pos + 4 + n
+            end
+            pos = pos + 4            -- nkeys
+            local n = string.unpack(">I4", raw, pos)
+            return keyline(raw:sub(pos + 4, pos + 3 + n))
+        end
     end
     local out = exec { err=false, stderr=false,
-        cmd = "ssh-keygen -y -f " .. v, -- private key file
+        cmd = "ssh-keygen -y -f " .. v, -- any other private key format
     }
     if out then
         return out:match("^(%S+ %S+)")
@@ -48,7 +149,6 @@ end
 --  - [string?]: "ssh-ed25519 <base64>", nil if unsigned
 -- Errors:
 --  - "bug found : not a commit" : unknown cid
---  - via exec: "bug found" if base64/xxd fail
 -- Callers:
 --  - read (action.lua): opt-in `t.sign` (display only)
 --  - collect_keys (consensus.lua): reps summing per side
@@ -94,36 +194,10 @@ function M.signer (repo, cid)
             end
         end
     end
-    local hex = exec {
-        cmd = "printf '%s' '" .. body .. "' | base64 -d | xxd -p | tr -d '\n'",
-    }
-    --[[
-    -- Big-endian u32 at 1-based offset `off` of the hex dump.
-    -- Inputs:
-    --  - off [integer]: hex-char offset (8 chars read)
-    -- Outputs:
-    --  - [integer]: the 32-bit value
-    -- Errors:
-    --  - none
-    -- Callers:
-    --  - signer (ssh.lua): SSHSIG wire-format lengths
-    --]]
-    local function u32 (off)
-        local a = tonumber(hex:sub(off,    off+1), 16)
-        local b = tonumber(hex:sub(off+2,  off+3), 16)
-        local c = tonumber(hex:sub(off+4,  off+5), 16)
-        local d = tonumber(hex:sub(off+6,  off+7), 16)
-        return ((a*256 + b)*256 + c)*256 + d
-    end
-
-    -- skip "SSHSIG"(6B=12hex) + version(4B=8hex) = 20 hex chars
-    -- pubkey wire-format string starts at hex offset 21 (1-based)
-    local len = u32(21)
-    local hex = hex:sub(29, 28 + len*2)
-    local key = exec {
-        cmd = "printf '%s' '" .. hex .. "' | xxd -r -p | base64 -w0",
-    }
-    return "ssh-ed25519 " .. key
+    -- SSHSIG blob: "SSHSIG" (6) + version u32 + string pubkey ...
+    local raw = b64dec(body)
+    local len = string.unpack(">I4", raw, 11)
+    return keyline(raw:sub(15, 14 + len))
 end
 
 --[[
