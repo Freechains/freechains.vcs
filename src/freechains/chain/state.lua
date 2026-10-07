@@ -52,8 +52,8 @@ local DAY     = 24*60*60
 --  shards      = true once every shard's blobs are listed
 local CACHE = setmetatable({}, { __mode = "k" })
 
--- known snapshots of the chain (REPO only): a write adds, `has_all`
--- fills many in one call, `has` answers from here when it can
+-- known snapshots of the chain (REPO only): a write adds, `has_set`
+-- tells, `has` answers from here when it can
 local HAS = {}
 
 --[[
@@ -1202,32 +1202,23 @@ function M.has (cid, dir)
 end
 
 --[[
--- Whether each of many cids has a snapshot, in ONE call (a pull
--- walks every new commit through `has`).
+-- Tell `has` what the caller knows, with no call: a pull's new
+-- commits have no snapshot (only my history has them, and a stale
+-- one would equal the recomputed, deterministic state), my tip has
+-- one.
 -- Inputs:
 --  - cids [table]: array of 40-hex commit hashes
+--  - yes  [boolean]: snapshotted or not
 -- Outputs:
 --  - none: `has` answers from memory
 -- Errors:
---  - via exec: "bug found" if cat-file fails
+--  - none
 -- Callers:
---  - recv (sync.lua): the remote's new commits
+--  - recv (sync.lua): the remote's new commits, my tip
 --]]
-function M.has_all (cids)
-    local ls = {}
+function M.has_set (cids, yes)
     for _, cid in ipairs(cids) do
-        if HAS[cid] == nil then
-            HAS[cid] = false
-            ls[#ls+1] = M.ref(cid) .. " " .. cid
-        end
-    end
-    if #ls == 0 then
-        return
-    end
-    local out = git_in(REPO, "cat-file --batch-check='%(objectname) %(rest)'",
-        table.concat(ls, "\n") .. "\n")
-    for _, cid in out:gmatch("(%x+) (%x+)\n") do
-        HAS[cid] = true
+        HAS[cid] = yes
     end
 end
 

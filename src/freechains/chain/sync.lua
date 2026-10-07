@@ -234,12 +234,13 @@ elseif ARGS.recv then
             for line in out:gmatch("[^\n]+") do
                 NEWS[#NEWS+1] = line:match("^(%x+)")
             end
-            -- the new commits' objects and snapshot checks, in one
-            -- call each: the replay below reads every one of them,
-            -- and the floor (my tip) as the first one's parent
-            local pre = table.move(NEWS, 1, #NEWS, 2, { loc })
-            GIT.cats(pre)
-            STATE.has_all(pre)
+            -- the new commits' objects in one call: the replay below
+            -- reads every one of them, and the floor (my tip) as the
+            -- first one's parent; their snapshots need no check: new
+            -- to my history, none; my tip, one
+            GIT.cats(table.move(NEWS, 1, #NEWS, 2, { loc }))
+            STATE.has_set(NEWS, false)
+            STATE.has_set({ loc }, true)
             for line in out:gmatch("[^\n]+") do
                 local cid = line:match("^(%x+)")
                 if ff and line:match("^%x+ %x+ %x+") and (not ACTION.is(cid)) then
