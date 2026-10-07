@@ -9,6 +9,7 @@
 --  - ARGS.beg  [boolean?]: park on refs/begs/, HEAD untouched
 --  - ARGS.now  [integer]: the action's TIME (commit DATE)
 --  - G    [table]: state at HEAD; MUTATED by the pipeline
+--  - HEAD [string]: the tip cid, the new post's parent
 --  - REPO [string]: the chain's bare repo dir
 -- Outputs:
 --  - stdout: the new cid
@@ -66,7 +67,7 @@ os.remove(path)
 local cid = ACTION.commit(
     (ARGS.sign and "chain post : invalid sign key") or nil,
     {
-        parents = { GIT.deref("HEAD") },
+        parents = { HEAD },
         action  = 'post',
         blob    = blob,
         sign    = ARGS.sign,

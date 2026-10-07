@@ -12,6 +12,7 @@
 --  - ARGS.sign [string]: ssh private key path
 --  - ARGS.now  [integer]: the action's TIME (commit DATE)
 --  - G    [table]: state at HEAD; MUTATED by the pipeline
+--  - HEAD [string]: the tip cid, the vote's (first) parent
 --  - REPO [string]: the chain's bare repo dir
 -- Outputs:
 --  - stdout: the new cid
@@ -76,20 +77,17 @@ end
 
 -- detect if a positive `like` targets a beg on refs/begs/
 -- (only `like` accepts begs; dislike/revoke/unrevoke do not)
-local to_beg = (
-    ARGS.like and (ARGS.target == "cid") and
-        exec { err=false,
-            cmd = "git -C " .. REPO .. " rev-parse --verify refs/begs/beg-" .. ARGS.id,
-        } and true
-)
+-- (`beg` = the ref's cid, the beg post itself)
+local ref = "refs/begs/beg-" .. ARGS.id
+local beg = ARGS.like and (ARGS.target == "cid") and (exec { err=false, stderr=false,
+    cmd = "git -C " .. REPO .. " rev-parse --verify " .. ref,
+}) or nil
+local to_beg = beg and true
 
 -- beg: validate parent, merge into main, load beg entry
 -- (the ref is named by the beg's cid)
-local ref = "refs/begs/beg-" .. ARGS.id
 if to_beg then
-    local up = exec {
-        cmd = "git -C " .. REPO .. " log -1 --format=%P " .. ref,
-    }
+    local up = GIT.parents(beg)[1]
     local _,ok = exec { err=false,
         cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. up .. " HEAD",
     }
@@ -99,7 +97,7 @@ if to_beg then
         --ERROR("chain like : invalid target : beg post does not exist")
     end
     G.order[#G.order+1] = ARGS.id   -- beg post
-    G.actions[ARGS.id] = STATE.read(GIT.deref(ref)).actions[ARGS.id]
+    G.actions[ARGS.id] = STATE.read(beg).actions[ARGS.id]
     G.dirty.actions[ARGS.id] = true
 end
 
@@ -126,8 +124,7 @@ end
 local cid = ACTION.commit(
     "chain " .. vote .. " : invalid sign key",
     {
-        parents = to_beg and { GIT.deref("HEAD"), GIT.deref(ref) }
-                          or { GIT.deref("HEAD") },
+        parents = to_beg and { HEAD, beg } or { HEAD },
         action  = kind,
         n       = num,
         [ARGS.target] = ARGS.id,

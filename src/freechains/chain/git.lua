@@ -1,7 +1,7 @@
 local M = {}
 
 --[[
--- The empty tree's hash, memoized.
+-- The empty tree's hash.
 -- All commits carry EMPTY trees, since all data lives in the commit MESSAGE.
 -- Trees and blobs are not used by actions at all (the cid IS the commit).
 -- Inputs:
@@ -14,13 +14,10 @@ local M = {}
 --  - commit (git.lua): every minted commit uses it
 --  - apply (action.lua): the anti-smuggling tree check
 --]]
-local tree
+-- the SHA-1 of the empty tree is a constant of git itself
+-- (`git hash-object -t tree /dev/null`); every chain repo is SHA-1
+local tree = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 function M.tree ()
-    if not tree then
-        tree = exec {
-            cmd = "git -C " .. REPO .. " hash-object -t tree /dev/null",
-        }
-    end
     return tree
 end
 

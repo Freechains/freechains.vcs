@@ -7,7 +7,7 @@
 --  - ARGS.root  [string]: freechains root dir
 --  - ARGS.<subcommand> [boolean]: what to dispatch
 -- Outputs:
---  - globals: C, ACTION, STATE, GIT, REPO,
+--  - globals: C, ACTION, STATE, GIT, REPO, HEAD (the tip cid at start),
 --      G (state at HEAD, except sync/discard/sweep, which read their own)
 -- Errors:
 --  - "chain <alias> : not found"
@@ -25,13 +25,15 @@ RULES  = require "freechains.chain.rules"
 REPO   = ARGS.root .. "/chains/" .. ARGS.alias .. "/"
 
 do
-    -- the chain exists <=> its (bare) repo resolves the genesis ref
-    local ok = exec { err=false, stderr=false,
-        cmd = "git -C " .. REPO .. " cat-file -e refs/genesis",
+    -- the chain exists <=> its (bare) repo resolves the genesis ref;
+    -- HEAD rides the same call (every writer needs it)
+    local out = exec { err=false, stderr=false,
+        cmd = "git -C " .. REPO .. " rev-parse refs/genesis HEAD",
     }
-    if not ok then
+    if not out then
         ERROR("chain " .. ARGS.alias .. " : not found")
     end
+    HEAD = out:match("\n(%x+)%s*$")
 end
 
 if ARGS.sync then
@@ -41,7 +43,7 @@ elseif ARGS.discard then
 elseif ARGS.sweep then
     require "freechains.chain.sweep"
 else
-    G = STATE.read(GIT.deref("HEAD"))
+    G = STATE.read(HEAD)
 
     if ARGS.list then
         require "freechains.chain.list"
