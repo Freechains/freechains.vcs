@@ -1,5 +1,9 @@
 local M = {}
 
+-- memos: a commit's parents, and its raw object
+local MEMO = {}
+local OBJS = {}
+
 --[[
 -- The empty tree's hash.
 -- All commits carry EMPTY trees, since all data lives in the commit MESSAGE.
@@ -22,7 +26,8 @@ function M.tree ()
 end
 
 --[[
--- Mint a commit via commit-tree (no worktree, no index).
+-- Mint a commit: the object written from Lua (no commit-tree), signed
+-- by ssh-keygen as git signs (verify-commit accepts it).
 -- Inputs:
 --  - ref [boolean]:    true also moves HEAD; false mints loose only
 --  - err [string?]:    exec err message on failure (nil: bug found)
@@ -34,26 +39,55 @@ end
 -- Outputs:
 --  - [string]: the new commit's 40-hex cid
 -- Errors:
---  - via exec: `err` or "bug found" on commit-tree failure
+--  - `err` (ERROR) or "bug found" when the key cannot sign
 -- Callers:
 --  - commit (action.lua): action mint
 --  - recv (sync.lua): the loser-branch sync merge
 --]]
 function M.commit (ref, err, t)
-    local dt = "GIT_AUTHOR_DATE='@"    .. (t.date or 0) .. " +0000' " ..
-               "GIT_COMMITTER_DATE='@" .. (t.date or 0) .. " +0000' "
-    local sig = t.sign and
-        (" -c user.signingkey=" .. t.sign .. " -c gpg.format=ssh") or ""
-    local ps = ""
+    -- the object as `commit-tree` would write it: no process but
+    -- the signer's (ssh-keygen, which git would run too)
+    local date = (t.date or 0) .. " +0000"
+    local hs = { "tree " .. M.tree() }
     for _, p in ipairs(t.parents) do
-        ps = ps .. " -p " .. p
+        hs[#hs+1] = "parent " .. p
     end
-    local cid = exec {
-        cmd = "printf '%s' '" .. (t.msg or "") .. "' | " ..
-            dt .. "git -C " .. REPO .. sig .. " commit-tree" ..
-            (t.sign and " -S" or "") .. ps .. " " .. M.tree(),
-        err = err,
-    }
+    hs[#hs+1] = "author - <-> " .. date
+    hs[#hs+1] = "committer - <-> " .. date
+    local msg = t.msg or ""
+    if t.sign then
+        -- as git does: `ssh-keygen -Y sign` over the unsigned object,
+        -- the armored signature folded into a gpgsig header (the
+        -- continuation lines start with a space)
+        local path = REPO .. "sign-buf"
+        local f = assert(io.open(path, "wb"))
+        f:write(table.concat(hs, "\n"), "\n\n", msg)
+        f:close()
+        local ok = exec { err=false, stderr=false,
+            cmd = "ssh-keygen -Y sign -n git -f " .. t.sign .. " " .. path,
+        }
+        os.remove(path)
+        local g = ok and io.open(path .. ".sig", "rb")
+        local sig = g and g:read("a")
+        if g then
+            g:close()
+        end
+        os.remove(path .. ".sig")
+        if not sig then
+            if err then
+                ERROR(err)
+            end
+            error("bug found : ssh-keygen sign : " .. t.sign)
+        end
+        local ls = {}
+        for l in sig:gmatch("[^\n]+") do
+            ls[#ls+1] = l
+        end
+        hs[#hs+1] = "gpgsig " .. table.concat(ls, "\n ")
+    end
+    local body = table.concat(hs, "\n") .. "\n\n" .. msg
+    local cid = require("freechains.chain.state").put("commit", body)
+    OBJS[cid] = body
     if ref then
         exec {
             cmd = "git -C " .. REPO .. " update-ref HEAD " .. cid,
@@ -100,8 +134,6 @@ function M.refs (ops)
     os.remove(path)
 end
 
-local MEMO = {}
-local OBJS = {}
 
 --[[
 -- The raw commit object of `cid` (headers, blank line, message),
