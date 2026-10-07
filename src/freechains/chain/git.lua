@@ -97,23 +97,36 @@ function M.commit (ref, err, t)
 end
 
 --[[
--- Many ref updates in ONE `update-ref --stdin` (a post moves three
--- refs: its snapshot, its payload anchor, HEAD).
+-- Many ref updates at once: updates and creates as loose ref files
+-- written from Lua (no process), deletes in one `update-ref --stdin`.
 -- Inputs:
 --  - ops [table]: array of update-ref stdin lines:
 --    "update <ref> <new>", "create <ref> <new>", "delete <ref>"
 -- Outputs:
 --  - none
 -- Errors:
---  - none: the batch is one transaction; if it fails (a `create` of
---    an existing ref), each line runs alone, failures ignored, as
---    the single calls did
+--  - none: a failing delete batch runs line by line, failures ignored
 -- Callers:
 --  - post/like: the accepted action's refs
 --  - state (consensus.lua): a run's deferred snapshot refs
 --]]
 function M.refs (ops)
     if #ops == 0 then
+        return
+    end
+    -- updates and creates: the loose ref file, written from Lua (a
+    -- loose ref overrides a packed one); deletes: git, which also
+    -- drops a packed entry
+    local dels = {}
+    for _, op in ipairs(ops) do
+        local verb, ref, sha = op:match("^(%a+) (%S+) ?(%x*)$")
+        if (verb == "update" or verb == "create") and (#sha == 40) then
+            M.set(ref, sha, verb == "create")
+        else
+            dels[#dels+1] = op
+        end
+    end
+    if #dels == 0 then
         return
     end
     local path = REPO .. "git-stdin"
@@ -126,12 +139,50 @@ function M.refs (ops)
         }
         return ok
     end
-    if (not run(ops)) and (#ops > 1) then
-        for _, op in ipairs(ops) do
+    if (not run(dels)) and (#dels > 1) then
+        for _, op in ipairs(dels) do
             run { op }
         end
     end
     os.remove(path)
+end
+
+--[[
+-- Point a ref at `sha` by writing its loose file (git's own format:
+-- the hash and a newline), a symref (HEAD) through its target.
+-- Inputs:
+--  - ref    [string]: full ref name, or HEAD
+--  - sha    [string]: 40-hex hash
+--  - create [boolean?]: keep an existing loose file as is
+-- Outputs:
+--  - none
+-- Errors:
+--  - assert: the file cannot be written
+-- Callers:
+--  - refs (git.lua)
+--]]
+function M.set (ref, sha, create)
+    local path = REPO .. ref
+    local f = io.open(path)
+    if f then
+        local s = f:read("l")
+        f:close()
+        local sym = s and s:match("^ref: (%S+)")
+        if sym then
+            return M.set(sym, sha, create)
+        elseif create then
+            return
+        end
+    end
+    local tmp = path .. ".lock" .. math.random(0, 999999)
+    local g = io.open(tmp, "w")
+    if not g then
+        exec { cmd = "mkdir -p " .. path:match("^(.*)/") }
+        g = assert(io.open(tmp, "w"))
+    end
+    g:write(sha, "\n")
+    g:close()
+    assert(os.rename(tmp, path))
 end
 
 
