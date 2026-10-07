@@ -31,6 +31,7 @@ local M = {}
 local C = require "freechains.constants"
 
 local ORDER_K = 200     -- cids per order chunk
+M.ORDER_K = ORDER_K     -- (sync.lua: hardfork reads chunks)
 local DAY     = 24*60*60
 
 -- per-G cache, keyed by table identity (weak):

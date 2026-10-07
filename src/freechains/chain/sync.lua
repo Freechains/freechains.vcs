@@ -27,16 +27,60 @@
 local CONSENSUS = require "freechains.chain.consensus"
 
 --[[
--- Hard fork protects my current order.
--- Find `set` as highest SETTLED index:
---   an entry whose order time (`time.apply`) is
---   `time.fork` behind the chain time (`G.now`).
--- The new order must reproduce that prefix verbatim.
+-- The order chunks of the snapshot at `cid`, by blob id.
+-- Inputs:
+--  - cid [string]: 40-hex commit hash, snapshotted
+-- Outputs:
+--  - [table]: { [k] = blob sha } for `order/<k>.txt` (k from 0)
+-- Errors:
+--  - via exec: "bug found" if ls-tree fails
+-- Callers:
+--  - hardfork (sync.lua): find where two orders split
+--]]
+local function chunks (cid)
+    local out = exec {
+        cmd = "git -C " .. REPO .. " ls-tree " .. STATE.ref(cid) .. " order/",
+    }
+    local T = {}
+    for sha, k in out:gmatch("blob (%x+)\torder/(%d+)%.txt") do
+        T[tonumber(k)] = sha
+    end
+    return T
+end
+
+--[[
+-- The cids of one order chunk.
+-- Inputs:
+--  - sha [string]: the chunk's blob id
+-- Outputs:
+--  - [table]: array of cids
+-- Errors:
+--  - via exec: "bug found" if cat-file fails
+-- Callers:
+--  - hardfork (sync.lua): the first differing chunk
+--]]
+local function cids (sha)
+    local T = {}
+    local out = exec { trim=false,
+        cmd = "git -C " .. REPO .. " cat-file blob " .. sha,
+    }
+    for cid in out:gmatch("%x+") do
+        T[#T+1] = cid
+    end
+    return T
+end
+
+--[[
+-- Hard fork protects my current order: the new order must keep my
+-- SETTLED entries, those whose order time (`time.apply`) is
+-- `time.fork` behind the chain time (`G.now`).
 -- Consensus time is set at replay, so a loser merged today is
 -- loose for `time.fork` whatever its declared dates.
 -- Inputs:
---  - G     [table]: current state (order, actions[*].time.apply, now)
---  - G2    [table]: the new state (order), after replay
+--  - G   [table]: current state (order, actions[*].time.apply, now)
+--  - loc [string]: my tip, snapshotted (G's commit)
+--  - rem [string]: the winning remote tip, snapshotted
+--  - G2  [table]: the new state (order), after replay
 -- Outputs:
 --  - [boolean]: true = settled prefix reordered (hard fork)
 -- Errors:
@@ -44,40 +88,55 @@ local CONSENSUS = require "freechains.chain.consensus"
 -- Callers:
 --  - recv (sync.lua): only when the remote wins
 --]]
-local function hardfork (G, G2)
-    STATE.order(G)
-    STATE.order(G2)
-    local our, their = G.order, G2.order
+-- The new order starts with rem's order, the loser replay only
+-- appends: so the split point is the first index where the orders
+-- of the two SNAPSHOTS differ. Chunks are append-only and shared by
+-- blob id, so equal ids = equal prefixes: only the first differing
+-- chunk is read. `time.apply` grows along the order, so settled
+-- entries form a prefix: one read at the split decides.
+local function hardfork (G, loc, rem, G2)
+    local K = STATE.ORDER_K
+    local A, B = chunks(loc), chunks(rem)
+    local k = 0
+    while A[k] and (A[k] == B[k]) do
+        k = k + 1
+    end
 
-    -- `time.apply` grows along the order: walk back from the tip,
-    -- loading the entries in batches
-    local set
-    local i = #our
-    while i >= 1 do
-        local lo = math.max(1, i-255)
-        STATE.fetch(G, table.move(our, lo, i, 1, {}))
-        for j=i, lo, -1 do
-            local e = assert(G.actions[our[j]])
-            if G.now-assert(e.time.apply) >= C.time.fork then
-                set = j
+    local s
+    if not A[k] then
+        return false        -- my order is a prefix of the new one
+    elseif B[k] then
+        local a, b = cids(A[k]), cids(B[k])
+        for j = 1, #a do
+            if b[j] == nil then
+                break       -- rem's order ends inside my chunk
+            elseif a[j] ~= b[j] then
+                s = k*K + j
                 break
             end
         end
-        if set then
-            break
-        end
-        i = lo - 1
-    end
-
-    if set then
-        -- backwards: reorder near boundary far more often
-        for i=set, 1, -1 do
-            if their[i] ~= our[i] then
-                return true
-            end
+        if (not s) and (#a <= #b) then
+            return false    -- my order is a prefix of the new one
         end
     end
 
+    if s then
+        local e = assert(G.actions[G.order[s]])
+        return G.now-assert(e.time.apply) >= C.time.fork
+    end
+
+    -- rem's order is a strict prefix of mine (rare: its new commits
+    -- add no order entry): the split is inside the loser replay,
+    -- compare against the new order itself
+    STATE.order(G)
+    STATE.order(G2)
+    local our, their = G.order, G2.order
+    for i = 1, #our do
+        if their[i] ~= our[i] then
+            local e = assert(G.actions[our[i]])
+            return G.now-assert(e.time.apply) >= C.time.fork
+        end
+    end
     return false
 end
 
@@ -192,7 +251,7 @@ elseif ARGS.recv then
         if fst == rem then
             -- check hardfork: my current state vs the new order
             local G_loc = STATE.read(GIT.deref("HEAD"))
-            if hardfork(G_loc, G_fst) then
+            if hardfork(G_loc, loc, rem, G_fst) then
                 ERROR("chain sync : hard fork")
             end
 

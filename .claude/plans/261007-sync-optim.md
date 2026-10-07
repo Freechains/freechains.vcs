@@ -88,6 +88,31 @@
       split past my tip -> never a hard fork, no reads
 - cost: O(differing chunks) + one action read
 
+# Review (26/10/07)
+
+- fix 1 breaks payload healing
+    - today the pass re-fetches and re-anchors ANY action
+      missing its bytes, however old: a payload one peer lacked
+      arrives later from another
+    - affected set only: an old missing payload is never asked
+      for again
+    - "nothing new: skip": worse, the remote may hold the bytes
+      with no new commits
+    - fix: a local set of cids missing their bytes, always added
+      to the affected set; skip only when both are empty
+- fix 2: compare WRITTEN snapshots
+    - at the check, the remote-wins state holds the local loser
+      replayed in memory: its changed chunks have no blob ids
+    - the snapshot at `rem` is written: the first index where
+      order(rem) and order(HEAD) differ = the same split point
+    - chunk walk on those two refs; the one time read is HEAD's
+      entry at that index
+- fix 1 overlaps `260903-128KB.md` (main) step 2
+    - both fetch payloads by explicit cids, not
+      `refs/payloads/*`; 128KB adds an oversized list next to
+      the revoked exclusions
+    - same pass, two branches: write it once, or port one way
+
 # Expected
 
 - fix 1: -0.6 to -0.7 s per pull (~55% at 2,372 actions),
@@ -98,9 +123,16 @@
 
 # Order
 
-- [ ] fix 2 (local to `hardfork` in `sync.lua`)
+- [x] fix 2 (local to `hardfork` in `sync.lua`), on the `rem`
+  and HEAD snapshots (26/10/07, 45/45 suites pass)
+    - `ls-tree` of both refs' `order/`; first differing chunk id;
+      one `cat-file` per side; one `time.apply` read at the split
+    - fallback (rem's order a strict prefix of mine): the old
+      full compare against the new order; no test reaches it
+    - `STATE.ORDER_K` exported
+    - not measured yet: the -0.2 s per pull
 - [ ] fix 1 (affected set from `merge-base..HEAD` + vote
-  targets)
+  targets + missing-bytes set)
 
 # Won't do
 
