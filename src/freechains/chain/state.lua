@@ -750,6 +750,32 @@ local function listing (C, want)
 end
 
 --[[
+-- Mark cids known to be absent from the snapshot (a run's new
+-- commits: descendants of the floor, so never in its state), so the
+-- apply batch does not fetch each one to learn it is missing.
+-- Inputs:
+--  - G    [table]: chain state
+--  - cids [table]: array of cids
+-- Outputs:
+--  - none
+-- Errors:
+--  - none
+-- Callers:
+--  - state (consensus.lua): the run, before applying it
+--]]
+function M.absent (G, cids)
+    local C = CACHE[G]
+    if not C then
+        return
+    end
+    for _, cid in ipairs(cids) do
+        if not rawget(G.actions, cid) then
+            C.missing[cid] = true
+        end
+    end
+end
+
+--[[
 -- Pre-list, in ONE call, the dirs a run of writes will rebuild: both
 -- tops and the shards of the given actions and members. Each write
 -- then finds its listing cached (a run of N commits listed N times).

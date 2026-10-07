@@ -63,7 +63,9 @@ function M.state (cid, refs)
             end
         end
     end
-    -- the run's shards, listed once (each write would list its own)
+    -- the run's commits are new to the floor's state: no fetch to
+    -- learn it; its shards, listed once (each write would list its own)
+    STATE.absent(G, run)
     if #run > 1 then
         local pubs = {}
         for _, c in ipairs(run) do
