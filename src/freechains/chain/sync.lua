@@ -159,6 +159,9 @@ if ARGS.send then
     end
 
 elseif ARGS.recv then
+    -- for the payload pass: my tip before, the remote tip, and
+    -- whether the remote brought anything
+    local OLD, NEW, FRESH
     do
         exec {
             cmd = "git -C " .. REPO .. " fetch " .. URL(ARGS.remote, ARGS.alias) ..
@@ -172,6 +175,7 @@ elseif ARGS.recv then
         local rem = exec {
             cmd = "git -C " .. REPO .. " rev-parse FETCH_HEAD"
         }
+        OLD, NEW = loc, rem
 
         --[[
         -- Three cases:
@@ -209,6 +213,7 @@ elseif ARGS.recv then
                 goto RECV
             end
         end
+        FRESH = true
 
         -----------------------------------------------------------------------
 
@@ -320,58 +325,145 @@ elseif ARGS.recv then
         end
     end
 
-    -- Payload anchors follow the final sums (fetch + reconcile):
-    -- removed bytes must not return (negative refspecs), lingering
-    -- bytes re-anchor (restore), and a REVOKED action loses its
-    -- anchor. The final sums decide ONCE, here
+    -- Payload anchors follow the final sums, for the AFFECTED cids
+    -- only (a pull pays for what it brings, not for the chain):
+    --  - the remote side's actions, and the targets of its votes
+    --  - the targets of my side's votes (a voided vote moves them)
+    --  - the cids still missing their bytes (heal from any peer)
+    --  - the begs (their bytes ride the same anchors)
+    -- A REVOKED action loses its anchor; the others re-anchor from
+    -- bytes already here, else fetch their own ref (never `*`, so
+    -- removed bytes never return)
+    -- No missing-bytes file yet (older repo): one full pass builds it
     do
-        local G = STATE.read(GIT.deref("HEAD"))
-        STATE.all(G)
-
-        local exc = {}
-        for cid, e in pairs(G.actions) do
-            if RULES.is_revoked(e) then
-                exc[#exc+1] = " '^refs/payloads/" .. cid .. "'"
+        local MISS = REPO .. "payloads-missing"
+        local S, n, B = {}, 0, {}
+        local function add (cid)
+            if cid and (not S[cid]) then
+                S[cid] = true
+                n = n + 1
+                S[n] = cid
             end
         end
-        exec { err=false, stderr=false,
-            cmd = "git -C " .. REPO .. " fetch " .. URL(ARGS.remote, ARGS.alias) ..
-                " 'refs/payloads/*:refs/payloads/*'" .. table.concat(exc)
-        }
 
-        local has = {}
+        local G = STATE.read(GIT.deref("HEAD"))
+
+        local f = io.open(MISS)
+        if f then
+            for l in f:lines() do
+                add(l:match("%x+"))
+            end
+            f:close()
+        else
+            STATE.all(G)
+            for cid in pairs(G.actions) do
+                add(cid)
+            end
+        end
+
+        if FRESH then
+            local base = exec {
+                cmd = "git -C " .. REPO .. " merge-base " .. OLD .. " " .. NEW
+            }
+            for _, side in ipairs { {NEW,true}, {OLD,false} } do
+                local out = exec {
+                    cmd = "git -C " .. REPO .. " rev-list " .. base .. ".." .. side[1]
+                }
+                for cid in out:gmatch("%x+") do
+                    local t = ACTION.read(false, cid)
+                    if t then
+                        if side[2] then
+                            add(cid)
+                        end
+                        add(t.cid)
+                    end
+                end
+            end
+        end
+
         do
             local out = exec {
-                cmd = "git -C " .. REPO ..
-                    " for-each-ref refs/payloads/ --format='%(refname)'"
+                cmd = "git -C " .. REPO .. " for-each-ref refs/begs/ --format='%(objectname)'"
             }
-            for a in out:gmatch("refs/payloads/(%x+)") do
-                has[a] = true
+            for cid in out:gmatch("%x+") do
+                B[cid] = true
+                add(cid)
             end
         end
 
-        for cid, e in pairs(G.actions) do
-            if RULES.is_revoked(e) then
+        STATE.fetch(G, table.move(S, 1, n, 1, {}))
+
+        -- the anchors I hold: payload ref -> blob
+        local function anchors ()
+            local T = {}
+            local out = exec {
+                cmd = "git -C " .. REPO ..
+                    " for-each-ref refs/payloads/ --format='%(refname) %(objectname)'"
+            }
+            for a, sha in out:gmatch("refs/payloads/(%x+) (%x+)") do
+                T[a] = sha
+            end
+            return T
+        end
+        local has = anchors()
+
+        local want = {}     -- cid -> blob, still to fetch
+        local specs = {}
+        for i = 1, n do
+            local cid = S[i]
+            local e = G.actions[cid]
+            if e and RULES.is_revoked(e) then
                 if has[cid] then
                     exec {
                         cmd = "git -C " .. REPO ..
                             " update-ref -d refs/payloads/" .. cid
                     }
                 end
-            elseif not has[cid] then
+            elseif (e or B[cid]) and (not has[cid]) then
                 local t = ACTION.read(false, cid)
                 if t and t.blob then
-                    local have = exec { err=false, stderr=false,
+                    local here = exec { err=false, stderr=false,
                         cmd = "git -C " .. REPO .. " cat-file -e " .. t.blob
                     }
-                    if have then
+                    if here then
                         exec {
                             cmd = "git -C " .. REPO .. " update-ref refs/payloads/" ..
                                 cid .. " " .. t.blob
                         }
+                    else
+                        want[cid] = t.blob
+                        specs[#specs+1] = " 'refs/payloads/" .. cid ..
+                            "*:refs/payloads/" .. cid .. "*'"
                     end
                 end
             end
         end
+
+        -- one fetch; a glob per cid: a ref the remote lacks is no error
+        local miss = {}
+        if #specs > 0 then
+            exec { err=false, stderr=false,
+                cmd = "git -C " .. REPO .. " fetch " .. URL(ARGS.remote, ARGS.alias) ..
+                    table.concat(specs)
+            }
+            has = anchors()
+            for cid, blob in pairs(want) do
+                if has[cid] ~= blob then
+                    -- absent, or not the bytes the action names
+                    if has[cid] then
+                        exec {
+                            cmd = "git -C " .. REPO ..
+                                " update-ref -d refs/payloads/" .. cid
+                        }
+                    end
+                    miss[#miss+1] = cid
+                end
+            end
+        end
+
+        table.sort(miss)
+        local f = assert(io.open(MISS, "w"))
+        f:write(table.concat(miss, "\n"), (#miss > 0) and "\n" or "")
+        f:close()
     end
 end

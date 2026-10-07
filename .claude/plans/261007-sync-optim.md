@@ -35,6 +35,36 @@
   `STATE.all` 0.56, payload fetch 0.19)
 - a post at the same size: 0.21 s
 
+# Evidence after fix 2 (26/10/07, f271bee, sims)
+
+- scratch copy of the installed `sync.lua` with timers; copies
+  of a chat peer at 2,950 actions (swept); 1 new post per pull;
+  idle machine (the "before" profile ran with the sim busy)
+    - 1. `git fetch` main: 0.10-0.11 s
+    - 2. checks: 0.02 s
+    - 3. `CONSENSUS.state(rem)`, the new commit: 0.13-0.17 s
+    - 4-5. winner, replay: 0.00-0.01 s
+    - 6. `hardfork` + `update-ref HEAD`: 0.03-0.04 s (was
+      0.18-0.20 at 2,372 actions)
+    - 9. `STATE.read` + `STATE.all`: 0.27-0.30 s
+    - 10-12. payload pass: 0.12-0.13 s
+    - total: 0.73-0.76 s (was 1.25-1.33)
+- nothing new: 0.56 s (was 0.98); a post: 0.21 s (same)
+- only step 6 is fix 2's: steps 1, 9, 10-12 also ran faster
+  here (idle machine, swept receiver)
+- left for fix 1: steps 9 + 10-12 = 0.40-0.43 s (~55% of a
+  pull), also when nothing is new; expected pull after fix 1
+  ~0.3 s (fetch + apply + checks)
+
+# Evidence after fix 1 (26/10/07, f271bee + fix 1 staged)
+
+- same method, no timers: chat peer at 2,950 actions, swept
+    - pull, 1 new post: 0.79 (cold) / 0.49 / 0.51 s (fix 2
+      alone: 0.73-0.76)
+    - pull, nothing new: 0.17 s (was 0.56)
+    - post: 0.22 s (same); orders equal after the pulls
+- still above the expected ~0.3 s: profile the remainder
+
 # Cause 1: payload anchors over all actions (`sync.lua:264`)
 
 - every pull loads every action (`STATE.read` + `STATE.all`),
@@ -130,9 +160,25 @@
     - fallback (rem's order a strict prefix of mine): the old
       full compare against the new order; no test reaches it
     - `STATE.ORDER_K` exported
-    - not measured yet: the -0.2 s per pull
-- [ ] fix 1 (affected set from `merge-base..HEAD` + vote
-  targets + missing-bytes set)
+    - [x] measured (26/10/07, sims): `hardfork` + `update-ref
+      HEAD` 0.18-0.20 s -> 0.03-0.04 s (see Evidence)
+- [x] fix 1 (affected set from `merge-base..HEAD` + vote
+  targets + missing-bytes set) (26/10/07, 45/45 suites pass)
+    - set: remote side's actions + vote targets, my side's vote
+      targets, `payloads-missing` (repo dir), all begs
+    - no `STATE.all`, no `refs/payloads/*`, no negative refspecs:
+      one fetch with a glob per cid (`refs/payloads/<cid>*`), a
+      ref the remote lacks is no error (checked on git 2.43)
+    - a fetched ref is kept only if its target == the action's
+      blob (the fake-ref gap of 260903-128KB)
+    - no `payloads-missing` yet (older repo): one full pass
+      builds it
+    - small chains: +2-9% on sync, cli-send, consensus,
+      repl-remote-begs (fixed cost: merge-base, rev-lists, one
+      `ACTION.read` per new commit, two `for-each-ref`)
+    - untested: healing from a second peer, fake ref deletion
+    - [ ] measure in the sims (expected: steps 9-12, 0.40-0.43 s,
+      down to ~0.05 s)
 
 # Won't do
 
