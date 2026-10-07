@@ -76,9 +76,6 @@ local cid = ACTION.commit(
 --  - re-reads the action from minted commit
 --  - applies, orders, snapshots state
 
--- the pipeline reads the new commit and its parent: one cat-file
-GIT.cats { cid, HEAD }
-
 local refs = {}     -- the snapshot's ref, then the anchors: one call
 local ok, err = pcall(ACTION.apply, G, cid, ARGS.beg, refs)
 if not ok then

@@ -173,6 +173,8 @@ end
 -- Structural: derived from the DAG, never claimed.
 -- Inputs:
 --  - ps [table]: array of parent cids (revs)
+--  - G  [table?]: a state whose commit may be the one parent (its
+--    recorded tips then answer without a commit read)
 -- Outputs:
 --  - [table]: sorted array of action cids (the backs)
 -- Errors:
@@ -183,7 +185,11 @@ end
 --  - list dag (list.lua): structural ups of each node
 --  - list tips (list.lua): the DAG tips from HEAD
 --]]
-function M.backs (ps)
+function M.backs (ps, G)
+    -- the state's own commit: its tips are in the snapshot
+    if G and G.tips and (#ps == 1) and (ps[1] == G.cid) then
+        return table.move(G.tips, 1, #G.tips, 1, {})
+    end
     local ret = {}
     local see = {}
     local function rec (hs)
@@ -309,7 +315,7 @@ function M.apply (G, cid, beg, snap)
 
         -- backs are STRUCTURAL: derived here from the parents,
         -- never claimed (the cid IS the commit: git's Merkle binds ancestry)
-        local backs = M.backs(ps)
+        local backs = M.backs(ps, G)
 
         -- the CLAIMED signer, parsed from the memoized commit (no
         -- process): names the member to load before the signature
@@ -387,6 +393,11 @@ function M.apply (G, cid, beg, snap)
         G.order[#G.order+1] = cid
     end
 
+    -- G is now the state at `cid`: its tips are what a child's backs
+    -- fold (the action itself, or a merge's nearest actions)
+    G.cid  = cid
+    G.tips = isa and { cid } or M.backs(ps, G)
+
     ::SNAP::
 
     -- snapshot: `now` is ancestry-accurate (the replay's G.now may
@@ -402,7 +413,7 @@ function M.apply (G, cid, beg, snap)
         if isa then
             G.now = G.actions[cid].time.backs
         else
-            G.now = RULES.now(G, M.backs(ps))
+            G.now = RULES.now(G, G.tips)
         end
         STATE.write(G, cid, nil, (type(snap) == "table") and snap or nil)
         G.now = sav

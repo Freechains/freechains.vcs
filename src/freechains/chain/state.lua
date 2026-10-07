@@ -1,7 +1,11 @@
 -- per-commit state, stored as a git TREE pinned by a local ref:
 --  - `refs/local/<cid>` -> tree
 --      meta.lua                 { now, open, tot, min0012, headless,
---                                 order_n }
+--                                 order_n, cid, tips }
+--                               cid: the commit of this state; tips:
+--                               its nearest action ancestors (itself,
+--                               or a merge's backs), so a child's
+--                               backs need no commit read
 --      members/<xx>/<enc(pub)>.lua  { reps, time, head?, dictator? }
 --                               fanout by 2 hex chars of sha1(pub)
 --      heads.txt                the due-heads index: "time member"
@@ -967,6 +971,7 @@ function M.write (G, cid, dir, refs)
     put("meta.lua", table_to_string {
         now=G.now, open=G.open, tot=G.tot, min0012=G.min0012,
         headless=G.headless, order_n=#G.order,
+        cid=cid, tips=G.tips,
     } .. "\n")
     for pub in pairs(G.dirty.members) do
         put(mpath(pub), table_to_string(rawget(G.members, pub)) .. "\n")
@@ -1305,6 +1310,8 @@ function M.read (cid, dir)
             G.min0012  = t.min0012
             G.headless = t.headless
             G.order_n  = t.order_n
+            G.cid      = t.cid
+            G.tips     = t.tips
         elseif path == "heads.txt" then
             for time, member in s:gmatch("(%d+) ([^\n]+)\n") do
                 G.heads[#G.heads+1] = { time=tonumber(time), member=member }

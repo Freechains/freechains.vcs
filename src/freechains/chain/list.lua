@@ -18,7 +18,7 @@
 if ARGS.tips then
     -- tips: nearest action ancestors of HEAD, sorted cids;
     -- exactly the backs a new post would take (post.lua)
-    for _, cid in ipairs(ACTION.backs { GIT.deref("HEAD") }) do
+    for _, cid in ipairs(ACTION.backs({ HEAD }, G)) do
         print(cid)
     end
 

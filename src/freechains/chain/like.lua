@@ -132,8 +132,11 @@ local was_revoked = entry and RULES.is_revoked(entry)
 --  - re-reads the action from minted commit
 --  - applies, orders, snapshots state
 
--- the pipeline reads the new commit and its parents: one cat-file
-GIT.cats { cid, HEAD, beg }
+-- the pipeline reads the beg post (the new commit is memoized at
+-- its mint, the tip's backs are in the snapshot)
+if beg then
+    GIT.cats { beg }
+end
 
 local refs = {}     -- the snapshot's ref, then the anchors: one call
 local ok, err = pcall(ACTION.apply, G, cid, false, refs)
