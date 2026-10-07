@@ -204,21 +204,17 @@ elseif ARGS.recv then
 
         -----------------------------------------------------------------------
 
-        -- 1. reject unrelated histories (my root IS the genesis)
-        do
-            local rem_root = exec {
-                cmd = "git -C " .. REPO .. " rev-list --max-parents=0 " .. rem
-            }
-            if rem_root ~= GIT.ref("refs/genesis") then
-                ERROR("chain sync : incompatible genesis")
-            end
-        end
-
-        -- 2. remote has nothing new: the merge-base is the remote tip
-        -- (and a base at my tip is a plain fast-forward)
-        local base = exec {
+        -- 1+2. one merge-base: none = unrelated histories (my root IS
+        -- the genesis, so a history sharing an ancestor shares it; a
+        -- foreign root merged in is refused by the replay as a
+        -- malformed commit); the remote tip = nothing new; my tip = a
+        -- plain fast-forward
+        local base = exec { err=false, stderr=false,
             cmd = "git -C " .. REPO .. " merge-base " .. loc .. " " .. rem
         }
+        if not base then
+            ERROR("chain sync : incompatible genesis")
+        end
         if base == rem then
             goto RECV
         end
