@@ -180,6 +180,42 @@
     - [ ] measure in the sims (expected: steps 9-12, 0.40-0.43 s,
       down to ~0.05 s)
 
+# Process floor (26/10/07-08, one commit per fix, measured)
+
+- harness: scratch `bench.sh`, 40-post chain, `strace -f -e execve`
+  counts (lua + sh + git + ssh-keygen) per command; wall times
+  noisy (sims running, load avg ~6)
+- post 71 -> 26 procs (0.117 -> 0.056 s); like 71 -> 30;
+  reps 13 -> 9; recv of 3 posts 224 -> 69; clone of 52 commits
+  689 -> 467
+- git.lua: commit object memo (`GIT.cat`, `cats`), empty tree
+  constant, `GIT.refs` (one `update-ref --stdin`)
+- ssh.lua: base64 in Lua (no base64|xxd|tr pipelines), private
+  key parsed in Lua, verify with one `ssh-keygen -Y verify`
+- init: `rev-parse refs/genesis HEAD` once, HEAD/GENESIS globals
+- state.lua: one ls-tree per write; `load` (actions + members in
+  one batch); pending window in the eager batch; `has` memo and
+  `has_all`; `prelist` (a run's shards once); `absent`; snapshot
+  ref deferred into the caller's batch
+- rules/action: `RULES.needs` folds the advance window into the
+  apply batch; the claimed signer names the member before verify
+- sync recv: known tips (HEAD, FETCH_HEAD file), one merge-base,
+  fast-forward skips hardfork/voided/replay when no sync merge is
+  among the new commits, the final state kept in memory for the
+  payload pass, payload checks via `cat-file --batch-check`, one
+  ref batch; `maintenance.auto false` at init
+- left per post: rev-parse, ls-tree, cat-file (read), hash-object
+  (payload), commit-tree (+ssh-keygen), cat-file (parents),
+  cat-file (apply), ssh-keygen verify, hash-object, ls-tree,
+  mktree, update-ref = 12 git + 2 ssh-keygen
+- next: blob/tree writes of a run in one hash-object + one mktree
+  (clone: 2 per commit); `refs/state` ref or meta cid to drop the
+  rev-parse of reads; `list order` loads every action for the
+  revoked flag (O(N) data)
+- won't do: Lua loose objects (pure-Lua SHA-1 over the pending
+  buckets costs more than the process); skipping the writer's own
+  signature check (a design shortcut, not an optimization)
+
 # Won't do
 
 - parallel pulls into one peer (see `261005-races.md`)
