@@ -754,6 +754,18 @@ local function listing (C, want)
             keep_tree(C, d, (tree_id(ents)))
         end
     end
+    -- likewise a top listed by content ("top/"): its id is the one of
+    -- its shard entries, so an untouched top needs no listing later
+    for _, w in ipairs(want) do
+        local d = w:match("^(%a+)/$")
+        if d and (not C.dirs[d]) and C.kids[d] and next(C.kids[d]) then
+            local ents = {}
+            for name in pairs(C.kids[d]) do
+                ents[#ents+1] = { mode="040000", name=name, sha=assert(C.dirs[d .. "/" .. name]) }
+            end
+            keep_tree(C, d, (tree_id(ents)))
+        end
+    end
 end
 
 --[[

@@ -241,7 +241,7 @@ elseif ARGS.recv then
             -- the new commits' objects and snapshot checks, in one
             -- call each: the replay below reads every one of them,
             -- and the floor (my tip) as the first one's parent
-            local pre = table.move(NEWS, 1, #NEWS, 1, { loc })
+            local pre = table.move(NEWS, 1, #NEWS, 2, { loc })
             GIT.cats(pre)
             STATE.has_all(pre)
             for line in out:gmatch("[^\n]+") do
