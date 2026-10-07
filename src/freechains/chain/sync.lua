@@ -175,9 +175,19 @@ elseif ARGS.recv then
         }
 
         local loc = HEAD
-        local rem = exec {
-            cmd = "git -C " .. REPO .. " rev-parse FETCH_HEAD"
-        }
+        -- the remote tip: the fetch just wrote it to FETCH_HEAD (the
+        -- `main` line; the begs are "not-for-merge"), no rev-parse
+        local rem
+        do
+            local f = io.open(REPO .. "FETCH_HEAD")
+            if f then
+                rem = f:read("a"):match("(%x+)\t\tbranch 'main' of ")
+                f:close()
+            end
+            rem = rem or exec {
+                cmd = "git -C " .. REPO .. " rev-parse FETCH_HEAD"
+            }
+        end
         OLD, NEW = loc, rem
 
         --[[
