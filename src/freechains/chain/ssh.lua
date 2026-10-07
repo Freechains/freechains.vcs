@@ -201,7 +201,8 @@ function M.signer (repo, cid)
 end
 
 --[[
--- Verify a commit's SSH signature against its embedded pubkey.
+-- Verify a commit's SSH signature against its embedded pubkey
+-- (as `git verify-commit` would, with one ssh-keygen).
 -- Inputs:
 --  - repo [string]: git dir path
 --  - cid  [string]: 40-hex commit hash
@@ -214,21 +215,57 @@ end
 --  - apply (action.lua): authenticates every action
 --]]
 function M.verify (repo, cid)
+    local commit
+    if GIT and (repo == REPO) then
+        commit = GIT.cat(cid)
+    else
+        commit = exec { trim=false,
+            cmd = "git -C " .. repo .. " cat-file commit " .. cid,
+        }
+    end
+    assert(commit, "bug found : not a commit : " .. cid)
     local key = M.signer(repo, cid)
     if key == nil then
         return nil, 'unsigned'
     end
 
+    -- what `git verify-commit` does, in ONE ssh-keygen instead of
+    -- three processes (git + find-principals + verify): the signed
+    -- payload is the commit object without its gpgsig header (and
+    -- the header's continuation lines), the signature is the
+    -- armored block itself, the principal is git's fixed "git"
+    local payload, sig = {}, {}
+    local in_sig = false
+    for line in commit:gmatch("([^\n]*)\n") do
+        if in_sig and (line:sub(1, 1) == " ") then
+            sig[#sig+1] = line:sub(2)
+        elseif line:match("^gpgsig ") then
+            in_sig = true
+            sig[#sig+1] = line:sub(8)
+        else
+            in_sig = false
+            payload[#payload+1] = line
+        end
+    end
+
     -- per-repo scratch: the bare repo dir IS the git dir
-    local f = io.open(repo .. "/allowed_signers", "w")
-    f:write("git " .. key .. "\n")
-    f:close()
-    local out, code = exec { err=false,
-        cmd = "git -C " .. repo
-        .. " -c gpg.ssh.allowedSignersFile=allowed_signers"
-        .. " verify-commit " .. cid,
+    local function put (name, text)
+        local f = assert(io.open(repo .. "/" .. name, "w"))
+        f:write(text)
+        f:close()
+    end
+    put("allowed_signers", "git " .. key .. "\n")
+    put("verify-sig", table.concat(sig, "\n") .. "\n")
+    put("verify-msg", table.concat(payload, "\n") .. "\n")
+    local _, code = exec { err=false, stderr=false,
+        cmd = "ssh-keygen -Y verify -n git -I git"
+        .. " -f " .. repo .. "/allowed_signers"
+        .. " -s " .. repo .. "/verify-sig"
+        .. " < " .. repo .. "/verify-msg",
     }
     os.remove(repo .. "/allowed_signers")
+    os.remove(repo .. "/verify-sig")
+    os.remove(repo .. "/verify-msg")
     if code == 0 then
         return key
     else
