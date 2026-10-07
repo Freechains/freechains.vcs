@@ -97,6 +97,53 @@ function M.cat (cid)
 end
 
 --[[
+-- Memoize many commit objects in ONE `cat-file --batch` (a pull
+-- reads every new commit several times: parents, parse, signature).
+-- Inputs:
+--  - cids [table]: array of 40-hex commit hashes
+-- Outputs:
+--  - none: `cat` serves them from memory
+-- Errors:
+--  - via exec: "bug found" if cat-file fails
+-- Callers:
+--  - recv (sync.lua): the remote's new commits
+--]]
+function M.cats (cids)
+    local want = {}
+    for _, cid in ipairs(cids) do
+        if not OBJS[cid] then
+            want[#want+1] = cid
+        end
+    end
+    if #want == 0 then
+        return
+    end
+    local path = REPO .. "git-stdin"
+    local f = assert(io.open(path, "w"))
+    f:write(table.concat(want, "\n"), "\n")
+    f:close()
+    local out = exec { trim=false,
+        cmd = "git -C " .. REPO .. " cat-file --batch < " .. path,
+    }
+    os.remove(path)
+    -- "<sha> <type> <size>\n<bytes>\n" per object, or "<sha> missing\n"
+    local pos = 1
+    while pos <= #out do
+        local nl = out:find("\n", pos, true)
+        local sha, ty, size = out:sub(pos, nl-1):match("^(%x+) (%a+) (%d+)$")
+        if sha then
+            size = tonumber(size)
+            if ty == "commit" then
+                OBJS[sha] = out:sub(nl+1, nl+size)
+            end
+            pos = nl + size + 2
+        else
+            pos = nl + 1
+        end
+    end
+end
+
+--[[
 -- The tree of commit `cid`, from its header.
 -- Inputs:
 --  - cid [string]: 40-hex commit hash, derefed

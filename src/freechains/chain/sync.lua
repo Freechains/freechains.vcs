@@ -224,8 +224,14 @@ elseif ARGS.recv then
                 cmd = "git -C " .. REPO .. " rev-list --parents " .. base .. ".." .. rem
             }
             for line in out:gmatch("[^\n]+") do
+                NEWS[#NEWS+1] = line:match("^(%x+)")
+            end
+            -- the new commits' objects and snapshot checks, in one
+            -- call each: the replay below reads every one of them
+            GIT.cats(NEWS)
+            STATE.has_all(NEWS)
+            for line in out:gmatch("[^\n]+") do
                 local cid = line:match("^(%x+)")
-                NEWS[#NEWS+1] = cid
                 if ff and line:match("^%x+ %x+ %x+") and (not ACTION.is(cid)) then
                     ff = false
                 end
