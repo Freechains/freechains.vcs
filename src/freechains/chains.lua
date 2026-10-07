@@ -68,6 +68,11 @@ local function git_init (dir)
     exec {
         cmd = "git -C " .. dir .. " config pack.window 50"
     }
+    -- gc is manual (sweep): no `maintenance run --auto` child after
+    -- every fetch (one process less per fetch, two per recv)
+    exec {
+        cmd = "git -C " .. dir .. " config maintenance.auto false"
+    }
 
     -- bare repo: the repo dir IS the git dir
     exec {
