@@ -309,26 +309,10 @@ function M.apply (G, cid, beg, snap)
         -- never claimed (the cid IS the commit: git's Merkle binds ancestry)
         local backs = M.backs(ps)
 
-        -- one batch: the dedup check, the backs, a vote's target
-        do
-            local want = table.move(backs, 1, #backs, 1, {})
-            want[#want+1] = cid
-            if act.cid then
-                want[#want+1] = act.cid
-            end
-            STATE.fetch(G, want)
-        end
-
-        if G.actions[cid] then
-            -- the same action arrived in an earlier commit: already
-            -- in G; only the snapshot below matters
-            goto SNAP
-        end
-
-        local key, err = SSH.verify(REPO, cid)
-        if (not key) and err=='forged' then
-            error("malformed commit : invalid signature", 0)
-        end
+        -- the CLAIMED signer, parsed from the memoized commit (no
+        -- process): names the member to load before the signature
+        -- is verified below (the verified key is this one, or forged)
+        local key = SSH.signer(REPO, cid)
 
         -- an UNSIGNED post in an OPEN chain is charged to the
         -- shared anon account: from here on it IS an member, so
@@ -339,12 +323,37 @@ function M.apply (G, cid, beg, snap)
             key = C.anon
         end
 
-        -- the members this action touches, in one batch
-        STATE.members(G, {
-            key,
-            act.member,
-            act.cid and G.actions[act.cid] and G.actions[act.cid].member,
-        })
+        -- one batch: the dedup check, the backs, a vote's target,
+        -- and the members this action and the advance scan touch
+        do
+            local want = table.move(backs, 1, #backs, 1, {})
+            want[#want+1] = cid
+            if act.cid then
+                want[#want+1] = act.cid
+            end
+            local cids, pubs = RULES.needs(G, act.time, key)
+            table.move(cids, 1, #cids, #want+1, want)
+            pubs[#pubs+1] = act.member
+            STATE.load(G, want, pubs)
+        end
+
+        if G.actions[cid] then
+            -- the same action arrived in an earlier commit: already
+            -- in G; only the snapshot below matters
+            goto SNAP
+        end
+
+        do
+            local vkey, err = SSH.verify(REPO, cid)
+            if (not vkey) and err=='forged' then
+                error("malformed commit : invalid signature", 0)
+            end
+        end
+
+        -- a vote's target member: known only once the target loaded
+        if act.cid and G.actions[act.cid] then
+            STATE.members(G, { G.actions[act.cid].member })
+        end
 
         -- beg admission: a post begs when forced by the caller
         -- (writer --beg, beg sync) or unsigned; only a positive

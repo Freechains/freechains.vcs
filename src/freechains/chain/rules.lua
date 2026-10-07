@@ -167,6 +167,48 @@ local function reps_of (G, a)
 end
 
 --[[
+-- What `advance(G, time, sign)` will load: the actor, every member
+-- with a record in the pending window, the members whose heads are
+-- due, and the entries that may mature now.
+-- Inputs:
+--  - G    [table]: chain state (reads G.pending, G.heads)
+--  - time [integer]: the time driving the scans (act.time)
+--  - sign [string?]: the acting member's pubkey
+-- Outputs:
+--  - [table]: array of cids (entries maturing by `time`)
+--  - [table]: array of pubkeys, no repeats
+-- Errors:
+--  - none
+-- Callers:
+--  - advance (rules.lua): its own batches (no-ops once preloaded)
+--  - apply (action.lua): folded into the action's batch
+--]]
+function M.needs (G, time, sign)
+    local cids = {}
+    local pubs, seen = { sign }, {}
+    for _, r in ipairs(G.pending) do
+        if r.member and (not seen[r.member]) then
+            seen[r.member] = true
+            pubs[#pubs+1] = r.member
+        end
+        if r.maturity == "00-12" and r.time <= time then
+            cids[#cids+1] = r.cid
+        end
+    end
+    for _, h in ipairs(G.heads) do
+        if time >= h.time+C.time.full then
+            if not seen[h.member] then
+                seen[h.member] = true
+                pubs[#pubs+1] = h.member
+            end
+        else
+            break
+        end
+    end
+    return cids, pubs
+end
+
+--[[
 -- Advance time: discount refunds (12h), consolidation grants (24h).
 -- A revoked post consolidates without credit (rule 1.b).
 -- Then `now` advances.
@@ -197,15 +239,10 @@ function M.advance (G, time, sign)
     -- shrink set; `cur`/`TOT` are kept LIVE: a refund mid-scan is
     -- seen by the records after it
     if time>G.now or sign then
-        -- the members of the window, in one batch
+        -- the members of the window, in one batch (a no-op after
+        -- `apply` preloaded them with the action's own)
         do
-            local pubs, seen = { sign }, {}
-            for _, r in ipairs(P) do
-                if r.member and (not seen[r.member]) then
-                    seen[r.member] = true
-                    pubs[#pubs+1] = r.member
-                end
-            end
+            local _, pubs = M.needs(G, time, sign)
             STATE.members(G, pubs)
         end
 

@@ -409,16 +409,39 @@ end
 --  - list (list.lua): revoked marks over the order
 --  - all (state.lua): every entry
 --]]
-function M.fetch (G, cids)
+--[[
+-- Load actions and members into `G` in ONE batch, by PATH (no
+-- listing): already loaded and known-missing keys are skipped.
+-- Inputs:
+--  - G    [table]: chain state; MUTATED (G.actions, G.members)
+--  - cids [table?]: array of cids
+--  - pubs [table?]: array of pubkeys (nil entries allowed)
+-- Outputs:
+--  - none
+-- Errors:
+--  - none
+-- Callers:
+--  - fetch/members (state.lua): one kind each
+--  - apply (action.lua): the action's backs, target, members and the
+--    window advance will scan, together
+--]]
+function M.load (G, cids, pubs)
     local C = CACHE[G]
     if (not C) or (not C.root) then
         return
     end
     local ls = {}
-    for _, cid in ipairs(cids) do
+    for _, cid in ipairs(cids or {}) do
         if not (rawget(G.actions, cid) or C.missing[cid]) then
             C.missing[cid] = true   -- until proven present
             ls[#ls+1] = C.root .. ":" .. apath(cid) .. " " .. apath(cid)
+        end
+    end
+    for _, pub in pairs(pubs or {}) do
+        if not (rawget(G.members, pub) or C.missing_m[pub]) then
+            C.missing_m[pub] = true
+            local path = mpath(pub)
+            ls[#ls+1] = C.root .. ":" .. path .. " " .. path
         end
     end
     if #ls == 0 then
@@ -429,10 +452,20 @@ function M.fetch (G, cids)
     batch(out, function (path, s, sha)
         C.src[path] = s
         keep_blob(C, path, sha)
-        local cid = path:match("(%x+)%.lua$")
-        C.missing[cid] = nil
-        rawset(G.actions, cid, load("return " .. s)())
+        if path:match("^actions/") then
+            local cid = path:match("(%x+)%.lua$")
+            C.missing[cid] = nil
+            rawset(G.actions, cid, load("return " .. s)())
+        else
+            local pub = dec(path:match("([^/]+)%.lua$"))
+            C.missing_m[pub] = nil
+            rawset(G.members, pub, load("return " .. s)())
+        end
     end)
+end
+
+function M.fetch (G, cids)
+    M.load(G, cids, nil)
 end
 
 --[[
@@ -480,30 +513,7 @@ end
 --  - members_all (state.lua): every member
 --]]
 function M.members (G, pubs)
-    local C = CACHE[G]
-    if (not C) or (not C.root) then
-        return
-    end
-    local ls = {}
-    for _, pub in pairs(pubs) do
-        if not (rawget(G.members, pub) or C.missing_m[pub]) then
-            C.missing_m[pub] = true
-            local path = mpath(pub)
-            ls[#ls+1] = C.root .. ":" .. path .. " " .. path
-        end
-    end
-    if #ls == 0 then
-        return
-    end
-    local out = git_in(C.dir, "cat-file --batch='%(objectname) %(objectsize) %(rest)'",
-        table.concat(ls, "\n") .. "\n")
-    batch(out, function (path, s, sha)
-        C.src[path] = s
-        keep_blob(C, path, sha)
-        local pub = dec(path:match("([^/]+)%.lua$"))
-        C.missing_m[pub] = nil
-        rawset(G.members, pub, load("return " .. s)())
-    end)
+    M.load(G, nil, pubs)
 end
 
 --[[
