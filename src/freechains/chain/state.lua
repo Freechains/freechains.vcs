@@ -1080,6 +1080,13 @@ function M.read (cid, dir)
     if tail then
         blobs[#blobs+1] = CC.tree[tail] .. " " .. tail
     end
+    -- so do the newest two pending days: the window is ~13h, two
+    -- days at most, unless an old maturing record holds it open
+    -- (then the rest loads below, after meta says so)
+    table.sort(pend)
+    for i = math.max(1, #pend-1), #pend do
+        blobs[#blobs+1] = CC.tree[pend[i]] .. " " .. pend[i]
+    end
     local out = ""
     if #blobs > 0 then
         out = git_in(dir, "cat-file --batch='%(objectname) %(objectsize) %(rest)'",
@@ -1104,6 +1111,9 @@ function M.read (cid, dir)
             end
         elseif d == "order" then
             G.tail = s
+        elseif d == "pending" then
+            G.loaded[tonumber(name)] = true
+            rec_dec(s, G.pending)
         end
     end)
     assert(G.tot, "bug found : snapshot without tot : " .. cid)
@@ -1133,13 +1143,12 @@ function M.read (cid, dir)
     -- pending: every bucket day is known, only the WINDOW is loaded:
     -- from the oldest maturing (00-12/beg) record or 13h back,
     -- whichever is older; older days load on demand (`M.day`)
-    table.sort(pend)
     local lo = math.min(G.min0012 or G.now, G.now - C.time.half - C.time.diff) // DAY
     local want = {}
     for _, path in ipairs(pend) do
         local day = tonumber(path:match("(%d+)%.txt$"))
         G.pdays[#G.pdays+1] = day
-        if day >= lo then
+        if (day >= lo) and (not G.loaded[day]) then
             want[#want+1] = CC.tree[path] .. " " .. path
             G.loaded[day] = true
         end
@@ -1151,6 +1160,8 @@ function M.read (cid, dir)
             CC.src[path] = s
             rec_dec(s, G.pending)
         end)
+    end
+    if #G.pending > 0 then
         table.sort(G.pending, function (a, b)
             if a.time == b.time then
                 return a.cid < b.cid
