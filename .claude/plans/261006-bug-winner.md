@@ -66,8 +66,16 @@ cd tst && BW_INIT=/abs/out.bundle LUA_PATH="../src/?.lua;../src/?/init.lua;;" lu
     - `DRYMERGE` (tst/tests.lua): `merge-base` only, no
       `merge-tree --write-tree` (git >= 2.38, local is 2.34);
       empty trees never conflict
+- [x] ported to `260914-tree-trash` (2026-10-07): all tests pass
+    - `action.lua`: `if snap then`, the tree store's `write` is
+      already create-only (no `STATE.has`)
+    - the tree store keeps per-write deltas right: each write
+      moves the base tree and clears the dirty marks
 
 # Pending
+
+- cost on the tree store: one lazy `STATE.read(com)` per inner
+  fork, plus `state()` writes; measure against the 260914 runs
 
 - truncated loser: the new merge's parents are (fst, last valid
   loser commit); `state` re-decides that pair, a shorter loser
