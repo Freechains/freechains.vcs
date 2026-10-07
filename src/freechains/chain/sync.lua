@@ -155,21 +155,20 @@ elseif ARGS.recv then
 
         -- 3. need common ancestor
 
-        local oct = CONSENSUS.octopus(loc, rem)
-        local G_oct = STATE.read(oct)
-
-        -- needs fst/winner - snd/loser (do now b/c replay mutates G_oct)
-        local fst, snd = CONSENSUS.winner(G_oct, loc, rem)
-
-        -- remote validation: always replay oct -> rem
-        -- malformed commits reject the whole sync
-        local G_rem = G_oct -- (G_oct no longer required)
+        -- remote validation: the remote tip's own-lineage state
+        -- (snapshots every new commit), malformed commits reject the
+        -- whole sync
+        local G_rem
         do
-            local ok, err = pcall(CONSENSUS.replay, G_rem, oct, rem, false)
+            local ok, ret = pcall(CONSENSUS.state, rem)
             if not ok then
-                ERROR("chain sync : " .. err)
+                ERROR("chain sync : " .. ret)
             end
+            G_rem = ret
         end
+
+        -- fst/winner - snd/loser: reps at their merge-base
+        local fst, snd = CONSENSUS.winner(loc, rem)
 
         -- winner state:
         --  me: as is
@@ -223,13 +222,9 @@ elseif ARGS.recv then
             GIT.commit(true, nil, {
                 parents = { GIT.deref("HEAD"), merge },
             })
-            -- the merge tip is new: snapshot the final state there
-            -- (a merge adds no time: fold its parents' actions)
-            G_fst.now = RULES.now(G_fst, ACTION.backs {
-                GIT.deref("HEAD^1"),
-                GIT.deref("HEAD^2"),
-            })
-            STATE.write(G_fst, GIT.deref("HEAD"))
+            -- the merge tip is new: snapshot it as any peer derives it
+            -- from the DAG (not from this replay's path)
+            CONSENSUS.state(GIT.deref("HEAD"))
         end
     end
 
@@ -255,7 +250,7 @@ elseif ARGS.recv then
                 local ps = GIT.parents(cid)
                 keep = (#ps == 1) and STATE.has(ps[1])
                 if keep then
-                    keep = pcall(ACTION.apply, STATE.read(ps[1]), cid, true)
+                    keep = pcall(ACTION.apply, STATE.read(ps[1]), cid, true, true)
                 end
             end
             if not keep then

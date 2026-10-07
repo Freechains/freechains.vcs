@@ -993,7 +993,8 @@ end
 -- Callers:
 --  - init (chain/init.lua): G = state at HEAD
 --  - like (like.lua): beg-branch state preload
---  - recv (sync.lua): octopus/HEAD/beg-parent states
+--  - recv (sync.lua): HEAD/beg-parent states
+--  - state (consensus.lua): the nearest snapshot below a commit
 --]]
 function M.read (cid, dir)
     dir = dir or REPO

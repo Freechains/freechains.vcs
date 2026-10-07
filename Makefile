@@ -47,6 +47,7 @@ tests:
 	$(L) repl-local-begs.lua
 	$(L) repl-remote-begs.lua
 	$(L) bug-now-skew.lua
+	$(L) bug-winner.lua
 	# slow tests last (many posts / big chains)
 	$(L) consensus.lua
 	@rm -Rf /tmp/freechains/

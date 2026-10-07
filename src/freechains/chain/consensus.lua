@@ -1,68 +1,94 @@
 local M = {}
 
 --[[
--- Boundary octopus: common ancestor of every point where region between `a`
--- and `b` attaches to shared history.
+-- The own-lineage state at `cid`: a function of the DAG below it.
+-- Reads the snapshot, or derives it from the parents' states and
+-- snapshots every commit on the way (never from a running replay).
+--  - 1 parent: state(parent) + `cid`
+--  - sync merge: state(winner) + loser side, `winner` decided by
+--    the reps at the pair's merge-base
+--  - beg merge (`like`): state(main) + beg side + `cid`
 -- Inputs:
---  - a [string]: 40-hex commit hash (one tip)
---  - b [string]: 40-hex commit hash (the other tip)
+--  - cid [string]: 40-hex commit hash, derefed
 -- Outputs:
---  - [string]: the octopus merge-base cid
+--  - [table]: the state at `cid` (a fresh copy: callers may mutate)
 -- Errors:
---  - via exec: "bug found" if rev-list/merge-base fail
+--  - "malformed commit : expected 2-parent merge" : >2 parents
+--  - re-raises ACTION.apply rejections
 -- Callers:
---  - recv (sync.lua): where the remote replay starts
---  - meet (consensus.lua): floor of each inner fork
+--  - winner (consensus.lua): reps at the fork floor
+--  - recv (sync.lua): remote validation, the new merge snapshot
 --]]
--- Sits BELOW every fork inside that region, so a replay starting
--- here re-derives all of it, including merges nested deeper than
--- the outer one.
--- With a single fork it degenerates to the pairwise merge-base.
-function M.octopus (a, b)
-    local out = exec {
-        cmd = "git -C " .. REPO .. " rev-list --boundary " .. a .. "..." .. b
-    }
-    local boundary = {}
-    for line in out:gmatch("[^\n]+") do
-        local h = line:match("^%-(%x+)")
-        if h then
-            boundary[#boundary+1] = h
+-- A first-parent run without snapshots is collected first and
+-- applied bottom-up, so long chains do not recurse.
+function M.state (cid)
+    local run = {}
+    local cur = cid
+    local G
+    while true do
+        if STATE.has(cur) then
+            G = STATE.read(cur)
+            break
+        else
+            local ps = GIT.parents(cur)
+            if #ps == 1 then
+                run[#run+1] = cur
+                cur = ps[1]
+            elseif #ps == 2 then
+                local l, r = ps[1], ps[2]
+                local t = ACTION.read(false, cur)
+                if t and t.action=='like' then
+                    -- the beg's own lineage: its parent + itself, as admitted
+                    if not STATE.has(r) then
+                        local B = M.state(GIT.parents(r)[1])
+                        ACTION.apply(B, r, true, true)
+                    end
+                    G = M.state(l)
+                    M.replay(G, l, r, false, true)
+                else
+                    local w, lo = M.winner(l, r)
+                    G = M.state(w)
+                    M.replay(G, w, lo, false)
+                end
+                ACTION.apply(G, cur, false, true)
+                break
+            else
+                error("malformed commit : expected 2-parent merge", 0)
+            end
         end
     end
-    return exec {
-        cmd = "git -C " .. REPO .. " merge-base --octopus " .. table.concat(boundary, " ")
-    }
+    for i = #run, 1, -1 do
+        ACTION.apply(G, run[i], false, true)
+    end
+    return G
 end
 
 --[[
--- Consensus: prefix reps from `G` decide the fork winner.
--- Traverse com..tip per side, collect signed keys, sum their G reps.
+-- Consensus: reps at the fork floor `com` decide the fork winner.
+-- Traverse com..tip per side, collect signed keys, sum their reps at
+-- `com` (own-lineage state, never the caller's running replay).
 -- Higher sum wins, smaller cid breaks ties.
 -- Inputs:
---  - G [table]: state at the fork floor (region prefix) with reps that vote
 --  - a [string]: 40-hex commit hash (one tip)
 --  - b [string]: 40-hex commit hash (the other tip)
 -- Outputs:
 --  - [string, string]: winner, loser (FF: ancestor loses)
 -- Errors:
 --  - via exec: "bug found" if git traversal fails
+--  - re-raises M.state errors (the floor state)
 -- Callers:
 --  - recv (sync.lua): pick fst/snd between local and remote
 --  - meet (consensus.lua): order each inner fork's replay
+--  - state (consensus.lua): order a merge's two parents
 --]]
--- Two ancestors, two different questions:
---   oct:  how much history must I RE-DERIVE
---         deep: below every fork in the region
---   base: what did each side CONTRIBUTE
---         shallow: disjoint, no shared commits
---
--- `com` is the pairwise merge-base, computed HERE so no caller can
--- pass the octopus `oct` instead: from a deeper point the two
--- ranges overlap, and since reps are summed over the SET of
--- members, a commit both sides already hold hands its member's
--- full reps to whichever side lacked them -- letting undisputed
--- history decide a disputed merge.
-function M.winner (G, a, b)
+-- `com` is the pairwise merge-base, computed HERE, and so is its
+-- state: a caller's state depends on where its replay started (its
+-- HEAD), so peers at the same DAG would score the same fork apart.
+-- From a deeper point the two ranges would also overlap, and since
+-- reps are summed over the SET of members, a commit both sides
+-- already hold would hand its member's full reps to whichever side
+-- lacked them -- letting undisputed history decide a disputed merge.
+function M.winner (a, b)
     local com = (exec {
         cmd = "git -C " .. REPO .. " merge-base " .. a .. " " .. b
     }):match("%x+")
@@ -73,6 +99,8 @@ function M.winner (G, a, b)
     elseif com == b then
         return a, b
     end
+
+    local G = M.state(com)
 
     --[[
     -- The members that signed `tip`'s side of the fork.
@@ -190,6 +218,7 @@ end
 --  - com   [string]: floor cid (already in G)
 --  - tip   [string]: target cid
 --  - trunc [boolean?]: the branch is a LOSER, so first failure voids the rest
+--  - beg   [boolean?]: beg admission for the branch (beg merge)
 -- Outputs:
 --  - [string?]: last commit applied
 --  - [string?]: the voiding error (trunc only)
@@ -197,13 +226,14 @@ end
 --  - re-raises ACTION.apply rejections (trunc = false); a
 --    malformed loser is caught earlier, on its own validation
 -- Callers:
---  - recv (sync.lua): remote validation, then loser replay
+--  - recv (sync.lua): loser replay
+--  - state (consensus.lua): a merge's loser side
 --]]
 -- visited: never re-processes a commit (`ACTION.apply` itself skips
 -- an action already in `G`, so shared history never re-applies)
 -- ancestor(cur,com): stops climb from descending below its floor
 -- without these the inner meet underflows to a root
-function M.replay (G, com, tip, trunc)
+function M.replay (G, com, tip, trunc, beg)
     local visited = {}
     local last          -- last commit applied
 
@@ -268,8 +298,10 @@ function M.replay (G, com, tip, trunc)
     end
 
     --[[
-    -- Resolve one fork: find its floor (octopus), climb there,
-    -- then climb winner side first (consensus decides).
+    -- Resolve one fork: decide the winner BEFORE climbing, then
+    -- climb winner side first (consensus decides). Shared history
+    -- lands in the winner side's own order, never pre-applied.
+    -- A beg merge keeps the writer's order: main, then the beg.
     -- Inputs:
     --  - G     [table]: chain state; MUTATED
     --  - com   [string]: outer floor cid
@@ -284,19 +316,17 @@ function M.replay (G, com, tip, trunc)
     --  - climb (consensus.lua): on every 2-parent merge
     --]]
     meet = function (G, com, left, right, right_is_beg)
-        local up = M.octopus(left, right)
-        climb(G, com, up, false)
-        local w = M.winner(G, left, right)
-        if w == left then
-            climb(G, up, left,  false)
-            climb(G, up, right, right_is_beg)
+        if right_is_beg then
+            climb(G, com, left,  false)
+            climb(G, com, right, true)
         else
-            climb(G, up, right, right_is_beg)
-            climb(G, up, left,  false)
+            local w, l = M.winner(left, right)
+            climb(G, com, w, false)
+            climb(G, com, l, false)
         end
     end
 
-    local ok, e = pcall(climb, G, com, tip, false)
+    local ok, e = pcall(climb, G, com, tip, beg or false)
     if ok then
         return last
     elseif trunc then

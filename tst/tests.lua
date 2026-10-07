@@ -186,19 +186,13 @@ function MERGE (dir, other)
 end
 
 -- dry-run merge on the bare repo `dir`: would HEAD+other merge
--- cleanly? merge-tree computes the tree with no worktree, so
--- there is nothing to abort. Unrelated histories fail too
+-- cleanly? every commit carries the EMPTY tree, so related
+-- histories never conflict: a common ancestor is enough.
+-- Unrelated histories fail (no `merge-tree --write-tree`: git >= 2.38)
 function DRYMERGE (dir, other)
-    local ok = exec { err=false, stderr=false,
+    return exec { err=false, stderr=false,
         cmd = "git -C " .. dir .. " merge-base HEAD " .. other,
     }
-    if not ok then
-        return false
-    end
-    local _, code = exec { err=false, stderr=false,
-        cmd = "git -C " .. dir .. " merge-tree --write-tree HEAD " .. other,
-    }
-    return code == 0
 end
 
 -- the state snapshot at `dir`'s HEAD (tree at refs/local/<hash>)
