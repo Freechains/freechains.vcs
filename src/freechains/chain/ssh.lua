@@ -42,21 +42,30 @@ end
 -- Extract CLAIMED pubkey from a commit gpgsig header
 -- (parses the SSHSIG armored blob; does NOT verify it).
 -- Inputs:
---  - repo [string]: git dir path
+--  - repo [string]: git dir path (REPO uses the chain's commit memo)
 --  - cid  [string]: 40-hex commit hash
 -- Outputs:
 --  - [string?]: "ssh-ed25519 <base64>", nil if unsigned
 -- Errors:
---  - via exec: "bug found" if cat-file/base64/xxd fail
+--  - "bug found : not a commit" : unknown cid
+--  - via exec: "bug found" if base64/xxd fail
 -- Callers:
 --  - read (action.lua): opt-in `t.sign` (display only)
 --  - collect_keys (consensus.lua): reps summing per side
 --  - verify (ssh.lua): the key the signature is checked against
 --]]
 function M.signer (repo, cid)
-    local commit = exec {
-        cmd = "git -C " .. repo .. " cat-file commit " .. cid,
-    }
+    -- the chain's memo when in chain context (tests call this
+    -- module alone, on any repo)
+    local commit
+    if GIT and (repo == REPO) then
+        commit = GIT.cat(cid)
+    else
+        commit = exec { trim=false,
+            cmd = "git -C " .. repo .. " cat-file commit " .. cid,
+        }
+    end
+    assert(commit, "bug found : not a commit : " .. cid)
     if not commit:match("\ngpgsig ") then
         return nil
     end

@@ -66,6 +66,54 @@ function M.commit (ref, err, t)
 end
 
 local MEMO = {}
+local OBJS = {}
+
+--[[
+-- The raw commit object of `cid` (headers, blank line, message),
+-- memoized: one `cat-file` serves every parse of the same commit
+-- (ACTION.is/read, the parents, the tree, the signature).
+-- Inputs:
+--  - cid [string]: 40-hex commit hash, derefed (immutable fact)
+-- Outputs:
+--  - [string?]: the object text, nil if `cid` is not a commit
+--    (misses are not memoized: a fetch may bring it later)
+-- Errors:
+--  - none
+-- Callers:
+--  - parents/tree_of (git.lua): the header lines
+--  - is/read (action.lua): the message
+--  - signer (ssh.lua): the gpgsig header
+--]]
+function M.cat (cid)
+    local out = OBJS[cid]
+    if out == nil then
+        out = exec { trim=false, err=false, stderr=false,
+            cmd = "git -C " .. REPO .. " cat-file commit " .. cid,
+        }
+        if out then
+            OBJS[cid] = out
+        else
+            out = nil
+        end
+    end
+    return out
+end
+
+--[[
+-- The tree of commit `cid`, from its header.
+-- Inputs:
+--  - cid [string]: 40-hex commit hash, derefed
+-- Outputs:
+--  - [string?]: 40-hex tree hash, nil if not a commit
+-- Errors:
+--  - none
+-- Callers:
+--  - apply (action.lua): the anti-smuggling tree check
+--]]
+function M.tree_of (cid)
+    local out = M.cat(cid)
+    return out and out:match("^tree (%x+)\n")
+end
 
 --[[
 -- Resolve a ref/rev (HEAD, HEAD^1, refs/...) to its cid.
@@ -96,7 +144,7 @@ end
 --  - [table]: array of parent cids, empty for a root;
 --    the MEMOIZED table itself: NEVER mutate it
 -- Errors:
---  - via exec: "bug found" if rev-list fails (unknown cid)
+--  - "bug found : not a commit" : unknown cid
 -- Callers:
 --  - backs/apply (action.lua): structural ancestry
 --  - climb (consensus.lua): replay descent
@@ -107,16 +155,17 @@ function M.parents (cid)
     if MEMO[cid] then
         return MEMO[cid]
     end
-    local out = exec {
-        cmd = "git -C " .. REPO .. " rev-list --parents -1 " .. cid,
-        -- $ git rev-list --parents -1 a1b2c3...
-        -- a1b2c3... d4e5f6... 7890ab...  # merge: 2 parents
-    }
+    -- the header lines, before the first blank line:
+    --   tree <hash>
+    --   parent <hash>      (0: root, 1: action, 2: merge)
+    local out = M.cat(cid)
+    if not out then
+        error("bug found : not a commit : " .. cid)
+    end
     local ps = {}
-    for h in out:gmatch("%x+") do
+    for h in out:match("^(.-)\n\n"):gmatch("\nparent (%x+)") do
         ps[#ps+1] = h
     end
-    table.remove(ps, 1)
     MEMO[cid] = ps
     return ps
 end

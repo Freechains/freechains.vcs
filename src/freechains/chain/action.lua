@@ -38,9 +38,7 @@ local M = {}
 function M.read (asr, cid, opt)
     opt = opt or {}
     do
-        local out = exec { trim=false, err=false, stderr=false,
-            cmd = "git -C " .. REPO .. " cat-file commit " .. cid
-        }
+        local out = GIT.cat(cid)
         if not out then
             goto ERR
         end
@@ -156,9 +154,7 @@ end
 --  - recv (sync.lua): voided-commit listing
 --]]
 function M.is (cid)
-    local out = exec { trim=false, err=false, stderr=false,
-        cmd = "git -C " .. REPO .. " cat-file commit " .. cid,
-    }
+    local out = GIT.cat(cid)
     if not out then
         return false
     end
@@ -280,13 +276,8 @@ function M.apply (G, cid, beg, snap)
 
     -- EVERY commit carries the empty tree: content in a tree would
     -- be smuggled bytes, relayed forever and un-revocable
-    do
-        local t = exec { err=false, stderr=false,
-            cmd = "git -C " .. REPO .. " rev-parse " .. cid .. "^{tree}",
-        }
-        if t ~= GIT.tree() then
-            error("malformed commit : unexpected tree", 0)
-        end
+    if GIT.tree_of(cid) ~= GIT.tree() then
+        error("malformed commit : unexpected tree", 0)
     end
 
     -- empty message: must be a 2-parent sync merge (the genesis,
@@ -314,9 +305,13 @@ function M.apply (G, cid, beg, snap)
             error("malformed commit : invalid time", 0)
         end
 
+        -- backs are STRUCTURAL: derived here from the parents,
+        -- never claimed (the cid IS the commit: git's Merkle binds ancestry)
+        local backs = M.backs(ps)
+
         -- one batch: the dedup check, the backs, a vote's target
         do
-            local want = M.backs(ps)
+            local want = table.move(backs, 1, #backs, 1, {})
             want[#want+1] = cid
             if act.cid then
                 want[#want+1] = act.cid
@@ -343,10 +338,6 @@ function M.apply (G, cid, beg, snap)
         if (kind == 'post') and (not key) and G.open then
             key = C.anon
         end
-
-        -- backs are STRUCTURAL: derived here from the parents,
-        -- never claimed (the cid IS the commit: git's Merkle binds ancestry)
-        local backs = M.backs(ps)
 
         -- the members this action touches, in one batch
         STATE.members(G, {
