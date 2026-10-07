@@ -32,11 +32,11 @@ elseif ARGS.begs then
     end
 
 elseif ARGS.revokes then
-    -- revoked payloads only, in consensus order (bare cids)
+    -- revoked payloads only, in consensus order (bare cids): the
+    -- snapshot's revoked set, no entry loaded
     STATE.order(G)
-    STATE.fetch(G, G.order)
     for _, cid in ipairs(G.order) do
-        if G.actions[cid] and RULES.is_revoked(G.actions[cid]) then
+        if G.revoked[cid] then
             print(cid)
         end
     end
@@ -44,9 +44,8 @@ elseif ARGS.revokes then
 elseif ARGS.order then
     -- consensus order (cids); revoked payloads wrapped in ~cid~
     STATE.order(G)
-    STATE.fetch(G, G.order)
     for _, cid in ipairs(G.order) do
-        if G.actions[cid] and RULES.is_revoked(G.actions[cid]) then
+        if G.revoked[cid] then
             print("~" .. cid .. "~")
         else
             print(cid)

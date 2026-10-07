@@ -8,6 +8,8 @@
 --                               backs need no commit read
 --      members/<xx>/<enc(pub)>.lua  { reps, time, head?, dictator? }
 --                               fanout by 2 hex chars of sha1(pub)
+--      revoked.txt              the revoked cids, one per line (the
+--                               listings need no entry for the flag)
 --      heads.txt                the due-heads index: "time member"
 --                               per member with a waiting 12-24
 --                               record, sorted by time
@@ -791,7 +793,7 @@ end
 --  - genesis (chains.lua): a G built from scratch
 --]]
 function M.dirty (G, all)
-    local D = { actions={}, members={}, pending={}, heads=all or false }
+    local D = { actions={}, members={}, pending={}, heads=all or false, revoked=all or false }
     if all then
         for k in pairs(G.actions) do
             D.actions[k] = true
@@ -982,6 +984,21 @@ function M.write (G, cid, dir, refs)
             ls[i] = h.time .. " " .. h.member
         end
         put("heads.txt", table.concat(ls, "\n") .. "\n")
+    end
+    if G.dirty.revoked and G.revoked then
+        local ls = {}
+        for cid in pairs(G.revoked) do
+            ls[#ls+1] = cid
+        end
+        table.sort(ls)
+        if #ls > 0 then
+            put("revoked.txt", table.concat(ls, "\n") .. "\n")
+        elseif C.tree["revoked.txt"] then
+            C.tree["revoked.txt"] = nil
+            C.src["revoked.txt"] = nil
+            C.kids[""]["revoked.txt"] = nil
+            paths[#paths+1] = "revoked.txt"   -- rebuilds the root
+        end
     end
     for k in pairs(G.dirty.actions) do
         put(apath(k), table_to_string(rawget(G.actions, k)) .. "\n")
@@ -1247,7 +1264,7 @@ function M.read (cid, dir)
     -- the eager dirs and meta, with their tree shas (`actions` is
     -- listed on demand)
     local ls = exec { trim=false, err=false, stderr=false,
-        cmd = "git -C " .. dir .. " ls-tree -r -t --format='%(objecttype) %(objectname) %(path)' " .. root .. " meta.lua heads.txt order pending",
+        cmd = "git -C " .. dir .. " ls-tree -r -t --format='%(objecttype) %(objectname) %(path)' " .. root .. " meta.lua heads.txt revoked.txt order pending",
     }
     assert(ls, "bug found : no snapshot : " .. cid)
     -- meta first: the pending window depends on it
@@ -1289,7 +1306,7 @@ function M.read (cid, dir)
             table.concat(blobs, "\n") .. "\n")
     end
 
-    local G = { actions={}, members={}, order={}, pending={}, loaded={}, pdays={}, heads={} }
+    local G = { actions={}, members={}, order={}, pending={}, loaded={}, pdays={}, heads={}, revoked={} }
     batch(out, function (path, s)
         CC.src[path] = s
         local d, name = path:match("^(.*)/([^/]+)%.%a+$")
@@ -1306,6 +1323,10 @@ function M.read (cid, dir)
         elseif path == "heads.txt" then
             for time, member in s:gmatch("(%d+) ([^\n]+)\n") do
                 G.heads[#G.heads+1] = { time=tonumber(time), member=member }
+            end
+        elseif path == "revoked.txt" then
+            for cid in s:gmatch("%x+") do
+                G.revoked[cid] = true
             end
         elseif d == "order" then
             G.tail = s

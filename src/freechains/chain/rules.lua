@@ -677,6 +677,11 @@ function M.apply (G, act, env)
             if a and e.action=='post' and (not e.maturity) and was~=M.is_revoked(e) then
                 M.bump(G, a, was and C.reps.earn or -C.reps.earn)
             end
+            -- the revoked set (listings read it, not every entry)
+            if G.revoked and (was ~= M.is_revoked(e)) then
+                G.revoked[act.cid] = M.is_revoked(e) or nil
+                G.dirty.revoked = true
+            end
 
             if env.beg then
                 e.maturity = "00-12"
