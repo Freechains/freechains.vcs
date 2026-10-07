@@ -706,6 +706,93 @@ function M.dirty (G, all)
 end
 
 --[[
+-- One `ls-tree` of many dirs into the cache: "top/" lists a top's
+-- shard entries, "top/xx/" a shard's blobs, "top" the top's own
+-- entry. Never overwrites a cached (newer) entry.
+-- Inputs:
+--  - C    [table]: the G's cache
+--  - want [table]: array of paths as above
+-- Outputs:
+--  - none
+-- Errors:
+--  - none
+-- Callers:
+--  - write/prelist (state.lua)
+--]]
+local function listing (C, want)
+    if #want == 0 then
+        return
+    end
+    local out = exec { trim=false, err=false, stderr=false,
+        cmd = "git -C " .. C.dir .. " ls-tree --format='%(objecttype) %(objectname) %(path)' " .. C.root .. " " .. table.concat(want, " "),
+    }
+    for ty, sha, path in (out or ""):gmatch("(%a+) (%x+) ([^\n]+)\n") do
+        if ty == "tree" then
+            keep_tree(C, path, sha)
+        else
+            keep_blob(C, path, sha)
+        end
+    end
+    -- a shard listed by content ("top/xx/") hides its own entry when
+    -- its top is listed too (git descends instead): its tree id is
+    -- the one of its listed blobs, computed here, so a later rebuild
+    -- of the top keeps the shard
+    for _, w in ipairs(want) do
+        local d = w:match("^(%a+/%x%x)/$")
+        if d and (not C.dirs[d]) and C.kids[d] and next(C.kids[d]) then
+            local ents = {}
+            for name in pairs(C.kids[d]) do
+                ents[#ents+1] = { mode="100644", name=name, sha=assert(C.tree[d .. "/" .. name]) }
+            end
+            keep_tree(C, d, (tree_id(ents)))
+        end
+    end
+end
+
+--[[
+-- Pre-list, in ONE call, the dirs a run of writes will rebuild: both
+-- tops and the shards of the given actions and members. Each write
+-- then finds its listing cached (a run of N commits listed N times).
+-- Inputs:
+--  - G    [table]: chain state (read from a snapshot)
+--  - cids [table]: the actions about to be written
+--  - pubs [table]: the members about to be written (nil entries ok)
+-- Outputs:
+--  - none
+-- Errors:
+--  - none
+-- Callers:
+--  - state (consensus.lua): before applying a run
+--]]
+function M.prelist (G, cids, pubs)
+    local C = CACHE[G]
+    if (not C) or (not C.root) then
+        return
+    end
+    local want = {}
+    for _, top in ipairs { "actions", "members" } do
+        if not C.top[top] then
+            C.top[top] = true
+            want[#want+1] = top .. "/"
+        end
+    end
+    local function shard (top, d)
+        if (not C.shards[top]) and (not C.shard[d]) then
+            C.shard[d] = true
+            C.kids[d] = C.kids[d] or {}
+            want[#want+1] = d .. "/"
+        end
+    end
+    for _, cid in ipairs(cids) do
+        shard("actions", "actions/" .. cid:sub(1, 2))
+    end
+    for _, pub in pairs(pubs) do
+        shard("members", "members/" .. sha1(pub):sub(1, 2))
+    end
+    listing(C, want)
+end
+
+--[[
 -- Snapshot `G` at `cid`: the dirty entities become blobs, the trees
 -- on their paths are rebuilt (mktree, bottom-up), the root is
 -- pinned by the ref. Nothing else is rewritten.
@@ -894,18 +981,7 @@ function M.write (G, cid, dir, refs)
                 want[#want+1] = top
             end
         end
-        if #want > 0 then
-            local out = exec { trim=false, err=false, stderr=false,
-                cmd = "git -C " .. dir .. " ls-tree --format='%(objecttype) %(objectname) %(path)' " .. C.root .. " " .. table.concat(want, " "),
-            }
-            for ty, sha, path in (out or ""):gmatch("(%a+) (%x+) ([^\n]+)\n") do
-                if ty == "tree" then
-                    keep_tree(C, path, sha)
-                else
-                    keep_blob(C, path, sha)
-                end
-            end
-        end
+        listing(C, want)
     end
     -- tree ids are computed here, deepest first, so the whole
     -- snapshot is ONE `mktree --batch`; its ids must agree

@@ -63,6 +63,14 @@ function M.state (cid, refs)
             end
         end
     end
+    -- the run's shards, listed once (each write would list its own)
+    if #run > 1 then
+        local pubs = {}
+        for _, c in ipairs(run) do
+            pubs[#pubs+1] = SSH.signer(REPO, c) or (G.open and C.anon) or nil
+        end
+        STATE.prelist(G, run, pubs)
+    end
     for i = #run, 1, -1 do
         ACTION.apply(G, run[i], false, refs)
     end
