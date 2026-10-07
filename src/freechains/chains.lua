@@ -73,6 +73,20 @@ local function git_init (dir)
     exec {
         cmd = "git -C " .. dir .. " config maintenance.auto false"
     }
+    -- the 256 object dirs now: loose objects are written from Lua
+    -- (STATE.put), which would mkdir each on first use
+    do
+        local ds = {}
+        for i = 0, 255 do
+            ds[#ds+1] = dir .. "objects/" .. string.format("%02x", i)
+        end
+        exec {
+            cmd = "mkdir -p " .. table.concat(ds, " ")
+        }
+    end
+    -- the empty tree every commit carries, as an object (git knows
+    -- it without one, fsck does not)
+    STATE.put("tree", "", dir)
 
     -- bare repo: the repo dir IS the git dir
     exec {
@@ -289,9 +303,7 @@ if ARGS.add then
         -- genesis commit: EMPTY tree, the genesis IS the message.
         -- `nonce` salts the hash (dates are neutral, so equal
         -- pioneers would otherwise collide into one chain cid).
-        local tree = exec {
-            cmd = "git -C " .. tmp .. " hash-object -t tree /dev/null",
-        }
+        local tree = require("freechains.chain.git").tree()
         -- the message is piped VERBATIM (printf, as GIT.commit);
         -- single quotes are safe: version, nonce and base64 keys
         local gen = exec {

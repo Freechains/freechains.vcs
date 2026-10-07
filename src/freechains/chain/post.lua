@@ -41,28 +41,26 @@ end
 -- `refs/payloads/<cid>`. The action's `blob` field is what binds
 -- it: the cid transitively commits to the content
 
-local path = REPO .. "payload-tmp"   -- payload staging file (git dir)
-
+local bytes
 if ARGS.inline then
-    local f = io.open(path, "w")
-    f:write(ARGS.text)
-    f:close()
+    bytes = ARGS.text
 else
     assert(ARGS.file)
-    -- `cp` runs in the caller's cwd: relative paths just work
-    exec {
-        cmd = "cp -- '" .. ARGS.path .. "' " .. path,
-        err = "chain post : invalid path",
-    }
+    -- read in the caller's cwd: relative paths just work
+    local f, why = io.open(ARGS.path, "rb")
+    bytes = f and f:read("a")
+    if f then
+        f:close()
+    end
+    if not bytes then
+        ERROR("chain post : invalid path", why and (why .. "\n"))
+    end
 end
 
 -- save payload and commit
 -- both UNANCHORED: rejection leaves them gc-able
 
-local blob = exec {
-    cmd = "git -C " .. REPO .. " hash-object -w " .. path,
-}
-os.remove(path)
+local blob = STATE.put("blob", bytes)
 
 local cid = ACTION.commit(
     (ARGS.sign and "chain post : invalid sign key") or nil,

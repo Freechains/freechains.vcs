@@ -109,14 +109,7 @@ end
 
 local blob
 if ARGS.why then
-    local path = REPO .. "payload-tmp"   -- why staging file (git dir)
-    local f = io.open(path, "w")
-    f:write(ARGS.why)
-    f:close()
-    blob = exec {
-        cmd = "git -C " .. REPO .. " hash-object -w " .. path,
-    }
-    os.remove(path)
+    blob = STATE.put("blob", ARGS.why)
 end
 
 local cid = ACTION.commit(
@@ -166,14 +159,17 @@ if entry then
             -- `--file` is a blind fallback:
             -- 	- caller cannot see the store, redundant is fine
             -- 	- a WRONG one is not
+            local bytes
             if ARGS.file then
-                local blob = exec { err=false, stderr=false,
-                    cmd = "git -C " .. REPO .. " hash-object '" .. ARGS.file .. "'",
-                }
-                if blob == false then
+                local f = io.open(ARGS.file, "rb")
+                bytes = f and f:read("a")
+                if f then
+                    f:close()
+                end
+                if not bytes then
                     ERROR("chain " .. vote .. " : invalid path")
                 end
-                if blob ~= T.blob then
+                if STATE.hash("blob", bytes) ~= T.blob then
                     ERROR("chain " .. vote .. " : blob mismatch")
                 end
             end
@@ -182,9 +178,7 @@ if entry then
                     ERROR("chain " .. vote .. " : expected --file")
                 end
                 -- verified above: only now do the bytes enter the db
-                exec {
-                    cmd = "git -C " .. REPO .. " hash-object -w '" .. ARGS.file .. "'",
-                }
+                STATE.put("blob", bytes)
             end
             -- a standing post always has its anchor: the bytes may
             -- still be in the store, but unreferenced they are one
