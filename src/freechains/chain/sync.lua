@@ -482,76 +482,85 @@ elseif ARGS.recv then
             return T
         end
 
-        -- the anchors I hold among the affected: payload ref -> blob
-        -- (never a listing of every payload ref: flat in the chain)
-        local function anchors ()
-            local refs = {}
-            for i = 1, n do
-                refs[i] = "refs/payloads/" .. S[i] .. " " .. S[i]
-            end
-            return check(refs)
-        end
-        local has = anchors()
+        -- the commits of the old affected cids (vote targets, the
+        -- missing list): one cat-file (the new ones are memoized)
+        GIT.cats(table.move(S, 1, n, 1, {}))
 
-        -- the unanchored actions' blobs: here already, or to fetch
-        local blobs = {}    -- cid -> blob
+        -- one batch-check: the anchors I may hold (an action new to
+        -- my history has none) and the actions' blobs (here already
+        -- when the same bytes were posted before)
+        local new = {}
+        for _, cid in ipairs(NEWS or {}) do
+            new[cid] = true
+        end
+        local blobs = {}    -- cid -> blob, for the unrevoked affected
         local objs  = {}
         for i = 1, n do
             local cid = S[i]
             local e = G.actions[cid]
-            if e and RULES.is_revoked(e) then
-                if has[cid] then
-                    exec {
-                        cmd = "git -C " .. REPO ..
-                            " update-ref -d refs/payloads/" .. cid
-                    }
-                end
-            elseif (e or B[cid]) and (not has[cid]) then
+            if not new[cid] then
+                objs[#objs+1] = "refs/payloads/" .. cid .. " " .. cid
+            end
+            if (e or B[cid]) and not (e and RULES.is_revoked(e)) then
                 local t = ACTION.read(false, cid)
                 if t and t.blob then
                     blobs[cid] = t.blob
-                    objs[#objs+1] = t.blob .. " " .. cid
+                    objs[#objs+1] = t.blob .. " " .. t.blob
                 end
             end
         end
-        local here = check(objs)
+        local got = check(objs)
 
+        -- ref moves in one batch (deletes through git)
+        local refs = {}
         local want = {}     -- cid -> blob, still to fetch
         local specs = {}
-        for cid, blob in pairs(blobs) do
-            if here[cid] then
-                exec {
-                    cmd = "git -C " .. REPO .. " update-ref refs/payloads/" ..
-                        cid .. " " .. blob
-                }
-            else
-                want[cid] = blob
-                specs[#specs+1] = " 'refs/payloads/" .. cid ..
-                    "*:refs/payloads/" .. cid .. "*'"
+        for i = 1, n do
+            local cid = S[i]
+            local e = G.actions[cid]
+            local blob = blobs[cid]
+            if e and RULES.is_revoked(e) then
+                if got[cid] then
+                    refs[#refs+1] = "delete refs/payloads/" .. cid
+                end
+            elseif blob and (not got[cid]) then
+                if got[blob] then
+                    refs[#refs+1] = "update refs/payloads/" .. cid .. " " .. blob
+                else
+                    want[cid] = blob
+                    specs[#specs+1] = " 'refs/payloads/" .. cid ..
+                        "*:refs/payloads/" .. cid .. "*'"
+                end
             end
         end
 
-        -- one fetch; a glob per cid: a ref the remote lacks is no error
+        -- one fetch; a glob per cid: a ref the remote lacks is no error.
+        -- What it brought is in FETCH_HEAD: a ref must name the bytes
+        -- the action does, else it goes
         local miss = {}
         if #specs > 0 then
             exec { err=false, stderr=false,
                 cmd = "git -C " .. REPO .. " fetch " .. URL(ARGS.remote, ARGS.alias) ..
                     table.concat(specs)
             }
-            has = anchors()
+            local has = {}
+            local f = io.open(REPO .. "FETCH_HEAD")
+            if f then
+                for sha, cid in f:read("a"):gmatch("(%x+)\t[^\n]*'refs/payloads/(%x+)'") do
+                    has[cid] = sha
+                end
+                f:close()
+            end
             for cid, blob in pairs(want) do
                 if has[cid] ~= blob then
-                    -- absent, or not the bytes the action names
                     if has[cid] then
-                        exec {
-                            cmd = "git -C " .. REPO ..
-                                " update-ref -d refs/payloads/" .. cid
-                        }
+                        refs[#refs+1] = "delete refs/payloads/" .. cid
                     end
                     miss[#miss+1] = cid
                 end
             end
         end
+        GIT.refs(refs)
 
         table.sort(miss)
         local f = assert(io.open(MISS, "w"))
