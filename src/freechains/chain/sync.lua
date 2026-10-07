@@ -204,48 +204,51 @@ elseif ARGS.recv then
 
         -----------------------------------------------------------------------
 
-        -- 1+2. one merge-base: none = unrelated histories (my root IS
-        -- the genesis, so a history sharing an ancestor shares it; a
-        -- foreign root merged in is refused by the replay as a
-        -- malformed commit); the remote tip = nothing new; my tip = a
-        -- plain fast-forward
-        local base = exec { err=false, stderr=false,
-            cmd = "git -C " .. REPO .. " merge-base " .. loc .. " " .. rem
-        }
-        if not base then
-            ERROR("chain sync : incompatible genesis")
-        end
-        if base == rem then
-            goto RECV
-        end
-        BASE = base
-
-        -- the remote's new commits, oldest last, with their parents:
-        -- one call serves the fast-forward test and the payload pass.
+        -- 1+2. the remote's new commits (`loc..rem`), with parents, in
+        -- one call, which decides everything below:
+        --  - none: the remote has nothing new
+        --  - a root among them: unrelated histories (my root IS the
+        --    genesis, never past my tip; a foreign root merged in is
+        --    refused by the replay as a malformed commit)
+        --  - my tip as a parent: a plain fast-forward (my tip is an
+        --    ancestor of theirs), the fork point is my tip
+        --  - else a fork: the merge-base, then
         -- A plain fast-forward keeps my order as a prefix of the new
         -- one, UNLESS a sync merge among the new commits put a branch
         -- before my settled posts (tst/hardfork-ff.lua)
-        local ff = (base == loc)
+        local ff = false
         NEWS = {}
-        do
-            local out = exec {
-                cmd = "git -C " .. REPO .. " rev-list --parents " .. base .. ".." .. rem
-            }
-            for line in out:gmatch("[^\n]+") do
-                NEWS[#NEWS+1] = line:match("^(%x+)")
+        local out = exec {
+            cmd = "git -C " .. REPO .. " rev-list --parents " .. loc .. ".." .. rem
+        }
+        for line in out:gmatch("[^\n]+") do
+            local cid, ps = line:match("^(%x+)(.*)$")
+            NEWS[#NEWS+1] = cid
+            if ps == "" then
+                ERROR("chain sync : incompatible genesis")
+            elseif ps:find(loc, 1, true) then
+                ff = true
             end
-            -- the new commits' objects in one call: the replay below
-            -- reads every one of them, and the floor (my tip) as the
-            -- first one's parent; their snapshots need no check: new
-            -- to my history, none; my tip, one
-            GIT.cats(table.move(NEWS, 1, #NEWS, 2, { loc }))
-            STATE.has_set(NEWS, false)
-            STATE.has_set({ loc }, true)
-            for line in out:gmatch("[^\n]+") do
-                local cid = line:match("^(%x+)")
-                if ff and line:match("^%x+ %x+ %x+") and (not ACTION.is(cid)) then
-                    ff = false
-                end
+        end
+        if #NEWS == 0 then
+            goto RECV
+        end
+        BASE = ff and loc or exec {
+            cmd = "git -C " .. REPO .. " merge-base " .. loc .. " " .. rem
+        }
+        local base = BASE
+
+        -- the new commits' objects in one call: the replay below
+        -- reads every one of them, and the floor (my tip) as the
+        -- first one's parent; their snapshots need no check: new
+        -- to my history, none; my tip, one
+        GIT.cats(table.move(NEWS, 1, #NEWS, 2, { loc }))
+        STATE.has_set(NEWS, false)
+        STATE.has_set({ loc }, true)
+        for line in out:gmatch("[^\n]+") do
+            local cid = line:match("^(%x+)")
+            if ff and line:match("^%x+ %x+ %x+") and (not ACTION.is(cid)) then
+                ff = false
             end
         end
 
