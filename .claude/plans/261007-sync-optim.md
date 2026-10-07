@@ -218,12 +218,21 @@
     - meta `cid` + `tips`: a child's backs need no commit read
     - a run: prelist of its shards, `absent` marks, the floor in
       the prefetch, top/shard tree ids derived from listings
-- left per post: ls-tree + cat-file (read), cat-file (apply
-  batch), ls-tree (the new cid's shard), ssh-keygen sign + verify
-- next: the read's listing + batch as one call (a manifest of the
-  dynamic paths in a hot blob); the apply batch folded into the
-  read for posts (signer known before the read); `list order`
-  loads every action for the revoked flag (O(N) data)
+- round 3 (26/10/08): recv of 3 posts 49 -> 39 procs; `list order`
+  7 -> 5 (no action loads: `revoked.txt` in the snapshot)
+    - recv: no snapshot check for new commits (`has_set`), the
+      new-commit listing decides nothing-new / fast-forward / the
+      genesis check (merge-base only on a fork), the payload pass
+      in one batch-check (anchors + blobs) with FETCH_HEAD for what
+      the fetch brought, anchor moves in one ref batch
+- floor reached with this layout: post = ls-tree + cat-file (read),
+  cat-file (apply batch), ls-tree (the new cid's shard), ssh-keygen
+  sign + verify; recv = 2 fetches (git's own 5 processes each) +
+  ~8 calls + one ssh-keygen per new commit
+- next (design): the read's listing + batch as one call needs a hot
+  blob holding the window and tail (bytes duplicated per post);
+  the payload fetch merged into the main fetch needs the sender to
+  advertise payload refs by commit
 - won't do: skipping the writer's own signature check (a design
   shortcut, not an optimization)
 
