@@ -144,7 +144,7 @@ end
 -- Errors:
 --  - none
 -- Callers:
---  - write/read/shard (state.lua): tree bookkeeping
+--  - write/read (state.lua): tree bookkeeping
 --]]
 local function split (path)
     local d, name = path:match("^(.*)/([^/]+)$")
@@ -321,12 +321,12 @@ local function batch (out, f)
 end
 
 --[[
--- Listings of the `actions` tree into the cache, on demand.
+-- Listings of the lazy trees into the cache, on demand.
 -- Never overwrite: a blob or tree already cached is the NEWER one
 -- (hashed or built by this write), the listing is the older.
 -- Inputs:
 --  - G   [table]: chain state
---  - xx  [string?]: `shard`: the one shard to list
+--  - top [string]: "actions" | "members"
 -- Outputs:
 --  - none
 -- Errors:
@@ -352,34 +352,6 @@ local function keep_tree (C, path, sha)
     C.kids[d][name] = "tree"
 end
 -- some shards of `top` (actions|members): their blobs, one process
-local function shard (G, top, xs)
-    local C = CACHE[G]
-    if (not C) or (not C.root) or C.shards[top] then
-        return
-    end
-    local want = {}
-    for _, xx in ipairs(xs) do
-        local k = top .. "/" .. xx
-        if not C.shard[k] then
-            C.shard[k] = true
-            C.kids[k] = C.kids[k] or {}
-            want[#want+1] = xx
-        end
-    end
-    if #want == 0 then
-        return
-    end
-    local out = exec { trim=false, err=false, stderr=false,
-        cmd = "git -C " .. C.dir .. " ls-tree -r --format='%(objectname) %(path)' " .. C.root .. ":" .. top .. " " .. table.concat(want, " "),
-    }
-    if not out then
-        return   -- no such top dir yet
-    end
-    for sha, path in out:gmatch("(%x+) ([^\n]+)\n") do
-        keep_blob(C, top .. "/" .. path, sha)
-    end
-end
--- the shard trees of `top` (names and shas), for the root rebuild
 local function shards_top (G, top)
     local C = CACHE[G]
     if (not C) or (not C.root) or C.top[top] then
@@ -877,33 +849,46 @@ function M.write (G, cid, dir)
             levels[depth][d] = true
         until d == ""
     end
-    -- the root needs the lazy tops even when untouched (the read
-    -- lists neither `actions` nor `members`)
-    for _, top in ipairs { "actions", "members" } do
-        if C.root and (not C.dirs[top]) and (not (C.kids[""] or {})[top]) then
-            local sha = exec { err=false, stderr=false,
-                cmd = "git -C " .. dir .. " rev-parse --verify " .. C.root .. ":" .. top,
-            }
-            if sha then
-                keep_tree(C, top, sha)
-            end
-        end
-    end
-    -- the listings of untouched-so-far dirs come from git
-    do
-        local xs = { actions={}, members={} }
+    -- one listing serves every dir the write rebuilds from git: an
+    -- untouched lazy top (its entry, for the root: the read lists
+    -- neither `actions` nor `members`), a touched top (its shard
+    -- entries, "top/"), a touched shard (its blobs, "top/xx/")
+    if C.root then
+        local want = {}
+        local touched = {}
         for depth = #levels, 0, -1 do
             for d in pairs(levels[depth] or {}) do
-                local top, xx = d:match("^(%a+)/(%x%x)$")
-                if d == "actions" or d == "members" then
-                    shards_top(G, d)
-                elseif top and xs[top] then
-                    table.insert(xs[top], xx)
+                local top = d:match("^(%a+)/%x%x$")
+                if (d == "actions") or (d == "members") then
+                    touched[d] = true
+                    if not C.top[d] then
+                        C.top[d] = true
+                        want[#want+1] = d .. "/"
+                    end
+                elseif top and (not C.shards[top]) and (not C.shard[d]) then
+                    C.shard[d] = true
+                    C.kids[d] = C.kids[d] or {}
+                    want[#want+1] = d .. "/"
                 end
             end
         end
-        shard(G, "actions", xs.actions)
-        shard(G, "members", xs.members)
+        for _, top in ipairs { "actions", "members" } do
+            if (not touched[top]) and (not C.dirs[top]) and (not (C.kids[""] or {})[top]) then
+                want[#want+1] = top
+            end
+        end
+        if #want > 0 then
+            local out = exec { trim=false, err=false, stderr=false,
+                cmd = "git -C " .. dir .. " ls-tree --format='%(objecttype) %(objectname) %(path)' " .. C.root .. " " .. table.concat(want, " "),
+            }
+            for ty, sha, path in (out or ""):gmatch("(%a+) (%x+) ([^\n]+)\n") do
+                if ty == "tree" then
+                    keep_tree(C, path, sha)
+                else
+                    keep_blob(C, path, sha)
+                end
+            end
+        end
     end
     -- tree ids are computed here, deepest first, so the whole
     -- snapshot is ONE `mktree --batch`; its ids must agree
