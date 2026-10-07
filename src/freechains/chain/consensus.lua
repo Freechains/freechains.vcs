@@ -9,7 +9,9 @@ local M = {}
 --    the reps at the pair's merge-base
 --  - beg merge (`like`): state(main) + beg side + `cid`
 -- Inputs:
---  - cid [string]: 40-hex commit hash, derefed
+--  - cid  [string]: 40-hex commit hash, derefed
+--  - refs [table?]: collects the new snapshots' ref lines for the
+--    caller's one `GIT.refs` (else flushed here)
 -- Outputs:
 --  - [table]: the state at `cid` (a fresh copy: callers may mutate)
 -- Errors:
@@ -21,11 +23,14 @@ local M = {}
 --]]
 -- A first-parent run without snapshots is collected first and
 -- applied bottom-up, so long chains do not recurse.
-function M.state (cid)
+function M.state (cid, refs)
     local run = {}
     local cur = cid
     local G
-    local refs = {}     -- the snapshots' refs, one update-ref at the end
+    -- the snapshots' refs: one update-ref at the end, or the caller's
+    -- list (the caller flushes before anything reads them)
+    local own = (refs == nil)
+    refs = refs or {}
     while true do
         if STATE.has(cur) then
             G = STATE.read(cur)
@@ -61,7 +66,9 @@ function M.state (cid)
     for i = #run, 1, -1 do
         ACTION.apply(G, run[i], false, refs)
     end
-    GIT.refs(refs)
+    if own then
+        GIT.refs(refs)
+    end
     return G
 end
 
@@ -73,6 +80,7 @@ end
 -- Inputs:
 --  - a [string]: 40-hex commit hash (one tip)
 --  - b [string]: 40-hex commit hash (the other tip)
+--  - com [string?]: their merge-base, when the caller has it
 -- Outputs:
 --  - [string, string]: winner, loser (FF: ancestor loses)
 -- Errors:
@@ -90,8 +98,8 @@ end
 -- reps are summed over the SET of members, a commit both sides
 -- already hold would hand its member's full reps to whichever side
 -- lacked them -- letting undisputed history decide a disputed merge.
-function M.winner (a, b)
-    local com = (exec {
+function M.winner (a, b, com)
+    com = com or (exec {
         cmd = "git -C " .. REPO .. " merge-base " .. a .. " " .. b
     }):match("%x+")
 

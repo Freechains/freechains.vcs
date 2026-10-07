@@ -163,6 +163,8 @@ elseif ARGS.recv then
     -- merge-base (nil: the remote brought nothing), the remote's new
     -- commits
     local OLD, NEW, BASE, NEWS
+    -- the state at the final HEAD, when the merge left it in memory
+    local GNEW
     -- the begs kept by the begs pass (cid -> true)
     local BEGS = {}
     do
@@ -227,9 +229,11 @@ elseif ARGS.recv then
                 NEWS[#NEWS+1] = line:match("^(%x+)")
             end
             -- the new commits' objects and snapshot checks, in one
-            -- call each: the replay below reads every one of them
-            GIT.cats(NEWS)
-            STATE.has_all(NEWS)
+            -- call each: the replay below reads every one of them,
+            -- and the floor (my tip) as the first one's parent
+            local pre = table.move(NEWS, 1, #NEWS, 1, { loc })
+            GIT.cats(pre)
+            STATE.has_all(pre)
             for line in out:gmatch("[^\n]+") do
                 local cid = line:match("^(%x+)")
                 if ff and line:match("^%x+ %x+ %x+") and (not ACTION.is(cid)) then
@@ -245,9 +249,18 @@ elseif ARGS.recv then
         -- remote validation: the remote tip's own-lineage state
         -- (snapshots every new commit), malformed commits reject the
         -- whole sync
+        -- REFS: the new snapshots' refs and the HEAD move, flushed in
+        -- one call; earlier when something must read them
+        local REFS = {}
+        local function flush ()
+            if #REFS > 0 then
+                GIT.refs(REFS)
+                REFS = {}
+            end
+        end
         local G_rem
         do
-            local ok, ret = pcall(CONSENSUS.state, rem)
+            local ok, ret = pcall(CONSENSUS.state, rem, REFS)
             if not ok then
                 ERROR("chain sync : " .. ret)
             end
@@ -255,7 +268,7 @@ elseif ARGS.recv then
         end
 
         -- fst/winner - snd/loser: reps at their merge-base
-        local fst, snd = CONSENSUS.winner(loc, rem)
+        local fst, snd = CONSENSUS.winner(loc, rem, base)
 
         -- winner state:
         --  me: as is
@@ -270,7 +283,11 @@ elseif ARGS.recv then
         -- loser state: replay snd from fst.
         -- The first failure voids the rest: the action is valid in
         -- its own branch, but not in this order
-        local merge, err = CONSENSUS.replay(G_fst, fst, snd, true)
+        -- (a fast-forward has no loser side: nothing to replay)
+        local merge, err
+        if not ff then
+            merge, err = CONSENSUS.replay(G_fst, fst, snd, true)
+        end
         if err then
             io.stderr:write("ERROR : " .. err .. "\n")
         end
@@ -281,6 +298,8 @@ elseif ARGS.recv then
             -- the new one) nor void a local commit: nothing to check
             if not ff then
                 -- check hardfork: my current state vs the new order
+                -- (reads the new snapshots: flush them first)
+                flush()
                 local G_loc = STATE.read(loc)
                 if hardfork(G_loc, loc, rem, G_fst) then
                     ERROR("chain sync : hard fork")
@@ -303,21 +322,27 @@ elseif ARGS.recv then
             end
 
             -- move HEAD to remote tip
-            exec {
-                cmd = "git -C " .. REPO .. " update-ref HEAD " .. rem
-            }
+            REFS[#REFS+1] = "update HEAD " .. rem
             HEAD = rem
         end
 
+        -- the state at the final HEAD: the winner's, with the loser
+        -- replayed (nothing, when the loser's first action failed)
+        GNEW = G_fst
+
         -- merge the last non-failing loser
         if merge then
-            HEAD = GIT.commit(true, nil, {
+            HEAD = GIT.commit(false, nil, {
                 parents = { HEAD, merge },
             })
+            REFS[#REFS+1] = "update HEAD " .. HEAD
             -- the merge tip is new: snapshot it as any peer derives it
-            -- from the DAG (not from this replay's path)
-            CONSENSUS.state(HEAD)
+            -- from the DAG (not from this replay's path); that reads
+            -- the parents' snapshots: flush them first
+            flush()
+            GNEW = CONSENSUS.state(HEAD, REFS)
         end
+        flush()
     end
 
     ::RECV::
@@ -376,7 +401,7 @@ elseif ARGS.recv then
             end
         end
 
-        local G = STATE.read(HEAD)
+        local G = GNEW or STATE.read(HEAD)
 
         local f = io.open(MISS)
         if f then
