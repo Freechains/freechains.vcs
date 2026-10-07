@@ -713,6 +713,9 @@ end
 --  - G   [table]: chain state (members/actions/order/pending/now)
 --  - cid [string]: 40-hex commit hash, derefed
 --  - dir [string?]: the bare repo dir (default REPO)
+--  - refs [table?]: collects the ref's create line instead of running
+--    it (the caller flushes many in one `GIT.refs`); `has` answers
+--    true from here on either way
 -- Outputs:
 --  - none (G.dirty reset)
 -- Errors:
@@ -722,7 +725,7 @@ end
 --  - recv (sync.lua): snapshot at the loser sync merge
 --  - genesis (chains.lua): the empty state at the genesis
 --]]
-function M.write (G, cid, dir)
+function M.write (G, cid, dir, refs)
     dir = dir or REPO
     local C = CACHE[G]
     if not C then
@@ -953,9 +956,13 @@ function M.write (G, cid, dir)
     -- corrupt local snapshots (a replay of a snapshotted commit
     -- lands here again and is refused)
     C.root = C.dirs[""] or assert(C.root)
-    exec { err=false, stderr=false,
-        cmd = "git -C " .. dir .. " update-ref " .. M.ref(cid) .. " " .. C.root .. " ''",
-    }
+    if refs then
+        refs[#refs+1] = "create " .. M.ref(cid) .. " " .. C.root
+    else
+        exec { err=false, stderr=false,
+            cmd = "git -C " .. dir .. " update-ref " .. M.ref(cid) .. " " .. C.root .. " ''",
+        }
+    end
     if dir == REPO then
         HAS[cid] = true
     end

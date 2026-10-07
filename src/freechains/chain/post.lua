@@ -78,26 +78,21 @@ local cid = ACTION.commit(
 --  - re-reads the action from minted commit
 --  - applies, orders, snapshots state
 
-local ok, err = pcall(ACTION.apply, G, cid, ARGS.beg, true)
+local refs = {}     -- the snapshot's ref, then the anchors: one call
+local ok, err = pcall(ACTION.apply, G, cid, ARGS.beg, refs)
 if not ok then
     ERROR("chain post : " .. err:gsub("^invalid %a+ : ", ""))
 end
 
 -- ACCEPTED: anchor payload, post
 
-exec {
-    cmd = "git -C " .. REPO .. " update-ref refs/payloads/" .. cid .. " " .. blob,
-}
-
+refs[#refs+1] = "update refs/payloads/" .. cid .. " " .. blob
 if ARGS.beg then
     -- a beg parks on its own ref, outside `main`: HEAD never moves
-    exec {
-        cmd = "git -C " .. REPO .. " update-ref refs/begs/beg-" .. cid .. " " .. cid,
-    }
+    refs[#refs+1] = "update refs/begs/beg-" .. cid .. " " .. cid
 else
-    exec {
-        cmd = "git -C " .. REPO .. " update-ref HEAD " .. cid,
-    }
+    refs[#refs+1] = "update HEAD " .. cid
 end
+GIT.refs(refs)
 
 print(cid)

@@ -25,6 +25,7 @@ function M.state (cid)
     local run = {}
     local cur = cid
     local G
+    local refs = {}     -- the snapshots' refs, one update-ref at the end
     while true do
         if STATE.has(cur) then
             G = STATE.read(cur)
@@ -41,7 +42,7 @@ function M.state (cid)
                     -- the beg's own lineage: its parent + itself, as admitted
                     if not STATE.has(r) then
                         local B = M.state(GIT.parents(r)[1])
-                        ACTION.apply(B, r, true, true)
+                        ACTION.apply(B, r, true, refs)
                     end
                     G = M.state(l)
                     M.replay(G, l, r, false, true)
@@ -50,7 +51,7 @@ function M.state (cid)
                     G = M.state(w)
                     M.replay(G, w, lo, false)
                 end
-                ACTION.apply(G, cur, false, true)
+                ACTION.apply(G, cur, false, refs)
                 break
             else
                 error("malformed commit : expected 2-parent merge", 0)
@@ -58,8 +59,9 @@ function M.state (cid)
         end
     end
     for i = #run, 1, -1 do
-        ACTION.apply(G, run[i], false, true)
+        ACTION.apply(G, run[i], false, refs)
     end
+    GIT.refs(refs)
     return G
 end
 

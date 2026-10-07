@@ -253,8 +253,10 @@ local KINDS = { post=true, like=true, revoke=true }
 --  - G   [table]: chain state (members/actions/order/now); MUTATED
 --  - cid [string]: 40-hex commit hash, already in the object db
 --  - beg [boolean?]: force beg admission (post writers, beg sync)
---  - snap [boolean?]: G is `cid`'s own-lineage state, so snapshot it
---    (false inside a replay: G may hold sibling branches)
+--  - snap [boolean|table?]: G is `cid`'s own-lineage state, so
+--    snapshot it (false inside a replay: G may hold sibling
+--    branches); a table collects the snapshot's ref line for one
+--    `GIT.refs` by the caller instead of writing it now
 -- Outputs:
 --  - none: G holds the action and, if `snap`, refs/local/<cid> holds
 --    its snapshot
@@ -402,7 +404,7 @@ function M.apply (G, cid, beg, snap)
         else
             G.now = RULES.now(G, M.backs(ps))
         end
-        STATE.write(G, cid)
+        STATE.write(G, cid, nil, (type(snap) == "table") and snap or nil)
         G.now = sav
     end
 end

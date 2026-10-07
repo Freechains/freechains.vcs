@@ -62,6 +62,44 @@ function M.commit (ref, err, t)
     return cid
 end
 
+--[[
+-- Many ref updates in ONE `update-ref --stdin` (a post moves three
+-- refs: its snapshot, its payload anchor, HEAD).
+-- Inputs:
+--  - ops [table]: array of update-ref stdin lines:
+--    "update <ref> <new>", "create <ref> <new>", "delete <ref>"
+-- Outputs:
+--  - none
+-- Errors:
+--  - none: the batch is one transaction; if it fails (a `create` of
+--    an existing ref), each line runs alone, failures ignored, as
+--    the single calls did
+-- Callers:
+--  - post/like: the accepted action's refs
+--  - state (consensus.lua): a run's deferred snapshot refs
+--]]
+function M.refs (ops)
+    if #ops == 0 then
+        return
+    end
+    local path = REPO .. "git-stdin"
+    local function run (lines)
+        local f = assert(io.open(path, "w"))
+        f:write(table.concat(lines, "\n"), "\n")
+        f:close()
+        local ok = exec { err=false, stderr=false,
+            cmd = "git -C " .. REPO .. " update-ref --stdin < " .. path,
+        }
+        return ok
+    end
+    if (not run(ops)) and (#ops > 1) then
+        for _, op in ipairs(ops) do
+            run { op }
+        end
+    end
+    os.remove(path)
+end
+
 local MEMO = {}
 local OBJS = {}
 

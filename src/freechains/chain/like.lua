@@ -141,7 +141,8 @@ local was_revoked = entry and RULES.is_revoked(entry)
 --  - re-reads the action from minted commit
 --  - applies, orders, snapshots state
 
-local ok, err = pcall(ACTION.apply, G, cid, false, true)
+local refs = {}     -- the snapshot's ref, then the anchors: one call
+local ok, err = pcall(ACTION.apply, G, cid, false, refs)
 if not ok then
     ERROR("chain " .. vote .. " : " .. err:gsub("^invalid %a+ : ", ""))
 end
@@ -152,9 +153,7 @@ end
 --  - it left REVOKED    -> the bytes must be here (LIFT)
 if entry then
     if (not was_revoked) and RULES.is_revoked(entry) then
-        exec { err=false, stderr=false,
-            cmd = "git -C " .. REPO .. " update-ref -d refs/payloads/" .. ARGS.id,
-        }
+        refs[#refs+1] = "delete refs/payloads/" .. ARGS.id
     elseif was_revoked and (not RULES.is_revoked(entry)) then
         -- every post carries a payload, a vote only with `--why`:
         -- with no bytes to restore there is nothing to gate
@@ -189,31 +188,23 @@ if entry then
             -- a standing post always has its anchor: the bytes may
             -- still be in the store, but unreferenced they are one
             -- `sweep` away from gone
-            exec {
-                cmd = "git -C " .. REPO .. " update-ref refs/payloads/" ..
-                    ARGS.id .. " " .. T.blob,
-            }
+            refs[#refs+1] = "update refs/payloads/" .. ARGS.id .. " " .. T.blob
         end
     end
 end
 
 -- accepted: the why is anchored at its final name
 if blob then
-    exec {
-        cmd = "git -C " .. REPO .. " update-ref refs/payloads/" .. cid .. " " .. blob,
-    }
+    refs[#refs+1] = "update refs/payloads/" .. cid .. " " .. blob
 end
 
 -- ACCEPTED: anchor payload, post
 
 if to_beg then
-    exec {
-        cmd = "git -C " .. REPO .. " update-ref -d " .. ref,
-    }
+    refs[#refs+1] = "delete " .. ref
 end
 
-exec {
-    cmd = "git -C " .. REPO .. " update-ref HEAD " .. cid,
-}
+refs[#refs+1] = "update HEAD " .. cid
+GIT.refs(refs)
 
 print(cid)
