@@ -159,9 +159,12 @@ if ARGS.send then
     end
 
 elseif ARGS.recv then
-    -- for the payload pass: my tip before, the remote tip, and
-    -- whether the remote brought anything
-    local OLD, NEW, FRESH
+    -- for the payload pass: my tip before, the remote tip, their
+    -- merge-base (nil: the remote brought nothing), the remote's new
+    -- commits
+    local OLD, NEW, BASE, NEWS
+    -- the begs kept by the begs pass (cid -> true)
+    local BEGS = {}
     do
         exec {
             cmd = "git -C " .. REPO .. " fetch " .. URL(ARGS.remote, ARGS.alias) ..
@@ -169,9 +172,7 @@ elseif ARGS.recv then
             err = "chain sync : fetch failed",
         }
 
-        local loc = exec {
-            cmd = "git -C " .. REPO .. " rev-parse HEAD"
-        }
+        local loc = HEAD
         local rem = exec {
             cmd = "git -C " .. REPO .. " rev-parse FETCH_HEAD"
         }
@@ -191,29 +192,45 @@ elseif ARGS.recv then
 
         -----------------------------------------------------------------------
 
-        -- 1. reject unrelated histories
+        -- 1. reject unrelated histories (my root IS the genesis)
         do
-            local loc_root = exec {
-                cmd = "git -C " .. REPO .. " rev-list --max-parents=0 " .. loc
-            }
             local rem_root = exec {
                 cmd = "git -C " .. REPO .. " rev-list --max-parents=0 " .. rem
             }
-            if loc_root ~= rem_root then
+            if rem_root ~= GENESIS then
                 ERROR("chain sync : incompatible genesis")
             end
         end
 
-        -- 2. remote has nothing new
+        -- 2. remote has nothing new: the merge-base is the remote tip
+        -- (and a base at my tip is a plain fast-forward)
+        local base = exec {
+            cmd = "git -C " .. REPO .. " merge-base " .. loc .. " " .. rem
+        }
+        if base == rem then
+            goto RECV
+        end
+        BASE = base
+
+        -- the remote's new commits, oldest last, with their parents:
+        -- one call serves the fast-forward test and the payload pass.
+        -- A plain fast-forward keeps my order as a prefix of the new
+        -- one, UNLESS a sync merge among the new commits put a branch
+        -- before my settled posts (tst/hardfork-ff.lua)
+        local ff = (base == loc)
+        NEWS = {}
         do
-            local ok = exec { stderr=false, err=false,
-                cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. rem .. " " .. loc
+            local out = exec {
+                cmd = "git -C " .. REPO .. " rev-list --parents " .. base .. ".." .. rem
             }
-            if ok then
-                goto RECV
+            for line in out:gmatch("[^\n]+") do
+                local cid = line:match("^(%x+)")
+                NEWS[#NEWS+1] = cid
+                if ff and line:match("^%x+ %x+ %x+") and (not ACTION.is(cid)) then
+                    ff = false
+                end
             end
         end
-        FRESH = true
 
         -----------------------------------------------------------------------
 
@@ -239,7 +256,7 @@ elseif ARGS.recv then
         --  he: the replayed remote
         local G_fst
         if fst == loc then
-            G_fst = STATE.read(GIT.deref("HEAD"))
+            G_fst = STATE.read(loc)
         else
             G_fst = G_rem
         end
@@ -254,14 +271,18 @@ elseif ARGS.recv then
 
         -- only when the remote wins
         if fst == rem then
-            -- check hardfork: my current state vs the new order
-            local G_loc = STATE.read(GIT.deref("HEAD"))
-            if hardfork(G_loc, loc, rem, G_fst) then
-                ERROR("chain sync : hard fork")
+            -- a plain fast-forward cannot reorder my order (a prefix of
+            -- the new one) nor void a local commit: nothing to check
+            if not ff then
+                -- check hardfork: my current state vs the new order
+                local G_loc = STATE.read(loc)
+                if hardfork(G_loc, loc, rem, G_fst) then
+                    ERROR("chain sync : hard fork")
+                end
             end
 
             -- list voided local commits
-            if merge ~= loc then
+            if (not ff) and (merge ~= loc) then
                 local from = merge or fst
                 local out = exec {
                     cmd = "git -C " .. REPO .. " " ..
@@ -279,16 +300,17 @@ elseif ARGS.recv then
             exec {
                 cmd = "git -C " .. REPO .. " update-ref HEAD " .. rem
             }
+            HEAD = rem
         end
 
         -- merge the last non-failing loser
         if merge then
-            GIT.commit(true, nil, {
-                parents = { GIT.deref("HEAD"), merge },
+            HEAD = GIT.commit(true, nil, {
+                parents = { HEAD, merge },
             })
             -- the merge tip is new: snapshot it as any peer derives it
             -- from the DAG (not from this replay's path)
-            CONSENSUS.state(GIT.deref("HEAD"))
+            CONSENSUS.state(HEAD)
         end
     end
 
@@ -321,6 +343,8 @@ elseif ARGS.recv then
                 exec {
                     cmd = "git -C " .. REPO .. " update-ref -d " .. refname
                 }
+            else
+                BEGS[cid] = true
             end
         end
     end
@@ -346,7 +370,7 @@ elseif ARGS.recv then
             end
         end
 
-        local G = STATE.read(GIT.deref("HEAD"))
+        local G = STATE.read(HEAD)
 
         local f = io.open(MISS)
         if f then
@@ -361,54 +385,79 @@ elseif ARGS.recv then
             end
         end
 
-        if FRESH then
-            local base = exec {
-                cmd = "git -C " .. REPO .. " merge-base " .. OLD .. " " .. NEW
-            }
-            for _, side in ipairs { {NEW,true}, {OLD,false} } do
+        if BASE then
+            -- the remote side's commits and their vote targets
+            for _, cid in ipairs(NEWS) do
+                local t = ACTION.read(false, cid)
+                if t then
+                    add(cid)
+                    add(t.cid)
+                end
+            end
+            -- my side's vote targets, only past a fork (a fast-forward
+            -- has no local side)
+            if BASE ~= OLD then
                 local out = exec {
-                    cmd = "git -C " .. REPO .. " rev-list " .. base .. ".." .. side[1]
+                    cmd = "git -C " .. REPO .. " rev-list " .. BASE .. ".." .. OLD
                 }
                 for cid in out:gmatch("%x+") do
                     local t = ACTION.read(false, cid)
                     if t then
-                        if side[2] then
-                            add(cid)
-                        end
                         add(t.cid)
                     end
                 end
             end
         end
 
-        do
-            local out = exec {
-                cmd = "git -C " .. REPO .. " for-each-ref refs/begs/ --format='%(objectname)'"
-            }
-            for cid in out:gmatch("%x+") do
-                B[cid] = true
-                add(cid)
-            end
+        for cid in pairs(BEGS) do
+            B[cid] = true
+            add(cid)
         end
 
         STATE.fetch(G, table.move(S, 1, n, 1, {}))
 
-        -- the anchors I hold: payload ref -> blob
-        local function anchors ()
+        --[[
+        -- One `cat-file --batch-check` over many objects or refs.
+        -- Inputs:
+        --  - objs [table]: array of "<object> <tag>" lines
+        -- Outputs:
+        --  - [table]: tag -> object sha, for the objects that exist
+        -- Errors:
+        --  - via exec: "bug found" if cat-file fails
+        --]]
+        local function check (objs)
             local T = {}
-            local out = exec {
-                cmd = "git -C " .. REPO ..
-                    " for-each-ref refs/payloads/ --format='%(refname) %(objectname)'"
+            if #objs == 0 then
+                return T
+            end
+            local path = REPO .. "sync-stdin"
+            local f = assert(io.open(path, "w"))
+            f:write(table.concat(objs, "\n"), "\n")
+            f:close()
+            local out = exec { trim=false,
+                cmd = "git -C " .. REPO .. " cat-file --batch-check='%(objectname) %(rest)' < " .. path,
             }
-            for a, sha in out:gmatch("refs/payloads/(%x+) (%x+)") do
-                T[a] = sha
+            os.remove(path)
+            for sha, tag in out:gmatch("(%x+) (%x+)\n") do
+                T[tag] = sha
             end
             return T
         end
+
+        -- the anchors I hold among the affected: payload ref -> blob
+        -- (never a listing of every payload ref: flat in the chain)
+        local function anchors ()
+            local refs = {}
+            for i = 1, n do
+                refs[i] = "refs/payloads/" .. S[i] .. " " .. S[i]
+            end
+            return check(refs)
+        end
         local has = anchors()
 
-        local want = {}     -- cid -> blob, still to fetch
-        local specs = {}
+        -- the unanchored actions' blobs: here already, or to fetch
+        local blobs = {}    -- cid -> blob
+        local objs  = {}
         for i = 1, n do
             local cid = S[i]
             local e = G.actions[cid]
@@ -422,20 +471,25 @@ elseif ARGS.recv then
             elseif (e or B[cid]) and (not has[cid]) then
                 local t = ACTION.read(false, cid)
                 if t and t.blob then
-                    local here = exec { err=false, stderr=false,
-                        cmd = "git -C " .. REPO .. " cat-file -e " .. t.blob
-                    }
-                    if here then
-                        exec {
-                            cmd = "git -C " .. REPO .. " update-ref refs/payloads/" ..
-                                cid .. " " .. t.blob
-                        }
-                    else
-                        want[cid] = t.blob
-                        specs[#specs+1] = " 'refs/payloads/" .. cid ..
-                            "*:refs/payloads/" .. cid .. "*'"
-                    end
+                    blobs[cid] = t.blob
+                    objs[#objs+1] = t.blob .. " " .. cid
                 end
+            end
+        end
+        local here = check(objs)
+
+        local want = {}     -- cid -> blob, still to fetch
+        local specs = {}
+        for cid, blob in pairs(blobs) do
+            if here[cid] then
+                exec {
+                    cmd = "git -C " .. REPO .. " update-ref refs/payloads/" ..
+                        cid .. " " .. blob
+                }
+            else
+                want[cid] = blob
+                specs[#specs+1] = " 'refs/payloads/" .. cid ..
+                    "*:refs/payloads/" .. cid .. "*'"
             end
         end
 

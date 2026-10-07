@@ -7,7 +7,7 @@
 --  - ARGS.root  [string]: freechains root dir
 --  - ARGS.<subcommand> [boolean]: what to dispatch
 -- Outputs:
---  - globals: C, ACTION, STATE, GIT, REPO, HEAD (the tip cid at start),
+--  - globals: C, ACTION, STATE, GIT, REPO, GENESIS, HEAD (the tip cid),
 --      G (state at HEAD, except sync/discard/sweep, which read their own)
 -- Errors:
 --  - "chain <alias> : not found"
@@ -33,7 +33,7 @@ do
     if not out then
         ERROR("chain " .. ARGS.alias .. " : not found")
     end
-    HEAD = out:match("\n(%x+)%s*$")
+    GENESIS, HEAD = out:match("^(%x+)\n(%x+)%s*$")
 end
 
 if ARGS.sync then
