@@ -208,6 +208,6 @@ if to_beg then
 end
 
 refs[#refs+1] = "update HEAD " .. cid
-GIT.refs(refs)
+STATE.flush(refs)
 
 print(cid)

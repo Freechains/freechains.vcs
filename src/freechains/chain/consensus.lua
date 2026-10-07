@@ -77,7 +77,7 @@ function M.state (cid, refs)
         ACTION.apply(G, run[i], false, refs)
     end
     if own then
-        GIT.refs(refs)
+        STATE.flush(refs)
     end
     return G
 end

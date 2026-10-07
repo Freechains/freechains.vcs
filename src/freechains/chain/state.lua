@@ -35,7 +35,10 @@ M.ORDER_K = ORDER_K     -- (sync.lua: hardfork reads chunks)
 local DAY     = 24*60*60
 
 -- per-G cache, keyed by table identity (weak):
---  root        = the tree sha the G was read from (nil: fresh G)
+--  root        = the tree sha the G was read from (nil: fresh G),
+--                then the one each write built (maybe not yet in git)
+--  base        = the newest root git holds: listings and fetches by
+--                path go through it, written paths by their blob sha
 --  order_n/last = #G.order and its last cid as read/written: the
 --                order is append-only, only the tail chunk changes
 --  tree[path]  = blob sha        src[path] = content as written/read
@@ -363,7 +366,7 @@ local function shards_top (G, top)
     end
     C.top[top] = true
     local out = exec { trim=false, err=false, stderr=false,
-        cmd = "git -C " .. C.dir .. " ls-tree --format='%(objectname) %(path)' " .. C.root .. ":" .. top,
+        cmd = "git -C " .. C.dir .. " ls-tree --format='%(objectname) %(path)' " .. C.base .. ":" .. top,
     }
     if not out then
         return
@@ -381,7 +384,7 @@ local function shards_all (G, top)
     C.shards[top] = true
     shards_top(G, top)
     local out = exec { trim=false, err=false, stderr=false,
-        cmd = "git -C " .. C.dir .. " ls-tree -r --format='%(objectname) %(path)' " .. C.root .. ":" .. top,
+        cmd = "git -C " .. C.dir .. " ls-tree -r --format='%(objectname) %(path)' " .. C.base .. ":" .. top,
     }
     if not out then
         return
@@ -430,18 +433,22 @@ function M.load (G, cids, pubs)
     if (not C) or (not C.root) then
         return
     end
+    -- a path's blob sha when cached (listed, or written by this G:
+    -- its tree may not be in git yet), else by path in `base`
+    local function spec (path)
+        return (C.tree[path] or (C.base .. ":" .. path)) .. " " .. path
+    end
     local ls = {}
     for _, cid in ipairs(cids or {}) do
         if not (rawget(G.actions, cid) or C.missing[cid]) then
             C.missing[cid] = true   -- until proven present
-            ls[#ls+1] = C.root .. ":" .. apath(cid) .. " " .. apath(cid)
+            ls[#ls+1] = spec(apath(cid))
         end
     end
     for _, pub in pairs(pubs or {}) do
         if not (rawget(G.members, pub) or C.missing_m[pub]) then
             C.missing_m[pub] = true
-            local path = mpath(pub)
-            ls[#ls+1] = C.root .. ":" .. path .. " " .. path
+            ls[#ls+1] = spec(mpath(pub))
         end
     end
     if #ls == 0 then
@@ -654,7 +661,7 @@ function M.order (G, i)
     for k = lo, hi do
         if not C.ochunks[k] then
             C.ochunks[k] = true
-            want[#want+1] = C.root .. ":" .. opath(k) .. " " .. opath(k)
+            want[#want+1] = (C.tree[opath(k)] or (C.base .. ":" .. opath(k))) .. " " .. opath(k)
         end
     end
     if #want == 0 then
@@ -724,7 +731,7 @@ local function listing (C, want)
         return
     end
     local out = exec { trim=false, err=false, stderr=false,
-        cmd = "git -C " .. C.dir .. " ls-tree --format='%(objecttype) %(objectname) %(path)' " .. C.root .. " " .. table.concat(want, " "),
+        cmd = "git -C " .. C.dir .. " ls-tree --format='%(objecttype) %(objectname) %(path)' " .. C.base .. " " .. table.concat(want, " "),
     }
     for ty, sha, path in (out or ""):gmatch("(%a+) (%x+) ([^\n]+)\n") do
         if ty == "tree" then
@@ -845,6 +852,12 @@ function M.write (G, cid, dir, refs)
         C = { dir=dir, tree={}, src={}, dirs={}, kids={ [""]={} }, shard={}, shards={}, top={}, missing={}, missing_m={} }
         CACHE[G] = C
     end
+    if refs then
+        refs.blobs  = refs.blobs or {}
+        refs.trees  = refs.trees or {}
+        refs.caches = refs.caches or {}
+        refs.caches[C] = true
+    end
 
     -- 1. the changed files
     local changed = {}      -- path -> content
@@ -945,7 +958,18 @@ function M.write (G, cid, dir, refs)
             hs[#hs+1] = path
         end
     end
-    if #hs > 0 then
+    if refs then
+        -- deferred: the ids now (git's blob hash, in Lua: 9 MB/s, a
+        -- few ms per write), the objects at the flush, all in one call
+        for _, path in ipairs(hs) do
+            local s = changed[path]
+            local sha = sha1("blob " .. #s .. "\0" .. s)
+            C.tree[path] = sha
+            C.src[path]  = s
+            register(C, path)
+            refs.blobs[#refs.blobs+1] = { dir=dir, sha=sha, src=s }
+        end
+    elseif #hs > 0 then
         local tmps = {}
         for i, path in ipairs(hs) do
             local tmp = dir .. "state-tmp-" .. i
@@ -1043,7 +1067,15 @@ function M.write (G, cid, dir, refs)
             end
         end
     end
-    if #built > 0 then
+    if refs then
+        for i, ls in ipairs(input) do
+            refs.trees[#refs.trees+1] = { dir=dir, id=built[i], ls=ls }
+        end
+        -- a long run (a clone) keeps memory bounded: objects out early
+        if #refs.blobs > 512 then
+            M.flush(refs, true)
+        end
+    elseif #built > 0 then
         local out = git_in(dir, "mktree --batch", table.concat(input, "\n\n") .. "\n")
         local i = 0
         for sha in out:gmatch("%x+") do
@@ -1068,7 +1100,76 @@ function M.write (G, cid, dir, refs)
     if dir == REPO then
         HAS[cid] = true
     end
+    if not refs then
+        C.base = C.root     -- in git now
+    end
     M.dirty(G)
+end
+
+--[[
+-- Materialize the deferred writes of a run, then its ref updates:
+-- one `hash-object` for every blob, one `mktree` for every tree,
+-- one `update-ref` (`GIT.refs`). The ids were computed at write
+-- time and are checked against git's.
+-- Inputs:
+--  - ops  [table]: the refs list the writes filled (blobs, trees,
+--    caches, and the ref lines)
+--  - only [boolean?]: objects only, keep the ref lines (a long run
+--    flushing early)
+-- Outputs:
+--  - none (ops emptied)
+-- Errors:
+--  - assert "bug found : blob/tree id" : an id git disagrees with
+-- Callers:
+--  - post/like: the accepted action
+--  - state (consensus.lua), recv (sync.lua): a run
+--]]
+function M.flush (ops, only)
+    local blobs, trees = ops.blobs or {}, ops.trees or {}
+    if #blobs > 0 then
+        local dir = blobs[1].dir
+        local tmps = {}
+        for i, b in ipairs(blobs) do
+            local tmp = dir .. "state-tmp-" .. i
+            local f = assert(io.open(tmp, "w"))
+            f:write(b.src)
+            f:close()
+            tmps[i] = tmp
+        end
+        local out = git_in(dir, "hash-object -w --stdin-paths", table.concat(tmps, "\n") .. "\n")
+        local i = 0
+        for sha in out:gmatch("%x+") do
+            i = i + 1
+            assert(sha == blobs[i].sha, "bug found : blob id : " .. sha .. " ~= " .. blobs[i].sha)
+            os.remove(tmps[i])
+        end
+        assert(i == #blobs, "bug found : hash-object count")
+        ops.blobs = {}
+    end
+    if #trees > 0 then
+        local dir = trees[1].dir
+        local input = {}
+        for i, t in ipairs(trees) do
+            input[i] = t.ls
+        end
+        local out = git_in(dir, "mktree --batch", table.concat(input, "\n\n") .. "\n")
+        local i = 0
+        for sha in out:gmatch("%x+") do
+            i = i + 1
+            assert(sha == trees[i].id, "bug found : tree id : " .. sha .. " ~= " .. trees[i].id)
+        end
+        assert(i == #trees, "bug found : mktree count")
+        ops.trees = {}
+    end
+    for C in pairs(ops.caches or {}) do
+        C.base = C.root     -- in git now
+    end
+    if not only then
+        GIT.refs(ops)
+        for i = #ops, 1, -1 do
+            ops[i] = nil
+        end
+    end
 end
 
 --[[
@@ -1148,7 +1249,7 @@ function M.read (cid, dir)
     dir = dir or REPO
     -- the ref itself is the tree-ish everywhere below
     local root = M.ref(cid)
-    local CC = { dir=dir, root=root, tree={}, src={}, dirs={}, kids={ [""]={} }, shard={}, shards={}, top={}, missing={}, missing_m={} }
+    local CC = { dir=dir, root=root, base=root, tree={}, src={}, dirs={}, kids={ [""]={} }, shard={}, shards={}, top={}, missing={}, missing_m={} }
 
     -- the eager dirs and meta, with their tree shas (`actions` is
     -- listed on demand)

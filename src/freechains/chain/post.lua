@@ -96,6 +96,6 @@ if ARGS.beg then
 else
     refs[#refs+1] = "update HEAD " .. cid
 end
-GIT.refs(refs)
+STATE.flush(refs)
 
 print(cid)

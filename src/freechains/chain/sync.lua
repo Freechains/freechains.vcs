@@ -263,10 +263,7 @@ elseif ARGS.recv then
         -- one call; earlier when something must read them
         local REFS = {}
         local function flush ()
-            if #REFS > 0 then
-                GIT.refs(REFS)
-                REFS = {}
-            end
+            STATE.flush(REFS)
         end
         local G_rem
         do
