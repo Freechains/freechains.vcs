@@ -204,17 +204,28 @@
   among the new commits, the final state kept in memory for the
   payload pass, payload checks via `cat-file --batch-check`, one
   ref batch; `maintenance.auto false` at init
-- left per post: rev-parse, ls-tree, cat-file (read), hash-object
-  (payload), commit-tree (+ssh-keygen), cat-file (parents),
-  cat-file (apply), ssh-keygen verify, hash-object, ls-tree,
-  mktree, update-ref = 12 git + 2 ssh-keygen
-- next: blob/tree writes of a run in one hash-object + one mktree
-  (clone: 2 per commit); `refs/state` ref or meta cid to drop the
-  rev-parse of reads; `list order` loads every action for the
-  revoked flag (O(N) data)
-- won't do: Lua loose objects (pure-Lua SHA-1 over the pending
-  buckets costs more than the process); skipping the writer's own
-  signature check (a design shortcut, not an optimization)
+- round 2 (26/10/08): post 26 -> 13 procs (0.056 -> 0.041 s);
+  like 30 -> 19; recv of 3 posts 69 -> 49; clone of 52 commits
+  467 -> 219
+    - loose objects written from Lua (STATE.put: zlib stored
+      blocks, Lua SHA-1 measured 9 MB/s, cheaper than a process):
+      no hash-object, no mktree, payloads too; the 256 object dirs
+      and the empty tree at init
+    - commits minted in Lua, signed by one `ssh-keygen -Y sign`
+      (git's own verify-commit accepts them)
+    - refs: HEAD/genesis/begs read from their loose files; updates
+      written as loose files (deletes still via update-ref)
+    - meta `cid` + `tips`: a child's backs need no commit read
+    - a run: prelist of its shards, `absent` marks, the floor in
+      the prefetch, top/shard tree ids derived from listings
+- left per post: ls-tree + cat-file (read), cat-file (apply
+  batch), ls-tree (the new cid's shard), ssh-keygen sign + verify
+- next: the read's listing + batch as one call (a manifest of the
+  dynamic paths in a hot blob); the apply batch folded into the
+  read for posts (signer known before the read); `list order`
+  loads every action for the revoked flag (O(N) data)
+- won't do: skipping the writer's own signature check (a design
+  shortcut, not an optimization)
 
 # Won't do
 
