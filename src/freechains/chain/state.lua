@@ -1,17 +1,12 @@
 -- per-commit state, stored as a git TREE pinned by a local ref:
 --  - `refs/local/<cid>` -> tree
---      meta.lua                 { now, open, tot, min0012, headless,
---                                 order_n }
---      members/<xx>/<enc(pub)>.lua  { reps, time, head?, dictator? }
+--      meta.lua                 { now, open, tot, order_n, tick }
+--                               (tick: the chain clock, rules.lua)
+--      members/<xx>/<enc(pub)>.lua  { reps, dictator? }
 --                               fanout by 2 hex chars of sha1(pub)
---      heads.txt                the due-heads index: "time member"
---                               per member with a waiting 12-24
---                               record, sorted by time
 --      order/<nnnn>.txt         chunks of ORDER_K cids, one per line
 --                               (lazy: the tail chunk is eager, the
 --                               count lives in meta)
---      pending/<day>.txt        maturing entries of that day, one
---                               record per line: cid time maturity member
 --      actions/<xx>/<cid>.lua   one entry, fanout by 2 hex chars
 --  - `.lua` files are bare Lua table literals (no `return`); the
 --    two bulk files are plain lines (gmatch beats the Lua parser)
@@ -20,8 +15,7 @@
 -- its touched blobs plus the trees on their paths, not the whole G.
 -- `G.actions` and `G.members` are LAZY: an entry loads on first
 -- access (one blob), `fetch`/`members`/`all`/`members_all` load
--- many in one batch. meta, heads, the pending window and the tail
--- order chunk are eager.
+-- many in one batch. meta and the tail order chunk are eager.
 -- `refs/local/*` are LOCAL: sync never pushes or fetches them.
 
 local M = {}
@@ -101,40 +95,6 @@ end
 local function opath (i)
     return string.format("order/%04d.txt", i)
 end
-local function ppath (day)
-    return string.format("pending/%08d.txt", day)
-end
-
---[[
--- Pending records <-> lines: "cid time maturity member" (member
--- "-" when unsigned).
--- Inputs:
---  - rs [table]: records (encode) | s [string]: lines (decode)
--- Outputs:
---  - [string] | [table]: the other form
--- Errors:
---  - none
--- Callers:
---  - write/read (state.lua): pending buckets
---]]
-local function rec_enc (rs)
-    local ls = {}
-    for i, r in ipairs(rs) do
-        ls[i] = r.cid .. " " .. r.time .. " " .. r.maturity .. " " .. (r.member or "-")
-    end
-    return table.concat(ls, "\n") .. "\n"
-end
-local function rec_dec (s, into)
-    for cid, time, mat, member in s:gmatch("(%x+) (%d+) (%S+) ([^\n]*)\n") do
-        into[#into+1] = {
-            cid      = cid,
-            time     = tonumber(time),
-            maturity = mat,
-            member   = (member ~= "-") and member or nil,
-        }
-    end
-end
-
 --[[
 -- Split a path into its dir and name ("" for the root).
 -- Inputs:
@@ -704,16 +664,13 @@ end
 --  - genesis (chains.lua): a G built from scratch
 --]]
 function M.dirty (G, all)
-    local D = { actions={}, members={}, pending={}, heads=all or false }
+    local D = { actions={}, members={} }
     if all then
         for k in pairs(G.actions) do
             D.actions[k] = true
         end
         for k in pairs(G.members) do
             D.members[k] = true
-        end
-        for _, r in ipairs(G.pending or {}) do
-            D.pending[r.time] = true
         end
     end
     G.dirty = D
@@ -724,7 +681,7 @@ end
 -- on their paths are rebuilt (mktree, bottom-up), the root is
 -- pinned by the ref. Nothing else is rewritten.
 -- Inputs:
---  - G   [table]: chain state (members/actions/order/pending/now)
+--  - G   [table]: chain state (members/actions/order/tick/now)
 --  - cid [string]: 40-hex commit hash, derefed
 --  - dir [string?]: the bare repo dir (default REPO)
 -- Outputs:
@@ -754,18 +711,11 @@ function M.write (G, cid, dir)
         end
     end
     put("meta.lua", table_to_string {
-        now=G.now, open=G.open, tot=G.tot, min0012=G.min0012,
-        headless=G.headless, order_n=#G.order,
+        now=G.now, open=G.open, tot=G.tot, order_n=#G.order,
+        tick=G.tick,
     } .. "\n")
     for pub in pairs(G.dirty.members) do
         put(mpath(pub), table_to_string(rawget(G.members, pub)) .. "\n")
-    end
-    if G.dirty.heads then
-        local ls = {}
-        for i, h in ipairs(G.heads) do
-            ls[i] = h.time .. " " .. h.member
-        end
-        put("heads.txt", table.concat(ls, "\n") .. "\n")
     end
     for k in pairs(G.dirty.actions) do
         put(apath(k), table_to_string(rawget(G.actions, k)) .. "\n")
@@ -787,55 +737,6 @@ function M.write (G, cid, dir)
         C.order_n    = n
         C.order_last = G.order[n]
     end
-    do
-        -- pending buckets by day of the member time: only the days
-        -- marked dirty are rebuilt (sorted input); an emptied
-        -- bucket loses its file
-        local days = {}
-        for t in pairs(G.dirty.pending) do
-            days[t // DAY] = true
-        end
-        local buckets = {}
-        for _, r in ipairs(G.pending) do
-            local d = r.time // DAY
-            if days[d] then
-                buckets[d] = buckets[d] or {}
-                table.insert(buckets[d], r)
-            end
-        end
-        for d in pairs(days) do
-            local path = ppath(d)
-            if buckets[d] then
-                put(path, rec_enc(buckets[d]))
-                if not G.loaded[d] then
-                    G.loaded[d] = true
-                end
-                local known = false
-                for _, x in ipairs(G.pdays) do
-                    if x == d then
-                        known = true
-                        break
-                    end
-                end
-                if not known then
-                    G.pdays[#G.pdays+1] = d
-                    table.sort(G.pdays)
-                end
-            elseif C.tree[path] then
-                C.tree[path] = nil
-                C.src[path] = nil
-                C.kids["pending"][path:match("([^/]+)$")] = nil
-                paths[#paths+1] = path   -- rebuilds its dir
-                for i, x in ipairs(G.pdays) do
-                    if x == d then
-                        table.remove(G.pdays, i)
-                        break
-                    end
-                end
-            end
-        end
-    end
-
     -- 2. blobs: one hash-object over temp files
     local hs = {}   -- paths that need a blob
     for _, path in ipairs(paths) do
@@ -983,7 +884,7 @@ end
 
 --[[
 -- The state RECORDED at `cid` (trusted local bytes: load()-ed).
--- Eager: meta, members, order, pending. Lazy: actions.
+-- Eager: meta, order tail. Lazy: actions, members, order.
 -- Inputs:
 --  - cid [string]: 40-hex commit hash, derefed and snapshotted
 --  - dir [string?]: the bare repo dir (default REPO)
@@ -1006,21 +907,17 @@ function M.read (cid, dir)
     -- the eager dirs and meta, with their tree shas (`actions` is
     -- listed on demand)
     local ls = exec { trim=false, err=false, stderr=false,
-        cmd = "git -C " .. dir .. " ls-tree -r -t --format='%(objecttype) %(objectname) %(path)' " .. root .. " meta.lua heads.txt order pending",
+        cmd = "git -C " .. dir .. " ls-tree -r -t --format='%(objecttype) %(objectname) %(path)' " .. root .. " meta.lua order",
     }
     assert(ls, "bug found : no snapshot : " .. cid)
-    -- meta first: the pending window depends on it
     local blobs = {}
-    local pend  = {}
     local ords  = {}
     for ty, sha, path in ls:gmatch("(%a+) (%x+) ([^\n]+)\n") do
         if ty == "tree" then
             keep_tree(CC, path, sha)
         else
             keep_blob(CC, path, sha)
-            if path:match("^pending/") then
-                pend[#pend+1] = path
-            elseif path:match("^order/") then
+            if path:match("^order/") then
                 ords[#ords+1] = path
             else
                 blobs[#blobs+1] = sha .. " " .. path
@@ -1041,7 +938,7 @@ function M.read (cid, dir)
             table.concat(blobs, "\n") .. "\n")
     end
 
-    local G = { actions={}, members={}, order={}, pending={}, loaded={}, pdays={}, heads={} }
+    local G = { actions={}, members={}, order={} }
     batch(out, function (path, s)
         CC.src[path] = s
         local d, name = path:match("^(.*)/([^/]+)%.%a+$")
@@ -1050,18 +947,14 @@ function M.read (cid, dir)
             G.now      = t.now
             G.open     = t.open
             G.tot      = t.tot
-            G.min0012  = t.min0012
-            G.headless = t.headless
+            G.tick     = t.tick
             G.order_n  = t.order_n
-        elseif path == "heads.txt" then
-            for time, member in s:gmatch("(%d+) ([^\n]+)\n") do
-                G.heads[#G.heads+1] = { time=tonumber(time), member=member }
-            end
         elseif d == "order" then
             G.tail = s
         end
     end)
     assert(G.tot, "bug found : snapshot without tot : " .. cid)
+    assert(G.tick, "bug found : snapshot without tick : " .. cid)
     lazy_members(G)
     -- order: lazy chunks behind a proxy; the tail chunk now (every
     -- post appends to it), the rest on demand or all at once
@@ -1085,99 +978,11 @@ function M.read (cid, dir)
         end
     end
     G.tail = nil
-    -- pending: every bucket day is known, only the WINDOW is loaded:
-    -- from the oldest maturing (00-12/beg) record or 13h back,
-    -- whichever is older; older days load on demand (`M.day`)
-    table.sort(pend)
-    local lo = math.min(G.min0012 or G.now, G.now - C.time.half - C.time.diff) // DAY
-    local want = {}
-    for _, path in ipairs(pend) do
-        local day = tonumber(path:match("(%d+)%.txt$"))
-        G.pdays[#G.pdays+1] = day
-        if day >= lo then
-            want[#want+1] = CC.tree[path] .. " " .. path
-            G.loaded[day] = true
-        end
-    end
-    if #want > 0 then
-        local out2 = git_in(dir, "cat-file --batch='%(objectname) %(objectsize) %(rest)'",
-            table.concat(want, "\n") .. "\n")
-        batch(out2, function (path, s)
-            CC.src[path] = s
-            rec_dec(s, G.pending)
-        end)
-        table.sort(G.pending, function (a, b)
-            if a.time == b.time then
-                return a.cid < b.cid
-            end
-            return a.time < b.time
-        end)
-    end
-
     CC.order_n    = #G.order
     CC.order_last = G.order[#G.order]
     lazy(G)
     M.dirty(G)
     return G
-end
-
---[[
--- Load the pending bucket holding time `t`, if not loaded yet.
--- Inputs:
---  - G [table]: chain state; MUTATED (G.pending, G.loaded)
---  - t [integer]: a member time
--- Outputs:
---  - [integer]: the bucket day
--- Errors:
---  - none
--- Callers:
---  - pend/advance (rules.lua): before inserting or popping there
---]]
-function M.day (G, t)
-    local day = t // DAY
-    if G.loaded[day] then
-        return day
-    end
-    G.loaded[day] = true
-    local CC = CACHE[G]
-    local path = ppath(day)
-    if not (CC and CC.root and CC.tree[path]) then
-        return day
-    end
-    local out = git_in(CC.dir, "cat-file --batch='%(objectname) %(objectsize) %(rest)'",
-        CC.tree[path] .. " " .. path .. "\n")
-    batch(out, function (p, s)
-        CC.src[p] = s
-        rec_dec(s, G.pending)
-    end)
-    table.sort(G.pending, function (a, b)
-        if a.time == b.time then
-            return a.cid < b.cid
-        end
-        return a.time < b.time
-    end)
-    return day
-end
-
---[[
--- The next bucket day after `day` that exists on disk, or nil.
--- Inputs:
---  - G   [table]: chain state (G.pdays, sorted)
---  - day [integer]: a bucket day
--- Outputs:
---  - [integer?]: the next day
--- Errors:
---  - none
--- Callers:
---  - advance (rules.lua): walking a member's queue forward
---]]
-function M.next_day (G, day)
-    for _, d in ipairs(G.pdays) do
-        if d > day then
-            return d
-        end
-    end
-    return nil
 end
 
 return M

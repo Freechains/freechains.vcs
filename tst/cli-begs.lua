@@ -184,14 +184,21 @@ do
     local LIKE
     do
         TEST "like-beg-succeeds"
-        -- 2000 -> 90% -> 1800 -> split -> 900 to the member, over
-        -- the 500 post cost (a 1000 like admits but holds: 450)
+        -- 4000 -> 90% -> 3600 -> split -> 1800 to the member, over
+        -- the 500 post cost charged on admission (rule 2)
         local out, code = exec {
-            cmd = ENV_EXE .. " chain /cli-begs-4 like 2000 action " .. BEG .. " --sign " .. KEY1,
+            cmd = ENV_EXE .. " chain /cli-begs-4 like 4000 action " .. BEG .. " --sign " .. KEY1,
         }
         assert(code == 0, "exit code: " .. tostring(code))
         assert(#out == 40, "hash length: " .. #out)
         LIKE = out
+    end
+
+    do
+        TEST "like-beg-charges-post-cost"
+        -- 4000 -> 3600 -> 1800 to the author, minus the 500 post
+        -- cost (rule 2): 1300 now, 1800 after the 12h refund
+        assert(REPS(ENV_EXE, "/cli-begs-4", PUB2) == 1300)
     end
 
     do
@@ -323,6 +330,13 @@ do
         local count = 0
         for _ in parents:gmatch("%x+") do count = count + 1 end
         assert(count == 2, "merge should have 2 parents, got: " .. count)
+    end
+
+    do
+        TEST "like-beg-negative-reps"
+        -- 1000 -> 900 -> 450 to the author, minus the 500 post
+        -- cost (rule 2): a one-off debt, refunded within 12h
+        assert(REPS(ENV_EXE, "/cli-begs-5", PUB2) == -50)
     end
 
     do
