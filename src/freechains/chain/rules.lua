@@ -95,9 +95,11 @@ end
 --[[
 -- Advance time: discount refunds (12h), consolidation grants (24h).
 -- A revoked post consolidates without credit (rule 1.b).
+-- One slot per member per 24h: a settled post with the slot busy is
+-- parked (at most one per member), further ones never earn.
 -- Then `now` advances.
 -- Inputs:
---  - G    [table]: chain state; MUTATED (maturities, reps, G.now)
+--  - G    [table]: chain state; MUTATED (maturities, reps, park, G.now)
 --  - time [integer]: the time driving the scans (act.time)
 --  - sign [string?]: the acting member's pubkey; in a `reps`
 --    query nothing happened but time passing (no sign, no action)
@@ -192,17 +194,29 @@ function M.advance (G, time, sign)
             if entry.maturity == "12-24" then
                 if time >= entry.time.member+C.time.full then
                     if entry.member then
-                        local last = G.members[entry.member].time
+                        local A = G.members[entry.member]
+                        local last = A.time
                         if time-last >= C.time.full then
                             -- the slot is consumed either way;
                             -- a revoked post pays 0 (rule 1.b)
                             if not M.is_revoked(entry) then
-                                G.members[entry.member].reps = G.members[entry.member].reps + C.reps.earn
+                                A.reps = A.reps + C.reps.earn
                             end
                             -- slot anchored at the reward time:
                             -- later of post settle and slot open
                             -- (no grid: an idle gap banks nothing)
-                            G.members[entry.member].time = math.max(entry.time.member+C.time.full, last+C.time.full)
+                            A.time = math.max(entry.time.member+C.time.full, last+C.time.full)
+                            if A.park == cid then
+                                A.park = nil
+                            end
+                            entry.maturity = nil
+                            entry.time.member = nil
+                        elseif A.park == nil then
+                            -- slot busy: park at most one settled
+                            -- post per member (depth-1 queue)
+                            A.park = cid
+                        elseif A.park ~= cid then
+                            -- already one parked: no credit, ever
                             entry.maturity = nil
                             entry.time.member = nil
                         end
