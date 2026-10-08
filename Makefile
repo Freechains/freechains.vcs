@@ -18,6 +18,7 @@ tests:
 	$(L) cli-revoke-earn.lua
 	$(L) cli-now.lua
 	$(L) cli-time.lua
+	$(L) cli-slot.lua
 	$(L) cli-begs.lua
 	$(L) cli-get-merge.lua
 	$(L) cli-daemon.lua
