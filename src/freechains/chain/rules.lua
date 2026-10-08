@@ -199,7 +199,10 @@ function M.advance (G, time, sign)
                             if not M.is_revoked(entry) then
                                 G.members[entry.member].reps = G.members[entry.member].reps + C.reps.earn
                             end
-                            G.members[entry.member].time = last + C.time.full
+                            -- slot anchored at the reward time:
+                            -- later of post settle and slot open
+                            -- (no grid: an idle gap banks nothing)
+                            G.members[entry.member].time = math.max(entry.time.member+C.time.full, last+C.time.full)
                             entry.maturity = nil
                             entry.time.member = nil
                         end
