@@ -12,7 +12,7 @@ local M = {}
 --  - none
 -- Callers:
 --  - apply (rules.lua): self-revoke flood check, rule 1.b flip
---  - advance (rules.lua): consolidation of a revoked post
+--  - close (rules.lua): a revoked post pays 0 at the full tick
 --  - like (like.lua): the REMOVAL/LIFT crossing
 --  - list (list.lua): ~cid~ wrapping, revokes listing
 --  - get (get.lua): refuse a revoked payload
@@ -23,36 +23,6 @@ function M.is_revoked (act)
     return ((r.member or 0) < 0) or ((r.others or 0) < 0)
 end
 
---[[
--- Action cids in a stable order.
--- (member, cid); consolidated actions (member == nil) sort last.
--- Makes the scans deterministic across OS processes.
--- Inputs:
---  - G [table]: chain state (reads G.actions; NOT the global:
---    replay passes its own states)
--- Outputs:
---  - [table]: array of cids, sorted
--- Errors:
---  - none
--- Callers:
---  - advance (rules.lua): discount and consolidation scans
---]]
-local function ordered (G)
-    local hs = {}
-    for h in pairs(G.actions) do
-        hs[#hs+1] = h
-    end
-    table.sort(hs, function (a, b)
-        local ta = G.actions[a].time.member or math.huge
-        local tb = G.actions[b].time.member or math.huge
-        if ta == tb then
-            return a < b
-        else
-            return ta < tb
-        end
-    end)
-    return hs
-end
 
 --[[
 -- Cap every member at C.reps.max, ONCE at the end of a step.
@@ -85,7 +55,7 @@ end
 -- Errors:
 --  - none
 -- Callers:
---  - advance (rules.lua): discount scan sums
+--  - ratio (rules.lua): the tick activity
 --]]
 local function reps_of (G, a)
     local T = G.members[a]
@@ -93,12 +63,96 @@ local function reps_of (G, a)
 end
 
 --[[
--- Advance time: discount refunds (12h), consolidation grants (24h).
--- A revoked post consolidates without credit (rule 1.b).
--- Then `now` advances.
+-- The activity ratio of the current tick.
 -- Inputs:
---  - G    [table]: chain state; MUTATED (maturities, reps, G.now)
---  - time [integer]: the time driving the scans (act.time)
+--  - G [table]: chain state (reads G.members, G.tick.acting)
+-- Outputs:
+--  - [number]: positive reps of the members acting since the tick
+--    started / positive reps of all members (0 if none)
+-- Errors:
+--  - none
+-- Callers:
+--  - advance (rules.lua): the length of the current tick
+--]]
+local function ratio (G)
+    local tot = 0
+    for _, member in pairs(G.members) do
+        tot = tot + math.max(0, member.reps)
+    end
+    if tot == 0 then
+        return 0
+    end
+    local cur = 0
+    for key in pairs(G.tick.acting) do
+        cur = cur + reps_of(G, key)
+    end
+    return cur / tot
+end
+
+--[[
+-- How long the current tick lasts given its activity:
+-- `half * max(0, 1 - 2*ratio)`, 12h with no activity, 0 once
+-- half of the reps have acted.
+-- Inputs:
+--  - G [table]: chain state
+-- Outputs:
+--  - [integer]: seconds from the tick start to its close
+-- Errors:
+--  - none
+-- Callers:
+--  - advance (rules.lua)
+--]]
+local function wait (G)
+    return math.floor(C.time.half * math.max(0, 1 - 2*ratio(G)))
+end
+
+--[[
+-- Close the current half tick at chain time `stop`.
+-- Refunds the posts charged since the previous half tick (rule 2).
+-- Every second close is a full tick: each member is rewarded once
+-- for its first post since the previous full tick (rule 1.b); a
+-- revoked post pays 0 but keeps the credit, so a later crossing
+-- moves it (see apply).
+-- Inputs:
+--  - G    [table]: chain state; MUTATED (reps, tick, entry.credit)
+--  - stop [integer]: chain time of the close (next tick start)
+-- Outputs:
+--  - none
+-- Errors:
+--  - none
+-- Callers:
+--  - advance (rules.lua): time-based and actor-based closes
+--]]
+local function close (G, stop)
+    local T = G.tick
+    T.n = T.n + 1
+    for _, cid in ipairs(T.posts) do
+        local member = G.members[G.actions[cid].member]
+        member.reps = member.reps + C.reps.cost
+    end
+    T.posts = {}
+    if T.n % 2 == 0 then
+        for key, cid in pairs(T.posted) do
+            local entry = G.actions[cid]
+            entry.credit = true
+            if not M.is_revoked(entry) then
+                G.members[key].reps = G.members[key].reps + C.reps.earn
+            end
+        end
+        T.posted = {}
+    end
+    T.start  = stop
+    T.acting = {}
+end
+
+--[[
+-- Advance chain time: close the ticks that ended since the
+-- previous action, then let the actor close the current one.
+-- The actor counts for the tick it closes; its action lands in
+-- the next one.
+-- Inputs:
+--  - G    [table]: chain state; MUTATED (reps, tick, G.now)
+--  - time [integer]: the time driving the clock (act.time)
 --  - sign [string?]: the acting member's pubkey; in a `reps`
 --    query nothing happened but time passing (no sign, no action)
 -- Outputs:
@@ -110,112 +164,58 @@ end
 --  - reps (reps.lua): fold time up to --now at query time
 --]]
 function M.advance (G, time, sign)
-    local ORD
+    local T = G.tick
+    local now = math.max(G.now, time)
 
-    -- discount scan (maybe signed at same G.now)
-    -- entries come in time order, so members acting AFTER entry shrink set
-    -- `cur`/`TOT` are kept LIVE: a refund mid-scan is seen by
-    -- the entries after it, exactly as the rescan per entry did
-    if time>G.now or sign then
-        ORD = ordered(G)
-
-        local TOT = 0       -- positive reps of all members
-        for _, v in pairs(G.members) do
-            TOT = TOT + math.max(0, v.reps)
+    -- ticks that ended between the previous action and now:
+    -- first with the acting set as it was, then empty ones
+    while true do
+        local w = wait(G)
+        if now < T.start + w then
+            break
         end
-
-        local cnt = {}      -- member -> its N actions still ahead
-        local cur = 0       -- positive reps of cnt>0 members
-        for _, cid in ipairs(ORD) do
-            local e = G.actions[cid]
-            if e.member and e.time.member then
-                local n = cnt[e.member]
-                cnt[e.member] = (n or 0) + 1
-                if not n then
-                    cur = cur + reps_of(G, e.member)
-                end
-            end
+        if next(T.acting)==nil and #T.posts==0 and next(T.posted)==nil then
+            -- nothing to refund or reward: jump the empty ticks and
+            -- restart the clock now (no grid: idle time is not phase);
+            -- the next close is a half tick (refund before reward)
+            T.n = T.n + (now - T.start) // C.time.half
+            T.n = T.n - T.n % 2
+            T.start = now
+            break
         end
+        close(G, T.start + w)
+    end
 
-        local k = 1         -- next action to fall behind
-        for _, cid in ipairs(ORD) do
-            local entry = G.actions[cid]
-            if entry.maturity == "00-12" then
-                -- drop the actions at/below this entry's time:
-                -- `subs` = the members still counted after that
-                while k <= #ORD do
-                    local o = G.actions[ORD[k]]
-                    if (o.time.member or math.huge) > entry.time.member then
-                        break
-                    end
-                    if o.member and o.time.member then
-                        local n = cnt[o.member] - 1
-                        cnt[o.member] = n
-                        if n == 0 then
-                            cur = cur - reps_of(G, o.member)
-                        end
-                    end
-                    k = k + 1
-                end
-
-                -- the actor counts as a sub, even with no action
-                local c = cur
-                if sign and ((cnt[sign] or 0) == 0) then
-                    c = c + reps_of(G, sign)
-                end
-
-                local ratio = (TOT>0 and c/TOT) or 0
-                local discount = C.time.half * math.max(0, 1 - 2*ratio)
-
-                if time >= entry.time.member + discount then
-                    -- signed beg?
-                    if entry.member then
-                        local A = G.members[entry.member]
-                        local old = math.max(0, A.reps)
-                        A.reps = A.reps + C.reps.cost
-                        local d = math.max(0, A.reps) - old
-                        TOT = TOT + d
-                        if (cnt[entry.member] or 0) > 0 then
-                            cur = cur + d
-                        end
-                    end
-                    entry.maturity = "12-24"
-                end
-            end
+    -- the actor: may close the tick now
+    if sign then
+        T.acting[sign] = true
+        if now >= T.start + wait(G) then
+            close(G, now)
         end
     end
 
-    -- consolidation scan
-    if time > G.now then
-        for _, cid in ipairs(ORD) do
-            local entry = G.actions[cid]
-            if entry.maturity == "12-24" then
-                if time >= entry.time.member+C.time.full then
-                    if entry.member then
-                        local last = G.members[entry.member].time
-                        if time-last >= C.time.full then
-                            -- the slot is consumed either way;
-                            -- a revoked post pays 0 (rule 1.b)
-                            if not M.is_revoked(entry) then
-                                G.members[entry.member].reps = G.members[entry.member].reps + C.reps.earn
-                            end
-                            G.members[entry.member].time = last + C.time.full
-                            entry.maturity = nil
-                            entry.time.member = nil
-                        end
-                    else
-                        -- memberless (unsigned beg): consolidate, no credit
-                        entry.maturity = nil
-                        entry.time.member = nil
-                    end
-                end
-            end
-        end
+    if now > G.now then
+        G.now = now
     end
+end
 
-    if time > G.now then
-        G.now = time
-    end
+--[[
+-- Register a charged post in the current tick.
+-- Inputs:
+--  - G   [table]: chain state; MUTATED (tick.posts, tick.posted)
+--  - cid [string]: the post, signed and charged (not a beg)
+-- Outputs:
+--  - none
+-- Errors:
+--  - none
+-- Callers:
+--  - apply (rules.lua): a signed post, an admitted beg
+--]]
+function M.tick_post (G, cid)
+    local T = G.tick
+    local member = G.actions[cid].member
+    T.posts[#T.posts+1] = cid
+    T.posted[member] = T.posted[member] or cid
 end
 
 --[[
@@ -272,8 +272,7 @@ end
 --  - act [table]: what the commit SAYS: action (the kind), time
 --    (its DATE, hash-bound), n, cid?|member? (the target)
 --  - env [table]: what the chain DERIVED: cid, sign?, beg?, backs
--- Every entry records three times:
---  - `time.member`: the date its member claims (nil once consolidated)
+-- Every entry records two times:
 --  - `time.backs`: max member time over its ancestry ("too old")
 --  - `time.apply`: chain time when applied in the local order
 --    (max member time so far), a function of the DAG order
@@ -300,7 +299,9 @@ function M.apply (G, act, env)
         end
     end
 
-    M.advance(G, act.time, env.sign)
+    -- any signed action is activity for the clock (a beg is not
+    -- available to others until admitted)
+    M.advance(G, act.time, (not env.beg) and env.sign or nil)
 
     if act.action == 'post' then
         -- validation
@@ -326,19 +327,21 @@ function M.apply (G, act, env)
 
         -- mutation
         G.actions[env.cid] = {
-            action   = 'post',
-            member   = env.sign,
-            time     = { member=act.time, backs=math.max(act.time,up), apply=G.now },
-            maturity = (env.beg and 'beg') or (env.sign and '00-12') or 'beg',
-            reps     = 0,
-            revoke   = { member=0, others=0 },
+            action = 'post',
+            member = env.sign,
+            time   = { backs=math.max(act.time,up), apply=G.now },
+            beg    = env.beg or nil,
+            reps   = 0,
+            revoke = { member=0, others=0 },
         }
         if env.sign then
             G.members[env.sign] = G.members[env.sign] or { reps=0 }
             if not env.beg then
+                -- rule 2: pays now, refunded at the next half tick;
+                -- rule 1.b: first post of the full tick is the credit
+                -- (a beg is not available to others: nothing yet)
                 G.members[env.sign].reps = G.members[env.sign].reps - C.reps.cost
-                G.members[env.sign].time = G.members[env.sign].time or act.time
-                    -- do not set for beg, bc not available to others
+                M.tick_post(G, env.cid)
             end
         end
 
@@ -429,18 +432,17 @@ function M.apply (G, act, env)
             -- rule 1.b: a consolidated post holds its +1K for the
             -- author only while not revoked: the credit follows the
             -- revoke sums, so a crossing moves it back or forth
-            if a and e.action=='post' and (not e.maturity) and was~=M.is_revoked(e) then
+            if a and e.action=='post' and e.credit and was~=M.is_revoked(e) then
                 G.members[a].reps = G.members[a].reps + (was and C.reps.earn or -C.reps.earn)
             end
 
             if env.beg then
-                e.maturity = "00-12"
-                e.time.member = act.time
+                e.beg = nil
                 if a then
                     -- rule 2: the admitted beg pays the post cost now,
-                    -- refunded by `advance` like any post (may go negative)
+                    -- refunded at the next half tick (may go negative)
                     G.members[a].reps = G.members[a].reps - C.reps.cost
-                    G.members[a].time = G.members[a].time or act.time
+                    M.tick_post(G, act.cid)
                 end
             end
         else

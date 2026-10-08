@@ -42,15 +42,20 @@ The concrete rules are as follows:
   The pioneers shape the initial culture of the chain with their first posts
   and likes.
 - ***Rule 1.b*** awards authors of new posts with *1000 reps*, but only after
-  24 hours, unless revoked, and at most once per day per author.
+  the next *full tick* of the chain clock, unless revoked, and at most once
+  per full tick per author.
   This rule stimulates content creation and grows the economy of chains.
-  The 24-hour period gives sufficient time for other members to judge the post
-  before awarding the author.
-  It also regulates the growth speed of the chain.
+  The chain clock ticks every 12 hours, or sooner in proportion to the
+  reputation of the members acting since the last tick (half of it closes a
+  tick at once); a full tick is every second tick, so a quiet chain rewards
+  daily and a busy chain within minutes.
+  The tick gives other members time to judge the post before the author is
+  awarded, and bounds the growth speed of the chain to one reward per author
+  per tick, whatever the number of posts.
 - ***Rule 2*** imposes a temporary cost of *500 reps* for each new post.
-  The cost period varies from 0 to 12 hours, depending on the activity
-  succeeding (and including) the new post.
-  The more activity from reputed authors, the less time the discount persists.
+  The cost is refunded at the next tick of the chain clock, from 0 to 12
+  hours after the post, depending on the activity succeeding it.
+  The more activity from reputed authors, the sooner the chain ticks.
 - ***Rule 3*** for "votes" (likes and revokes) serves three purposes:
     (i) welcoming new members,
     (ii) measuring the quality of posts, and
@@ -105,8 +110,8 @@ the reputation of its author to the point that s/he cannot post again.
 We consider that in a fair chain, members have equal opportunities to speak, or
 at least that the amount of noise is limited.
 Freechains restricts the number of posts in two ways: first, new posts penalize
-authors for up to 12 hours; second, at most one post per day can generate
-reputation for an author.
+authors until the next tick (up to 12 hours); second, at most one post per
+full tick (up to 24 hours) can generate reputation for an author.
 The first rule prevents that an author posts too many messages in sequence at
 the cost of decreasing its reputation very fast.
 The second rule limits the amount of reputation the member can collect over
@@ -136,7 +141,7 @@ The size of the "economy" of each chain is its amount of consolidated posts.
 Likes and dislikes only transfer reputation between authors, and the initial
 reputation of the pioneers becomes negligible as time goes.
 The number of accountable consolidated posts is also limited to at most one per
-day per author.
+full tick per author.
 Hence, the size of the economy highly depends on the number of active authors
 in the chain.
 This mechanism creates incentives to welcome new members to participate and

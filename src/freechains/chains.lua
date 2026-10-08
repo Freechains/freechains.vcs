@@ -196,6 +196,8 @@ local function genesis (dir, gen)
         members = A,
         actions = {},
         order   = {},
+        -- the chain clock: half ticks of 12h or less (rules.lua)
+        tick    = { start=0, n=0, acting={}, posts={}, posted={} },
     }
     local tmp = dir .. "state-tmp"
     table_to_file(G, tmp)

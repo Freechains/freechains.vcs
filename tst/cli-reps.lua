@@ -88,7 +88,9 @@ do
             cmd = ENV_EXE .. " chain /cli-reps reps member '" .. PUB1 .. "'",
         }
         assert(code==0, "exit code: " .. tostring(code))
-        assert(out == "49500", "reps: " .. out)    -- KEY1: 50000 -> posts -> 49500 (discount refunds)
+        -- KEY1 (100%): each post closes a half tick; the full tick
+        -- refunds and rewards P1 (capped), P3's cost is absorbed too
+        assert(out == "50000", "reps: " .. out)
     end
 
     do
@@ -182,10 +184,13 @@ do
             cmd = ENV_EXE .. " chain /cli-reps reps member '" .. PUB2 .. "'",
         }
         assert(code == 0, "exit code: " .. tostring(code))
-        -- KEY2: 25000 - 1500 (posts) + 900 (like) - 900 (dislikes)
-        --       + 1000 (refunds) = 24500
+        -- each KEY1 vote closed a full tick while KEY1 held 50%:
+        -- the first two posts refunded and rewarded; the third is
+        -- pending (KEY1 fell below 50% after spending)
+        -- KEY2: 25000 - 1500 (posts) + 1000 (refunds) + 2000 (rewards)
+        --       + 900 (like) - 900 (dislikes) = 26500
         local n = tonumber(out)
-        assert(n == 24500, "target should lose reps: " .. out)
+        assert(n == 26500, "target should lose reps: " .. out)
     end
 
     exec {
@@ -376,17 +381,19 @@ do
             err = "ERROR : chain post : insufficient reputation",
         }
 
-        TEST "...still below the gate after the 12h refund"
+        TEST "...refunded and rewarded at the next full tick"
+        -- KEY1 (100%) closed a half tick with each of its three likes,
+        -- so the 12h close is the full one: -50 + 500 + 1000
         local out = exec {
             cmd = ENV_EXE .. " --now=43200 chain /no-debt reps member '" .. PUB3 .. "'",
         }
-        assert(out == "450", "KEY3 after 12h: " .. out)   -- -50 + 500
-        FAIL {
-            cmd = ENV_EXE .. " --now=43200 chain /no-debt post inline 'still soon' --sign " .. KEY3,
-            err = "ERROR : chain post : insufficient reputation",
+        assert(out == "1450", "KEY3 after 12h: " .. out)
+        local post, code = exec {
+            cmd = ENV_EXE .. " --now=43200 chain /no-debt post inline 'now' --sign " .. KEY3,
         }
+        assert(code == 0, "rewarded member should post: " .. tostring(code))
 
-        TEST "...and speaks after the 24h reward"
+        TEST "...and still speaks a day later"
         local out = exec {
             cmd = ENV_EXE .. " --now=86400 chain /no-debt reps member '" .. PUB3 .. "'",
         }
