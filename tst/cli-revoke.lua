@@ -96,7 +96,9 @@ do
         local after = exec {
             cmd = ENV_EXE .. " chain /cli-revoke reps member '" .. PUB1 .. "'",
         }
-        assert(before == after, "self-revoke must be free: " .. before .. " -> " .. after)
+        -- the vote is free, but the post was credited at the tick
+        -- KEY2's revoke closed: the revoke claws its +1000 back
+        assert(tonumber(after) == tonumber(before) - 1000, "self-revoke must be free: " .. before .. " -> " .. after)
         FAIL {
             cmd = ENV_EXE .. " chain /cli-revoke get payload " .. POST,
             err = "ERROR : chain get : revoked payload",
