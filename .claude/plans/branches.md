@@ -4,27 +4,46 @@
 - the lineage: tree -> bug-winner -> sync-optim (1,2) -> tick
 - goal: ia-optim holds the tree, the optimizations, and every
   feature of the other branches; then tick on top
+- state (26/10/09): ia-optim holds everything, including the
+  single 24h tick; main and tick carry the main-side forms
 
 # Active branches and deps
 
-- main (7902953, 26/10/08): plans only since 26/10/03
+- main (6996cc3, 26/10/08): plans only since 26/10/03
     - 261006-bug-winner: main@728f875 + the fix (2 commits)
-    - 261008-tick: main@7902953 + the tick rules (origin only,
-      1 commit, unreviewed)
-- 260914-tree-trash (0483509, 26/10/07): main@4d8e7d9 + the tree
-  store + bug-winner (ported) + sync-optim fixes 1 and 2
-    - 261007-ia-optim: tree-trash@0483509 + 28 process-floor fixes
-      and 3 plan updates (31 commits)
-- not on tree-trash/ia-optim (main after 4d8e7d9): beg charge,
-  discard --merge, docs sync; to port
-- next in the lineage: tick onto ia-optim
+    - 261008-tick (84e77d0, 26/10/09): main@7902953 + the tick
+      rules (4 commits, under review)
+        - e582932: half tick refunds, full tick rewards
+        - 3027e34, 104e139, 84e77d0: single 24h tick replaces
+          half/full; refund and reward at the same close;
+          cli-revoke clawback; guide numbers (Alice 41500)
+- 260914-tree-trash (a60fca6, 26/10/08): main@4d8e7d9 + the tree
+  store + bug-winner (ported) + sync-optim fixes 1 and 2 + tick
+  (ported to the tree, half/full form, stale)
+    - 261007-ia-optim (d995b64, 26/10/09): tree-trash@0483509 +
+      28 process-floor fixes and 3 plan updates, then main merged
+      (beg charge, discard --merge, docs, branches.md), tick
+      cherry-picked from tree-trash@a60fca6, then the single tick
+      cherry-picked from 261008-tick (3027e34..84e77d0; `close`
+      keeps `STATE.fetch`, `bump`, `dirty`): holds everything
+- tests on ia-optim: the hook suites need the working tree first
+  in PATH (or `make install`): the installed build writes
+  snapshots without `tick`
+- guide.sh (both forms, 26/10/09): reps match the single tick;
+  the daemon "Address already in use" lines come from the extra
+  `--listen=127.0.0.1` (daemon.lua already binds 0.0.0.0); comment
+  at ln 142 still says 40000
+- pending: paper items of 261008-tick; tree-trash not updated to
+  the single tick (superseded by ia-optim)
 
 # Flow of the latest features
 
 | plan             | branches               | description                |
 |------------------|------------------------|----------------------------|
-| 261008-tick      | tick                   | one chain clock replaces   |
-|                  |                        | the 12h/24h per-post timers|
+| 261008-tick      | tick (main form);      | one chain clock replaces   |
+| (single 24h)     | ia-optim (tree form);  | the 12h/24h per-post timers|
+|                  | tree-trash (half/full, | refund and reward at the   |
+|                  | stale)                 | same close                 |
 | 261007-sync-optim| tree-trash, ia-optim   | recv flat in chain size:   |
 |                  |                        | hardfork from tips, payload|
 |                  |                        | pass on the affected set   |
@@ -40,12 +59,11 @@
 |                  | (plan only)            | unquoted URL() splices     |
 | 261002-docs      | main, bug-winner, tick | guide/reps synced with the |
 |                  | (done)                 | paper, figures             |
-| 260923-beg       | main, bug-winner, tick | begs charged on admission  |
-|                  | (done); tree-trash,    | (rule 2)                   |
-|                  | ia-optim (not ported)  |                            |
-| 260921-discard   | main, bug-winner, tick | discard --merge drops a    |
-|                  | (code); tree-trash,    | branch from its first      |
-|                  | ia-optim (not ported)  | action                     |
+| 260923-beg       | all (done)             | begs charged on admission  |
+|                  |                        | (rule 2)                   |
+| 260921-discard   | all but tree-trash     | discard --merge drops a    |
+|                  |                        | branch from its first      |
+|                  |                        | action                     |
 | 260914-tree      | tree-trash, ia-optim   | state as a git tree of     |
 |                  |                        | per-entity files, lazy     |
 | 260903-128KB     | all (plan only)        | payload size limit, local  |
