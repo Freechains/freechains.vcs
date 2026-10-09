@@ -688,7 +688,9 @@ function M.apply (G, act, env)
                 e.time.member = act.time
                 pend(G, { cid=act.cid, member=a, time=act.time, maturity="00-12" })
                 if a then
-                    M.bump(G, a, 0)
+                    -- rule 2: the admitted beg pays the post cost now,
+                    -- refunded by `advance` like any post (may go negative)
+                    M.bump(G, a, -C.reps.cost)
                     G.members[a].time = G.members[a].time or act.time
                 end
             end

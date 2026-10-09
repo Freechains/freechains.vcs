@@ -12,7 +12,7 @@ https://docs.google.com/spreadsheets/d/1K9vqrDHXvDQdqdGE7h-y1Bp_Phwt3CszXyGP962W
 In the absence of moderation, permissionless peer-to-peer public forums are
 impractical, mostly because of Sybil attacks.
 For instance, it should take a few seconds to generate thousands of fake
-identities and SPAM millions of messages into the system.
+identities and spam millions of messages into the system.
 The reputation system of Freechains works together with a
 [consensus mechanism](guide.md#consensus) to mitigate Sybil attacks and make
 peer-to-peer public forums practical.
@@ -24,8 +24,6 @@ Each chain is independent, so the reputation of a given author may vary across
 chains.
 The unit of reputation is known as ***rep*** and can be created, spent, and
 transferred.
-
-<img src="general.png" width="500" align="right">
 
 Members spend reps to post and rate content in the forums:
     a ***post*** temporarily penalizes its author until it consolidates and counts positively;
@@ -44,7 +42,7 @@ The concrete rules are as follows:
   The pioneers shape the initial culture of the chain with their first posts
   and likes.
 - ***Rule 1.b*** awards authors of new posts with *1000 reps*, but only after
-  24 hours, and at most once per day per author.
+  24 hours, unless revoked, and at most once per day per author.
   This rule stimulates content creation and grows the economy of chains.
   The 24-hour period gives sufficient time for other members to judge the post
   before awarding the author.
@@ -56,7 +54,7 @@ The concrete rules are as follows:
 - ***Rule 3*** for "votes" (likes and revokes) serves three purposes:
     (i) welcoming new members,
     (ii) measuring the quality of posts, and
-    (iii) penalizing abuse (SPAM, fake news, illegal content, etc).
+    (iii) penalizing abuse (spam, fake news, illegal content, etc).
     - ***Rule 3.a*** burns a *10% tax* on every transfer, which prevents
       reputation cycling exploits.
     - ***Rule 3.b*** splits a transfer targeting a post between the post and
@@ -69,10 +67,12 @@ The concrete rules are as follows:
       payloads.
       A post is revoked when the reps-weighted sum of revokes outweighs the
       unrevokes.
+      An unrevoke must provide a copy of the payload, validated against the
+      hash in the post metadata.
       As the "right to be forgotten", authors may also revoke their own posts,
       for free and regardless of the community votes.
 - ***Rule 4.a*** imposes that authors afford the full cost of each act,
-  effectively blocking Sybil actions.
+  at least 500 reps, or 1000 for revokes, effectively blocking Sybil actions.
   Note that ***Rule 1.a*** solves the chicken-and-egg problem imposed by this
   rule.
   Note also that outsiders can still *beg*: a begging post is parked apart from
@@ -89,7 +89,7 @@ chain along with fairness among its authors.
 
 The quality of posts is subjective and is up to members to judge them with
 likes, dislikes, revokes, or simply abstaining.
-A member can revoke malicious posts, when considering them offensive, SPAM,
+A member can revoke malicious posts, when considering them offensive, spam,
 fake, illegal, or even for disagreement.
 On the one hand, since votes are finite, members have to ponder before spending
 them.
@@ -146,5 +146,5 @@ they drain nearly twice the amount into the void.
 On the one hand, we believe that this fact contributes to sustain healthy
 discussions with a reasonable degree of disagreement, otherwise the economy of
 chains would collapse with an outbreak of dislikes.
-On the other hand, obvious undesired content like SPAM is rapidly banned (along
+On the other hand, obvious undesired content like spam is rapidly banned (along
 with its author) with a few revokes that do not affect the chain economy.

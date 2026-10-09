@@ -283,7 +283,10 @@ do
     -- cmd.chain.discard : local only (no sign, no network)
     cmd.chain.discard._ = cmd.chain._:command("discard")
     cmd.chain.discard._:argument("id"):target("cid")
-    cmd.chain.discard._:flag("--keep")
+    cmd.chain.discard._:mutex(
+        cmd.chain.discard._:flag("--keep"),
+        cmd.chain.discard._:flag("--merge")
+    )
 
     -- cmd.chain.sweep : local only (no sign, no network)
     cmd.chain.sweep._ = cmd.chain._:command("sweep")

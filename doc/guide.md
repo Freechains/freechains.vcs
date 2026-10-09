@@ -221,7 +221,7 @@ $ ssh-keygen -t ed25519 -C '' -f /tmp/bob
 Since `Bob` has no previous reputation, he cannot yet post on the chain:
 
 ```
-$ freechains --root=/tmp/B/ chain /chat post inline $'Possibly SPAM\n' --sign=/tmp/bob
+$ freechains --root=/tmp/B/ chain /chat post inline $'Possibly spam\n' --sign=/tmp/bob
 ERROR : chain post : insufficient reputation
 ```
 
@@ -294,6 +294,9 @@ Each new action in the chain is an acknowledgment that gradually refunds old
 content creators.
 In our example, since `Alice` holds the majority of `reps` in the network, the
 full refund is instantaneous.
+
+After 24 hours, a post also rewards its author with `1000 reps`, at most once
+a day, which is how chains grow their economy over time.
 
 Let's now introduce new member `Charlie`, who is welcomed by `Bob` in peer `B`:
 
@@ -377,7 +380,15 @@ c7d8e9f       # 'A great post!'
 d8e9f0a       # like: alice -> 'A great post!'
 ```
 
-The post is now part of the chain and `Dave` becomes a proper member.
+The post is now part of the chain and `Dave` becomes a proper member:
+
+```
+$ freechains chain /chat reps member /tmp/dave.pub
+1300
+```
+
+`Dave` receives half of the like after the tax (`1800`), minus the temporary
+cost of a new post (`500`).
 Note that the like `d8e9f0a` links back to two actions:
     the beg `c7d8e9f` just above it, and
     the previous tip pointed as `^560`.
@@ -510,10 +521,11 @@ peers reach the same state without any central authority.
 
 As a measure against members with strong past reputation, Freechains protects
 settled local branches from outdated actions.
-As the figure illustrates, actions freeze 7 days after they enter the local
-order, considering the newest timestamp up to each action.
-If consensus would reorder them, the merge is refused and the two peers become
-incompatible.
+As the figure illustrates, actions settle 7 days after they enter the local
+order, considering the newest timestamp up to each action in the consensus
+order.
+If a winning branch would reorder them, the merge is refused and the two
+peers become incompatible.
 In contrast, peers that remain active and synchronize over time evolve
 together with a stable order.
 
@@ -533,7 +545,7 @@ $ freechains --root=/tmp/X/ --now=$((NOW+8*DAY)) chain /chat post inline $'day 8
 7d8e9f0...
 ```
 
-Here, the actions on `X` span over more than seven days, making them frozen
+Here, the actions on `X` span over more than seven days, making them settled
 and refusing reorderings.
 
 Then, `Alice` comes back and posts locally in peer `A`, on the same branch she
@@ -555,7 +567,7 @@ Since `Alice` holds the majority of `reps`, the consensus would order her
 branch before `Bob`'s and `Charlie`'s settled actions.
 However, regardless of her strong past reputation, `Alice` cannot reorder an
 active community.
-With fewer `reps`, her post would simply be appended after theirs.
+Had she fewer `reps`, her post would simply be appended after theirs.
 
 Note that it is not possible to judge whether `Alice` was trying to rewrite
 history or simply became offline for a long time.
@@ -638,7 +650,7 @@ compatibility.
 # Moderation
 
 Even considering that posts are rated through likes and dislikes, chains are
-still subject to abuse, including SPAM, hate speech, and possibly illegal
+still subject to abuse, including spam, hate speech, and possibly illegal
 content.
 For such cases, Freechains provides an additional revocation mechanism that
 works in conjunction with the reputation system.
@@ -660,13 +672,14 @@ $ freechains chain /chat post inline $'BUY NOW\n' --sign=/tmp/dave
 4a5b6c7...
 ```
 
-`Alice` detects the SPAM and revokes it:
+`Alice` detects the spam and revokes it:
 
 ```
 $ freechains chain /chat revoke 1000 4a5b6c7 --sign=/tmp/alice
 8f9a0b1...
 ```
 
+A revoke costs at least `1000 reps` and also drains the post and its author.
 The payload of a revoked action becomes immediately unavailable:
 
 ```
@@ -678,11 +691,11 @@ Unlike posts metadata, payloads live outside the commit DAG, so that their
 bytes can be properly erased without touching the chain's history.
 
 Revocation is reversible through the analogous command `unrevoke`.
-They both account to determine wether a post is available or not.
+They both account to determine whether a post is available or not.
 As with likes and dislikes, revocation operations require `reps` to cast.
 
 As the "right to be forgotten", members may also revoke their own posts for
-free.
+free, which no other member can undo.
 Let's say `Bob` posts something he immediately regrets:
 
 ```

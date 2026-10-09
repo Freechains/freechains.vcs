@@ -3,6 +3,12 @@
 [![Tests](https://github.com/Freechains/freechains.vcs/actions/workflows/tests.yml/badge.svg)](https://github.com/Freechains/freechains.vcs/actions/workflows/tests.yml)
 
 [
+    [`v0.20`](https://github.com/Freechains/freechains.vcs/tree/v0.20)
+]
+
+Stable branch is [`v0.20`](https://github.com/Freechains/freechains.vcs/tree/v0.20).
+
+[
     [About](#about)     |
     [Install](#install) |
     [Docs](#docs)
