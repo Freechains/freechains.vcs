@@ -314,7 +314,8 @@ do
         local pb = STATE(REPO_B).actions
         for k, v in pairs(pa) do
             assert(pb[k], "action missing in B: " .. k)
-            assert(pb[k].maturity == v.maturity, "maturity mismatch for " .. k)
+            assert(pb[k].credit == v.credit, "credit mismatch for " .. k)
+            assert(pb[k].beg == v.beg, "beg mismatch for " .. k)
         end
         for k, v in pairs(pb) do
             assert(pa[k], "action missing in A: " .. k)
@@ -357,7 +358,9 @@ do
                 cmd = EXE_A .. " --now=8000 chain /test reps action " .. A,
             })),
         }
-        assert(bef.member==49500, "bef.member expected 49500, got " .. bef.member)
+        -- KEY1 (100%): every action closes a half tick, so posts are
+        -- refunded and rewarded in pairs, capped at 50000
+        assert(bef.member==50000, "bef.member expected 50000, got " .. bef.member)
         assert(bef.post  == 0, "bef.post expected 0, got " .. bef.post)
 
         exec {
@@ -372,7 +375,12 @@ do
                 cmd = EXE_A .. " --now=8000 chain /test reps action " .. A,
             })),
         }
-        assert(aft.member == 47250, "aft.member expected 47250, got " .. aft.member)
+        -- the like closes a half tick: +500 refund, -5000, +2250 back;
+        -- the two diverging posts tie (same key), so which branch
+        -- won is per run (hash), and so is the parity of the clock:
+        -- a full tick adds the +1000 reward of the first post
+        assert(aft.member == 47750 or aft.member == 48750,
+            "aft.member expected 47750 or 48750, got " .. aft.member)
         assert(aft.post   == 2250,  "aft.post expected 2250, got " .. aft.post)
 
         TEST "B recvs from A (with like)"

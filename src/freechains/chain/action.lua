@@ -377,7 +377,7 @@ function M.apply (G, cid, beg, snap)
                 kind == 'like'
                 and (math.type(act.n)=='integer' and act.n>0)
                 and (act.cid and G.actions[act.cid])
-                and (G.actions[act.cid].maturity == "beg")
+                and G.actions[act.cid].beg
             ) or false
         end
 

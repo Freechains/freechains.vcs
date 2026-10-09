@@ -218,13 +218,11 @@ local function genesis (dir, gen)
         now     = 0,
         open    = (#pios==0 and #gods==0),  -- unrestricted chain: anyone can post,vote
         tot     = tot,
-        heads   = {},
         members = A,
         actions = {},
         order   = {},
-        pending = {},
-        loaded  = {},
-        pdays   = {},
+        -- the chain clock: half ticks of 12h or less (rules.lua)
+        tick    = { start=0, n=0, acting={}, posts={}, posted={} },
     }
     STATE.dirty(G, true)
     STATE.write(G, gen, dir)

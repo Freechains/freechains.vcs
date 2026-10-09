@@ -18,6 +18,11 @@ require "tests"
 --   A (KEY1):                          a1 -- dislike K2 (refutation)
 --   X (hub):   recv A          -> K1 wins: junk voided, prefix intact
 --
+-- The loser lands in ONE tick of the chain clock (its dates are
+-- behind the merge), so no refund reaches it during the replay: KEY2's
+-- 15K after the like pays at most 30 junk posts; the rest is voided
+-- as "insufficient reputation". Test 1 farms 25.
+--
 -- Test 2 repeats with 5 junk posts, but X's chain time advances 7 days
 -- (a 6th junk post) before the refutation: the junk is settled by then
 -- and the refutation is refused (hard fork), as a late winner should.
@@ -107,7 +112,7 @@ end
 do
     print("==> Test 1: old-dated loser stays loose; refutation propagates")
 
-    local N = 100
+    local N = 25
     local R, H = SETUP("fc1", N)
     local X = R.X
 

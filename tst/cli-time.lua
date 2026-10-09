@@ -20,13 +20,15 @@ do
         }
         assert(out == "49500", "reps: " .. out)
 
-        exec { -- 49500 -> 50000 (refund) -> 49500 (post)
+        -- a 100% holder closes a tick with each action: the second
+        -- close is a full tick: refund P1, reward P1 (capped), cost P2
+        exec { -- 49500 -> 50000 -> 51000 -> 50500 -> 50000 (cap)
             cmd = ENV_EXE .. " --now=0 chain /cli-time post inline 'p2' --sign " .. KEY1,
         }
         local out = exec {
             cmd = ENV_EXE .. " --now=0 chain /cli-time reps member '" .. PUB1 .. "'",
         }
-        assert(out == "49500", "reps: " .. out)
+        assert(out == "50000", "reps: " .. out)
     end
 end
 
@@ -73,19 +75,20 @@ do
     do
         TEST "time-consolidation-1-per-day"
 
-        exec { -- 30 -> 29
+        -- 100% holder: every action closes a half tick
+        exec { -- 50000 -> 49500 (cost P1)
             cmd = ENV_EXE .. " --now=0 chain /cli-time post inline 'p1' --sign " .. KEY1,
         }
-        exec { -- refund P1 + cost P2 → 29
+        exec { -- full tick: refund P1, reward P1, cost P2 -> 50000 (cap)
             cmd = ENV_EXE .. " --now=0 chain /cli-time post inline 'p2' --sign " .. KEY1,
         }
-        exec { -- refund P2 + cost P3 -> 49500
+        exec { -- half tick: refund P2, cost P3 -> 50000
             cmd = ENV_EXE .. " --now=0 chain /cli-time post inline 'p3' --sign " .. KEY1,
         }
         local out = exec {
             cmd = ENV_EXE .. " --now=0 chain /cli-time reps member '" .. PUB1 .. "'",
         }
-        assert(out == "49500", "reps: " .. out)
+        assert(out == "50000", "reps: " .. out)
 
         exec { -- refund P3 + consolidate P1 only (capped) + cost P4 -> 50000
             cmd = ENV_EXE .. " --now=86400 chain /cli-time post inline 'p4' --sign " .. KEY1,
