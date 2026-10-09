@@ -272,7 +272,7 @@ Let's see how the reputation evolves over time:
     - the sole pioneer takes the whole initial share
 - `Alice` posts `Hello World`:
     - `Alice: 50000 -> 49500`
-    - a post costs `500`, and refunds within at most 12 hours
+    - a post costs `500`, and refunds within at most 24 hours
 - `Alice` posts `I am here`:
     - `Alice: 49500 -> 50000 -> 49500`
     - first post refunds (`49500 -> 50000`)
@@ -287,7 +287,7 @@ Let's see how the reputation evolves over time:
     - `Bob: 0 -> 9000`
     - likes receive a `10%` tax
 
-A new post has only a temporary cost that refunds within at most 12 hours.
+A new post has only a temporary cost that refunds within at most 24 hours.
 The goal is to prevent abuse, giving enough time for other members to see and
 react to new content.
 Each new action in the chain is an acknowledgment that gradually refunds old

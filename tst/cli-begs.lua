@@ -197,7 +197,7 @@ do
     do
         TEST "like-beg-charges-post-cost"
         -- 4000 -> 3600 -> 1800 to the author, minus the 500 post
-        -- cost (rule 2): 1300 now, 1800 after the 12h refund
+        -- cost (rule 2): 1300 now, 1800 after the refund at the tick
         assert(REPS(ENV_EXE, "/cli-begs-4", PUB2) == 1300)
     end
 
@@ -335,7 +335,7 @@ do
     do
         TEST "like-beg-negative-reps"
         -- 1000 -> 900 -> 450 to the author, minus the 500 post
-        -- cost (rule 2): a one-off debt, refunded within 12h
+        -- cost (rule 2): a one-off debt, refunded at the tick
         assert(REPS(ENV_EXE, "/cli-begs-5", PUB2) == -50)
     end
 

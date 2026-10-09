@@ -88,8 +88,8 @@ do
             cmd = ENV_EXE .. " chain /cli-reps reps member '" .. PUB1 .. "'",
         }
         assert(code==0, "exit code: " .. tostring(code))
-        -- KEY1 (100%): each post closes a half tick; the full tick
-        -- refunds and rewards P1 (capped), P3's cost is absorbed too
+        -- KEY1 (100%): each post closes a tick that refunds and
+        -- rewards the previous one (capped); P3's cost is absorbed
         assert(out == "50000", "reps: " .. out)
     end
 
@@ -184,7 +184,7 @@ do
             cmd = ENV_EXE .. " chain /cli-reps reps member '" .. PUB2 .. "'",
         }
         assert(code == 0, "exit code: " .. tostring(code))
-        -- each KEY1 vote closed a full tick while KEY1 held 50%:
+        -- each KEY1 vote closed a tick while KEY1 held 50%:
         -- the first two posts refunded and rewarded; the third is
         -- pending (KEY1 fell below 50% after spending)
         -- KEY2: 25000 - 1500 (posts) + 1000 (refunds) + 2000 (rewards)
@@ -301,7 +301,7 @@ end
 -- NO DEBT: gates are cost-quantized (posting costs `cost`, so
 -- holding less than `cost` can neither post nor be sponsored
 -- with dust). Times are pinned: the whole section lives at
--- now=0, except the maturity step at 12h
+-- now=0, except the tick at 24h
 do
     print("==> No debt (except beg admission)")
 
@@ -381,15 +381,19 @@ do
             err = "ERROR : chain post : insufficient reputation",
         }
 
-        TEST "...refunded and rewarded at the next full tick"
-        -- KEY1 (100%) closed a half tick with each of its three likes,
-        -- so the 12h close is the full one: -50 + 500 + 1000
+        TEST "...refunded and rewarded at the next tick"
+        -- nobody acts after the admission: the tick closes at 24h,
+        -- refund and reward at once: -50 + 500 + 1000
         local out = exec {
             cmd = ENV_EXE .. " --now=43200 chain /no-debt reps member '" .. PUB3 .. "'",
         }
-        assert(out == "1450", "KEY3 after 12h: " .. out)
+        assert(out == "-50", "KEY3 after 12h: " .. out)
+        local out = exec {
+            cmd = ENV_EXE .. " --now=86400 chain /no-debt reps member '" .. PUB3 .. "'",
+        }
+        assert(out == "1450", "KEY3 after 24h: " .. out)
         local post, code = exec {
-            cmd = ENV_EXE .. " --now=43200 chain /no-debt post inline 'now' --sign " .. KEY3,
+            cmd = ENV_EXE .. " --now=86400 chain /no-debt post inline 'now' --sign " .. KEY3,
         }
         assert(code == 0, "rewarded member should post: " .. tostring(code))
 
@@ -407,7 +411,7 @@ do
 
     do
         TEST "reps-above-cost-cannot-beg"
-        -- KEY2 holds 900 >= 500 (400 + the 12h refund)
+        -- KEY2 holds 900 >= 500 (400 + the refund at the tick)
         FAIL {
             cmd = ENV_EXE .. " --now=86400 chain /no-debt post inline 'no beg' --beg --sign " .. KEY2,
             err = "ERROR : chain post : --beg error : member has sufficient reputation",

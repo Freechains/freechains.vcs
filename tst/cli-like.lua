@@ -50,8 +50,8 @@ do
         local k1 = exec {
             cmd = ENV_EXE .. " chain /cli-like reps member '" .. PUB1 .. "'",
         }
-        -- KEY1 (50%): its post closed a half tick; KEY2's like (50%)
-        -- closes the full tick: refund +500, reward +1000, self-back
+        -- KEY1 (50%): its post closed an empty tick; KEY2's like (50%)
+        -- closes the next: refund +500, reward +1000, self-back
         -- +450: 25000 - 500 + 500 + 1000 + 450 = 26450
         assert(k1 == "26450", "KEY1 reps after like: " .. k1)
     end
