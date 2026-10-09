@@ -12,7 +12,7 @@ local M = {}
 --  - none
 -- Callers:
 --  - apply (rules.lua): self-revoke flood check, rule 1.b flip
---  - close (rules.lua): a revoked post pays 0 at the full tick
+--  - close (rules.lua): a revoked post pays 0 at the tick
 --  - like (like.lua): the REMOVAL/LIFT crossing
 --  - list (list.lua): ~cid~ wrapping, revokes listing
 --  - get (get.lua): refuse a revoked payload
@@ -159,7 +159,7 @@ end
 
 --[[
 -- How long the current tick lasts given its activity:
--- `half * max(0, 1 - 2*ratio)`, 12h with no activity, 0 once
+-- `tick * max(0, 1 - 2*ratio)`, 24h with no activity, 0 once
 -- half of the reps have acted.
 -- Inputs:
 --  - G [table]: chain state
@@ -171,16 +171,15 @@ end
 --  - advance (rules.lua)
 --]]
 local function wait (G)
-    return math.floor(C.time.half * math.max(0, 1 - 2*ratio(G)))
+    return math.floor(C.time.tick * math.max(0, 1 - 2*ratio(G)))
 end
 
 --[[
--- Close the current half tick at chain time `stop`.
--- Refunds the posts charged since the previous half tick (rule 2).
--- Every second close is a full tick: each member is rewarded once
--- for its first post since the previous full tick (rule 1.b); a
--- revoked post pays 0 but keeps the credit, so a later crossing
--- moves it (see apply).
+-- Close the current tick at chain time `stop`.
+-- Refunds the posts charged since the previous tick (rule 2), then
+-- rewards each member once for its first post since the previous
+-- tick (rule 1.b); a revoked post pays 0 but keeps the credit, so
+-- a later crossing moves it (see apply).
 -- Inputs:
 --  - G    [table]: chain state; MUTATED (reps, tick, entry.credit)
 --  - stop [integer]: chain time of the close (next tick start)
@@ -193,28 +192,25 @@ end
 --]]
 local function close (G, stop)
     local T = G.tick
-    T.n = T.n + 1
     STATE.fetch(G, T.posts)
     for _, cid in ipairs(T.posts) do
         M.bump(G, G.actions[cid].member, C.reps.cost)
     end
-    T.posts = {}
-    if T.n % 2 == 0 then
-        local cids = {}
-        for _, cid in pairs(T.posted) do
-            cids[#cids+1] = cid
-        end
-        STATE.fetch(G, cids)
-        for key, cid in pairs(T.posted) do
-            local entry = G.actions[cid]
-            entry.credit = true
-            G.dirty.actions[cid] = true
-            if not M.is_revoked(entry) then
-                M.bump(G, key, C.reps.earn)
-            end
-        end
-        T.posted = {}
+    local cids = {}
+    for _, cid in pairs(T.posted) do
+        cids[#cids+1] = cid
     end
+    STATE.fetch(G, cids)
+    for key, cid in pairs(T.posted) do
+        local entry = G.actions[cid]
+        entry.credit = true
+        G.dirty.actions[cid] = true
+        if not M.is_revoked(entry) then
+            M.bump(G, key, C.reps.earn)
+        end
+    end
+    T.posts  = {}
+    T.posted = {}
     T.start  = stop
     T.acting = {}
 end
@@ -250,10 +246,7 @@ function M.advance (G, time, sign)
         end
         if next(T.acting)==nil and #T.posts==0 and next(T.posted)==nil then
             -- nothing to refund or reward: jump the empty ticks and
-            -- restart the clock now (no grid: idle time is not phase);
-            -- the next close is a half tick (refund before reward)
-            T.n = T.n + (now - T.start) // C.time.half
-            T.n = T.n - T.n % 2
+            -- restart the clock now (no grid: idle time is not phase)
             T.start = now
             break
         end
@@ -413,8 +406,8 @@ function M.apply (G, act, env)
             if env.beg then
                 M.bump(G, env.sign, 0)   -- the member exists from here
             else
-                -- rule 2: pays now, refunded at the next half tick;
-                -- rule 1.b: first post of the full tick is the credit
+                -- rule 2: pays now, refunded at the next tick;
+                -- rule 1.b: first post of the tick is the credit
                 -- (a beg is not available to others: nothing yet)
                 M.bump(G, env.sign, -C.reps.cost)
                 M.tick_post(G, env.cid)
@@ -520,7 +513,7 @@ function M.apply (G, act, env)
                 e.beg = nil
                 if a then
                     -- rule 2: the admitted beg pays the post cost now,
-                    -- refunded at the next half tick (may go negative)
+                    -- refunded at the next tick (may go negative)
                     M.bump(G, a, -C.reps.cost)
                     M.tick_post(G, act.cid)
                 end

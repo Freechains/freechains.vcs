@@ -35,43 +35,48 @@ do
     end
 
     do
-        TEST "the debt refunds at 12h"
-        -- nobody else posted, so the discount runs the full 12h
+        TEST "the debt refunds at 24h"
+        -- nobody else posted, so the tick runs the whole 24h
         local r = exec {
             cmd = ENV_EXE .. " --now=43200 chain /cli-open reps member '" .. PUB1 .. "'",
         }
-        assert(r == "0", "reps: " .. r)
+        assert(r == "-500", "reps: " .. r)
+        -- the tick refunds and rewards: -500 + 500 + 1000
+        local r = exec {
+            cmd = ENV_EXE .. " --now=86400 chain /cli-open reps member '" .. PUB1 .. "'",
+        }
+        assert(r == "1000", "reps: " .. r)
     end
 
     do
         TEST "a vote from zero reps is allowed"
         local _, code = exec {
-            cmd = ENV_EXE .. " --now=43200 chain /cli-open like 1000 action " ..
+            cmd = ENV_EXE .. " --now=86400 chain /cli-open like 1000 action " ..
                 POST .. " --sign " .. KEY2,
         }
         assert(code == 0, "exit code: " .. tostring(code))
 
         TEST "the voter goes into debt, the target is paid"
-        -- KEY2: 0 - 1000 ; KEY1: 0 (refunded) + 1000*90%/2
+        -- KEY2: 0 - 1000 ; KEY1: 1000 (paid) + 1000*90%/2
         local k2 = exec {
-            cmd = ENV_EXE .. " --now=43200 chain /cli-open reps member '" .. PUB2 .. "'",
+            cmd = ENV_EXE .. " --now=86400 chain /cli-open reps member '" .. PUB2 .. "'",
         }
         assert(k2 == "-1000", "voter reps: " .. k2)
         local k1 = exec {
-            cmd = ENV_EXE .. " --now=43200 chain /cli-open reps member '" .. PUB1 .. "'",
+            cmd = ENV_EXE .. " --now=86400 chain /cli-open reps member '" .. PUB1 .. "'",
         }
-        assert(k1 == "450", "target reps: " .. k1)
+        assert(k1 == "1450", "target reps: " .. k1)
     end
 
     do
         TEST "a vote from DEBT is allowed too"
         local _, code = exec {
-            cmd = ENV_EXE .. " --now=43200 chain /cli-open like 1000 member '" ..
+            cmd = ENV_EXE .. " --now=86400 chain /cli-open like 1000 member '" ..
                 PUB1 .. "' --sign " .. KEY2,
         }
         assert(code == 0, "exit code: " .. tostring(code))
         local k2 = exec {
-            cmd = ENV_EXE .. " --now=43200 chain /cli-open reps member '" .. PUB2 .. "'",
+            cmd = ENV_EXE .. " --now=86400 chain /cli-open reps member '" .. PUB2 .. "'",
         }
         assert(k2 == "-2000", "voter reps: " .. k2)
     end

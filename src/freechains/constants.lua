@@ -7,14 +7,13 @@ local unit = 1000
 return {
     time = {
         diff    = 1*h,          -- max action time diff tolerance (clock drift)
-        half    = 12*h,         -- halfway post discount period
-        full    = 24*h,         -- fullway post consolidation period
+        tick    = 24*h,         -- chain clock period with no activity
         fork    = 7*24*h,       -- settle age in chain time (hard fork)
     },
     reps = {
         --pioneer = 50*unit,    -- split among pioneers
-        cost    = unit//2,      -- 500 per signed post (refunded at 12h)
-        earn    = 1*unit,       -- 1000 minted per member per day
+        cost    = unit//2,      -- 500 per signed post (refunded at the tick)
+        earn    = 1*unit,       -- 1000 minted per member per tick
         revoke  = 1*unit,       -- 1000 minimum per revoke/unrevoke
         max     = 50*unit,      -- 50000 cap per member (100 posts)
     },

@@ -221,8 +221,8 @@ local function genesis (dir, gen)
         members = A,
         actions = {},
         order   = {},
-        -- the chain clock: half ticks of 12h or less (rules.lua)
-        tick    = { start=0, n=0, acting={}, posts={}, posted={} },
+        -- the chain clock: ticks of 24h or less (rules.lua)
+        tick    = { start=0, acting={}, posts={}, posted={} },
     }
     STATE.dirty(G, true)
     STATE.write(G, gen, dir)

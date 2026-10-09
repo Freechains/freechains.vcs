@@ -267,8 +267,8 @@ do
                 cmd = EXE_A .. " --now=8000 chain /test reps action " .. A,
             })),
         }
-        -- KEY1 (100%): every action closes a half tick, so posts are
-        -- refunded and rewarded in pairs, capped at 50000
+        -- KEY1 (100%): every action closes a tick, so each post is
+        -- refunded and rewarded by the next one, capped at 50000
         assert(bef.member==50000, "bef.member expected 50000, got " .. bef.member)
         assert(bef.post  == 0, "bef.post expected 0, got " .. bef.post)
 
@@ -284,12 +284,9 @@ do
                 cmd = EXE_A .. " --now=8000 chain /test reps action " .. A,
             })),
         }
-        -- the like closes a half tick: +500 refund, -5000, +2250 back;
-        -- the two diverging posts tie (same key), so which branch
-        -- won is per run (hash), and so is the parity of the clock:
-        -- a full tick adds the +1000 reward of the first post
-        assert(aft.member == 47750 or aft.member == 48750,
-            "aft.member expected 47750 or 48750, got " .. aft.member)
+        -- the like closes a tick: the last merged post is refunded
+        -- and rewarded (+1500), -5000, +2250 back
+        assert(aft.member == 48750, "aft.member expected 48750, got " .. aft.member)
         assert(aft.post   == 2250,  "aft.post expected 2250, got " .. aft.post)
 
         TEST "B recvs from A (with like)"

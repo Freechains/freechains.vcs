@@ -256,14 +256,14 @@ $ freechains chain /chat like 10000 member /tmp/bob.pub --sign=/tmp/alice
 ```
 $ freechains --root=/tmp/B/ chain /chat sync recv localhost
 $ freechains --root=/tmp/B/ chain /chat reps member /tmp/alice.pub
-40000
+41500
 $ freechains --root=/tmp/B/ chain /chat reps member /tmp/bob.pub
 9000
 ```
 
-You might have expected `Alice` to have `39500` (not `40000`) and `Bob` `10000`
+You might have expected `Alice` to have `40000` (not `41500`) and `Bob` `10000`
 (not `9000`).
-This is due to internal rules that tax transfers and recover `reps` over time.
+This is due to internal rules that tax transfers and reward posts over time.
 
 Let's see how the reputation evolves over time:
 
@@ -272,31 +272,31 @@ Let's see how the reputation evolves over time:
     - the sole pioneer takes the whole initial share
 - `Alice` posts `Hello World`:
     - `Alice: 50000 -> 49500`
-    - a post costs `500`, and refunds within at most 12 hours
+    - a post costs `500`, and refunds within at most 24 hours
 - `Alice` posts `I am here`:
-    - `Alice: 49500 -> 50000 -> 49500`
-    - first post refunds (`49500 -> 50000`)
+    - `Alice: 49500 -> 51000 -> 50500 -> 50000`
+    - first post refunds and rewards (`49500 -> 51000`)
         - majority "saw" it (`Alice` is posting on top of it)
-    - second post costs `500` (`50000 -> 49500`)
+    - second post costs `500` (`51000 -> 50500`)
+    - `reps` are capped at `50000` (`50500 -> 50000`)
 - `Alice` posts `Sync me`:
-    - `Alice: 49500 -> 50000 -> 49500`
-    - second post refunds (`49500 -> 50000`)
-    - third post costs `500` (`50000 -> 49500`)
+    - `Alice: 50000 -> 51500 -> 51000 -> 50000`
+    - second post refunds and rewards, third post costs, cap
 - `Alice` likes `Bob` with `10000`:
-    - `Alice: 49500 -> 50000 -> 40000` (third post refunds)
+    - `Alice: 50000 -> 51500 -> 41500` (third post refunds and rewards)
     - `Bob: 0 -> 9000`
     - likes receive a `10%` tax
 
-A new post has only a temporary cost that refunds within at most 12 hours.
+A new post has only a temporary cost that refunds at the next *tick* of the
+chain, within at most 24 hours.
 The goal is to prevent abuse, giving enough time for other members to see and
 react to new content.
-Each new action in the chain is an acknowledgment that gradually refunds old
-content creators.
-In our example, since `Alice` holds the majority of `reps` in the network, the
-full refund is instantaneous.
+The more activity from reputed members, the sooner the chain ticks: in our
+example, since `Alice` holds the majority of `reps` in the network, each of her
+actions ticks the chain, and the refund is instantaneous.
 
-After 24 hours, a post also rewards its author with `1000 reps`, at most once
-a day, which is how chains grow their economy over time.
+At the tick, a post also rewards its author with `1000 reps`, at most once per
+tick per author, which is how chains grow their economy over time.
 
 Let's now introduce new member `Charlie`, who is welcomed by `Bob` in peer `B`:
 
@@ -305,7 +305,7 @@ $ ssh-keygen -t ed25519 -C '' -f /tmp/charlie
 $ freechains --root=/tmp/B/ chain /chat like 5000 member /tmp/charlie.pub --sign=/tmp/bob
 e6d7626...
 $ freechains --root=/tmp/B/ chain /chat reps member /tmp/alice.pub
-40000
+41500
 $ freechains --root=/tmp/B/ chain /chat reps member /tmp/bob.pub
 4000
 $ freechains --root=/tmp/B/ chain /chat reps member /tmp/charlie.pub
@@ -341,7 +341,7 @@ e1f2a3b... 0       # 'Sync me'
 ...                # (likes are actions too)
 d6568e4... -450    # 'I am here'
 $ freechains --root=/tmp/B/ chain /chat reps members
-ssh-ed25519 ...vzTc96I 40000   # Alice (unaffected)
+ssh-ed25519 ...vzTc96I 41500   # Alice (unaffected)
 ssh-ed25519 ...Ks9pL2v 3500    # Charlie (his like cost him 1000)
 ssh-ed25519 ...je8+xIa 3000    # Bob (his dislike cost him 1000)
 ```
