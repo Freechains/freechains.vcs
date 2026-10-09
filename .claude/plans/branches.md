@@ -7,24 +7,28 @@
 
 # Active branches and deps
 
-- main (7902953, 26/10/08): plans only since 26/10/03
+- main (6996cc3, 26/10/08): plans only since 26/10/03
     - 261006-bug-winner: main@728f875 + the fix (2 commits)
     - 261008-tick: main@7902953 + the tick rules (origin only,
       1 commit, unreviewed)
-- 260914-tree-trash (0483509, 26/10/07): main@4d8e7d9 + the tree
-  store + bug-winner (ported) + sync-optim fixes 1 and 2
+- 260914-tree-trash (a60fca6, 26/10/08): main@4d8e7d9 + the tree
+  store + bug-winner (ported) + sync-optim fixes 1 and 2 + tick
+  (ported to the tree, unreviewed)
     - 261007-ia-optim: tree-trash@0483509 + 28 process-floor fixes
-      and 3 plan updates (31 commits)
-- not on tree-trash/ia-optim (main after 4d8e7d9): beg charge,
-  discard --merge, docs sync; to port
-- next in the lineage: tick onto ia-optim
+      and 3 plan updates, then main merged (beg charge, discard
+      --merge, docs, branches.md) and tick cherry-picked from
+      tree-trash@a60fca6: holds everything (26/10/08)
+- tests on ia-optim: the hook suites need the working tree first
+  in PATH (or `make install`): the installed build writes
+  snapshots without `tick`
 
 # Flow of the latest features
 
 | plan             | branches               | description                |
 |------------------|------------------------|----------------------------|
-| 261008-tick      | tick                   | one chain clock replaces   |
-|                  |                        | the 12h/24h per-post timers|
+| 261008-tick      | tick (main form);      | one chain clock replaces   |
+|                  | tree-trash, ia-optim   | the 12h/24h per-post timers|
+|                  | (tree form)            |                            |
 | 261007-sync-optim| tree-trash, ia-optim   | recv flat in chain size:   |
 |                  |                        | hardfork from tips, payload|
 |                  |                        | pass on the affected set   |
@@ -40,12 +44,11 @@
 |                  | (plan only)            | unquoted URL() splices     |
 | 261002-docs      | main, bug-winner, tick | guide/reps synced with the |
 |                  | (done)                 | paper, figures             |
-| 260923-beg       | main, bug-winner, tick | begs charged on admission  |
-|                  | (done); tree-trash,    | (rule 2)                   |
-|                  | ia-optim (not ported)  |                            |
-| 260921-discard   | main, bug-winner, tick | discard --merge drops a    |
-|                  | (code); tree-trash,    | branch from its first      |
-|                  | ia-optim (not ported)  | action                     |
+| 260923-beg       | all (done)             | begs charged on admission  |
+|                  |                        | (rule 2)                   |
+| 260921-discard   | all but tree-trash     | discard --merge drops a    |
+|                  |                        | branch from its first      |
+|                  |                        | action                     |
 | 260914-tree      | tree-trash, ia-optim   | state as a git tree of     |
 |                  |                        | per-entity files, lazy     |
 | 260903-128KB     | all (plan only)        | payload size limit, local  |
