@@ -66,5 +66,16 @@
 - [x] fix 3: ancestry memo
 - [x] 46/46 suites pass; `guide.sh` passes (installed and
   working-tree hooks)
-- [ ] measure on the same pair
-- [ ] install, rerun 2606-sims
+- [x] measure (26/10/11, 6 pulls, 59566f4 vs 031c070,
+  copies of live peers at ~1,885 actions, best of 3):
+    - ff 5 new: 0.94 -> 0.70 s; git reads 159 -> 17
+    - mg 19 new: 1.86 -> 1.29 s; 220 -> 39
+    - mg p58<-p05: 1.88 -> 1.38 s; 214 -> 52
+    - mg p45<-p05: 3.16 -> 2.65 s; 286 -> 125
+    - ff p20<-p05 (20 new): 3.05 -> 2.77 s; 293 -> 129
+    - nothing new: 0.16 -> 0.18 s
+    - all: same HEAD, commits, `list order`, refs, reps
+- left (p20<-p05, 5.0 s with hooks): 90 `merge-base`
+  (1.0 s), 39 `log --reverse`, `state.lua:262` 147k calls
+- [x] installed 26/10/11 10:12
+- [ ] rerun 2606-sims (slot run picked it up at ~action 400)
