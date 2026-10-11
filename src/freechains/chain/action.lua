@@ -194,13 +194,13 @@ function M.backs (ps, G)
     local see = {}
     local function rec (hs)
         for _, h in ipairs(hs) do
-            if M.is(h) then
-                if not see[h] then
-                    see[h] = true
+            if not see[h] then
+                see[h] = true       -- also merges: walk each once
+                if M.is(h) then
                     ret[#ret+1] = h
+                else
+                    rec(GIT.parents(h))
                 end
-            else
-                rec(GIT.parents(h))
             end
         end
     end
