@@ -190,21 +190,28 @@ function M.backs (ps, G)
     if G and G.tips and (#ps == 1) and (ps[1] == G.cid) then
         return table.move(G.tips, 1, #G.tips, 1, {})
     end
+    -- level by level: one batched read per DAG level, not one
+    -- process per commit (merge-heavy DAGs fan out)
     local ret = {}
     local see = {}
-    local function rec (hs)
-        for _, h in ipairs(hs) do
+    local lvl = ps
+    while #lvl > 0 do
+        GIT.cats(lvl)
+        local nxt = {}
+        for _, h in ipairs(lvl) do
             if not see[h] then
                 see[h] = true       -- also merges: walk each once
                 if M.is(h) then
                     ret[#ret+1] = h
                 else
-                    rec(GIT.parents(h))
+                    for _, p in ipairs(GIT.parents(h)) do
+                        nxt[#nxt+1] = p
+                    end
                 end
             end
         end
+        lvl = nxt
     end
-    rec(ps)
     table.sort(ret)
     return ret
 end

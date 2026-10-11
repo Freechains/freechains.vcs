@@ -1,5 +1,13 @@
 local M = {}
 
+-- per-process memos of immutable DAG facts (commits never change):
+--  - ANC  "a b" -> is `a` an ancestor of `b`
+--  - BASE "a b" -> merge-base of the pair (a < b)
+--  - KEYS "com..tip" -> the signer set of the range
+local ANC  = {}
+local BASE = {}
+local KEYS = {}
+
 --[[
 -- The own-lineage state at `cid`: a function of the DAG below it.
 -- Reads the snapshot, or derives it from the parents' states and
@@ -109,9 +117,17 @@ end
 -- already hold would hand its member's full reps to whichever side
 -- lacked them -- letting undisputed history decide a disputed merge.
 function M.winner (a, b, com)
-    com = com or (exec {
-        cmd = "git -C " .. REPO .. " merge-base " .. a .. " " .. b
-    }):match("%x+")
+    if not com then
+        -- the pair's merge-base, once per process (symmetric)
+        local k = (a < b) and (a .. " " .. b) or (b .. " " .. a)
+        com = BASE[k]
+        if not com then
+            com = (exec {
+                cmd = "git -C " .. REPO .. " merge-base " .. a .. " " .. b
+            }):match("%x+")
+            BASE[k] = com
+        end
+    end
 
     -- FF must be chosen
     if com == a then
@@ -144,11 +160,22 @@ function M.winner (a, b, com)
             c2    d2
             (a)   (b)
         ]]
+        -- the range is immutable: once per process
+        local memo = com .. ".." .. tip
+        if KEYS[memo] then
+            return KEYS[memo]
+        end
         local keys = {}
         local out = exec {
-            cmd = "git -C " .. REPO .. " log --reverse --format=%H " .. com .. ".." .. tip
+            cmd = "git -C " .. REPO .. " log --reverse --format=%H " .. memo
         }
+        -- the range's commits in one batched read, then the signers
+        local cids = {}
         for cid in out:gmatch("%x+") do
+            cids[#cids+1] = cid
+        end
+        GIT.cats(cids)
+        for _, cid in ipairs(cids) do
             local key = SSH.signer(REPO, cid)
             -- unsigned action in open chain -> anonymous
             -- `ACTION.is`: a merge is unsigned too, and it members nothing
@@ -159,6 +186,7 @@ function M.winner (a, b, com)
                 keys[key] = true
             end
         end
+        KEYS[memo] = keys
         return keys
     end
     --[[
@@ -263,16 +291,20 @@ function M.replay (G, com, tip, trunc, beg)
     --  - a [string]: 40-hex commit hash
     --  - b [string]: 40-hex commit hash
     -- Outputs:
-    --  - [string|false]: truthy iff ancestor (exec result)
+    --  - [boolean]: ancestor or not (memoized per process)
     -- Errors:
     --  - none
     -- Callers:
     --  - climb (consensus.lua): stop at/below the floor
     --]]
     local function ancestor (a, b)
-        return exec { err=false, stderr=false,
-            cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. a .. " " .. b
-        }
+        local k = a .. " " .. b
+        if ANC[k] == nil then
+            ANC[k] = (exec { err=false, stderr=false,
+                cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. a .. " " .. b
+            }) and true or false
+        end
+        return ANC[k]
     end
     local climb, meet
 
