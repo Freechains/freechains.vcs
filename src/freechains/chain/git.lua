@@ -32,7 +32,7 @@ end
 --  - ref [boolean]:    true also moves HEAD; false mints loose only
 --  - err [string?]:    exec err message on failure (nil: bug found)
 --  - t [table]: commit data (what shapes the commit BYTES)
---      - parents [table]:  {cid [, cid]} parent hashes
+--      - parents [table]:  {cid, ...} parent hashes
 --      - msg [string?]:    message metadata or nil (merge)
 --      - date [integer?]:  unix secs, author+committer DATE or nil (merge, genesis)
 --      - sign [string?]:   ssh private key path -> -S gpgsig
@@ -42,7 +42,7 @@ end
 --  - `err` (ERROR) or "bug found" when the key cannot sign
 -- Callers:
 --  - commit (action.lua): action mint
---  - recv (sync.lua): the loser-branch sync merge
+--  - join (consensus.lua): the canonical sync merge
 --]]
 function M.commit (ref, err, t)
     -- the object as `commit-tree` would write it: no process but

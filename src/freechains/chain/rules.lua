@@ -298,7 +298,6 @@ end
 -- Callers:
 --  - apply (rules.lua): the "too old" lower bound
 --  - apply (action.lua): merge-snapshot `now` fold
---  - recv (sync.lua): loser sync-merge snapshot fold
 --]]
 function M.now (G, backs)
     local max = 0

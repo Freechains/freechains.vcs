@@ -504,10 +504,11 @@ do
         assert(not S[a2], "a2 is voided")
         assert(not S[c1], "c1 sat on the fake: gone")
         -- the new merge takes a1, the last non-failing commit
-        local p2 = exec {
-            cmd = "git -C " .. DIR_A .. " rev-parse HEAD^2",
+        -- (canonical merge: parents sorted, so a1 at either side)
+        local ps = exec {
+            cmd = "git -C " .. DIR_A .. " rev-list --parents -n 1 HEAD",
         }
-        assert(p2 == a1, "merge should bring a1, got " .. p2)
+        assert(ps:find(" " .. a1, 1, true), "merge should bring a1, got " .. ps)
     end
 
     TEST "refute: c1 is reposted on top"

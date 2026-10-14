@@ -10,8 +10,9 @@
 -- Outputs:
 --  - send: my main + refs/begs/* pushed (receiver's hook recvs)
 --  - recv: stdout "voided : <cid>" per losing action; HEAD
---    moved/merged; states snapshotted; begs validated or
---    dropped; payload anchors follow the final revoke sums
+--    moved to the canonical merge of both sides' tips; states
+--    snapshotted; begs validated or dropped; payload anchors
+--    follow the final revoke sums
 -- Errors:
 --  - "chain sync : freechains.url not set" (send)
 --  - "chain sync : fetch failed"
@@ -79,21 +80,20 @@ end
 -- Inputs:
 --  - G   [table]: current state (order, actions[*].time.apply, now)
 --  - loc [string]: my tip, snapshotted (G's commit)
---  - rem [string]: the winning remote tip, snapshotted
---  - G2  [table]: the new state (order), after replay
+--  - rem [string]: the new main, snapshotted
+--  - G2  [table]: the new state (order), folded
 -- Outputs:
 --  - [boolean]: true = settled prefix reordered (hard fork)
 -- Errors:
 --  - assert: order entry without a state or `time.apply` (bug)
 -- Callers:
---  - recv (sync.lua): only when the remote wins
+--  - recv (sync.lua): unless a plain fast-forward
 --]]
--- The new order starts with rem's order, the loser replay only
--- appends: so the split point is the first index where the orders
--- of the two SNAPSHOTS differ. Chunks are append-only and shared by
--- blob id, so equal ids = equal prefixes: only the first differing
--- chunk is read. `time.apply` grows along the order, so settled
--- entries form a prefix: one read at the split decides.
+-- The split point is the first index where the orders of the two
+-- SNAPSHOTS differ. Chunks are append-only and shared by blob id,
+-- so equal ids = equal prefixes: only the first differing chunk is
+-- read. `time.apply` grows along the order, so settled entries form
+-- a prefix: one read at the split decides.
 local function hardfork (G, loc, rem, G2)
     local K = STATE.ORDER_K
     local A, B = chunks(loc), chunks(rem)
@@ -125,9 +125,9 @@ local function hardfork (G, loc, rem, G2)
         return G.now-assert(e.time.apply) >= C.time.fork
     end
 
-    -- rem's order is a strict prefix of mine (rare: its new commits
-    -- add no order entry): the split is inside the loser replay,
-    -- compare against the new order itself
+    -- the new order is a strict prefix of mine (rare: a voided local
+    -- tail), or shorter at the split chunk: compare against the new
+    -- order itself
     STATE.order(G)
     STATE.order(G2)
     local our, their = G.order, G2.order
@@ -159,10 +159,10 @@ if ARGS.send then
     end
 
 elseif ARGS.recv then
-    -- for the payload pass: my tip before, the remote tip, their
-    -- merge-base (nil: the remote brought nothing), the remote's new
-    -- commits
-    local OLD, NEW, BASE, NEWS
+    -- for the payload pass: my tip before, the remote tip (nil: the
+    -- remote brought nothing), the remote's new commits, a plain
+    -- fast-forward (no local side)
+    local OLD, REM, NEWS, FF
     -- the state at the final HEAD, when the merge left it in memory
     local GNEW
     -- the begs kept by the begs pass (cid -> true)
@@ -188,7 +188,7 @@ elseif ARGS.recv then
                 cmd = "git -C " .. REPO .. " rev-parse FETCH_HEAD"
             }
         end
-        OLD, NEW = loc, rem
+        OLD = loc
 
         --[[
         -- Three cases:
@@ -197,9 +197,9 @@ elseif ARGS.recv then
         --  2. local contains remote (remote is ancestor of local)
         --      - DONE
         --  3. remote has new commits (FF or diverge)
-        --      - common ancestor, remote validation/replay: climb / meet
-        --      - FF degenerates: ancestor rule in `consensus` picks
-        --        remote, loser set filters to empty, reset == FF merge
+        --      - validate the remote's own lineage
+        --      - the new main joins the tips of both sides (`join`):
+        --        same tips, same commit, same order on every peer
         ]]
 
         -----------------------------------------------------------------------
@@ -211,34 +211,27 @@ elseif ARGS.recv then
         --    genesis, never past my tip; a foreign root merged in is
         --    refused by the replay as a malformed commit)
         --  - my tip as a parent: a plain fast-forward (my tip is an
-        --    ancestor of theirs), the fork point is my tip
-        --  - else a fork: the merge-base, then
-        -- A plain fast-forward keeps my order as a prefix of the new
-        -- one, UNLESS a sync merge among the new commits put a branch
-        -- before my settled posts (tst/hardfork-ff.lua)
-        local ff = false
+        --    ancestor of theirs): no local side
         NEWS = {}
         -- every range walk is --topo-order: sync merges are dated 0,
         -- so git's date-ordered walk may return wrong ranges
         local out = exec {
             cmd = "git -C " .. REPO .. " rev-list --topo-order --parents " .. loc .. ".." .. rem
         }
+        FF = false
         for line in out:gmatch("[^\n]+") do
             local cid, ps = line:match("^(%x+)(.*)$")
             NEWS[#NEWS+1] = cid
             if ps == "" then
                 ERROR("chain sync : incompatible genesis")
             elseif ps:find(loc, 1, true) then
-                ff = true
+                FF = true
             end
         end
         if #NEWS == 0 then
             goto RECV
         end
-        BASE = ff and loc or exec {
-            cmd = "git -C " .. REPO .. " merge-base " .. loc .. " " .. rem
-        }
-        local base = BASE
+        REM = rem
 
         -- the new commits' objects in one call: the replay below
         -- reads every one of them, and the floor (my tip) as the
@@ -247,18 +240,22 @@ elseif ARGS.recv then
         GIT.cats(table.move(NEWS, 1, #NEWS, 2, { loc }))
         STATE.has_set(NEWS, false)
         STATE.has_set({ loc }, true)
+
+        -- a PLAIN fast-forward (no sync merge among the new commits)
+        -- keeps my order as a prefix of the new one: no hard fork to
+        -- check. A sync merge may put a branch before my settled
+        -- posts (tst/hardfork-ff.lua)
+        local plain = FF
         for line in out:gmatch("[^\n]+") do
             local cid = line:match("^(%x+)")
-            if ff and line:match("^%x+ %x+ %x+") and (not ACTION.is(cid)) then
-                ff = false
+            if plain and line:match("^%x+ %x+ %x+") and (not ACTION.is(cid)) then
+                plain = false
             end
         end
 
         -----------------------------------------------------------------------
 
-        -- 3. need common ancestor
-
-        -- remote validation: the remote tip's own-lineage state
+        -- 3. remote validation: the remote tip's own-lineage state
         -- (snapshots every new commit), malformed commits reject the
         -- whole sync
         -- REFS: the new snapshots' refs and the HEAD move, flushed in
@@ -275,53 +272,58 @@ elseif ARGS.recv then
             end
             G_rem = ret
         end
+        -- the folds below read these snapshots
+        flush()
 
-        -- fst/winner - snd/loser: reps at their merge-base
-        local fst, snd = CONSENSUS.winner(loc, rem, base)
-
-        -- winner state:
-        --  me: as is
-        --  he: the replayed remote
-        local G_fst
-        if fst == loc then
-            G_fst = STATE.read(loc)
-        else
-            G_fst = G_rem
-        end
-
-        -- loser state: replay snd from fst.
-        -- The first failure voids the rest: the action is valid in
-        -- its own branch, but not in this order
-        -- (a fast-forward has no loser side: nothing to replay)
-        local merge, err
-        if not ff then
-            merge, err = CONSENSUS.replay(G_fst, fst, snd, true)
+        -- the new main: the canonical merge of both sides' tips,
+        -- folded by consensus (`CONSENSUS.fold`). A voided tip gives
+        -- way to its nearest applied actions and the set folds again:
+        -- nothing is ever built on a voided action
+        local T = CONSENSUS.tips { loc, rem }
+        local new, G, err
+        while true do
+            new = CONSENSUS.join(T)
+            if new == rem then
+                G = G_rem
+            elseif (#T == 1) or STATE.has(new) then
+                G = CONSENSUS.state(new)
+            else
+                local e
+                G, e = CONSENSUS.fold(T)
+                err = err or e
+                ACTION.apply(G, new, false, REFS)
+                flush()
+            end
+            -- one action tip: its own lineage, nothing voided; my
+            -- main: never built on a voided action
+            if (#T == 1) or (new == loc) then
+                break
+            end
+            local live, voided = CONSENSUS.live(G, T)
+            if not voided then
+                break
+            end
+            T = live
         end
         if err then
             io.stderr:write("ERROR : " .. err .. "\n")
         end
 
-        -- only when the remote wins
-        if fst == rem then
-            -- a plain fast-forward cannot reorder my order (a prefix of
-            -- the new one) nor void a local commit: nothing to check
-            if not ff then
-                -- check hardfork: my current state vs the new order
-                -- (reads the new snapshots: flush them first)
-                flush()
+        if new ~= loc then
+            -- check hardfork: my current order vs the new one
+            if not plain then
                 local G_loc = STATE.read(loc)
-                if hardfork(G_loc, loc, rem, G_fst) then
+                if hardfork(G_loc, loc, new, G) then
                     ERROR("chain sync : hard fork")
                 end
             end
 
-            -- list voided local commits
-            if (not ff) and (merge ~= loc) then
-                local from = merge or fst
+            -- list voided local commits: mine, not under the new main
+            if not FF then
                 local out = exec {
                     cmd = "git -C " .. REPO .. " " ..
                         "log --topo-order --reverse --no-merges --format='%H' " ..
-                        (from .. ".." .. loc)
+                        (new .. ".." .. loc)
                 }
                 for cid in out:gmatch("%x+") do
                     if ACTION.is(cid) then
@@ -330,27 +332,13 @@ elseif ARGS.recv then
                 end
             end
 
-            -- move HEAD to remote tip
-            REFS[#REFS+1] = "update HEAD " .. rem
-            HEAD = rem
+            -- move HEAD to the new main
+            REFS[#REFS+1] = "update HEAD " .. new
+            HEAD = new
         end
 
-        -- the state at the final HEAD: the winner's, with the loser
-        -- replayed (nothing, when the loser's first action failed)
-        GNEW = G_fst
-
-        -- merge the last non-failing loser
-        if merge then
-            HEAD = GIT.commit(false, nil, {
-                parents = { HEAD, merge },
-            })
-            REFS[#REFS+1] = "update HEAD " .. HEAD
-            -- the merge tip is new: snapshot it as any peer derives it
-            -- from the DAG (not from this replay's path); that reads
-            -- the parents' snapshots: flush them first
-            flush()
-            GNEW = CONSENSUS.state(HEAD, REFS)
-        end
+        -- the state at the final HEAD
+        GNEW = G
         flush()
     end
 
@@ -425,7 +413,7 @@ elseif ARGS.recv then
             end
         end
 
-        if BASE then
+        if REM then
             -- the remote side's commits and their vote targets
             for _, cid in ipairs(NEWS) do
                 local t = ACTION.read(false, cid)
@@ -436,9 +424,9 @@ elseif ARGS.recv then
             end
             -- my side's vote targets, only past a fork (a fast-forward
             -- has no local side)
-            if BASE ~= OLD then
+            if not FF then
                 local out = exec {
-                    cmd = "git -C " .. REPO .. " rev-list --topo-order " .. BASE .. ".." .. OLD
+                    cmd = "git -C " .. REPO .. " rev-list --topo-order " .. REM .. ".." .. OLD
                 }
                 for cid in out:gmatch("%x+") do
                     local t = ACTION.read(false, cid)

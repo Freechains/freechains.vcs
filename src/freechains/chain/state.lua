@@ -921,7 +921,6 @@ end
 --  - via exec: "bug found" if update-ref fails
 -- Callers:
 --  - apply (action.lua): snapshot at every accepted commit
---  - recv (sync.lua): snapshot at the loser sync merge
 --  - genesis (chains.lua): the empty state at the genesis
 --]]
 function M.write (G, cid, dir, refs)

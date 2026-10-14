@@ -197,6 +197,30 @@ merge commit can encode a rule-1 decision, so replaying a
 merge during validation only ever has to reproduce
 `consensus` (steps 2-3).
 
+### Canonical Merge (26/10/14)
+
+Pairwise merges made the order depend on which peers met first:
+the same actions, merged in another sequence, ordered apart, and
+once settled each side refused the other (`tst/hardfork-merges.lua`).
+
+A sync now joins the tip SET of both sides in one merge:
+
+- tips: the nearest actions below both mains, independent
+- the merge commit: parents sorted, date 0, unsigned, empty
+  message, so the same tip set mints the same commit everywhere
+- a merge's state folds its parent set: rank the parents by the
+  reps at their merge-bases (dictator, reps, cid), take the
+  winner's own state, replay the others in rank order; a failure
+  voids the rest of its side only
+- several merge-bases (criss-cross): the floor is their own
+  canonical merge
+- voided tips are dropped and the set folds again: nothing is
+  built on a voided action
+
+With two parents the rank is the pairwise rule above. Same
+actions give the same main, hence the same order
+(`tst/merge-paths.lua`). Plan: `261014-merge-order.md`.
+
 ### Stable vs Unstable Consensus
 
 - **Stable**: entries older than the threshold are settled;

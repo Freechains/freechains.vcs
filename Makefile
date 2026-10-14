@@ -38,6 +38,8 @@ tests:
 	$(L) bug-climb-ancestor.lua
 	$(L) hardfork-shared.lua
 	$(L) hardfork-ff.lua
+	$(L) hardfork-merges.lua
+	$(L) merge-paths.lua
 	$(L) fork-7-days.lua
 	$(L) fork-ctime.lua
 	$(L) err-post.lua

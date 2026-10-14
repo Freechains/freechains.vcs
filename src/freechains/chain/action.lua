@@ -187,7 +187,7 @@ end
 --  - none
 -- Callers:
 --  - apply (action.lua): env.backs and the merge snapshot fold
---  - recv (sync.lua): the loser sync-merge snapshot fold
+--  - tips/live (consensus.lua): the tip set of a sync
 --  - list dag (list.lua): structural ups of each node
 --  - list tips (list.lua): the DAG tips from HEAD
 --]]
@@ -307,13 +307,14 @@ local KINDS = { post=true, like=true, revoke=true }
 --    its snapshot
 -- Errors:
 --  - "malformed commit : ..." : structure (tree/parents/signature)
+--  - "invalid <kind> : voided back" : built on a voided action
 --  - "invalid <kind> : ..."   : refused by the reputation rules
 -- Callers:
 --  - post (post.lua): writer accepts its own mint
 --  - like (like.lua): writer accepts its own mint
 --  - climb (consensus.lua): replay, once per commit (no snapshot)
 --  - state (consensus.lua): own-lineage state, once per commit
---  - recv (sync.lua): validate an incoming beg head
+--  - recv (sync.lua): validate an incoming beg head; the new main
 --]]
 function M.apply (G, cid, beg, snap)
     local ps = GIT.parents(cid)
@@ -327,10 +328,10 @@ function M.apply (G, cid, beg, snap)
         error("malformed commit : unexpected tree", 0)
     end
 
-    -- empty message: must be a 2-parent sync merge (the genesis,
+    -- empty message: must be a sync merge, 2+ parents (the genesis,
     -- the only root, is below every replay and never gets here)
     if not isa then
-        if #ps ~= 2 then
+        if #ps < 2 then
             error("malformed commit : expected 2-parent merge", 0)
         end
 
@@ -388,6 +389,14 @@ function M.apply (G, cid, beg, snap)
             -- the same action arrived in an earlier commit: already
             -- in G; only the snapshot below matters
             goto SNAP
+        end
+
+        -- every back must stand in G: a voided one (a loser side of
+        -- a fold) voids whatever was built on it
+        for _, b in ipairs(backs) do
+            if not G.actions[b] then
+                error("invalid " .. kind .. " : voided back", 0)
+            end
         end
 
         do
@@ -453,7 +462,14 @@ function M.apply (G, cid, beg, snap)
         if isa then
             G.now = G.actions[cid].time.backs
         else
-            G.now = RULES.now(G, G.tips)
+            -- a merge's voided tips add no time
+            local ts = {}
+            for _, a in ipairs(G.tips) do
+                if G.actions[a] then
+                    ts[#ts+1] = a
+                end
+            end
+            G.now = RULES.now(G, ts)
         end
         STATE.write(G, cid, nil, (type(snap) == "table") and snap or nil)
         G.now = sav
