@@ -218,8 +218,10 @@ elseif ARGS.recv then
         -- before my settled posts (tst/hardfork-ff.lua)
         local ff = false
         NEWS = {}
+        -- every range walk is --topo-order: sync merges are dated 0,
+        -- so git's date-ordered walk may return wrong ranges
         local out = exec {
-            cmd = "git -C " .. REPO .. " rev-list --parents " .. loc .. ".." .. rem
+            cmd = "git -C " .. REPO .. " rev-list --topo-order --parents " .. loc .. ".." .. rem
         }
         for line in out:gmatch("[^\n]+") do
             local cid, ps = line:match("^(%x+)(.*)$")
@@ -318,7 +320,7 @@ elseif ARGS.recv then
                 local from = merge or fst
                 local out = exec {
                     cmd = "git -C " .. REPO .. " " ..
-                        "log --reverse --no-merges --format='%H' " ..
+                        "log --topo-order --reverse --no-merges --format='%H' " ..
                         (from .. ".." .. loc)
                 }
                 for cid in out:gmatch("%x+") do
@@ -436,7 +438,7 @@ elseif ARGS.recv then
             -- has no local side)
             if BASE ~= OLD then
                 local out = exec {
-                    cmd = "git -C " .. REPO .. " rev-list " .. BASE .. ".." .. OLD
+                    cmd = "git -C " .. REPO .. " rev-list --topo-order " .. BASE .. ".." .. OLD
                 }
                 for cid in out:gmatch("%x+") do
                     local t = ACTION.read(false, cid)

@@ -165,7 +165,7 @@ local drops = {
 }
 do
     local out = exec {
-        cmd = "git -C " .. REPO .. " rev-list --parents --ancestry-path " .. ARGS.cid .. "..HEAD",
+        cmd = "git -C " .. REPO .. " rev-list --topo-order --parents --ancestry-path " .. ARGS.cid .. "..HEAD",
     }
     if not ARGS.keep then
         out = out .. "\n" .. exec {
@@ -232,7 +232,7 @@ local range = {}
 do
     local out = exec {
         cmd = "git -C " .. REPO .. " " ..
-            "log --reverse --format='%H' " ..
+            "log --topo-order --reverse --format='%H' " ..
             (tip .. "..HEAD"),
     }
     for h in out:gmatch("%x+") do

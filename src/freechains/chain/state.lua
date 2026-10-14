@@ -237,6 +237,9 @@ function sha1 (msg)
     return string.format("%08x%08x%08x%08x%08x", h0, h1, h2, h3, h4)
 end
 
+-- hex sha -> its 20 raw bytes, per process (trees repeat entries)
+local BIN = {}
+
 --[[
 -- A git tree object id from its entries, in git's order (a tree
 -- name sorts as "name/").
@@ -244,28 +247,35 @@ end
 --  - ents [table]: array of { mode, name, sha }, mode "100644"|"040000"
 -- Outputs:
 --  - [string]: the tree id
---  - [string]: the `mktree` input lines for the same tree
+--  - [nil]: (was the `mktree` lines; unused)
+--  - [string]: the tree body (for `put`)
 -- Errors:
 --  - none
 -- Callers:
---  - write (state.lua)
+--  - write/listing (state.lua)
 --]]
 local function tree_id (ents)
+    -- sort keys once, not per comparison
+    for _, e in ipairs(ents) do
+        e.key = e.name .. ((e.mode == "040000") and "/" or "")
+    end
     table.sort(ents, function (a, b)
-        local ka = a.name .. ((a.mode == "040000") and "/" or "")
-        local kb = b.name .. ((b.mode == "040000") and "/" or "")
-        return ka < kb
+        return a.key < b.key
     end)
-    local raw, ls = {}, {}
+    local raw = {}
     for i, e in ipairs(ents) do
         local mode = (e.mode == "040000") and "40000" or e.mode
-        raw[i] = mode .. " " .. e.name .. "\0" .. (e.sha:gsub("%x%x", function (h)
-            return string.char(tonumber(h, 16))
-        end))
-        ls[i] = e.mode .. " " .. ((e.mode == "040000") and "tree" or "blob") .. " " .. e.sha .. "\t" .. e.name
+        local bin = BIN[e.sha]
+        if not bin then
+            bin = e.sha:gsub("%x%x", function (h)
+                return string.char(tonumber(h, 16))
+            end)
+            BIN[e.sha] = bin
+        end
+        raw[i] = mode .. " " .. e.name .. "\0" .. bin
     end
     local body = table.concat(raw)
-    return sha1("tree " .. #body .. "\0" .. body), table.concat(ls, "\n"), body
+    return sha1("tree " .. #body .. "\0" .. body), nil, body
 end
 
 --[[
@@ -325,6 +335,7 @@ end
 --  - ty  [string]: "blob" | "tree"
 --  - s   [string]: the content
 --  - dir [string?]: the bare repo dir (default REPO)
+--  - sha [string?]: its id, when the caller computed it
 -- Outputs:
 --  - [string]: 40-hex sha
 -- Errors:
@@ -333,10 +344,10 @@ end
 --  - write (state.lua): every blob and tree of a snapshot
 --  - post/like: the payload and why blobs
 --]]
-function M.put (ty, s, dir)
+function M.put (ty, s, dir, sha)
     dir = dir or REPO
     local obj = ty .. " " .. #s .. "\0" .. s
-    local sha = sha1(obj)
+    sha = sha or sha1(obj)
     local d = dir .. "objects/" .. sha:sub(1, 2) .. "/"
     local path = d .. sha:sub(3)
     local f = io.open(path, "rb")
@@ -1051,7 +1062,7 @@ function M.write (G, cid, dir, refs)
             else
                 local id, _, body = tree_id(ents)
                 C.dirs[d] = id
-                assert(M.put("tree", body, dir) == id, "bug found : tree id")
+                M.put("tree", body, dir, id)
             end
         end
     end
@@ -1140,6 +1151,77 @@ function M.has_set (cids, yes)
     for _, cid in ipairs(cids) do
         HAS[cid] = yes
     end
+end
+
+--[[
+-- A snapshot's `open` flag and some of its members, in one batched
+-- read (no listing, no lazy state): what a fork's score needs.
+-- Inputs:
+--  - cid  [string]: 40-hex commit hash, derefed and snapshotted
+--  - pubs [table]: array of pubkeys
+-- Outputs:
+--  - [boolean]: the chain is open
+--  - [table]: pub -> member table, for the members it holds
+-- Errors:
+--  - assert "bug found : no snapshot : <cid>" : missing meta
+-- Callers:
+--  - winner (consensus.lua): reps at the fork floor
+--]]
+function M.peek (cid, pubs)
+    local root = M.ref(cid)
+    local ls = { root .. ":meta.lua meta.lua" }
+    for _, pub in ipairs(pubs) do
+        local p = mpath(pub)
+        ls[#ls+1] = root .. ":" .. p .. " " .. p
+    end
+    local out = git_in(REPO, "cat-file --batch='%(objectname) %(objectsize) %(rest)'",
+        table.concat(ls, "\n") .. "\n")
+    local meta
+    local members = {}
+    batch(out, function (path, s)
+        local t = load("return " .. s)()
+        if path == "meta.lua" then
+            meta = t
+        else
+            members[dec(path:match("([^/]+)%.lua$"))] = t
+        end
+    end)
+    assert(meta, "bug found : no snapshot : " .. cid)
+    return meta.open, members
+end
+
+--[[
+-- The recorded tips of snapshotted commits, in one batched read.
+-- Skips commits known to have no snapshot; a missing or tip-less
+-- snapshot (older format) leaves no entry.
+-- Inputs:
+--  - cids [table]: array of 40-hex commit hashes, derefed
+--  - into [table]: cid -> tips; MUTATED
+-- Outputs:
+--  - none (fills `into`)
+-- Errors:
+--  - via exec: "bug found" if cat-file fails
+-- Callers:
+--  - backs (action.lua): a merge's tips without the walk
+--]]
+function M.tips (cids, into)
+    local ls = {}
+    for _, cid in ipairs(cids) do
+        if HAS[cid] ~= false then
+            ls[#ls+1] = M.ref(cid) .. ":meta.lua " .. cid
+        end
+    end
+    if #ls == 0 then
+        return
+    end
+    local out = git_in(REPO, "cat-file --batch='%(objectname) %(objectsize) %(rest)'",
+        table.concat(ls, "\n") .. "\n")
+    batch(out, function (cid, s)
+        local t = load("return " .. s)()
+        if t.tips then
+            into[cid] = t.tips
+        end
+    end)
 end
 
 --[[

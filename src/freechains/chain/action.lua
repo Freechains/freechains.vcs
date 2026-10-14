@@ -7,6 +7,10 @@
 
 local M = {}
 
+-- cid -> its tips (nearest action ancestors, or itself), per
+-- process: set by every apply, read by backs (immutable: the DAG)
+local TIPS = {}
+
 --[[
 -- Parse `cid` action from commit:
 --  time:  commit DATE
@@ -175,6 +179,8 @@ end
 --  - ps [table]: array of parent cids (revs)
 --  - G  [table?]: a state whose commit may be the one parent (its
 --    recorded tips then answer without a commit read)
+-- A commit with known tips (applied in this process, or with a
+-- snapshot) answers for its whole subtree: no walk below it.
 -- Outputs:
 --  - [table]: sorted array of action cids (the backs)
 -- Errors:
@@ -193,16 +199,42 @@ function M.backs (ps, G)
     -- level by level: one batched read per DAG level, not one
     -- process per commit (merge-heavy DAGs fan out)
     local ret = {}
-    local see = {}
+    local see = {}          -- walked commits
+    local got = {}          -- actions in ret
+    local function add (a)
+        if not got[a] then
+            got[a] = true
+            ret[#ret+1] = a
+        end
+    end
     local lvl = ps
     while #lvl > 0 do
-        GIT.cats(lvl)
+        -- known tips first: this process, then the snapshots (one
+        -- batch); the rest is read and walked
+        local ask = {}
+        for _, h in ipairs(lvl) do
+            if (not see[h]) and (TIPS[h] == nil) then
+                ask[#ask+1] = h
+            end
+        end
+        STATE.tips(ask, TIPS)
+        local cat = {}
+        for _, h in ipairs(ask) do
+            if TIPS[h] == nil then
+                cat[#cat+1] = h
+            end
+        end
+        GIT.cats(cat)
         local nxt = {}
         for _, h in ipairs(lvl) do
             if not see[h] then
                 see[h] = true       -- also merges: walk each once
-                if M.is(h) then
-                    ret[#ret+1] = h
+                if TIPS[h] then
+                    for _, a in ipairs(TIPS[h]) do
+                        add(a)
+                    end
+                elseif M.is(h) then
+                    add(h)
                 else
                     for _, p in ipairs(GIT.parents(h)) do
                         nxt[#nxt+1] = p
@@ -404,6 +436,7 @@ function M.apply (G, cid, beg, snap)
     -- fold (the action itself, or a merge's nearest actions)
     G.cid  = cid
     G.tips = isa and { cid } or M.backs(ps, G)
+    TIPS[cid] = G.tips
 
     ::SNAP::
 

@@ -1,12 +1,44 @@
 local M = {}
 
 -- per-process memos of immutable DAG facts (commits never change):
---  - ANC  "a b" -> is `a` an ancestor of `b`
---  - BASE "a b" -> merge-base of the pair (a < b)
---  - KEYS "com..tip" -> the signer set of the range
-local ANC  = {}
-local BASE = {}
-local KEYS = {}
+--  - RANGE "com..tip" -> the commits of the range (list and set)
+--  - BASE  "a b" -> merge-base of the pair (a < b)
+--  - KEYS  "com..tip" -> the signer set of the range
+local RANGE = {}
+local BASE  = {}
+local KEYS  = {}
+
+--[[
+-- The commits reachable from `tip` but not from `com`, once per
+-- process (one walk serves the climb's floor test and the signers).
+-- --topo-order: sync merges are dated 0 (git's date walk errs).
+-- Inputs:
+--  - com [string]: 40-hex commit hash (the floor)
+--  - tip [string]: 40-hex commit hash
+-- Outputs:
+--  - [table]: { list = {cid, ...}, set = {cid=true} }
+-- Errors:
+--  - via exec: "bug found" if rev-list fails
+-- Callers:
+--  - winner (consensus.lua): each side's signers
+--  - replay (consensus.lua): the climb stops outside the range
+--]]
+local function range (com, tip)
+    local k = com .. ".." .. tip
+    local r = RANGE[k]
+    if not r then
+        r = { list={}, set={} }
+        local out = exec {
+            cmd = "git -C " .. REPO .. " rev-list --topo-order " .. k
+        }
+        for cid in out:gmatch("%x+") do
+            r.list[#r.list+1] = cid
+            r.set[cid] = true
+        end
+        RANGE[k] = r
+    end
+    return r
+end
 
 --[[
 -- The own-lineage state at `cid`: a function of the DAG below it.
@@ -136,7 +168,15 @@ function M.winner (a, b, com)
         return a, b
     end
 
-    local G = M.state(com)
+    -- the floor: its `open` flag and the signers' members only
+    -- (one batched read from the snapshot); else derived in full
+    local G
+    local peek = STATE.has(com)
+    if peek then
+        G = { members={} }
+    else
+        G = M.state(com)
+    end
 
     --[[
     -- The members that signed `tip`'s side of the fork.
@@ -165,25 +205,19 @@ function M.winner (a, b, com)
         if KEYS[memo] then
             return KEYS[memo]
         end
-        local keys = {}
-        local out = exec {
-            cmd = "git -C " .. REPO .. " log --reverse --format=%H " .. memo
-        }
-        -- the range's commits in one batched read, then the signers
-        local cids = {}
-        for cid in out:gmatch("%x+") do
-            cids[#cids+1] = cid
-        end
+        -- the range's commits in one batched read, then the signers;
+        -- `anon`: an unsigned action (charged to the anon account in
+        -- an open chain, known once the floor is read)
+        local keys = { set={}, anon=false }
+        local cids = range(com, tip).list
         GIT.cats(cids)
         for _, cid in ipairs(cids) do
             local key = SSH.signer(REPO, cid)
-            -- unsigned action in open chain -> anonymous
             -- `ACTION.is`: a merge is unsigned too, and it members nothing
-            if (not key) and G.open and ACTION.is(cid) then
-                key = C.anon
-            end
             if key then
-                keys[key] = true
+                keys.set[key] = true
+            elseif ACTION.is(cid) then
+                keys.anon = true
             end
         end
         KEYS[memo] = keys
@@ -211,13 +245,29 @@ function M.winner (a, b, com)
         return n
     end
 
-    local ka, kb = collect_keys(a), collect_keys(b)
+    local ra, rb = collect_keys(a), collect_keys(b)
     do
-        local pubs = {}
-        for k in pairs(ka) do pubs[#pubs+1] = k end
-        for k in pairs(kb) do pubs[#pubs+1] = k end
-        STATE.members(G, pubs)
+        local pubs = { C.anon }
+        for k in pairs(ra.set) do pubs[#pubs+1] = k end
+        for k in pairs(rb.set) do pubs[#pubs+1] = k end
+        if peek then
+            G.open, G.members = STATE.peek(com, pubs)
+        else
+            STATE.members(G, pubs)
+        end
     end
+    -- unsigned action in open chain -> anonymous
+    local function keys (r)
+        if not (r.anon and G.open) then
+            return r.set
+        end
+        local t = { [C.anon]=true }
+        for k in pairs(r.set) do
+            t[k] = true
+        end
+        return t
+    end
+    local ka, kb = keys(ra), keys(rb)
 
     --[[
     -- Any member on this side is a dictator?
@@ -279,33 +329,15 @@ end
 --]]
 -- visited: never re-processes a commit (`ACTION.apply` itself skips
 -- an action already in `G`, so shared history never re-applies)
--- ancestor(cur,com): stops climb from descending below its floor
+-- inside (com..tip): stops climb from descending below its floor
 -- without these the inner meet underflows to a root
 function M.replay (G, com, tip, trunc, beg)
     local visited = {}
     local last          -- last commit applied
 
-    --[[
-    -- Is `a` an ancestor of `b`?
-    -- Inputs:
-    --  - a [string]: 40-hex commit hash
-    --  - b [string]: 40-hex commit hash
-    -- Outputs:
-    --  - [boolean]: ancestor or not (memoized per process)
-    -- Errors:
-    --  - none
-    -- Callers:
-    --  - climb (consensus.lua): stop at/below the floor
-    --]]
-    local function ancestor (a, b)
-        local k = a .. " " .. b
-        if ANC[k] == nil then
-            ANC[k] = (exec { err=false, stderr=false,
-                cmd = "git -C " .. REPO .. " merge-base --is-ancestor " .. a .. " " .. b
-            }) and true or false
-        end
-        return ANC[k]
-    end
+    -- the floor test: a commit the climb reaches (reachable from
+    -- `tip`) is at/below `com` iff it is outside com..tip
+    local inside = range(com, tip).set
     local climb, meet
 
     --[[
@@ -325,7 +357,7 @@ function M.replay (G, com, tip, trunc, beg)
     --  - replay/meet (consensus.lua): mutual recursion
     --]]
     climb = function (G, com, cur, beg)
-        if cur==com or visited[cur] or ancestor(cur,com) then
+        if cur==com or visited[cur] or (not inside[cur]) then
             return
         else
             local ps = GIT.parents(cur)
