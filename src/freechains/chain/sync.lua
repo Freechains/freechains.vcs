@@ -277,6 +277,9 @@ elseif ARGS.recv then
         end
 
         -- fst/winner - snd/loser: reps at their merge-base
+        -- (peeks its snapshot, maybe just derived above: flush first)
+        -- (tst/bug-floor-snapshot.lua)
+        flush()
         local fst, snd = CONSENSUS.winner(loc, rem, base)
 
         -- winner state:
