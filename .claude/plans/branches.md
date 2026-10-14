@@ -4,9 +4,10 @@
 - the lineage: tree -> bug-winner -> sync-optim (1,2) -> tick -> backs
 - goal: ia-optim holds the tree, the optimizations, and every
   feature of the other branches; then tick on top
-- state (26/10/11): ia-optim holds everything, including the
-  single 24h tick and the backs fix; main, tick and backs carry
-  the main-side forms; this file lives on main
+- state (26/10/13): ia-optim holds everything, including the
+  single 24h tick, the backs fix, git-batch and merge-cost; main,
+  tick and backs carry the main-side forms; this file lives on
+  main
 
 # Active branches and deps
 
@@ -33,15 +34,27 @@
       keeps `STATE.fetch`, `bump`, `dirty`), backs re-applied
       (59566f4), then 261011-git-batch (031c070): `backs` by
       levels with one `cat-file --batch` per level, batched
-      signer reads, memoized merge-base and ancestor
+      signer reads, memoized merge-base and ancestor; 175f19e:
+      git-batch plan only
+    - then 261013-merge-cost (5ebae95, 26/10/13), plan on main:
+        - A: `--topo-order` on every range walk (merge dates 0
+          broke `A..B`: wrong fork-winner signers, false voided)
+        - B: `backs` from tips (in-process memo, snapshot
+          `meta.lua`), no deep walk through merges
+        - C: `tree_id` sort keys once, hex->bin memo; `put`
+          reuses the tree id
+        - D: one `rev-list` per com..tip (climb floor test and
+          winner signers); winner peeks the floor's members
+        - 41-commit pull at 8.8k: 456 -> 294 git processes,
+          4.21 -> 3.00 s; 1 merge at 8k: 1.1 -> 0.65 s
 - ia-optim holds every feature, but re-applied, not merged: none
   of tick@84e77d0, backs@fa4e701, main@6c53909 is its ancestor
     - a `git merge` of those branches would conflict on the same
       changes: keep cherry-picking from them
     - missing from ia-optim: this file (main form), the
-      261010-backs.md plan (code is in)
-- installed build: ia-optim@031c070 (26/10/11 10:12, per the
-  git-batch plan)
+      261010-backs.md and 261013-merge-cost.md plans (code is in)
+- installed build: ia-optim@175f19e (= 031c070 code; 26/10/11
+  23:19); 5ebae95 not installed yet
 - tests on ia-optim: the hook suites need the working tree first
   in PATH (or `make install`): an older installed build writes
   snapshots without `tick`
@@ -50,13 +63,20 @@
   `--listen=127.0.0.1` (daemon.lua already binds 0.0.0.0); comment
   at ln 142 still says 40000
 - pending: paper items of 261008-tick; tree-trash not updated to
-  the single tick (superseded by ia-optim); rerun 2606-sims on
-  031c070
+  the single tick (superseded by ia-optim); install 5ebae95, rerun
+  2606-sims full usenet (stopped at 8.8k on 175f19e)
 
 # Flow of the latest features
 
 | plan             | branches               | description                |
 |------------------|------------------------|----------------------------|
+| 261013-merge-    | ia-optim (code);       | A: --topo-order ranges     |
+| cost             | main (plan)            | B: backs from known tips   |
+|                  |                        | C: cheaper tree_id/put     |
+|                  |                        | D: one range per com..tip, |
+|                  |                        | winner peeks members;      |
+|                  |                        | big pulls -30%, 1 merge    |
+|                  |                        | at 8k 1.1 -> 0.65 s        |
 | 261011-git-batch | ia-optim               | recv on merge-heavy DAGs:  |
 |                  |                        | backs by levels, batched   |
 |                  |                        | signer reads, memoized     |
