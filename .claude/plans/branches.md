@@ -53,8 +53,7 @@
       changes: keep cherry-picking from them
     - missing from ia-optim: this file (main form), the
       261010-backs.md and 261013-merge-cost.md plans (code is in)
-- installed build: ia-optim@175f19e (= 031c070 code; 26/10/11
-  23:19); 5ebae95 not installed yet
+- installed build: ia-optim@5ebae95 (26/10/13 22:18)
 - tests on ia-optim: the hook suites need the working tree first
   in PATH (or `make install`): an older installed build writes
   snapshots without `tick`
@@ -70,6 +69,8 @@
 
 | plan             | branches               | description                |
 |------------------|------------------------|----------------------------|
+| 261014-merge-    | ia-optim (test;        | same posts, other merges:  |
+| order            | post-only DAG next)    | hard fork; no sync merges  |
 | 261013-merge-    | ia-optim (code);       | A: --topo-order ranges     |
 | cost             | main (plan)            | B: backs from known tips   |
 |                  |                        | C: cheaper tree_id/put     |
