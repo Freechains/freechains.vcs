@@ -24,20 +24,28 @@
 
 # Fix 2: fewer local refs (design, ia-optim)
 
-- still linear: startup + `mark_complete` (~245 ms at 100k)
-- snapshots (`refs/local/`): local only, refs just pin them for gc
-    - pin by one ref: a commit/tree that indexes the snapshots
-    - or keep a floor of snapshots (every K-th), derive the rest
-- payloads (`refs/payloads/`): also the wire protocol (refspecs)
-    - fetch by oid (`uploadpack.allowAnySHA1InWant`) and pin with
-      one index ref
-- open: cost of updating the index per post; gc reachability
-- decide after fix 1, with a profile at 100k
+- left at 100k: ~0.25 s per fetch (startup + `mark_complete`),
+  ~half snapshot refs, ~half payload refs
+- the worry is small: 1 s pull at 100k, ~5 ms more per 1k posts;
+  clone (47 min at 100k) is the larger cost
+- A: snapshots off refs (half the cost, local only)
+    - index in files (`local/<xx>`: cid -> tree), not refs
+    - gc pin only at sweep (gc is manual): one commit whose tree
+      holds the live snapshots, at `refs/local/pin`
+    - discard drops index entries; next sweep reaps them
+    - `state.lua` lookups (`REF()`) read the index
+- B: payloads off refs (the other half, wire protocol)
+    - fetch blobs by oid (`uploadpack.allowAnySHA1InWant`)
+    - pin like A; post/like/sync/discard drop their ref updates
+    - changes what peers serve and ask: old/new peers mismatch
+- suggest: A only if a larger scale run needs it; B won't do
 
 # Status
 
 - [x] profile at 100k (2606-sims)
-- [ ] fix 1 main
-- [ ] fix 1 ia-optim
-- [ ] fix 2: design
+- [ ] fix 1 main: skipped for now (user, 26/10/15)
+- [x] fix 1 ia-optim: sync.lua 174, 556 (48/48, guide.sh: user)
+    - installed, at 100k: fetches 0.52 + 0.59 -> 0.38 + 0.43 s;
+      1-commit pull 1.22 -> ~1.0 s; noop 0.27 s (unchanged)
+- [ ] fix 2: decide (A later or won't do; B won't do)
 - [ ] rerun `scale.sh` (2606-sims)
