@@ -4,14 +4,15 @@
 - the lineage: tree -> bug-winner -> sync-optim (1,2) -> tick -> backs
 - goal: ia-optim holds the tree, the optimizations, and every
   feature of the other branches; then tick on top
-- state (26/10/13): ia-optim holds everything, including the
-  single 24h tick, the backs fix, git-batch and merge-cost; main,
-  tick and backs carry the main-side forms; this file lives on
-  main
+- state (26/10/15): ia-optim holds everything, including the
+  single 24h tick, the backs fix, git-batch, merge-cost, the
+  canonical merge and the fetch-argmax fix; main, tick, backs and
+  fetch-argmax carry the main-side forms; this file lives on main
 
 # Active branches and deps
 
-- main (6c53909, 26/10/09): plans only since 26/10/03
+- main (55e9986, 26/10/15): plans only since 26/10/03 (this
+  file, 261013-merge-cost, 261014-merge-order, 261015-fetch-argmax)
     - 261006-bug-winner: main@728f875 + the fix (2 commits)
     - 261008-tick (84e77d0, 26/10/09): main@7902953 + the tick
       rules (4 commits, under review)
@@ -23,10 +24,16 @@
           `backs` marks every visited commit, so a sync merge
           reached by many paths is walked once (b1b9cbc + plan:
           848 s of an 852 s usenet pull were inside `backs`)
+    - 261015-fetch-argmax (c4defaa, 26/10/15): main@55e9986 + the
+      payload fetch refspecs (glob + revoked excludes) through
+      `git fetch --stdin` (temp file); `exec` raises "bug found"
+      on a nil popen; `tst/bug-fetch-argmax.lua` (2400 revoked,
+      22 min, commented out in the Makefile); under review: the
+      plan still lists the main test run as pending
 - 260914-tree-trash (a60fca6, 26/10/08): main@4d8e7d9 + the tree
   store + bug-winner (ported) + sync-optim fixes 1 and 2 + tick
   (ported to the tree, half/full form, stale)
-    - 261007-ia-optim (031c070, 26/10/11): tree-trash@0483509 +
+    - 261007-ia-optim (41a90a6, 26/10/15): tree-trash@0483509 +
       28 process-floor fixes and 3 plan updates, then main merged
       (beg charge, discard --merge, docs, branches.md), tick
       cherry-picked from tree-trash@a60fca6, then the single tick
@@ -47,13 +54,31 @@
           winner signers); winner peeks the floor's members
         - 41-commit pull at 8.8k: 456 -> 294 git processes,
           4.21 -> 3.00 s; 1 merge at 8k: 1.1 -> 0.65 s
+    - then 261014-merge-order (3ad2442, 26/10/14), plan on main:
+      sync joins both sides' tips in one sorted, dated-0 merge;
+      merge state ranks parents by floor reps, then folds; voided
+      tips dropped and refolded, "voided back" refusal; suites
+      hardfork-merges, merge-paths; 48/48
+        - the plan's status still says option 2 (post-only DAG)
+          is to be tried; the commit is the canonical merge
+          instead: plan to update
+    - then 261015-fetch-argmax, tree form (ea396d4 + 41a90a6,
+      26/10/15): one refspec per cid to fetch through `fetch
+      --stdin`; `exec` nil-popen check; test (1200 posts, 3 min)
+      commented out in the Makefile
+    - 261014-ia-optim-merge (a7757d1): ia-optim@5ebae95 + the
+      same canonical-merge commit as 3ad2442 (earlier copy, not
+      an ancestor of ia-optim); superseded
 - ia-optim holds every feature, but re-applied, not merged: none
-  of tick@84e77d0, backs@fa4e701, main@6c53909 is its ancestor
+  of tick@84e77d0, backs@fa4e701, fetch-argmax@c4defaa,
+  main@55e9986 is its ancestor
     - a `git merge` of those branches would conflict on the same
       changes: keep cherry-picking from them
-    - missing from ia-optim: this file (main form), the
-      261010-backs.md and 261013-merge-cost.md plans (code is in)
-- installed build: ia-optim@5ebae95 (26/10/13 22:18)
+    - missing from ia-optim: this file (main form), the plans
+      261010-backs, 261013-merge-cost, 261014-merge-order,
+      261015-fetch-argmax (code is in)
+- installed build: ia-optim@5ebae95 (26/10/13 22:18); its clone
+  of a 5k-post chain fails (the argmax bug)
 - tests on ia-optim: the hook suites need the working tree first
   in PATH (or `make install`): an older installed build writes
   snapshots without `tick`
@@ -62,17 +87,22 @@
   `--listen=127.0.0.1` (daemon.lua already binds 0.0.0.0); comment
   at ln 142 still says 40000
 - pending: paper items of 261008-tick; tree-trash not updated to
-  the single tick (superseded by ia-optim); install 5ebae95, rerun
-  2606-sims full usenet (stopped at 8.8k on 175f19e)
+  the single tick (superseded by ia-optim); main run of
+  bug-fetch-argmax (22 min); install 41a90a6, rerun 2606-sims
+  full usenet (stopped at 8.8k on 175f19e; clone at 5k on
+  5ebae95); clone cost vs size (14 s at 1k, > 75 s at 5k)
 
 # Flow of the latest features
 
 | plan             | branches               | description                |
 |------------------|------------------------|----------------------------|
-| 261015-fetch-    | main, ia-optim (tests) | payload fetch refspecs     |
-| argmax           |                        | past 128 KB `sh -c` cap    |
-| 261014-merge-    | ia-optim (test;        | same posts, other merges:  |
-| order            | post-only DAG next)    | hard fork; no sync merges  |
+| 261015-fetch-    | fetch-argmax (main     | payload fetch refspecs via |
+| argmax           | form); ia-optim (tree  | `fetch --stdin`, past the  |
+|                  | form); main (plan)     | 128 KB `sh -c` cap; `exec` |
+|                  |                        | raises on a nil popen      |
+| 261014-merge-    | ia-optim (canonical    | same posts, other merges:  |
+| order            | merge + tests); main   | hard fork; fix: one sorted |
+|                  | (plan, says option 2)  | merge of both tip sets     |
 | 261013-merge-    | ia-optim (code);       | A: --topo-order ranges     |
 | cost             | main (plan)            | B: backs from known tips   |
 |                  |                        | C: cheaper tree_id/put     |
@@ -99,13 +129,17 @@
 | 261006-bug-winner| bug-winner (fix);      | fork winner independent of |
 |                  | tree-trash, ia-optim   | the replay path; snapshots |
 |                  | (ported); main, tick,  | from the DAG only          |
-|                  | backs (plan only)      |                            |
+|                  | backs, fetch-argmax    |                            |
+|                  | (plan only)            |                            |
 | 261005-races     | main, bug-winner, tick,| concurrent commands on one |
-|                  | backs (plan only)      | chain (writer vs readers)  |
+|                  | backs, fetch-argmax    | chain (writer vs readers)  |
+|                  | (plan only)            |                            |
 | 261005-hook-url  | main, bug-winner, tick,| hub hook url injection and |
-|                  | backs (plan only)      | unquoted URL() splices     |
+|                  | backs, fetch-argmax    | unquoted URL() splices     |
+|                  | (plan only)            |                            |
 | 261002-docs      | main, bug-winner, tick,| guide/reps synced with the |
-|                  | backs (done)           | paper, figures             |
+|                  | backs, fetch-argmax    | paper, figures             |
+|                  | (done)                 |                            |
 | 260923-beg       | all (done)             | begs charged on admission  |
 |                  |                        | (rule 2)                   |
 | 260921-discard   | all but tree-trash     | discard --merge drops a    |
