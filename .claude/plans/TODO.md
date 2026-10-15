@@ -1,5 +1,9 @@
 # TODO
 
+- Trusted clone (future flag): copy a trusted peer's chain and
+  snapshots as is, no replay; clone is linear (28 ms/post, 47 min
+  at 100k, 3.4 GB loose mid-clone), see 261015-fetch-refs
+
 - Enable rule 4.c (128 KB payload limit): `post.size` is commented out
   in `src/freechains/constants.lua`; the paper's Table 3 lists it as
   enforced (2606-vcs review, 2.14)
