@@ -46,8 +46,8 @@
 # Status
 
 - [x] failing tests (both): fail, then pass with fix 1
-- [ ] fix 1 main, suites (installed build is ia-optim: run with a
-  `freechains` wrapper on PATH)
-- [ ] fix 1 ia-optim, suites
+- [x] fix 1 main: 45/45 suites (with a `freechains` wrapper on
+  PATH: the installed build is ia-optim, hooks call it)
+- [x] fix 1 ia-optim: 48/48 suites, guide.sh
 - [x] fix 2: won't do (already incremental, see above)
 - [ ] rerun `scale.sh` (2606-sims) on the fixed build
