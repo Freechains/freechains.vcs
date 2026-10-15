@@ -68,6 +68,15 @@ local function git_init (dir)
     exec {
         cmd = "git -C " .. dir .. " config pack.window 50"
     }
+    -- local refs (a snapshot per commit, a payload per post) out of
+    -- fetch's connectivity check (`rev-list --not --all`), which
+    -- would load them all on every fetch (tst/bug-fetch-hiderefs.lua)
+    exec {
+        cmd = "git -C " .. dir .. " config --add fetch.hideRefs refs/local/"
+    }
+    exec {
+        cmd = "git -C " .. dir .. " config --add fetch.hideRefs refs/payloads/"
+    }
     -- gc is manual (sweep): no `maintenance run --auto` child after
     -- every fetch (one process less per fetch, two per recv)
     exec {
