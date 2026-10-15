@@ -6,13 +6,15 @@
   feature of the other branches; then tick on top
 - state (26/10/15): ia-optim holds everything, including the
   single 24h tick, the backs fix, git-batch, merge-cost, the
-  canonical merge and the fetch-argmax fix; main, tick, backs and
-  fetch-argmax carry the main-side forms; this file lives on main
+  canonical merge, the fetch-argmax fix and hideRefs; main, tick,
+  backs, fetch-argmax and pull-scale carry the main-side forms;
+  this file lives on main
 
 # Active branches and deps
 
-- main (55e9986, 26/10/15): plans only since 26/10/03 (this
-  file, 261013-merge-cost, 261014-merge-order, 261015-fetch-argmax)
+- main (be32479, 26/10/15): plans only since 26/10/03 (this
+  file, 261013-merge-cost, 261014-merge-order, 261015-fetch-argmax,
+  261015-pull-scale)
     - 261006-bug-winner: main@728f875 + the fix (2 commits)
     - 261008-tick (84e77d0, 26/10/09): main@7902953 + the tick
       rules (4 commits, under review)
@@ -30,10 +32,17 @@
       on a nil popen; `tst/bug-fetch-argmax.lua` (2400 revoked,
       22 min, commented out in the Makefile); under review: the
       plan still lists the main test run as pending
+    - 261015-pull-scale (41da8c5, 26/10/15): main@be32479 +
+      `git_init` sets `fetch.hideRefs` for `refs/states/` and
+      `refs/payloads/`, so fetch's connectivity check (`rev-list
+      --not --all`) skips the local refs; `tst/bug-fetch-hiderefs`
+      in the Makefile; 45/45; under review; sibling of
+      fetch-argmax (neither contains the other); existing chains
+      keep the old config (recreate or set by hand)
 - 260914-tree-trash (a60fca6, 26/10/08): main@4d8e7d9 + the tree
   store + bug-winner (ported) + sync-optim fixes 1 and 2 + tick
   (ported to the tree, half/full form, stale)
-    - 261007-ia-optim (41a90a6, 26/10/15): tree-trash@0483509 +
+    - 261007-ia-optim (9e50717, 26/10/15): tree-trash@0483509 +
       28 process-floor fixes and 3 plan updates, then main merged
       (beg charge, discard --merge, docs, branches.md), tick
       cherry-picked from tree-trash@a60fca6, then the single tick
@@ -66,17 +75,22 @@
       26/10/15): one refspec per cid to fetch through `fetch
       --stdin`; `exec` nil-popen check; test (1200 posts, 3 min)
       commented out in the Makefile
+    - then 261015-pull-scale, tree form (9e50717, 26/10/15):
+      `fetch.hideRefs` for `refs/local/` and `refs/payloads/`;
+      at 50k: noop fetch 3.7 -> 0.12 s, 1-post pull 11.5 -> 0.87 s
+      (2 fetches x 3.7 s were the connectivity check over ~100k
+      refs); 48/48, guide.sh
     - 261014-ia-optim-merge (a7757d1): ia-optim@5ebae95 + the
       same canonical-merge commit as 3ad2442 (earlier copy, not
       an ancestor of ia-optim); superseded
 - ia-optim holds every feature, but re-applied, not merged: none
   of tick@84e77d0, backs@fa4e701, fetch-argmax@c4defaa,
-  main@55e9986 is its ancestor
+  pull-scale@41da8c5, main@be32479 is its ancestor
     - a `git merge` of those branches would conflict on the same
       changes: keep cherry-picking from them
     - missing from ia-optim: this file (main form), the plans
       261010-backs, 261013-merge-cost, 261014-merge-order,
-      261015-fetch-argmax (code is in)
+      261015-fetch-argmax, 261015-pull-scale (code is in)
 - installed build: ia-optim@5ebae95 (26/10/13 22:18); its clone
   of a 5k-post chain fails (the argmax bug)
 - tests on ia-optim: the hook suites need the working tree first
@@ -88,14 +102,20 @@
   at ln 142 still says 40000
 - pending: paper items of 261008-tick; tree-trash not updated to
   the single tick (superseded by ia-optim); main run of
-  bug-fetch-argmax (22 min); install 41a90a6, rerun 2606-sims
+  bug-fetch-argmax (22 min); install 9e50717, rerun 2606-sims
   full usenet (stopped at 8.8k on 175f19e; clone at 5k on
-  5ebae95); clone cost vs size (14 s at 1k, > 75 s at 5k)
+  5ebae95) and `scale.sh` (warm B up with one pull before timing);
+  clone cost vs size (14 s at 1k, > 75 s at 5k); payload pass on
+  main still lists every remote payload ref (known limit)
 
 # Flow of the latest features
 
 | plan             | branches               | description                |
 |------------------|------------------------|----------------------------|
+| 261015-pull-     | pull-scale (main       | fetch.hideRefs for the     |
+| scale            | form); ia-optim (tree  | snapshot and payload refs: |
+|                  | form); main (plan)     | 1-post pull at 50k         |
+|                  |                        | 11.5 -> 0.87 s             |
 | 261015-fetch-    | fetch-argmax (main     | payload fetch refspecs via |
 | argmax           | form); ia-optim (tree  | `fetch --stdin`, past the  |
 |                  | form); main (plan)     | 128 KB `sh -c` cap; `exec` |
@@ -129,17 +149,17 @@
 | 261006-bug-winner| bug-winner (fix);      | fork winner independent of |
 |                  | tree-trash, ia-optim   | the replay path; snapshots |
 |                  | (ported); main, tick,  | from the DAG only          |
-|                  | backs, fetch-argmax    |                            |
-|                  | (plan only)            |                            |
+|                  | backs, argmax, pull-   |                            |
+|                  | scale (plan only)      |                            |
 | 261005-races     | main, bug-winner, tick,| concurrent commands on one |
-|                  | backs, fetch-argmax    | chain (writer vs readers)  |
-|                  | (plan only)            |                            |
+|                  | backs, argmax, pull-   | chain (writer vs readers)  |
+|                  | scale (plan only)      |                            |
 | 261005-hook-url  | main, bug-winner, tick,| hub hook url injection and |
-|                  | backs, fetch-argmax    | unquoted URL() splices     |
-|                  | (plan only)            |                            |
+|                  | backs, argmax, pull-   | unquoted URL() splices     |
+|                  | scale (plan only)      |                            |
 | 261002-docs      | main, bug-winner, tick,| guide/reps synced with the |
-|                  | backs, fetch-argmax    | paper, figures             |
-|                  | (done)                 |                            |
+|                  | backs, argmax, pull-   | paper, figures             |
+|                  | scale (done)           |                            |
 | 260923-beg       | all (done)             | begs charged on admission  |
 |                  |                        | (rule 2)                   |
 | 260921-discard   | all but tree-trash     | discard --merge drops a    |
