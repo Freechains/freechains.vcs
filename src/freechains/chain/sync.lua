@@ -261,16 +261,23 @@ elseif ARGS.recv then
     do
         local G = STATE.read(GIT.deref("HEAD"))
 
-        local exc = {}
+        -- the refspecs go through stdin: on the command line, ~2260
+        -- revoked pass the 128 KB `sh -c` cap (tst/bug-fetch-argmax.lua)
+        local specs = { "refs/payloads/*:refs/payloads/*" }
         for cid, e in pairs(G.actions) do
             if RULES.is_revoked(e) then
-                exc[#exc+1] = " '^refs/payloads/" .. cid .. "'"
+                specs[#specs+1] = "^refs/payloads/" .. cid
             end
         end
+        local path = REPO .. "fetch-stdin"
+        local f = assert(io.open(path, "w"))
+        f:write(table.concat(specs, "\n"), "\n")
+        f:close()
         exec { err=false, stderr=false,
-            cmd = "git -C " .. REPO .. " fetch " .. URL(ARGS.remote, ARGS.alias) ..
-                " 'refs/payloads/*:refs/payloads/*'" .. table.concat(exc)
+            cmd = "git -C " .. REPO .. " fetch --stdin " .. URL(ARGS.remote, ARGS.alias) ..
+                " < " .. path
         }
+        os.remove(path)
 
         local has = {}
         do

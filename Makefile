@@ -49,6 +49,7 @@ tests:
 	$(L) bug-now-skew.lua
 	# slow tests last (many posts / big chains)
 	$(L) consensus.lua
+	# $(L) bug-fetch-argmax.lua  # 22 min: make test T=bug-fetch-argmax
 	@rm -Rf /tmp/freechains/
 
 test:

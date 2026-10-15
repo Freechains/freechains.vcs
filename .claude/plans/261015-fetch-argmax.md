@@ -40,7 +40,9 @@
 - [x] both failing tests written; [x] ia-optim fails
 - [ ] main fails: run voided (/tmp/freechains wiped mid-run by
   another `make test`); rerun alone (~22 min)
-- [ ] fix main, all suites
+- [ ] fix main: same (`sync.lua:263` glob + revoked excludes via
+  stdin, `exec` nil popen), test commented in Makefile; running
+  suites + test
 - [x] fix ia-optim: `sync.lua` payload refspecs via `fetch
   --stdin` (temp file); `exec` raises on nil popen; test passes
   (3 min), commented out in Makefile; 47/47 suites, guide.sh
