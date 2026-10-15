@@ -533,21 +533,28 @@ elseif ARGS.recv then
                     refs[#refs+1] = "update refs/payloads/" .. cid .. " " .. blob
                 else
                     want[cid] = blob
-                    specs[#specs+1] = " 'refs/payloads/" .. cid ..
-                        "*:refs/payloads/" .. cid .. "*'"
+                    specs[#specs+1] = "refs/payloads/" .. cid ..
+                        "*:refs/payloads/" .. cid .. "*"
                 end
             end
         end
 
         -- one fetch; a glob per cid: a ref the remote lacks is no error.
         -- What it brought is in FETCH_HEAD: a ref must name the bytes
-        -- the action does, else it goes
+        -- the action does, else it goes.
+        -- The refspecs go through stdin: on the command line, ~1100
+        -- of them pass the 128 KB `sh -c` cap (tst/bug-fetch-argmax.lua)
         local miss = {}
         if #specs > 0 then
+            local path = REPO .. "fetch-stdin"
+            local f = assert(io.open(path, "w"))
+            f:write(table.concat(specs, "\n"), "\n")
+            f:close()
             exec { err=false, stderr=false,
-                cmd = "git -C " .. REPO .. " fetch " .. URL(ARGS.remote, ARGS.alias) ..
-                    table.concat(specs)
+                cmd = "git -C " .. REPO .. " fetch --stdin " .. URL(ARGS.remote, ARGS.alias) ..
+                    " < " .. path
             }
+            os.remove(path)
             local has = {}
             local f = io.open(REPO .. "FETCH_HEAD")
             if f then

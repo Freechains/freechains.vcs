@@ -49,6 +49,7 @@ end
 --  - [false, integer, string?]: code and stderr/stdout (err=false)
 -- Errors:
 --  - "bug found : [code] : cmd : out" : failure with t.err = nil
+--  - "bug found : popen failed : <n> bytes : <cmd>" : no shell
 -- Callers:
 --  - everywhere: the single door to git and the shell
 --]]
@@ -56,6 +57,10 @@ function exec (t)
     -- t.stderr == false: silences stderr ("2>/dev/null")
     local redir = (t.stderr == false) and "/dev/null" or "&1"
     local h = io.popen(t.cmd .. " 2>" .. redir)
+    -- nil: the shell never ran (e.g. cmd past the 128 KB arg cap)
+    if not h then
+        error("bug found : popen failed : " .. #t.cmd .. " bytes : " .. t.cmd:sub(1, 80))
+    end
     local out = h:read("a")
     local _, _, code = h:close()
     if code == 0 then
