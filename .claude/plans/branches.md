@@ -69,6 +69,8 @@
 
 | plan             | branches               | description                |
 |------------------|------------------------|----------------------------|
+| 261015-fetch-    | main, ia-optim (tests) | payload fetch refspecs     |
+| argmax           |                        | past 128 KB `sh -c` cap    |
 | 261014-merge-    | ia-optim (test;        | same posts, other merges:  |
 | order            | post-only DAG next)    | hard fork; no sync merges  |
 | 261013-merge-    | ia-optim (code);       | A: --topo-order ranges     |
