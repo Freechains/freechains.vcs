@@ -168,8 +168,10 @@ elseif ARGS.recv then
     -- the begs kept by the begs pass (cid -> true)
     local BEGS = {}
     do
+        -- haves from `main` only: by default fetch offers every local
+        -- ref (a snapshot + a payload per post) (plan 261015-fetch-refs)
         exec {
-            cmd = "git -C " .. REPO .. " fetch " .. URL(ARGS.remote, ARGS.alias) ..
+            cmd = "git -C " .. REPO .. " fetch --negotiation-tip=refs/heads/main " .. URL(ARGS.remote, ARGS.alias) ..
                 " main refs/begs/*:refs/begs/*",
             err = "chain sync : fetch failed",
         }
@@ -551,7 +553,7 @@ elseif ARGS.recv then
             f:write(table.concat(specs, "\n"), "\n")
             f:close()
             exec { err=false, stderr=false,
-                cmd = "git -C " .. REPO .. " fetch --stdin " .. URL(ARGS.remote, ARGS.alias) ..
+                cmd = "git -C " .. REPO .. " fetch --stdin --negotiation-tip=refs/heads/main " .. URL(ARGS.remote, ARGS.alias) ..
                     " < " .. path
             }
             os.remove(path)
