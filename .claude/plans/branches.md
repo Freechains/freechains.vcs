@@ -4,9 +4,10 @@
 - the lineage: tree -> bug-winner -> sync-optim (1,2) -> tick -> backs
 - goal: ia-optim holds the tree, the optimizations, and every
   feature of the other branches; then tick on top
-- state (26/10/15): ia-optim holds everything, including the
+- state (26/10/28): ia-optim holds everything, including the
   single 24h tick, the backs fix, git-batch, merge-cost, the
-  canonical merge, the fetch-argmax fix and hideRefs; main, tick,
+  canonical merge, the fetch-argmax fix, hideRefs and fetch-refs
+  (negotiation tip, index refs); main, tick,
   backs, fetch-argmax and pull-scale carry the main-side forms;
   this file lives on main
 
@@ -80,6 +81,18 @@
       at 50k: noop fetch 3.7 -> 0.12 s, 1-post pull 11.5 -> 0.87 s
       (2 fetches x 3.7 s were the connectivity check over ~100k
       refs); 48/48, guide.sh
+    - then 261015-fetch-refs fix 1 (ab304a9, 26/10/15): sync
+      fetches with `--negotiation-tip=refs/heads/main`; one fetch
+      at 100k 0.54 -> 0.39 s
+    - then 261015-fetch-refs fix 2 (de497de, 4ba7635, 89ca933,
+      26/10/28), plan on both:
+        - A': `refs/local` -> one tree `a/b/c/d/<cid>` -> snapshot
+        - B': `refs/payloads` -> one tree `a/b/c/d/<cid>` -> blob;
+          payloads fetched by blob id, a failed batch splits
+        - `tst/fetch-refs.lua`; 49/49, guide.sh, bug-fetch-argmax
+        - 33k peers: refs 71k -> 4, ff pull 0.786 -> 0.178 s,
+          post 0.083 -> 0.114 s
+        - old repos not migrated (`refs/local` ref vs dir)
     - 261014-ia-optim-merge (a7757d1): ia-optim@5ebae95 + the
       same canonical-merge commit as 3ad2442 (earlier copy, not
       an ancestor of ia-optim); superseded
@@ -90,7 +103,8 @@
       changes: keep cherry-picking from them
     - missing from ia-optim: this file (main form), the plans
       261010-backs, 261013-merge-cost, 261014-merge-order,
-      261015-fetch-argmax, 261015-pull-scale (code is in)
+      261015-fetch-argmax, 261015-pull-scale (code is in);
+      261015-fetch-refs is on both
 - installed build: ia-optim@5ebae95 (26/10/13 22:18); its clone
   of a 5k-post chain fails (the argmax bug)
 - tests on ia-optim: the hook suites need the working tree first
@@ -102,7 +116,7 @@
   at ln 142 still says 40000
 - pending: paper items of 261008-tick; tree-trash not updated to
   the single tick (superseded by ia-optim); main run of
-  bug-fetch-argmax (22 min); install 9e50717, rerun 2606-sims
+  bug-fetch-argmax (22 min); install 89ca933, rerun 2606-sims
   full usenet (stopped at 8.8k on 175f19e; clone at 5k on
   5ebae95) and `scale.sh` (warm B up with one pull before timing);
   clone cost vs size (14 s at 1k, > 75 s at 5k); payload pass on
@@ -112,6 +126,11 @@
 
 | plan             | branches               | description                |
 |------------------|------------------------|----------------------------|
+| 261015-fetch-    | ia-optim (code, plan); | 1: negotiation tip main;   |
+| refs             | main (plan)            | 2: snapshots and payloads  |
+|                  |                        | in 2 index refs, blobs by  |
+|                  |                        | id: ff pull at 33k         |
+|                  |                        | 0.786 -> 0.178 s           |
 | 261015-pull-     | pull-scale (main       | fetch.hideRefs for the     |
 | scale            | form); ia-optim (tree  | snapshot and payload refs: |
 |                  | form); main (plan)     | 1-post pull at 50k         |

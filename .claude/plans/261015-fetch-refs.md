@@ -78,6 +78,42 @@
 - sim post growth (0.08 -> 0.12 s mean) is lane contention: chat
   run per 5k slice is back to 0.085 s at 30k (sims session)
 
+# Fix 2 done (26/10/28, ia-optim)
+
+- A': `refs/local` -> tree `{ a/b/c/d/<cid> -> snapshot }`
+- B': `refs/payloads` -> tree `{ a/b/c/d/<cid> -> blob }`
+- fanout: 4 hex nibbles, not `xx/`
+    - `xx/` shards hold ~400 entries at 100k: ~35 KB rewritten
+      per update per index, pure-Lua sha1
+    - nibbles: 5 trees of <= 16 entries per update
+- `GIT.refs`: "local/<cid>", "payloads/<cid>" lines -> one index
+  update per call (one `cat-file --batch`, nodes memoized)
+- `STATE.ref`: tree sha when known in the process, else
+  `refs/local:<path>`; `read` gets the root in its `ls-tree -t`
+- payloads fetched by blob id (`fetch --stdin <sha>...`)
+    - v2 serves any object; v0: `allowReachableSHA1InWant`
+    - a lacking id fails the whole fetch: split in halves
+- one fetch per sync: won't do, blob ids are in the fetched commits
+- `fetch.hideRefs`: `refs/local`, `refs/payloads` (no slash)
+- old repos (`refs/local/<cid>` dirs) are not migrated:
+  `refs/local` cannot be a ref and a dir; sims rerun from scratch
+- not concurrency safe (index read-modify-write): as before,
+  no locks anywhere (261005-races)
+
+# Measurements fix 2 (26/10/28)
+
+- kept usenet r2 `p00`/`p58` copies, migrated by a scratch
+  script, warm cache, median of 3
+- 5k: refs 10.7k -> 4; packed-refs 984 -> 4 KB
+    - ff pull 0.168 -> 0.116 s; noop 0.047 -> 0.035 s
+    - post 0.087 -> 0.083 s
+- 33k: refs 71k -> 4; packed-refs 6.5 MB -> 4 KB
+    - ff pull 0.786 -> 0.178 s; noop 0.192 -> 0.054 s
+    - post 0.083 -> 0.114 s: the index updates (2 x 5 trees)
+- loose growth per post at 33k: 68 -> 108 KB on disk
+    - ~10 small index trees (4 KB blocks), garbage after the
+      next update; `sweep` reclaims it
+
 # Status
 
 - [x] profile at 100k (2606-sims)
@@ -85,7 +121,11 @@
 - [x] fix 1 ia-optim: sync.lua 174, 556 (48/48, guide.sh: user)
     - installed, at 100k: fetches 0.52 + 0.59 -> 0.38 + 0.43 s;
       1-commit pull 1.22 -> ~1.0 s; noop 0.27 s (unchanged)
-- [ ] fix 2: A' + B' (single tree refs), see revised bullets
-    - [ ] measure isolated 1-commit pull on kept 5k/33k peers
-    - [ ] rerun usenet sim (user ok, 26/10/28)
+- [x] fix 2: A' + B' (single tree refs), see "Fix 2 done"
+    - [x] A': state.lua, git.lua (48/48, guide.sh)
+    - [x] B': sync.lua, post/like/discard (49/49, guide.sh,
+      bug-fetch-argmax; tst/fetch-refs.lua)
+    - [x] measure isolated 1-commit pull on kept 5k/33k peers
+    - [ ] install, rerun usenet sim (user ok, 26/10/28)
+- [ ] post +30 ms at 33k: the index updates (nit: won't do?)
 - [ ] rerun `scale.sh` (2606-sims)
