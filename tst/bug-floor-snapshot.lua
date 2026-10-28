@@ -83,7 +83,7 @@ do
     }
     do
         local _, code = exec { stderr=false, err=false,
-            cmd = "git -C " .. ROOT_D .. "/chains/bfs/ show-ref --verify --quiet refs/local/" .. y,
+            cmd = "git -C " .. ROOT_D .. "/chains/bfs/ cat-file -e " .. IDX("local", y),
         }
         assert(code ~= 0, "precondition: y must have no snapshot on D")
     end

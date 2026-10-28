@@ -2,10 +2,11 @@
 
 -- A chain repo must hide its local refs from fetch.
 --
--- Every commit has a snapshot ref (refs/local/*) and every post a
--- payload ref (refs/payloads/*): ~2 refs per post. After a fetch, git
--- checks connectivity with `rev-list --not --all`, which loads every
--- ref: a 1-post pull at 50k posts spent 7.5 of 11.5 s there.
+-- Every commit has a snapshot, in the index ref refs/local (a tree
+-- keyed by cid), and every post a payload ref (refs/payloads/*).
+-- After a fetch, git checks connectivity with `rev-list --objects
+-- --not --all`, which would walk them (once ~2 refs per post: a
+-- 1-post pull at 50k posts spent 7.5 of 11.5 s there).
 -- `fetch.hideRefs` drops them from that check (`--exclude-hidden`).
 
 require "tests"
@@ -41,7 +42,7 @@ local function hidden (dir)
     for l in out:gmatch("[^\n]+") do
         set[l] = true
     end
-    for _, p in ipairs { "refs/local/", "refs/payloads/" } do
+    for _, p in ipairs { "refs/local", "refs/payloads/" } do
         assert(set[p], "missing fetch.hideRefs : " .. p)
     end
 end

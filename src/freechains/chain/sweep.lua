@@ -18,8 +18,9 @@
 --
 -- Two kinds of bytes go here:
 --  - revoked payloads (`like` drops the `refs/payloads/` anchor) and
---    discarded commits' payloads/state -- once unanchored, gc reaps
---  - per-commit STATE trees (`refs/local/*`): the touched blobs
+--    discarded commits' payloads/state -- once unanchored, gc reaps;
+--    also the old index trees each update leaves behind
+--  - per-commit STATE trees (`refs/local`): the touched blobs
 --    and trees of every snapshot stay loose until packed, so this
 --    gc packs them. It is the reclaim step -- git's
 --    auto-gc is incremental/skippable and leaves a loose tail, so

@@ -68,11 +68,12 @@ local function git_init (dir)
     exec {
         cmd = "git -C " .. dir .. " config pack.window 50"
     }
-    -- local refs (a snapshot per commit, a payload per post) out of
-    -- fetch's connectivity check (`rev-list --not --all`), which
-    -- would load them all on every fetch (tst/bug-fetch-hiderefs.lua)
+    -- the local index (a snapshot per commit, git.lua) and the
+    -- payload refs (one per post) out of fetch's connectivity check
+    -- (`rev-list --objects --not --all`), which would walk them on
+    -- every fetch (tst/bug-fetch-hiderefs.lua)
     exec {
-        cmd = "git -C " .. dir .. " config --add fetch.hideRefs refs/local/"
+        cmd = "git -C " .. dir .. " config --add fetch.hideRefs refs/local"
     }
     exec {
         cmd = "git -C " .. dir .. " config --add fetch.hideRefs refs/payloads/"
@@ -107,7 +108,7 @@ local function git_init (dir)
 end
 
 --[[
--- The genesis snapshot: a tree pinned by refs/local/<gen>.
+-- The genesis snapshot: a tree pinned by the local index at <gen>.
 -- Parses the two key sections from the genesis commit MESSAGE and splits
 -- C.reps.max evenly among them.
 -- Written by STATE.write with an explicit dir (no chain context here).

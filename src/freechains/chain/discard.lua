@@ -10,7 +10,7 @@
 -- Outputs:
 --  - stdout: the dropped cids, oldest first (or the beg cid)
 --  - refs: HEAD reset to the kept tip; the dropped commits'
---    refs/local/ + refs/payloads/ deleted; stale begs deleted
+--    local/ index entries + refs/payloads/ deleted; stale begs deleted
 -- Errors:
 --  - "chain discard : invalid action" : not action, not in history, --keep beg
 --  - "chain discard : unexpected merge" : cuts a sync merge (no --merge)
@@ -25,7 +25,7 @@
 -- cid and everything after it), so the settled remote branch can be
 -- received again.
 -- Local only: no signing, no network, no reps.
--- Chain state lives in local snapshots (`refs/local/*`), keyed by
+-- Chain state lives in local snapshots (`refs/local` index), keyed by
 -- commit: the reset lands on a tip whose snapshot already exists.
 --
 -- One rule: discard drops the cid and everything BUILT ON it,
@@ -242,21 +242,20 @@ end
 
 -- report what is about to be discarded: one cid per line, like
 -- `list` (the range is `drops` plus the beg posts its likes attached)
+-- the deletes in one call
+local dels = {}
 for _, h in ipairs(range) do
-    -- the dropped commit's state blob loses its anchor, so gc can
-    -- reclaim it (state lives in refs/local/<cid>, keyed by commit)
-    exec { err=false, stderr=false,
-        cmd = "git -C " .. REPO .. " update-ref -d " .. STATE.ref(h),
-    }
+    -- the dropped commit's state tree loses its anchor, so gc can
+    -- reclaim it (state lives in the local index, keyed by commit)
+    dels[#dels+1] = "delete " .. STATE.entry(h)
     -- a sync merge has a snapshot but no payload, and is not reported
     if ACTION.is(h) then
         -- payloads go with them
-        exec { err=false, stderr=false,
-            cmd = "git -C " .. REPO .. " update-ref -d refs/payloads/" .. h,
-        }
+        dels[#dels+1] = "delete refs/payloads/" .. h
         print(h)
     end
 end
+GIT.refs(dels)
 
 -- settled posts can be discarded: the hard-fork rule (settle by
 -- consensus time) guards against a REMOTE reorder, never against a

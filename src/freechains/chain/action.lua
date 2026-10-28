@@ -303,7 +303,7 @@ local KINDS = { post=true, like=true, revoke=true }
 --    branches); a table collects the snapshot's ref line for one
 --    `GIT.refs` by the caller instead of writing it now
 -- Outputs:
---  - none: G holds the action and, if `snap`, refs/local/<cid> holds
+--  - none: G holds the action and, if `snap`, the local index holds
 --    its snapshot
 -- Errors:
 --  - "malformed commit : ..." : structure (tree/parents/signature)

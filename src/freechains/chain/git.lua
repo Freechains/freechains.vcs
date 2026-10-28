@@ -96,12 +96,198 @@ function M.commit (ref, err, t)
     return cid
 end
 
+-- Index refs: ONE ref per index holds a tree of many entries, keyed
+-- by cid at a 4-nibble fanout (`refs/<name>:a/b/c/d/<cid>`), not one
+-- ref per entry: every fetch scans every local ref (plan
+-- 261015-fetch-refs). An update rewrites only the small trees on its
+-- paths (16 entries per level).
+--  - local:    cid -> snapshot tree (state.lua)
+local IDX = {
+    ["local"] = "040000",
+}
+
+-- per repo dir and index: the root as last read or written, and its
+-- nodes, path -> { name -> { mode, sha } }
+local NODES = {}
+
+--[[
+-- The fanout path of `key` inside an index tree.
+-- Inputs:
+--  - key [string]: 40-hex cid
+-- Outputs:
+--  - [string]: "a/b/c/d/<key>"
+-- Errors:
+--  - none
+-- Callers:
+--  - at/index (git.lua)
+--]]
+function M.ipath (key)
+    return key:sub(1,1) .. "/" .. key:sub(2,2) .. "/" .. key:sub(3,3) .. "/" .. key:sub(4,4) .. "/" .. key
+end
+
+--[[
+-- The object an index holds at `key`, as a rev git resolves.
+-- Inputs:
+--  - name [string]: "local"
+--  - key  [string]: 40-hex cid
+-- Outputs:
+--  - [string]: "refs/<name>:a/b/c/d/<key>"
+-- Errors:
+--  - none
+-- Callers:
+--  - ref/at/has/read (state.lua): a snapshot by cid
+--]]
+function M.at (name, key)
+    return "refs/" .. name .. ":" .. M.ipath(key)
+end
+
+--[[
+-- Parse a raw git tree body into its entries.
+-- Inputs:
+--  - body [string]: the tree object content
+-- Outputs:
+--  - [table]: name -> { mode, sha }
+-- Errors:
+--  - none
+-- Callers:
+--  - index (git.lua): the nodes on the updated paths
+--]]
+local function entries (body)
+    local T = {}
+    local pos = 1
+    while pos <= #body do
+        local sp  = body:find(" ", pos, true)
+        local nul = body:find("\0", sp, true)
+        local mode = body:sub(pos, sp-1)
+        local sha = body:sub(nul+1, nul+20):gsub(".", function (c)
+            return string.format("%02x", c:byte())
+        end)
+        T[body:sub(sp+1, nul-1)] = {
+            mode = (mode == "40000") and "040000" or mode,
+            sha  = sha,
+        }
+        pos = nul + 21
+    end
+    return T
+end
+
+--[[
+-- Apply entry ops to an index: the nodes on their paths are read
+-- (one `cat-file --batch`, memoized per process), changed, rebuilt
+-- bottom-up as loose trees, and the ref moved to the new root.
+-- Inputs:
+--  - dir  [string]: the bare repo dir
+--  - name [string]: "local"
+--  - ops  [table]: array of { verb, key, sha }, verb
+--    "update"|"create"|"delete" (create keeps an existing entry)
+-- Outputs:
+--  - none
+-- Errors:
+--  - via exec: "bug found" if cat-file fails
+-- Callers:
+--  - refs (git.lua): the "<name>/<cid>" lines
+--]]
+local function index (dir, name, ops)
+    local STATE = require "freechains.chain.state"
+    local ref = "refs/" .. name
+    local root = M.ref(ref, dir)
+    local N = NODES[dir .. ref]
+    if (not N) or (N.root ~= root) then
+        N = { root=root, nodes={} }
+        NODES[dir .. ref] = N
+    end
+    local nodes = N.nodes
+
+    -- 1. the nodes on the paths, not read yet: "" and 4 dirs per key
+    local want = {}
+    local function path (key, depth)
+        return (depth == 0) and "" or M.ipath(key):sub(1, 2*depth-1)
+    end
+    for _, op in ipairs(ops) do
+        for depth = 0, 4 do
+            local p = path(op.key, depth)
+            if not nodes[p] then
+                nodes[p] = {}       -- until read
+                if root then
+                    want[#want+1] = root .. ((p == "") and "" or (":" .. p)) .. " " .. ((p == "") and "." or p)
+                end
+            end
+        end
+    end
+    if #want > 0 then
+        local path = dir .. "git-stdin"
+        local f = assert(io.open(path, "w"))
+        f:write(table.concat(want, "\n"), "\n")
+        f:close()
+        local out = exec { trim=false,
+            cmd = "git -C " .. dir .. " cat-file --batch='%(objectname) %(objecttype) %(objectsize) %(rest)' < " .. path,
+        }
+        os.remove(path)
+        local pos = 1
+        while pos <= #out do
+            local nl = out:find("\n", pos, true)
+            local _, ty, size, p = out:sub(pos, nl-1):match("^(%x+) (%a+) (%d+) (%S+)$")
+            if ty then
+                size = tonumber(size)
+                if ty == "tree" then
+                    nodes[(p == ".") and "" or p] = entries(out:sub(nl+1, nl+size))
+                end
+                pos = nl + size + 2
+            else
+                pos = nl + 1    -- "<rev> missing"
+            end
+        end
+    end
+
+    -- 2. the leaves, and the dirs above them to rebuild
+    local dirty = { {}, {}, {}, {}, [0]={} }
+    for _, op in ipairs(ops) do
+        local leaf = nodes[path(op.key, 4)]
+        if op.verb == "delete" then
+            leaf[op.key] = nil
+        elseif not ((op.verb == "create") and leaf[op.key]) then
+            leaf[op.key] = { mode=IDX[name], sha=op.sha }
+        end
+        for depth = 0, 4 do
+            dirty[depth][path(op.key, depth)] = true
+        end
+    end
+
+    -- 3. trees, deepest first (a parent needs its children's ids);
+    -- an empty dir leaves its parent
+    for depth = 4, 0, -1 do
+        for p in pairs(dirty[depth]) do
+            local ents = {}
+            for n, e in pairs(nodes[p]) do
+                ents[#ents+1] = { mode=e.mode, name=n, sha=e.sha }
+            end
+            local id
+            if #ents > 0 then
+                local _, body
+                id, _, body = STATE.tree_id(ents)
+                STATE.put("tree", body, dir, id)
+            end
+            if depth > 0 then
+                local up, sub = p:match("^(.-)/?([^/]+)$")
+                nodes[up][sub] = id and { mode="040000", sha=id } or nil
+            else
+                root = id or M.tree()
+            end
+        end
+    end
+    M.set(ref, root, false, dir)
+    N.root = root
+end
+
 --[[
 -- Many ref updates at once: updates and creates as loose ref files
--- written from Lua (no process), deletes in one `update-ref --stdin`.
+-- written from Lua (no process), deletes in one `update-ref --stdin`,
+-- index entries ("local/<cid>") in one `index` call.
 -- Inputs:
 --  - ops [table]: array of update-ref stdin lines:
---    "update <ref> <new>", "create <ref> <new>", "delete <ref>"
+--    "update <ref> <new>", "create <ref> <new>", "delete <ref>";
+--    <ref> "local/<cid>" names an index entry
+--  - dir [string?]: the bare repo dir (default REPO)
 -- Outputs:
 --  - none
 -- Errors:
@@ -109,8 +295,11 @@ end
 -- Callers:
 --  - post/like: the accepted action's refs
 --  - state (consensus.lua): a run's deferred snapshot refs
+--  - write (state.lua): one snapshot's entry
+--  - discard (discard.lua): snapshot entries
 --]]
-function M.refs (ops)
+function M.refs (ops, dir)
+    dir = dir or REPO
     if #ops == 0 then
         return
     end
@@ -118,24 +307,33 @@ function M.refs (ops)
     -- loose ref overrides a packed one); deletes: git, which also
     -- drops a packed entry
     local dels = {}
+    local idx = {}      -- name -> { op }
     for _, op in ipairs(ops) do
         local verb, ref, sha = op:match("^(%a+) (%S+) ?(%x*)$")
-        if (verb == "update" or verb == "create") and (#sha == 40) then
-            M.set(ref, sha, verb == "create")
+        local name, key = ref:match("^(%a+)/(%x+)$")
+        if name and IDX[name] then
+            idx[name] = idx[name] or {}
+            local t = idx[name]
+            t[#t+1] = { verb=verb, key=key, sha=sha }
+        elseif (verb == "update" or verb == "create") and (#sha == 40) then
+            M.set(ref, sha, verb == "create", dir)
         else
             dels[#dels+1] = op
         end
     end
+    if idx["local"] then
+        index(dir, "local", idx["local"])
+    end
     if #dels == 0 then
         return
     end
-    local path = REPO .. "git-stdin"
+    local path = dir .. "git-stdin"
     local function run (lines)
         local f = assert(io.open(path, "w"))
         f:write(table.concat(lines, "\n"), "\n")
         f:close()
         local ok = exec { err=false, stderr=false,
-            cmd = "git -C " .. REPO .. " update-ref --stdin < " .. path,
+            cmd = "git -C " .. dir .. " update-ref --stdin < " .. path,
         }
         return ok
     end
@@ -154,22 +352,24 @@ end
 --  - ref    [string]: full ref name, or HEAD
 --  - sha    [string]: 40-hex hash
 --  - create [boolean?]: keep an existing loose file as is
+--  - dir    [string?]: the bare repo dir (default REPO)
 -- Outputs:
 --  - none
 -- Errors:
 --  - assert: the file cannot be written
 -- Callers:
---  - refs (git.lua)
+--  - refs/index (git.lua)
 --]]
-function M.set (ref, sha, create)
-    local path = REPO .. ref
+function M.set (ref, sha, create, dir)
+    dir = dir or REPO
+    local path = dir .. ref
     local f = io.open(path)
     if f then
         local s = f:read("l")
         f:close()
         local sym = s and s:match("^ref: (%S+)")
         if sym then
-            return M.set(sym, sha, create)
+            return M.set(sym, sha, create, dir)
         elseif create then
             return
         end
@@ -286,6 +486,7 @@ end
 -- it), else `rev-parse`: a file read instead of a process.
 -- Inputs:
 --  - name [string]: a full ref name, or HEAD
+--  - dir  [string?]: the bare repo dir (default REPO)
 -- Outputs:
 --  - [string?]: 40-hex hash, nil if the ref does not exist
 -- Errors:
@@ -294,21 +495,23 @@ end
 --  - init (chain/init.lua): HEAD
 --  - like (like.lua): a beg's ref
 --  - recv (sync.lua): refs/genesis
+--  - index (git.lua): an index's root
 --]]
-function M.ref (name)
-    local f = io.open(REPO .. name)
+function M.ref (name, dir)
+    dir = dir or REPO
+    local f = io.open(dir .. name)
     if f then
         local s = f:read("l")
         f:close()
         local sym = s and s:match("^ref: (%S+)")
         if sym then
-            return M.ref(sym)
+            return M.ref(sym, dir)
         elseif s and s:match("^%x+$") then
             return s
         end
     end
     return exec { err=false, stderr=false,
-        cmd = "git -C " .. REPO .. " rev-parse --verify --quiet " .. name,
+        cmd = "git -C " .. dir .. " rev-parse --verify --quiet " .. name,
     } or nil
 end
 

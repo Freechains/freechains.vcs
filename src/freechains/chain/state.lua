@@ -1,5 +1,5 @@
--- per-commit state, stored as a git TREE pinned by a local ref:
---  - `refs/local/<cid>` -> tree
+-- per-commit state, stored as a git TREE pinned by the local index:
+--  - `refs/local:a/b/c/d/<cid>` -> tree (git.lua, `GIT.at`)
 --      meta.lua                 { now, open, tot, order_n, tick, cid,
 --                                 tips }
 --                               (tick: the chain clock, rules.lua)
@@ -24,13 +24,15 @@
 -- access (one blob), `fetch`/`members`/`all`/`members_all` load
 -- many in one batch. meta, heads, the pending window and the tail
 -- order chunk are eager.
--- `refs/local/*` are LOCAL: sync never pushes or fetches them.
+-- `refs/local` is LOCAL: sync never pushes or fetches it.
 
 local M = {}
 
 -- the window constants (tests load this module without the chain
 -- globals)
 local C = require "freechains.constants"
+
+local GIT_ = require "freechains.chain.git"
 
 local ORDER_K = 200     -- cids per order chunk
 M.ORDER_K = ORDER_K     -- (sync.lua: hardfork reads chunks)
@@ -53,20 +55,59 @@ local CACHE = setmetatable({}, { __mode = "k" })
 -- tells, `has` answers from here when it can
 local HAS = {}
 
+-- snapshot roots known in this process (REPO only): cid -> tree sha,
+-- by a write (its index entry may still be unflushed) or a read
+local ROOT = {}
+
 --[[
--- The state ref name of `cid`.
+-- The snapshot tree of `cid`, as a rev git resolves.
 -- Inputs:
 --  - cid [string]: 40-hex commit hash
 -- Outputs:
---  - [string]: "refs/local/<cid>"
+--  - [string]: its tree sha when known, else "refs/local:<path>"
 -- Errors:
 --  - none
 -- Callers:
---  - write/has/read (state.lua): the one naming point
---  - discard (discard.lua): drops the refs of discarded commits
+--  - at/has/read (state.lua): the one naming point
+--  - chunks (sync.lua): the order listing of a snapshot
 --]]
 function M.ref (cid)
-    return "refs/local/" .. cid
+    return ROOT[cid] or GIT_.at("local", cid)
+end
+
+--[[
+-- A file inside the snapshot of `cid`, as a rev git resolves.
+-- Inputs:
+--  - cid  [string]: 40-hex commit hash
+--  - path [string]: path inside the snapshot tree
+-- Outputs:
+--  - [string]: "<tree>:<path>" or "refs/local:<cid path>/<path>"
+-- Errors:
+--  - none
+-- Callers:
+--  - peek/tips (state.lua): batched reads by path
+--]]
+local function at (cid, path)
+    if ROOT[cid] then
+        return ROOT[cid] .. ":" .. path
+    end
+    return GIT_.at("local", cid) .. "/" .. path
+end
+
+--[[
+-- The index entry name of `cid`'s snapshot, for `GIT.refs` lines.
+-- Inputs:
+--  - cid [string]: 40-hex commit hash
+-- Outputs:
+--  - [string]: "local/<cid>"
+-- Errors:
+--  - none
+-- Callers:
+--  - write (state.lua): the create line
+--  - discard (discard.lua): drops the snapshots of discarded commits
+--]]
+function M.entry (cid)
+    return "local/" .. cid
 end
 
 --[[
@@ -253,6 +294,7 @@ local BIN = {}
 --  - none
 -- Callers:
 --  - write/listing (state.lua)
+--  - index (git.lua): the index trees
 --]]
 local function tree_id (ents)
     -- sort keys once, not per comparison
@@ -277,6 +319,7 @@ local function tree_id (ents)
     local body = table.concat(raw)
     return sha1("tree " .. #body .. "\0" .. body), nil, body
 end
+M.tree_id = tree_id
 
 --[[
 -- A zlib stream of `s` with STORED blocks (no compression): what a
@@ -907,18 +950,18 @@ end
 --[[
 -- Snapshot `G` at `cid`: the dirty entities become blobs, the trees
 -- on their paths are rebuilt (mktree, bottom-up), the root is
--- pinned by the ref. Nothing else is rewritten.
+-- pinned by the local index. Nothing else is rewritten.
 -- Inputs:
 --  - G   [table]: chain state (members/actions/order/pending/now)
 --  - cid [string]: 40-hex commit hash, derefed
 --  - dir [string?]: the bare repo dir (default REPO)
---  - refs [table?]: collects the ref's create line instead of running
---    it (the caller flushes many in one `GIT.refs`); `has` answers
+--  - refs [table?]: collects the index entry's create line instead of
+--    running it (the caller flushes many in one `GIT.refs`); `has` answers
 --    true from here on either way
 -- Outputs:
 --  - none (G.dirty reset)
 -- Errors:
---  - via exec: "bug found" if update-ref fails
+--  - via exec: "bug found" if the index update fails
 -- Callers:
 --  - apply (action.lua): snapshot at every accepted commit
 --  - recv (sync.lua): snapshot at the loser sync merge
@@ -1067,19 +1110,23 @@ function M.write (G, cid, dir, refs)
         end
     end
 
-    -- 4. the ref: create-only. NEVER overwrite: the first write is
-    -- the commit's own-lineage state, and a refused sync must not
-    -- corrupt local snapshots (a replay of a snapshotted commit
-    -- lands here again and is refused)
+    -- 4. the index entry: create-only. NEVER overwrite: the first
+    -- write is the commit's own-lineage state, and a refused sync
+    -- must not corrupt local snapshots (a replay of a snapshotted
+    -- commit lands here again and is refused)
     C.root = C.dirs[""] or assert(C.root)
+    local op = "create " .. M.entry(cid) .. " " .. C.root
     if refs then
-        refs[#refs+1] = "create " .. M.ref(cid) .. " " .. C.root
+        refs[#refs+1] = op
     else
-        exec { err=false, stderr=false,
-            cmd = "git -C " .. dir .. " update-ref " .. M.ref(cid) .. " " .. C.root .. " ''",
-        }
+        GIT_.refs({ op }, dir)
     end
     if dir == REPO then
+        -- known absent: this root is the entry (else the index may
+        -- hold an older one, which create keeps)
+        if HAS[cid] == false then
+            ROOT[cid] = C.root
+        end
         HAS[cid] = true
     end
     C.base = C.root     -- in git now
@@ -1111,7 +1158,7 @@ end
 --  - cid [string]: 40-hex commit hash, derefed
 --  - dir [string?]: the bare repo dir (default REPO)
 -- Outputs:
---  - [boolean]: refs/local/<cid> exists
+--  - [boolean]: the local index holds `cid`
 -- Errors:
 --  - none
 -- Callers:
@@ -1124,7 +1171,7 @@ function M.has (cid, dir)
         return HAS[cid]
     end
     local _, code = exec { stderr=false, err=false,
-        cmd = "git -C " .. dir .. " show-ref --verify --quiet " .. M.ref(cid),
+        cmd = "git -C " .. dir .. " cat-file -e " .. GIT_.at("local", cid),
     }
     if dir == REPO then
         HAS[cid] = (code == 0)
@@ -1168,11 +1215,10 @@ end
 --  - winner (consensus.lua): reps at the fork floor
 --]]
 function M.peek (cid, pubs)
-    local root = M.ref(cid)
-    local ls = { root .. ":meta.lua meta.lua" }
+    local ls = { at(cid, "meta.lua") .. " meta.lua" }
     for _, pub in ipairs(pubs) do
         local p = mpath(pub)
-        ls[#ls+1] = root .. ":" .. p .. " " .. p
+        ls[#ls+1] = at(cid, p) .. " " .. p
     end
     local out = git_in(REPO, "cat-file --batch='%(objectname) %(objectsize) %(rest)'",
         table.concat(ls, "\n") .. "\n")
@@ -1208,7 +1254,7 @@ function M.tips (cids, into)
     local ls = {}
     for _, cid in ipairs(cids) do
         if HAS[cid] ~= false then
-            ls[#ls+1] = M.ref(cid) .. ":meta.lua " .. cid
+            ls[#ls+1] = at(cid, "meta.lua") .. " " .. cid
         end
     end
     if #ls == 0 then
@@ -1242,16 +1288,41 @@ end
 --]]
 function M.read (cid, dir)
     dir = dir or REPO
-    -- the ref itself is the tree-ish everywhere below
-    local root = M.ref(cid)
-    local CC = { dir=dir, root=root, base=root, tree={}, src={}, dirs={}, kids={ [""]={} }, shard={}, shards={}, top={}, missing={}, missing_m={} }
-
     -- the eager dirs and meta, with their tree shas (`actions` is
-    -- listed on demand)
+    -- listed on demand); an unknown root comes from the index in the
+    -- same listing (`-t` shows the trees on the way, the root's too)
+    local root = (dir == REPO) and ROOT[cid]
+    local pfx = ""
+    local tree = root
+    if not root then
+        pfx = GIT_.ipath(cid)
+        tree = "refs/local"
+    end
+    local function p (path)
+        return (pfx == "") and path or (pfx .. "/" .. path)
+    end
     local ls = exec { trim=false, err=false, stderr=false,
-        cmd = "git -C " .. dir .. " ls-tree -r -t --format='%(objecttype) %(objectname) %(path)' " .. root .. " meta.lua revoked.txt order",
+        cmd = "git -C " .. dir .. " ls-tree -r -t --format='%(objecttype) %(objectname) %(path)' " .. tree .. " " .. p("meta.lua") .. " " .. p("revoked.txt") .. " " .. p("order"),
     }
     assert(ls, "bug found : no snapshot : " .. cid)
+    if not root then
+        -- keep the snapshot's own lines, paths relative to its root
+        local ks = {}
+        for ty, sha, path in ls:gmatch("(%a+) (%x+) ([^\n]+)\n") do
+            if path == pfx then
+                root = sha
+            elseif path:sub(1, #pfx+1) == (pfx .. "/") then
+                ks[#ks+1] = ty .. " " .. sha .. " " .. path:sub(#pfx+2) .. "\n"
+            end
+        end
+        assert(root, "bug found : no snapshot : " .. cid)
+        ls = table.concat(ks)
+        if dir == REPO then
+            ROOT[cid] = root
+        end
+    end
+    local CC = { dir=dir, root=root, base=root, tree={}, src={}, dirs={}, kids={ [""]={} }, shard={}, shards={}, top={}, missing={}, missing_m={} }
+
     local blobs = {}
     local ords  = {}
     for ty, sha, path in ls:gmatch("(%a+) (%x+) ([^\n]+)\n") do

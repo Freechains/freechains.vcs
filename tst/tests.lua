@@ -195,7 +195,13 @@ function DRYMERGE (dir, other)
     }
 end
 
--- the state snapshot at `dir`'s HEAD (tree at refs/local/<hash>)
+-- an index entry as a rev: "refs/<name>:a/b/c/d/<cid>" (git.lua)
+local GT = require "freechains.chain.git"
+function IDX (name, cid)
+    return GT.at(name, cid)
+end
+
+-- the state snapshot at `dir`'s HEAD (tree at refs/local:<cid path>)
 local ST = require "freechains.chain.state"
 function STATE (dir)
     local hash = exec {
