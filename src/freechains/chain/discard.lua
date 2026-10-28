@@ -10,7 +10,7 @@
 -- Outputs:
 --  - stdout: the dropped cids, oldest first (or the beg cid)
 --  - refs: HEAD reset to the kept tip; the dropped commits'
---    local/ index entries + refs/payloads/ deleted; stale begs deleted
+--    local/ + payloads/ index entries deleted; stale begs deleted
 -- Errors:
 --  - "chain discard : invalid action" : not action, not in history, --keep beg
 --  - "chain discard : unexpected merge" : cuts a sync merge (no --merge)
@@ -242,7 +242,7 @@ end
 
 -- report what is about to be discarded: one cid per line, like
 -- `list` (the range is `drops` plus the beg posts its likes attached)
--- the deletes in one call
+-- the index deletes in one call
 local dels = {}
 for _, h in ipairs(range) do
     -- the dropped commit's state tree loses its anchor, so gc can
@@ -251,7 +251,7 @@ for _, h in ipairs(range) do
     -- a sync merge has a snapshot but no payload, and is not reported
     if ACTION.is(h) then
         -- payloads go with them
-        dels[#dels+1] = "delete refs/payloads/" .. h
+        dels[#dels+1] = "delete payloads/" .. h
         print(h)
     end
 end

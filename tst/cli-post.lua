@@ -33,9 +33,9 @@ do
     end
 
     do
-        TEST "payload anchored on refs/payloads/<aid>"
+        TEST "payload anchored in refs/payloads at <aid>"
         local ref = exec {
-            cmd = "git -C " .. DIR .. " rev-parse refs/payloads/" .. P1,
+            cmd = "git -C " .. DIR .. " rev-parse " .. IDX("payloads", P1),
         }
         assert(#ref == 40, "anchor missing: " .. ref)
     end

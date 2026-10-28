@@ -201,6 +201,11 @@ function IDX (name, cid)
     return GT.at(name, cid)
 end
 
+-- drop an index entry in the bare repo `dir`, as `discard` would
+function IDX_DEL (dir, name, cid)
+    GT.refs({ "delete " .. name .. "/" .. cid }, dir)
+end
+
 -- the state snapshot at `dir`'s HEAD (tree at refs/local:<cid path>)
 local ST = require "freechains.chain.state"
 function STATE (dir)

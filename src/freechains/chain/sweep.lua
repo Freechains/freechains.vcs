@@ -17,7 +17,7 @@
 -- blob before anchoring it, so it is briefly unreferenced.
 --
 -- Two kinds of bytes go here:
---  - revoked payloads (`like` drops the `refs/payloads/` anchor) and
+--  - revoked payloads (`like` drops the `refs/payloads` entry) and
 --    discarded commits' payloads/state -- once unanchored, gc reaps;
 --    also the old index trees each update leaves behind
 --  - per-commit STATE trees (`refs/local`): the touched blobs

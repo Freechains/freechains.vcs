@@ -367,7 +367,7 @@ do
     do
         TEST "the payload is anchored while the post stands"
         local _, code = exec { err=false, stderr=false,
-            cmd = "git -C " .. DIR .. " rev-parse refs/payloads/" .. POST,
+            cmd = "git -C " .. DIR .. " rev-parse " .. IDX("payloads", POST),
         }
         assert(code == 0, "anchor should exist")
     end
@@ -378,7 +378,7 @@ do
             cmd = ENV_EXE .. " chain /removal revoke 1000 " .. POST .. " --sign " .. KEY2,
         }
         local _, code = exec { err=false, stderr=false,
-            cmd = "git -C " .. DIR .. " rev-parse refs/payloads/" .. POST,
+            cmd = "git -C " .. DIR .. " rev-parse " .. IDX("payloads", POST),
         }
         assert(code ~= 0, "anchor should be gone")
     end
@@ -394,7 +394,7 @@ do
         assert(pay == "bytes", "payload: " .. pay)
         -- a standing post keeps its anchor, or the next sweep eats it
         local _, code = exec { err=false, stderr=false,
-            cmd = "git -C " .. DIR .. " rev-parse refs/payloads/" .. POST,
+            cmd = "git -C " .. DIR .. " rev-parse " .. IDX("payloads", POST),
         }
         assert(code == 0, "anchor should be back")
     end
@@ -431,9 +431,7 @@ do
 
     -- drop the bytes the way `discard` or a sweep would
     local DIR = ROOT .. "/chains/gated/"
-    exec {
-        cmd = "git -C " .. DIR .. " update-ref -d refs/payloads/" .. POST,
-    }
+    IDX_DEL(DIR, "payloads", POST)
     exec {
         cmd = "git -C " .. DIR .. " gc --prune=now --quiet",
     }

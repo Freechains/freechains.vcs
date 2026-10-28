@@ -16,8 +16,8 @@
 --  - REPO [string]: the chain's bare repo dir
 -- Outputs:
 --  - stdout: the new cid
---  - refs: HEAD -> cid; state at refs/local/<cid>; why blob at
---    refs/payloads/<cid>; the TARGET's payload anchor dropped
+--  - refs: HEAD -> cid; state at local/<cid>; why blob at
+--    payloads/<cid> (index entries); the TARGET's payload anchor dropped
 --    (entered REVOKED) or restored (left REVOKED); a liked beg's
 --    refs/begs/ ref deleted (promotion merge)
 -- Errors:
@@ -150,7 +150,7 @@ end
 --  - it left REVOKED    -> the bytes must be here (LIFT)
 if entry then
     if (not was_revoked) and RULES.is_revoked(entry) then
-        refs[#refs+1] = "delete refs/payloads/" .. ARGS.id
+        refs[#refs+1] = "delete payloads/" .. ARGS.id
     elseif was_revoked and (not RULES.is_revoked(entry)) then
         -- every post carries a payload, a vote only with `--why`:
         -- with no bytes to restore there is nothing to gate
@@ -186,14 +186,14 @@ if entry then
             -- a standing post always has its anchor: the bytes may
             -- still be in the store, but unreferenced they are one
             -- `sweep` away from gone
-            refs[#refs+1] = "update refs/payloads/" .. ARGS.id .. " " .. T.blob
+            refs[#refs+1] = "update payloads/" .. ARGS.id .. " " .. T.blob
         end
     end
 end
 
 -- accepted: the why is anchored at its final name
 if blob then
-    refs[#refs+1] = "update refs/payloads/" .. cid .. " " .. blob
+    refs[#refs+1] = "update payloads/" .. cid .. " " .. blob
 end
 
 -- ACCEPTED: anchor payload, post

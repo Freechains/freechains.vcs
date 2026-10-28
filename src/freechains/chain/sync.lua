@@ -169,7 +169,7 @@ elseif ARGS.recv then
     local BEGS = {}
     do
         -- haves from `main` only: by default fetch offers every local
-        -- ref (a snapshot + a payload per post) (plan 261015-fetch-refs)
+        -- ref as a tip (plan 261015-fetch-refs)
         exec {
             cmd = "git -C " .. REPO .. " fetch --negotiation-tip=refs/heads/main " .. URL(ARGS.remote, ARGS.alias) ..
                 " main refs/begs/*:refs/begs/*",
@@ -401,8 +401,8 @@ elseif ARGS.recv then
     --  - the cids still missing their bytes (heal from any peer)
     --  - the begs (their bytes ride the same anchors)
     -- A REVOKED action loses its anchor; the others re-anchor from
-    -- bytes already here, else fetch their own ref (never `*`, so
-    -- removed bytes never return)
+    -- bytes already here, else fetch their blob by id (never the
+    -- remote's whole index, so removed bytes never return)
     -- No missing-bytes file yet (older repo): one full pass builds it
     do
         local MISS = REPO .. "payloads-missing"
@@ -506,7 +506,7 @@ elseif ARGS.recv then
             local cid = S[i]
             local e = G.actions[cid]
             if not new[cid] then
-                objs[#objs+1] = "refs/payloads/" .. cid .. " " .. cid
+                objs[#objs+1] = GIT.at("payloads", cid) .. " " .. cid
             end
             if (e or B[cid]) and not (e and RULES.is_revoked(e)) then
                 local t = ACTION.read(false, cid)
@@ -518,60 +518,69 @@ elseif ARGS.recv then
         end
         local got = check(objs)
 
-        -- ref moves in one batch (deletes through git)
+        -- index moves in one batch
         local refs = {}
         local want = {}     -- cid -> blob, still to fetch
-        local specs = {}
+        local shas = {}     -- the blobs to fetch, once each
+        local seen = {}
         for i = 1, n do
             local cid = S[i]
             local e = G.actions[cid]
             local blob = blobs[cid]
             if e and RULES.is_revoked(e) then
                 if got[cid] then
-                    refs[#refs+1] = "delete refs/payloads/" .. cid
+                    refs[#refs+1] = "delete payloads/" .. cid
                 end
             elseif blob and (not got[cid]) then
                 if got[blob] then
-                    refs[#refs+1] = "update refs/payloads/" .. cid .. " " .. blob
+                    refs[#refs+1] = "update payloads/" .. cid .. " " .. blob
                 else
                     want[cid] = blob
-                    specs[#specs+1] = "refs/payloads/" .. cid ..
-                        "*:refs/payloads/" .. cid .. "*"
+                    if not seen[blob] then
+                        seen[blob] = true
+                        shas[#shas+1] = blob
+                    end
                 end
             end
         end
 
-        -- one fetch; a glob per cid: a ref the remote lacks is no error.
-        -- What it brought is in FETCH_HEAD: a ref must name the bytes
-        -- the action does, else it goes.
-        -- The refspecs go through stdin: on the command line, ~1100
-        -- of them pass the 128 KB `sh -c` cap (tst/bug-fetch-argmax.lua)
-        local miss = {}
-        if #specs > 0 then
+        -- the blobs by id, in one fetch: the id is the bytes, so what
+        -- arrives is what the action names (protocol v2 serves any
+        -- object, v0 needs `uploadpack.allowReachableSHA1InWant`).
+        -- One id the remote lacks fails the whole fetch: a failed
+        -- batch splits in halves, down to the missing ids.
+        -- The ids go through stdin: on the command line, ~1100 of
+        -- them pass the 128 KB `sh -c` cap (tst/bug-fetch-argmax.lua)
+        local has = {}
+        local function fetch (ls)
             local path = REPO .. "fetch-stdin"
             local f = assert(io.open(path, "w"))
-            f:write(table.concat(specs, "\n"), "\n")
+            f:write(table.concat(ls, "\n"), "\n")
             f:close()
-            exec { err=false, stderr=false,
+            local ok = exec { err=false, stderr=false,
                 cmd = "git -C " .. REPO .. " fetch --stdin --negotiation-tip=refs/heads/main " .. URL(ARGS.remote, ARGS.alias) ..
                     " < " .. path
             }
             os.remove(path)
-            local has = {}
-            local f = io.open(REPO .. "FETCH_HEAD")
-            if f then
-                for sha, cid in f:read("a"):gmatch("(%x+)\t[^\n]*'refs/payloads/(%x+)'") do
-                    has[cid] = sha
+            if ok then
+                for _, sha in ipairs(ls) do
+                    has[sha] = true
                 end
-                f:close()
+            elseif #ls > 1 then
+                local h = #ls // 2
+                fetch(table.move(ls, 1, h, 1, {}))
+                fetch(table.move(ls, h+1, #ls, 1, {}))
             end
-            for cid, blob in pairs(want) do
-                if has[cid] ~= blob then
-                    if has[cid] then
-                        refs[#refs+1] = "delete refs/payloads/" .. cid
-                    end
-                    miss[#miss+1] = cid
-                end
+        end
+        if #shas > 0 then
+            fetch(shas)
+        end
+        local miss = {}
+        for cid, blob in pairs(want) do
+            if has[blob] then
+                refs[#refs+1] = "update payloads/" .. cid .. " " .. blob
+            else
+                miss[#miss+1] = cid
             end
         end
         GIT.refs(refs)

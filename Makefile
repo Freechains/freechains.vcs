@@ -51,6 +51,7 @@ tests:
 	$(L) bug-winner.lua
 	$(L) bug-floor-snapshot.lua
 	$(L) bug-fetch-hiderefs.lua
+	$(L) fetch-refs.lua
 	# slow tests last (many posts / big chains)
 	$(L) consensus.lua
 	# $(L) bug-fetch-argmax.lua  # 3 min: make test T=bug-fetch-argmax

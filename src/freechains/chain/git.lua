@@ -102,8 +102,10 @@ end
 -- 261015-fetch-refs). An update rewrites only the small trees on its
 -- paths (16 entries per level).
 --  - local:    cid -> snapshot tree (state.lua)
+--  - payloads: cid -> payload blob (post/like/sync)
 local IDX = {
     ["local"] = "040000",
+    payloads  = "100644",
 }
 
 -- per repo dir and index: the root as last read or written, and its
@@ -128,7 +130,7 @@ end
 --[[
 -- The object an index holds at `key`, as a rev git resolves.
 -- Inputs:
---  - name [string]: "local"
+--  - name [string]: "local" | "payloads"
 --  - key  [string]: 40-hex cid
 -- Outputs:
 --  - [string]: "refs/<name>:a/b/c/d/<key>"
@@ -136,6 +138,7 @@ end
 --  - none
 -- Callers:
 --  - ref/at/has/read (state.lua): a snapshot by cid
+--  - recv (sync.lua): the payload anchors I hold
 --]]
 function M.at (name, key)
     return "refs/" .. name .. ":" .. M.ipath(key)
@@ -177,7 +180,7 @@ end
 -- bottom-up as loose trees, and the ref moved to the new root.
 -- Inputs:
 --  - dir  [string]: the bare repo dir
---  - name [string]: "local"
+--  - name [string]: "local" | "payloads"
 --  - ops  [table]: array of { verb, key, sha }, verb
 --    "update"|"create"|"delete" (create keeps an existing entry)
 -- Outputs:
@@ -282,11 +285,11 @@ end
 --[[
 -- Many ref updates at once: updates and creates as loose ref files
 -- written from Lua (no process), deletes in one `update-ref --stdin`,
--- index entries ("local/<cid>") in one `index` call.
+-- index entries ("<name>/<cid>") in one `index` per index.
 -- Inputs:
 --  - ops [table]: array of update-ref stdin lines:
 --    "update <ref> <new>", "create <ref> <new>", "delete <ref>";
---    <ref> "local/<cid>" names an index entry
+--    <ref> "local/<cid>" or "payloads/<cid>" names an index entry
 --  - dir [string?]: the bare repo dir (default REPO)
 -- Outputs:
 --  - none
@@ -296,7 +299,7 @@ end
 --  - post/like: the accepted action's refs
 --  - state (consensus.lua): a run's deferred snapshot refs
 --  - write (state.lua): one snapshot's entry
---  - discard (discard.lua): snapshot entries
+--  - recv (sync.lua), discard (discard.lua): payload entries
 --]]
 function M.refs (ops, dir)
     dir = dir or REPO
@@ -321,8 +324,10 @@ function M.refs (ops, dir)
             dels[#dels+1] = op
         end
     end
-    if idx["local"] then
-        index(dir, "local", idx["local"])
+    for _, name in ipairs { "local", "payloads" } do
+        if idx[name] then
+            index(dir, name, idx[name])
+        end
     end
     if #dels == 0 then
         return

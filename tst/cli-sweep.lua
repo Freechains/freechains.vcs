@@ -3,7 +3,7 @@
 require "tests"
 
 -- `sweep` reclaims what removal already unreferenced:
---  * a revoked payload (`like` drops its `refs/payloads/` anchor)
+--  * a revoked payload (`like` drops its `refs/payloads` entry)
 --  * a discarded commit and its payloads
 -- A standing post keeps its anchor, so its bytes must survive.
 
@@ -23,10 +23,10 @@ local KEPT = exec {
 
 -- the blobs, named before anything removes them
 local B_GONE = exec {
-    cmd = "git -C " .. DIR .. " rev-parse refs/payloads/" .. GONE,
+    cmd = "git -C " .. DIR .. " rev-parse " .. IDX("payloads", GONE),
 }
 local B_KEPT = exec {
-    cmd = "git -C " .. DIR .. " rev-parse refs/payloads/" .. KEPT,
+    cmd = "git -C " .. DIR .. " rev-parse " .. IDX("payloads", KEPT),
 }
 
 local function has (blob)
@@ -48,7 +48,7 @@ do
         }
         -- the anchor is gone, but the bytes are still in the db
         local _, code = exec { err=false, stderr=false,
-            cmd = "git -C " .. DIR .. " rev-parse refs/payloads/" .. GONE,
+            cmd = "git -C " .. DIR .. " rev-parse " .. IDX("payloads", GONE),
         }
         assert(code ~= 0, "anchor should be gone")
         assert(has(B_GONE), "bytes should still be here")

@@ -68,15 +68,20 @@ local function git_init (dir)
     exec {
         cmd = "git -C " .. dir .. " config pack.window 50"
     }
-    -- the local index (a snapshot per commit, git.lua) and the
-    -- payload refs (one per post) out of fetch's connectivity check
-    -- (`rev-list --objects --not --all`), which would walk them on
-    -- every fetch (tst/bug-fetch-hiderefs.lua)
+    -- the local indexes (a snapshot per commit, a payload per post,
+    -- git.lua) out of fetch's connectivity check (`rev-list --objects
+    -- --not --all`), which would walk their trees on every fetch
+    -- (tst/bug-fetch-hiderefs.lua)
     exec {
         cmd = "git -C " .. dir .. " config --add fetch.hideRefs refs/local"
     }
     exec {
-        cmd = "git -C " .. dir .. " config --add fetch.hideRefs refs/payloads/"
+        cmd = "git -C " .. dir .. " config --add fetch.hideRefs refs/payloads"
+    }
+    -- peers fetch payload blobs by id (sync.lua): protocol v2 serves
+    -- any object, v0 only those reachable from a ref (the index)
+    exec {
+        cmd = "git -C " .. dir .. " config uploadpack.allowReachableSHA1InWant true"
     }
     -- gc is manual (sweep): no `maintenance run --auto` child after
     -- every fetch (one process less per fetch, two per recv)

@@ -122,11 +122,11 @@ do
         TEST "discarded payloads lose their anchor"
         -- the ref goes with the action: the blob is unreachable
         local _, code = exec { err=false, stderr=false,
-            cmd = "git -C " .. DIR1 .. " rev-parse refs/payloads/" .. p2,
+            cmd = "git -C " .. DIR1 .. " rev-parse " .. IDX("payloads", p2),
         }
         assert(code ~= 0, "p2 payload ref should be gone")
         local _, code1 = exec { err=false, stderr=false,
-            cmd = "git -C " .. DIR1 .. " rev-parse refs/payloads/" .. p1,
+            cmd = "git -C " .. DIR1 .. " rev-parse " .. IDX("payloads", p1),
         }
         assert(code1 == 0, "p1 payload ref should remain")
 

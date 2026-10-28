@@ -10,7 +10,7 @@
 | `freechains chain <n> genesis` | `git rev-list --max-parents=0 HEAD` | 4 | finding root commit, very close |
 | `freechains chain <n> heads` | `git rev-parse HEAD` | 4 | single HEAD model simplifies this to one command |
 | `freechains chain <n> get metadata <id>` | `git cat-file blob <aid>` | 5 | the metadata IS the action file: `{action, backs, sign, time, blob, aid/author, n}` |
-| `freechains chain <n> get payload <id>` | `git cat-file blob <T.blob>` | 5 | payloads live outside the tree, anchored at `refs/payloads/<aid>`; empty output when the action has no `blob` |
+| `freechains chain <n> get payload <id>` | `git cat-file blob <T.blob>` | 5 | payloads live outside the tree, anchored in the `refs/payloads` index tree at `<aid>`; empty output when the action has no `blob` |
 | `freechains chain <n> post inline <text>` | `git hash-object` + `git commit` | 3 | must write blob + tree before committing |
 | `freechains chain <n> like <N> <target> <id>` | commit adding `actions/ab/<aid>.lua` (`action='like'`, `n=+N`) | 1 | no trailer, no payload in the tree; N is raw reps |
 | `freechains chain <n> dislike <N> <target> <id>` | same, `n=-N` | 1 | same pattern as like |

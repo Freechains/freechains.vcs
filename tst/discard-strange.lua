@@ -112,7 +112,7 @@ do
     }
     assert(head == M, "HEAD should still be the merge")
     exec {
-        cmd = "git -C " .. DIR_A .. " rev-parse refs/payloads/" .. b1,
+        cmd = "git -C " .. DIR_A .. " rev-parse " .. IDX("payloads", b1),
     }
     local _, S = ORDER(EXE_A, CHAIN)
     assert(S[a1] and S[a2] and S[b1] and S[b2], "order intact")
@@ -364,11 +364,11 @@ do
     assert(S[seed] and S[b1] and S[b2], "the other side intact")
     assert(not (S[a1] or S[a2]), "the dropped branch out of the order")
     local _, code = exec { err=false, stderr=false,
-        cmd = "git -C " .. DIR_A .. " rev-parse refs/payloads/" .. a1,
+        cmd = "git -C " .. DIR_A .. " rev-parse " .. IDX("payloads", a1),
     }
     assert(code ~= 0, "payload ref should be gone: " .. a1)
     exec {
-        cmd = "git -C " .. DIR_A .. " rev-parse refs/payloads/" .. b1,
+        cmd = "git -C " .. DIR_A .. " rev-parse " .. IDX("payloads", b1),
     }
 
     TEST "B: discard --keep b2 refuses; --merge a1 lands on b2 too"

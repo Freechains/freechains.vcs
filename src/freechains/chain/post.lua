@@ -13,8 +13,9 @@
 --  - REPO [string]: the chain's bare repo dir
 -- Outputs:
 --  - stdout: the new cid
---  - refs: payload blob at refs/payloads/<cid>; HEAD -> cid,
---    or refs/begs/beg-<cid> (--beg); state at refs/local/<cid>
+--  - refs: payload blob at payloads/<cid>; HEAD -> cid,
+--    or refs/begs/beg-<cid> (--beg); state at local/<cid>
+--    (index entries, git.lua)
 -- Errors:
 --  - "chain post : requires --sign or --beg" (gated chains only:
 --    an open chain accepts an unsigned post, as `anonymous`)
@@ -38,8 +39,8 @@ if ARGS.sign and (not SSH.pub(ARGS.sign)) then
 end
 
 -- the payload lives OUTSIDE the commit: a loose blob, anchored by
--- `refs/payloads/<cid>`. The action's `blob` field is what binds
--- it: the cid transitively commits to the content
+-- the payloads index entry of <cid> (git.lua). The action's `blob`
+-- field is what binds it: the cid transitively commits to the content
 
 local bytes
 if ARGS.inline then
@@ -84,7 +85,7 @@ end
 
 -- ACCEPTED: anchor payload, post
 
-refs[#refs+1] = "update refs/payloads/" .. cid .. " " .. blob
+refs[#refs+1] = "update payloads/" .. cid .. " " .. blob
 if ARGS.beg then
     -- a beg parks on its own ref, outside `main`: HEAD never moves
     refs[#refs+1] = "update refs/begs/beg-" .. cid .. " " .. cid

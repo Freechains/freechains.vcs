@@ -83,7 +83,7 @@
 - Safe TODAY, and the reasons are worth keeping
     - the blob is our own `serial(G)`: literals only
     - `refs/states/*` are never fetched: every refspec is
-      explicit (`main`, `refs/begs/*`, `refs/payloads/*`)
+      explicit (`main`, `refs/begs/*`, payload blobs by id)
     - nor pushed: `hooks/pre-receive` rejects any other ref
 - So reaching it means owning `~/.freechains/` already
 - Still worth one line, as defense-in-depth

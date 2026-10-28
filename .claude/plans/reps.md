@@ -587,7 +587,7 @@ actions/ab/<aid>.lua
 - **empty commit message**: no user text in undeletable
   objects
 - **payload out of the tree**: a vote's `--why` is its
-  optional payload, anchored at `refs/payloads/<aid>`
+  optional payload, anchored in the `refs/payloads` index at `<aid>`
 - **signed** by the caster's key (required for
   authorship)
 
