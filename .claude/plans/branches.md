@@ -20,7 +20,6 @@
     - [ ] 261015-pull-scale: reviewed, ok for main's ref layout
         - 9 src lines (`fetch.hideRefs` in `git_init`)
         - Makefile conflict with bug-winner (test lines)
-    - [ ] 261015-fetch-argmax: 16 src lines
     - [ ] 261006-bug-winner: reviewed, too complex, postponed
         - base main@728f875; merges clean with main
         - truncated loser: `state(HEAD)` may flip the winner
@@ -32,6 +31,9 @@
       merge backs only
 - won't merge: 261008-todo-drop-adaptive-settle (rejected
   option in 261008-tick)
+- won't merge: 261015-fetch-argmax (main form)
+    - negative refspecs only save bandwidth
+    - replaced by plan 261029-payload-check (on main)
 
 # Active branches and deps
 
@@ -137,8 +139,8 @@
   `--listen=127.0.0.1` (daemon.lua already binds 0.0.0.0); comment
   at ln 142 still says 40000
 - pending: paper items of 261008-tick; tree-trash not updated to
-  the single tick (superseded by ia-optim); main run of
-  bug-fetch-argmax (22 min); install 89ca933, rerun 2606-sims
+  the single tick (superseded by ia-optim);
+  install 89ca933, rerun 2606-sims
   full usenet (stopped at 8.8k on 175f19e; clone at 5k on
   5ebae95) and `scale.sh` (warm B up with one pull before timing);
   clone cost vs size (14 s at 1k, > 75 s at 5k); payload pass on
