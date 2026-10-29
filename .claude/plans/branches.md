@@ -11,11 +11,33 @@
   backs, fetch-argmax and pull-scale carry the main-side forms;
   this file lives on main
 
+# Merge back to main (26/10/29)
+
+- review the main-form branches, merge each into main
+- nothing from ia-optim (tree form): ia-optim, tree-trash,
+  ia-optim-merge stay out
+- order, simplest first:
+    - [ ] 261015-pull-scale: reviewed, ok for main's ref layout
+        - 9 src lines (`fetch.hideRefs` in `git_init`)
+        - Makefile conflict with bug-winner (test lines)
+    - [ ] 261015-fetch-argmax: 16 src lines
+    - [ ] 261006-bug-winner: reviewed, too complex, postponed
+        - base main@728f875; merges clean with main
+        - truncated loser: `state(HEAD)` may flip the winner
+          after the merge commit exists
+        - cost: `state(com)` + `state(w)` per merge
+        - beg branch of `state`: parent below `l` unchecked
+        - DRYMERGE (git < 2.38): split out
+    - [ ] 261008-tick, then 261010-backs (holds tick):
+      merge backs only
+- won't merge: 261008-todo-drop-adaptive-settle (rejected
+  option in 261008-tick)
+
 # Active branches and deps
 
-- main (be32479, 26/10/15): plans only since 26/10/03 (this
+- main (75d36c0, 26/10/28): plans only since 26/10/03 (this
   file, 261013-merge-cost, 261014-merge-order, 261015-fetch-argmax,
-  261015-pull-scale)
+  261015-pull-scale, 261015-fetch-refs)
     - 261006-bug-winner: main@728f875 + the fix (2 commits)
     - 261008-tick (84e77d0, 26/10/09): main@7902953 + the tick
       rules (4 commits, under review)
