@@ -111,6 +111,35 @@ do
     }
 end
 
+-- BEG ADMISSION: THE LIKER ACTS
+do
+    print("==> Beg admission")
+
+    -- GEN_1: KEY1 holds all reps: any of its actions closes a tick
+    exec {
+        cmd = ENV_EXE .. " --now=0 chains add /tick-beg init " .. GEN_1,
+    }
+
+    do
+        TEST "tick-beg-like (the like admitting a beg is activity)"
+        POST(ENV_EXE, "/tick-beg", 0, KEY1, "p1")    -- closes #1; 49500
+        local BEG = exec {
+            cmd = ENV_EXE .. " --now=5 chain /tick-beg post inline 'beg' --beg --sign " .. KEY2,
+        }
+        -- KEY1's like closes #2, which pays p1 (refund +500, reward
+        -- +1000); the like itself costs 1000, never refunded
+        -- (bug: the liker is dropped, #2 stays open: 48500)
+        exec {
+            cmd = ENV_EXE .. " --now=10 chain /tick-beg like 1000 action " .. BEG .. " --sign " .. KEY1,
+        }
+        assert(REPS(ENV_EXE, "/tick-beg", 11, PUB1) == "50000", "liker: " .. REPS(ENV_EXE, "/tick-beg", 11, PUB1))
+    end
+
+    exec {
+        cmd = ENV_EXE .. " chains rem /tick-beg",
+    }
+end
+
 -- REORG: THE LOSER COLLAPSES INTO ONE TICK
 do
     print("==> Reorg")

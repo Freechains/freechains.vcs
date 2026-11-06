@@ -404,15 +404,15 @@ function M.apply (G, cid, beg, snap)
 
         -- beg admission: a post begs when forced by the caller
         -- (writer --beg, beg sync) or unsigned; only a positive
-        -- `like` promotes a parked beg target
-        local to_beg
+        -- `like` admits a parked beg target
+        local to_beg, to_admit
         if kind == 'post' then
             to_beg = beg or (key == nil)
         else
             if not key then
                 error("malformed commit : expected signature", 0)
             end
-            to_beg = (
+            to_admit = (
                 kind == 'like'
                 and (math.type(act.n)=='integer' and act.n>0)
                 and (act.cid and G.actions[act.cid])
@@ -424,6 +424,7 @@ function M.apply (G, cid, beg, snap)
             cid   = cid,
             sign  = key,
             beg   = to_beg,
+            admit = to_admit,
             backs = backs,
         })
         if not ok then
