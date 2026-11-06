@@ -323,7 +323,7 @@ function M.apply (G, cid, beg)
 
         -- an UNSIGNED post in an OPEN chain is charged to the
         -- shared anon account: from here on it IS an member, so
-        -- everything downstream is unchanged (and `to_beg` below
+        -- everything downstream is unchanged (and `xbeg` below
         -- no longer sees a nil key, hence no longer parks it).
         -- VOTES are never anonymous: the check below still fires
         if (kind == 'post') and (not key) and G.open then
@@ -336,15 +336,15 @@ function M.apply (G, cid, beg)
 
         -- beg admission: a post begs when forced by the caller
         -- (writer --beg, beg sync) or unsigned; only a positive
-        -- `like` promotes a parked beg target
-        local to_beg
+        -- `like` admits a parked beg target
+        local xbeg, xadmit
         if kind == 'post' then
-            to_beg = beg or (key == nil)
+            xbeg = beg or (key == nil)
         else
             if not key then
                 error("malformed commit : expected signature", 0)
             end
-            to_beg = (
+            xadmit = (
                 kind == 'like'
                 and (math.type(act.n)=='integer' and act.n>0)
                 and (act.cid and G.actions[act.cid])
@@ -355,7 +355,8 @@ function M.apply (G, cid, beg)
         local ok, err = RULES.apply(G, act, {
             cid   = cid,
             sign  = key,
-            beg   = to_beg,
+            beg   = xbeg,
+            admit = xadmit,
             backs = backs,
         })
         if not ok then

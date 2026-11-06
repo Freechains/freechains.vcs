@@ -264,7 +264,8 @@ end
 --  - G   [table]: chain state; MUTATED on acceptance
 --  - act [table]: what the commit SAYS: action (the kind), time
 --    (its DATE, hash-bound), n, cid?|member? (the target)
---  - env [table]: what the chain DERIVED: cid, sign?, beg?, backs
+--  - env [table]: what the chain DERIVED: cid, sign?, backs,
+--    beg? (a post that begs), admit? (a like admitting a beg)
 -- Every entry records two times:
 --  - `time.backs`: max member time over its ancestry ("too old")
 --  - `time.apply`: chain time when applied in the local order
@@ -402,7 +403,7 @@ function M.apply (G, act, env)
                     G.members[a] = G.members[a] or { reps=0 }
                     G.members[a].reps = G.members[a].reps + n//C.vote.split
                 else
-                    assert(env.beg)
+                    assert(env.admit)
                 end
                 e.reps = e.reps + n//C.vote.split
             end
@@ -429,7 +430,7 @@ function M.apply (G, act, env)
                 G.members[a].reps = G.members[a].reps + (was and C.reps.earn or -C.reps.earn)
             end
 
-            if env.beg then
+            if env.admit then
                 e.beg = nil
                 if a then
                     -- rule 2: the admitted beg pays the post cost now,
