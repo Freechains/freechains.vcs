@@ -10,10 +10,12 @@
   (negotiation tip, index refs); main, tick,
   backs, fetch-argmax and pull-scale carry the main-side forms;
   this file lives on main
+- state (26/11/06): beg-admit fix on tick (bcb75eb) and
+  ia-optim (0f43041): a like admitting a beg is tick activity
 
 # Active branches and deps
 
-- main (be32479, 26/10/15): plans only since 26/10/03 (this
+- main (75d36c0, 26/10/28): plans only since 26/10/03 (this
   file, 261013-merge-cost, 261014-merge-order, 261015-fetch-argmax,
   261015-pull-scale)
     - 261006-bug-winner: main@728f875 + the fix (2 commits)
@@ -23,6 +25,16 @@
         - 3027e34, 104e139, 84e77d0: single 24h tick replaces
           half/full; refund and reward at the same close;
           cli-revoke clawback; guide numbers (Alice 41500)
+        - bcb75eb (26/11/06): beg-admit fix
+            - found by 2606-sims: the admitting like dropped the
+              liker from `advance` (env.beg on the like)
+            - `env.admit` for the like; `env.beg` for beg posts
+            - action.lua locals `xbeg`, `xadmit`
+            - test `tick-beg-like` in cli-tick (48500 -> 50000)
+            - cli-tick passes; `make tests` stopped at cli-send:
+              the hook ran the installed ia-optim build
+            - plan claims `tst/bin/freechains` (hook runs the
+              source): not in the branch
         - 261010-backs (fa4e701, 26/10/11): tick@84e77d0 +
           `backs` marks every visited commit, so a sync merge
           reached by many paths is walked once (b1b9cbc + plan:
@@ -93,6 +105,9 @@
         - 33k peers: refs 71k -> 4, ff pull 0.786 -> 0.178 s,
           post 0.083 -> 0.114 s
         - old repos not migrated (`refs/local` ref vs dir)
+    - then the beg-admit fix (0f43041, 26/11/06): same as tick
+      bcb75eb, but locals `to_beg`, `to_admit` (rename pending);
+      `make tests` 49/49
     - 261014-ia-optim-merge (a7757d1): ia-optim@5ebae95 + the
       same canonical-merge commit as 3ad2442 (earlier copy, not
       an ancestor of ia-optim); superseded
@@ -105,8 +120,8 @@
       261010-backs, 261013-merge-cost, 261014-merge-order,
       261015-fetch-argmax, 261015-pull-scale (code is in);
       261015-fetch-refs is on both
-- installed build: ia-optim@5ebae95 (26/10/13 22:18); its clone
-  of a 5k-post chain fails (the argmax bug)
+- installed build: ia-optim@89ca933 (26/10/28 20:26), without
+  the beg-admit fix; sims run on it (no reinstall during runs)
 - tests on ia-optim: the hook suites need the working tree first
   in PATH (or `make install`): an older installed build writes
   snapshots without `tick`
@@ -116,11 +131,13 @@
   at ln 142 still says 40000
 - pending: paper items of 261008-tick; tree-trash not updated to
   the single tick (superseded by ia-optim); main run of
-  bug-fetch-argmax (22 min); install 89ca933, rerun 2606-sims
+  bug-fetch-argmax (22 min); rerun 2606-sims
   full usenet (stopped at 8.8k on 175f19e; clone at 5k on
   5ebae95) and `scale.sh` (warm B up with one pull before timing);
   clone cost vs size (14 s at 1k, > 75 s at 5k); payload pass on
-  main still lists every remote payload ref (known limit)
+  main still lists every remote payload ref (known limit);
+  ia-optim: `xbeg`/`xadmit` names; tick: `make tests` with
+  the source on PATH; install 0f43041 after the sims
 
 # Flow of the latest features
 
@@ -156,6 +173,8 @@
 |                  |                        | merge pull 220 -> 39       |
 | 261010-backs     | backs (fix + plan);    | backs walks each merge     |
 |                  | ia-optim (code only)   | once: no exponential walk  |
+| (beg admit)      | tick (bcb75eb);        | a like admitting a beg is  |
+|                  | ia-optim (0f43041)     | tick activity (env.admit)  |
 | 261008-tick      | tick, backs (main      | one chain clock replaces   |
 | (single 24h)     | form); ia-optim (tree  | the 12h/24h per-post timers|
 |                  | form); tree-trash      | refund and reward at the   |
