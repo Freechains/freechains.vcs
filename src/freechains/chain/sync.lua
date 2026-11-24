@@ -31,7 +31,8 @@ local CONSENSUS = require "freechains.chain.consensus"
 -- Inputs:
 --  - cid [string]: 40-hex commit hash, snapshotted
 -- Outputs:
---  - [table]: { [k] = blob sha } for `order/<k>.txt` (k from 0)
+--  - [table]: { [k] = blob sha } for `order/<d>/<k>.txt` (k
+--    from 0)
 -- Errors:
 --  - via exec: "bug found" if ls-tree fails
 -- Callers:
@@ -39,10 +40,10 @@ local CONSENSUS = require "freechains.chain.consensus"
 --]]
 local function chunks (cid)
     local out = exec {
-        cmd = "git -C " .. REPO .. " ls-tree " .. STATE.ref(cid) .. " order/",
+        cmd = "git -C " .. REPO .. " ls-tree -r " .. STATE.ref(cid) .. " order/",
     }
     local T = {}
-    for sha, k in out:gmatch("blob (%x+)\torder/(%d+)%.txt") do
+    for sha, k in out:gmatch("blob (%x+)\torder/%d+/(%d+)%.txt") do
         T[tonumber(k)] = sha
     end
     return T

@@ -93,15 +93,15 @@ end
 
 --[[
 -- What `advance(G, time, sign)` will load: the actor, the members
--- acting in the current tick (its ratio), and the posts a close
--- refunds and rewards, with their members.
+-- acting in the current tick (its ratio), the members a close
+-- refunds, and the posts it rewards, with their members.
 -- Inputs:
 --  - G    [table]: chain state (reads G.tick)
 --  - time [integer]: the time driving the clock (unused: the tick's
 --    working set is the same whenever it closes)
 --  - sign [string?]: the acting member's pubkey
 -- Outputs:
---  - [table]: array of cids (the tick's charged posts)
+--  - [table]: array of cids (the tick's rewarded posts)
 --  - [table]: array of pubkeys, no repeats
 -- Errors:
 --  - none
@@ -110,7 +110,7 @@ end
 --]]
 function M.needs (G, time, sign)
     local T = G.tick
-    local cids = table.move(T.posts, 1, #T.posts, 1, {})
+    local cids = {}
     local pubs, seen = {}, {}
     local function pub (k)
         if k and (not seen[k]) then
@@ -120,6 +120,9 @@ function M.needs (G, time, sign)
     end
     pub(sign)
     for k in pairs(T.acting) do
+        pub(k)
+    end
+    for k in pairs(T.charged) do
         pub(k)
     end
     for k, cid in pairs(T.posted) do
@@ -192,9 +195,9 @@ end
 --]]
 local function close (G, stop)
     local T = G.tick
-    STATE.fetch(G, T.posts)
-    for _, cid in ipairs(T.posts) do
-        M.bump(G, G.actions[cid].member, C.reps.cost)
+    -- one bump of n*cost = n bumps of cost (bump has no cap)
+    for key, n in pairs(T.charged) do
+        M.bump(G, key, n * C.reps.cost)
     end
     local cids = {}
     for _, cid in pairs(T.posted) do
@@ -209,8 +212,8 @@ local function close (G, stop)
             M.bump(G, key, C.reps.earn)
         end
     end
-    T.posts  = {}
-    T.posted = {}
+    T.charged = {}
+    T.posted  = {}
     T.start  = stop
     T.acting = {}
 end
@@ -244,7 +247,7 @@ function M.advance (G, time, sign)
         if now < T.start + w then
             break
         end
-        if next(T.acting)==nil and #T.posts==0 and next(T.posted)==nil then
+        if next(T.acting)==nil and next(T.charged)==nil and next(T.posted)==nil then
             -- nothing to refund or reward: jump the empty ticks and
             -- restart the clock now (no grid: idle time is not phase)
             T.start = now
@@ -269,7 +272,7 @@ end
 --[[
 -- Register a charged post in the current tick.
 -- Inputs:
---  - G   [table]: chain state; MUTATED (tick.posts, tick.posted)
+--  - G   [table]: chain state; MUTATED (tick.charged, tick.posted)
 --  - cid [string]: the post, signed and charged (not a beg)
 -- Outputs:
 --  - none
@@ -281,7 +284,7 @@ end
 function M.tick_post (G, cid)
     local T = G.tick
     local member = G.actions[cid].member
-    T.posts[#T.posts+1] = cid
+    T.charged[member] = (T.charged[member] or 0) + 1
     T.posted[member] = T.posted[member] or cid
 end
 
