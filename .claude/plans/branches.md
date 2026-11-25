@@ -12,6 +12,8 @@
   this file lives on main
 - state (26/11/06): beg-admit fix on tick (bcb75eb) and
   ia-optim (0f43041): a like admitting a beg is tick activity
+- state (26/11/25): snapshot layout on ia-optim (86e601f,
+  99e83e9): linear storage, flat op time
 
 # Merge back to main (26/10/29)
 
@@ -132,6 +134,17 @@
     - then the beg-admit fix (0f43041, 26/11/06): same as tick
       bcb75eb, but locals `to_beg`, `to_admit` (rename pending);
       `make tests` 49/49
+    - then 261124-snapshot-layout (86e601f, 99e83e9, 26/11/25),
+      plan from 2606-sims, done (ia-optim only):
+        - tick.charged: per-pub post counts, not a cid list
+        - order: 50 cids per chunk, `order/NNN/NNNNN.txt`
+        - actions, members: `a/b/c/d/` nibble shards
+        - meta.lua `layout=3`: older snapshots error, no
+          migration (rebuild the chain)
+        - order and reps identical (chat 154.5k, usenet 29.6k)
+        - chat disk 1,304 -> 435 MB, ~linear; usenet 228 ->
+          179 MB; recv per 5k flat
+        - 49/49, guide.sh
     - 261014-ia-optim-merge (a7757d1): ia-optim@5ebae95 + the
       same canonical-merge commit as 3ad2442 (earlier copy, not
       an ancestor of ia-optim); superseded
@@ -144,8 +157,10 @@
       261010-backs, 261013-merge-cost, 261014-merge-order,
       261015-fetch-argmax, 261015-pull-scale (code is in);
       261015-fetch-refs is on both
-- installed build: ia-optim@89ca933 (26/10/28 20:26), without
-  the beg-admit fix; sims run on it (no reinstall during runs)
+- installed build: ia-optim@99e83e9 (26/11/25), layout 3;
+  sims rebuild chains from scratch on it
+    - `make install` needs no password (sudoers rule for the
+      luarocks command only)
 - tests on ia-optim: the hook suites need the working tree first
   in PATH (or `make install`): an older installed build writes
   snapshots without `tick`
@@ -160,12 +175,15 @@
   clone cost vs size (14 s at 1k, > 75 s at 5k); payload pass on
   main still lists every remote payload ref (known limit);
   ia-optim: `xbeg`/`xadmit` names; tick: `make tests` with
-  the source on PATH; install 0f43041 after the sims
+  the source on PATH
 
 # Flow of the latest features
 
 | plan             | branches               | description                |
 |------------------|------------------------|----------------------------|
+| 261124-snapshot- | ia-optim (code, plan   | tick counts, small order   |
+| layout           | in done/)              | chunks, nibble shards:     |
+|                  |                        | chat disk 1,304 -> 435 MB  |
 | 261015-fetch-    | ia-optim (code, plan); | 1: negotiation tip main;   |
 | refs             | main (plan)            | 2: snapshots and payloads  |
 |                  |                        | in 2 index refs, blobs by  |
