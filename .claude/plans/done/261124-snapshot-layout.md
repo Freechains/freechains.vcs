@@ -103,4 +103,11 @@
     - 16-way levels (nibbles, as the index refs), user OK 25/11
     - `actions/a/b/c/d/<cid>`, `members/a/b/c/d/<enc>`
     - ~0.5 kB per level; `layout=3` (no migration)
-- [ ] tests, commit, install, sims replay (new vs 86e601f)
+- [x] tests 49/49, guide.sh; 99e83e9 pushed
+- [x] installed 99e83e9 (25/11)
+- [x] sims replay (99e83e9 vs 86e601f, 25/11, gc every 5k)
+    - order and reps identical: chat 154.5k, usenet 29.6k
+    - chat disk 1,304 (0f43041) -> 815 (86e601f) -> 435 MB
+    - chat MB per 5k 13.1 -> 15.0 (~linear); recv ~140 s flat
+    - chat packed kB/snapshot 1.45 -> 2.30 (deeper shards)
+    - usenet disk 228 -> 238 -> 179 MB; ~31 MB per 5k flat
