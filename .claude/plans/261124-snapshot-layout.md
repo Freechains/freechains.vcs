@@ -94,4 +94,13 @@
 - [x] tests: 49/49 suites, guide.sh (snapshot: xx/yy, layout=2,
   charged)
 - [x] installed (26/11/24, uncommitted worktree, `0f43041` +)
-- [ ] old vs new on the END chains (sims)
+- [x] old vs new on the END chains (sims, 25/11, gc every 5k)
+    - order and reps identical: chat 154.5k, usenet 29.6k
+    - chat disk 1,304 -> 815 MB; recv s per 5k flat (140)
+    - chat MB per 5k 17 -> 34: still grows
+    - usenet 228 -> 238 MB (+4%), flat per 5k
+- [x] growth left: `actions` top (256 trees, 7.4 kB) per write
+    - 16-way levels (nibbles, as the index refs), user OK 25/11
+    - `actions/a/b/c/d/<cid>`, `members/a/b/c/d/<enc>`
+    - ~0.5 kB per level; `layout=3` (no migration)
+- [ ] tests, commit, install, sims replay (new vs 86e601f)
